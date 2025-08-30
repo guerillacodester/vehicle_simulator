@@ -2,7 +2,7 @@ import time
 from geodesy.geodesy import haversine, calculate_bearing
 from routes.route_loader import load_route_coordinates
 from interpolation.interpolator import interpolate_position
-from sim_speed_model import load_speed_model
+from deprecated_sim_speed_model import load_speed_model
 
 def simulate_movement(route_file: str,
                       tick_speed: float,
