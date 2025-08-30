@@ -1,21 +1,14 @@
-from abc import ABC, abstractmethod
+class SpeedModel:
+    def __init__(self, min_speed: float, max_speed: float, initial: float = None):
+        self.min_speed = float(min_speed)
+        self.max_speed = float(max_speed)
+        self.velocity = float(initial) if initial is not None else self.min_speed
+        self.accel = 0.0
+        self.velocity_dir = 0.0   # default heading (east)
+        self.accel_dir = 0.0      # default accel direction (same as velocity)
 
-class SpeedModel(ABC):
-    """
-    Abstract base class for speed models.
-    Every speed model must implement update() which returns the speed in km/h.
-    """
+    def update(self, **kwargs) -> dict:
+        raise NotImplementedError("Subclasses must implement update()")
 
-    def __init__(self, min_speed: float = 30.0, max_speed: float = 80.0, initial: float = None):
-        self.min_speed = min_speed
-        self.max_speed = max_speed
-        if initial is not None:
-            self.speed = float(initial)
-        else:
-            # Default: midpoint
-            self.speed = (self.min_speed + self.max_speed) / 2.0
-
-    @abstractmethod
-    def update(self) -> float:
-        """Return the updated speed for this tick."""
-        raise NotImplementedError
+    def clamp_velocity(self):
+        self.velocity = max(self.min_speed, min(self.max_speed, self.velocity))

@@ -1,72 +1,52 @@
 from .speed_model import SpeedModel
 
+
 class KinematicSpeed(SpeedModel):
     """
-    Deterministic kinematic speed model.
-    - Linearly accelerates until reaching max_speed.
-    - Slows down in corners, then resumes acceleration.
+    Kinematic speed model:
+    - Accelerates or decelerates toward a target cruise speed
+    - Target speed can be specified in config as 'cruise_speed'
+    - Otherwise defaults to midpoint between min_speed and max_speed
     """
 
     def __init__(
         self,
-        min_speed: float = 30.0,
-        max_speed: float = 80.0,
-        initial: float = None,
+        min_speed: float,
+        max_speed: float,
         accel_limit: float = 2.0,
         decel_limit: float = 3.0,
-        corner_slowdown: float = 25.0,
         cruise_speed: float = None,
-        corner_threshold_deg: float = 35.0,
-        release_threshold_deg: float = 12.0,
-        release_ticks: int = 3,
+        **kwargs
     ):
-        super().__init__(min_speed, max_speed, initial)
-
+        super().__init__(min_speed, max_speed)
         self.accel_limit = float(accel_limit)
         self.decel_limit = float(decel_limit)
-        self.corner_slowdown = float(corner_slowdown)
 
-        self.corner_threshold_deg = float(corner_threshold_deg)
-        self.release_threshold_deg = float(release_threshold_deg)
-        self.release_ticks = int(release_ticks)
-
-        # Cruise = default long-term target
-        self.cruise_speed = float(cruise_speed) if cruise_speed is not None else self.max_speed
-        self.target_speed = self.cruise_speed
-
-        # Corner state
-        self._in_corner = False
-        self._straight_ticks = 0
-
-    def update(self, heading_change: float = 0.0) -> float:
-        hc = abs(float(heading_change))
-
-        # --- Corner logic ---
-        if hc > self.corner_threshold_deg:
-            # Enter/continue corner → slow down
-            self._in_corner = True
-            self._straight_ticks = 0
-            self.target_speed = min(self.corner_slowdown, self.cruise_speed)
+        # ✅ target speed is either cruise_speed from config, or midpoint
+        if cruise_speed is not None:
+            self.target = max(self.min_speed, min(self.max_speed, float(cruise_speed)))
         else:
-            if self._in_corner:
-                # Count straight ticks before exiting corner
-                if hc <= self.release_threshold_deg:
-                    self._straight_ticks += 1
-                    if self._straight_ticks >= self.release_ticks:
-                        self._in_corner = False
-                        self.target_speed = self.cruise_speed
-                else:
-                    self._straight_ticks = 0
-            else:
-                # On straight → always accelerate toward cruise
-                self.target_speed = self.cruise_speed
+            self.target = (self.min_speed + self.max_speed) / 2
 
-        # --- Smooth accel/decel toward target ---
-        if self.speed < self.target_speed:
-            self.speed = min(self.speed + self.accel_limit, self.target_speed)
-        elif self.speed > self.target_speed:
-            self.speed = max(self.speed - self.decel_limit, self.target_speed)
+    def update(self, **kwargs) -> dict:
+        # Adjust velocity toward target
+        if self.velocity < self.target:
+            new_velocity = min(self.velocity + self.accel_limit, self.target)
+        elif self.velocity > self.target:
+            new_velocity = max(self.velocity - self.decel_limit, self.target)
+        else:
+            new_velocity = self.velocity
 
-        # Clamp
-        self.speed = max(self.min_speed, min(self.max_speed, self.speed))
-        return self.speed
+        self.accel = new_velocity - self.velocity
+        self.velocity = new_velocity
+
+        # Directions are straight-line defaults (extendable later)
+        self.velocity_dir = 0.0
+        self.accel_dir = 0.0 if self.accel == 0 else self.velocity_dir
+
+        return {
+            "velocity": self.velocity,
+            "acceleration": self.accel,
+            "velocity_dir": self.velocity_dir,
+            "accel_dir": self.accel_dir
+        }

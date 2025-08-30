@@ -1,19 +1,16 @@
-from speed_models.aggressive_speed import BaseSSpeedModelpeed
-from speed_models.speed_model import SpeedModel
+from .speed_model import SpeedModel
 
 class FixedSpeed(SpeedModel):
-    """
-    Fixed constant speed model. Useful for testing and deterministic simulation.
-    """
+    def __init__(self, min_speed: float, max_speed: float, **kwargs):
+        super().__init__(min_speed, max_speed, (min_speed + max_speed) / 2)
 
-    def __init__(self,
-                 min_speed: float = 30.0,
-                 max_speed: float = 80.0,
-                 **kwargs):
-        self.min_speed = float(min_speed)
-        self.max_speed = float(max_speed)
-        # fixed speed = midpoint
-        self.speed = (self.min_speed + self.max_speed) / 2.0
-
-    def update(self, **_) -> float:
-        return self.speed
+    def update(self, **kwargs):
+        self.accel = 0.0
+        self.velocity_dir = 0.0
+        self.accel_dir = 0.0
+        return {
+            "velocity": self.velocity,
+            "acceleration": self.accel,
+            "velocity_dir": self.velocity_dir,
+            "accel_dir": self.accel_dir
+        }

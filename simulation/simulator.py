@@ -1,61 +1,49 @@
 import time
-from geodesy.geodesy import haversine, calculate_bearing
-from routes.route_loader import load_route_coordinates
-from interpolation.interpolator import interpolate_position
-from deprecated_sim_speed_model import load_speed_model
+from .sim_speed_model import load_speed_model
 
-def simulate_movement(route_file: str,
-                      tick_speed: float,
-                      speed_model_name: str = "kinematic",
-                      model_kwargs: dict = None) -> None:
+
+def simulate_movement(tick: float, speed_model_name: str, **vehicle_cfg):
     """
-    Simulate movement along a route using a pluggable speed model.
+    Dumb simulator loop.
+    - Models produce physics (velocity, acceleration, directions).
+    - Simulator only enacts them: integrates distance & time.
     """
-    route = load_route_coordinates(route_file)
-    if not route or len(route) < 2:
-        print("Route is empty or invalid.")
-        return
 
     # Load the speed model dynamically
-    model_kwargs = model_kwargs or {}
-    speed_model = load_speed_model(speed_model_name, **model_kwargs)
+    speed_model = load_speed_model(speed_model_name, **vehicle_cfg)
 
-    total_distance, total_time = 0.0, 0.0
-    last_position = route[0]
-    prev_bearing = None
+    total_distance = 0.0  # km
+    total_time = 0.0      # seconds
 
-    for i in range(len(route) - 1):
-        lat1, lon1 = route[i]
-        lat2, lon2 = route[i + 1]
+    print(f"[INFO] Running model '{speed_model_name}' with tick={tick:.2f}s")
+    print(f"[DEBUG] Vehicle parameters: {vehicle_cfg}")
 
-        segment_distance = haversine(lat1, lon1, lat2, lon2)
-        if segment_distance == 0:
-            continue
+    # Main simulation loop
+    for step in range(100):  # simulate 100 ticks (or make configurable)
+        # Ask the model what the state is this tick
+        state = speed_model.update()
 
-        time_to_travel = (segment_distance / 50.0) * 3600.0
-        steps = max(int(time_to_travel / tick_speed), 1)
+        velocity = state.get("velocity", 0.0)         # km/h
+        accel = state.get("acceleration", 0.0)       # km/h/s
+        vdir = state.get("velocity_dir", 0.0)        # degrees (or vector)
+        adir = state.get("accel_dir", 0.0)           # degrees (or vector)
 
-        for step in range(steps + 1):
-            fraction = step / steps
-            lat, lon = interpolate_position(lat1, lon1, lat2, lon2, fraction)
+        # Integrate distance (simple: v * Δt)
+        distance_moved = velocity * (tick / 3600.0)  # km
+        total_distance += distance_moved
+        total_time += tick
 
-            # Use the speed model
-            speed_kmh = speed_model.update()
+        # Telemetry output
+        print(
+            f"T+{total_time:.1f}s | "
+            f"Vel: {velocity:.2f} km/h @ {vdir:.1f}° | "
+            f"Accel: {accel:.2f} km/h/s @ {adir:.1f}° | "
+            f"StepDist: {distance_moved:.4f} km | TotDist: {total_distance:.3f} km"
+        )
 
-            # Convert to km moved in this tick
-            distance_moved = (speed_kmh * tick_speed) / 3600.0
-            total_distance += distance_moved
+        time.sleep(tick)
 
-            current_bearing = calculate_bearing(last_position[0], last_position[1], lat, lon)
-            bearing_change = 0.0 if prev_bearing is None else (current_bearing - prev_bearing + 180) % 360 - 180
-
-            total_time += tick_speed
-            print(f"GPS: {lat:.6f},{lon:.6f} | Spd: {speed_kmh:.2f} km/h | "
-                  f"StepDist: {distance_moved:.6f} km | TotDist: {total_distance:.2f} km | "
-                  f"Hdg: {current_bearing:.2f}° | ΔHdg: {bearing_change:.2f}° | "
-                  f"T+{total_time:.2f}s")
-
-            last_position, prev_bearing = (lat, lon), current_bearing
-            time.sleep(tick_speed)
-
-    print(f"Total distance: {total_distance:.2f} km | Total time: {total_time:.2f}s")
+    print(
+        f"\n[INFO] Simulation finished | "
+        f"Total Time: {total_time:.1f}s | Total Distance: {total_distance:.3f} km"
+    )
