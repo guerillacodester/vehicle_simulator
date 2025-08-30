@@ -1,0 +1,17 @@
+{
+  "ZR1001": {
+    "active": true,
+    "route_file": "data/roads/route_1_final.geojson",
+    "route": "1",
+    "speed_model": "kinematic",
+    "min_speed": 20,
+    "max_speed": 90,
+    "cruise_speed": 90,
+    "accel_limit": 6,
+    "decel_limit": 4,
+    "corner_slowdown": 50,
+    "corner_threshold_deg": 50,
+    "release_threshold_deg": 12,
+    "release_ticks": 3
+  }
+}

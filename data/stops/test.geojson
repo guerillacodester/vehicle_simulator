@@ -1,0 +1,14 @@
+{
+"type": "FeatureCollection",
+"name": "test",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32620" } },
+"features": [
+{ "type": "Feature", "properties": { "route": "1", "variant": "out", "seq_id": 1, "stop_name": "Connell Town", "parishes": "St. Lucy, St. Peter", "confidence": 80 }, "geometry": { "type": "Point", "coordinates": [ 866729.58635101467371, 1475762.226354363840073 ] } },
+{ "type": "Feature", "properties": { "route": "1", "variant": "out", "seq_id": 2, "stop_name": "Crab Hill", "parishes": "St. Lucy, St. Peter", "confidence": 80 }, "geometry": { "type": "Point", "coordinates": [ 864415.383499693358317, 1474928.011458980850875 ] } },
+{ "type": "Feature", "properties": { "route": "1", "variant": "out", "seq_id": 3, "stop_name": "Broomfield", "parishes": "St. Lucy, St. Peter", "confidence": 78 }, "geometry": { "type": "Point", "coordinates": [ 863788.559845961513929, 1472131.896018530707806 ] } },
+{ "type": "Feature", "properties": { "route": "1", "variant": "out", "seq_id": 4, "stop_name": "Checker Hall", "parishes": "St. Lucy, St. Peter", "confidence": 80 }, "geometry": { "type": "Point", "coordinates": [ 863308.351812957553193, 1470477.435036370996386 ] } },
+{ "type": "Feature", "properties": { "route": "1", "variant": "out", "seq_id": 5, "stop_name": "Colleton", "parishes": "St. Lucy, St. Peter", "confidence": 97 }, "geometry": { "type": "Point", "coordinates": [ 863424.997678470565006, 1469883.797940870048478 ] } },
+{ "type": "Feature", "properties": { "route": "1", "variant": "out", "seq_id": 6, "stop_name": "Six Men's", "parishes": "St. Lucy, St. Peter", "confidence": 78 }, "geometry": { "type": "Point", "coordinates": [ 863882.150292932288721, 1469435.333876707125455 ] } },
+{ "type": "Feature", "properties": { "route": "1", "variant": "out", "seq_id": 7, "stop_name": "Speightstown", "parishes": "St. Lucy, St. Peter", "confidence": 80 }, "geometry": { "type": "Point", "coordinates": [ 863924.809955193544738, 1467234.514496045652777 ] } }
+]
+}

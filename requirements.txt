@@ -1,0 +1,8 @@
+python-socketio[client]
+python-dotenv
+fastapi
+uvicorn
+websockets
+requests
+pydantic
+shapely>=2.0.0
