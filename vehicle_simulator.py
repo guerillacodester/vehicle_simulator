@@ -1,6 +1,6 @@
 from config_loader import load_config
 from assignment_loader import get_vehicle_config
-from simulation.simulator import simulate_movement
+from simulation_engine.simulator import simulate_movement
 
 
 def main():
