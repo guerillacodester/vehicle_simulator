@@ -7,7 +7,7 @@ def load_speed_model(name: str, **kwargs):
         module = importlib.import_module(module_name, package="vehicle_simulator")
         cls = getattr(module, class_name)
 
-        # 🚨 Ignore keys that belong to assignments, not models
+        # 🚨 Ignore keys that belong to vehicles, not models
         ignore_keys = {"active", "vehicle_id", "route_file", "speed_model", "route"}
         model_kwargs = {k: v for k, v in kwargs.items() if k not in ignore_keys}
 

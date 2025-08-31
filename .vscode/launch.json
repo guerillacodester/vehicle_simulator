@@ -2,10 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug sim_gps_simulator ",
+      "name": "Debug gps_device_simulator ",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/sim_gps_simulator.py",
+      "program": "${workspaceFolder}/gps_device_simulator.py",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": true,
