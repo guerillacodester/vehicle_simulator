@@ -1,5 +1,5 @@
 from config_loader import load_config
-from assignment_loader import get_vehicle_config
+from vehicle_store import get_vehicle_config
 from simulation_engine.simulator import simulate_movement
 
 
