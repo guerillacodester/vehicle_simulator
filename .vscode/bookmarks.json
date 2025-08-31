@@ -4,7 +4,7 @@
 			"path": "gps_device/device.py",
 			"bookmarks": [
 				{
-					"line": 59,
+					"line": 49,
 					"column": 5,
 					"label": "build packet (no telemetry)"
 				}

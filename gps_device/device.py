@@ -34,17 +34,7 @@ class GPSDevice:
         self.transmitter = None
         self.codec = PacketCodec()  # reuse one codec instance
 
-    @classmethod
-    def from_env(cls):
-        """Factory: build GPSDevice from .env/.config"""
-        device_id = os.getenv("DEVICE_ID", "sim-0000")
-        server_url = os.getenv("SERVER_URL", "ws://localhost:5000")
-        auth_token = os.getenv("AUTH_TOKEN", "")
-        interval = float(os.getenv("UPDATE_INTERVAL", 1.0))
-        return cls(device_id, server_url, auth_token, method="ws", interval=interval)
-
     # -------------------- Worker (single event loop) --------------------
-
     def _worker(self):
         """Own an asyncio loop in this thread."""
         asyncio.run(self._async_worker())
