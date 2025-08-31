@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import os, time, configparser
-from vehicle_factory.vehicle.gps_device.device import GPSDevice
+from world.vehicle.gps_device.device import GPSDevice
 
 def main():
     # Load secrets
