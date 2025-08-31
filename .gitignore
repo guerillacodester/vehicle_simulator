@@ -32,3 +32,6 @@ gps_device/radio_module/__pycache__/transmitter.cpython-313.pyc
 simulation_engine/__pycache__/__init__.cpython-313.pyc
 simulation_engine/__pycache__/sim_speed_model.cpython-313.pyc
 simulation_engine/__pycache__/simulator.cpython-313.pyc
+vehicle_factory/vehicle/engine/__pycache__/__init__.cpython-313.pyc
+vehicle_factory/vehicle/engine/__pycache__/sim_speed_model.cpython-313.pyc
+vehicle_factory/vehicle/engine/__pycache__/simulator.cpython-313.pyc

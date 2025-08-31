@@ -26,8 +26,8 @@ def select_vehicle(vehicles: Dict[str, Dict[str, Any]]) -> str:
         return vids[0]
     return sorted(vids)[0]
 
-def get_vehicle_config(vehicle_storage: str) -> Dict[str, Any]:
-    vehicles = deploy_vehicles(vehicle_storage)
+def get_vehicle_config(assignment_file: str) -> Dict[str, Any]:
+    vehicles = deploy_vehicles(assignment_file)
     vid = select_vehicle(vehicles)
     config = vehicles[vid].copy()
     config["vehicle_id"] = vid
