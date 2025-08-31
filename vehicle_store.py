@@ -2,7 +2,7 @@ import json
 import sys
 from typing import Dict, Any
 
-def load_assignments(path: str) -> Dict[str, Dict[str, Any]]:
+def deploy_vehicles(path: str) -> Dict[str, Dict[str, Any]]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -26,8 +26,8 @@ def select_vehicle(vehicles: Dict[str, Dict[str, Any]]) -> str:
         return vids[0]
     return sorted(vids)[0]
 
-def get_vehicle_config(assignment_file: str) -> Dict[str, Any]:
-    vehicles = load_assignments(assignment_file)
+def get_vehicle_config(vehicle_storage: str) -> Dict[str, Any]:
+    vehicles = deploy_vehicles(vehicle_storage)
     vid = select_vehicle(vehicles)
     config = vehicles[vid].copy()
     config["vehicle_id"] = vid

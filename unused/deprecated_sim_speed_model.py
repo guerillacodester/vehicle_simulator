@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 
 # -------------------- assignments I/O --------------------
 
-def load_assignments(path: str = "assignments.json") -> Dict[str, Dict[str, Any]]:
+def deploy_vehicles(path: str = "assignments.json") -> Dict[str, Dict[str, Any]]:
     """Load the assignments JSON file."""
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -109,7 +109,7 @@ def main():
                         help="Path to assignments JSON (default: assignments.json).")
     args = parser.parse_args()
 
-    assignments = load_assignments(args.assignments)
+    assignments = deploy_vehicles(args.assignments)
     vehicle_id = select_vehicle(assignments)
     vehicle_config = assignments[vehicle_id]
 

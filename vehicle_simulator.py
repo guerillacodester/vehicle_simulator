@@ -5,8 +5,8 @@ from simulation_engine.simulator import simulate_movement
 
 def main():
     config = load_config()
-    assignment_file = config["files"]["assignment_file"]
-    vehicle_cfg = get_vehicle_config(assignment_file)
+    vehicle_storage = config["files"]["vehicle_storage"]
+    vehicle_cfg = get_vehicle_config(vehicle_storage)
 
     print(f"[INFO] Vehicle: {vehicle_cfg['vehicle_id']}")
     for k, v in vehicle_cfg.items():
