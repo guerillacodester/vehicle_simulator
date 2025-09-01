@@ -69,6 +69,7 @@ class VehiclesDepot:
     # -------------------- lifecycle --------------------
 
     def start(self):
+        print("[INFO] FleetDispatcher ONSITE")
         print("[INFO] Depot OPERATIONAL...")
 
         for vid, cfg in self.vehicles.items():
@@ -149,7 +150,7 @@ class VehiclesDepot:
                 cfg["_navigator"] = None
 
         print("[INFO] Depot UNOPERATIONAL")
-
+        print("[INFO] FleetDispatcher OFFSITE")
     
 # ---------------------------
 # Manual test support
