@@ -1,9 +1,8 @@
-# vehicles_factory.py
 from __future__ import annotations
 import threading, concurrent.futures
 from typing import Dict, Any, List, Optional
 
-   # your existing Vehicle wrapper
+# your existing Vehicle wrapper
 from .fleet_manifest import FleetManifest
 from .vehicle.vahicle_object import Vehicle
 
@@ -51,12 +50,18 @@ class VehiclesFactory:
             )
             with self._lock:
                 self._registry[vid] = v
-            if self._start_active and cfg.get("active"):
+
+            # ✅ Step 1: only start if manifest says active
+            if self._start_active and cfg.get("active", False):
                 v.on()
+            else:
+                # optional: log inactive skip
+                print(f"[INFO] Vehicle {vid} inactive.")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as ex:
             futs = [ex.submit(_spawn, vid, dict(cfg)) for vid, cfg in items]
-            for f in futs: f.result()
+            for f in futs:
+                f.result()
 
         with self._lock:
             self._opened = True
@@ -70,22 +75,23 @@ class VehiclesFactory:
 
         for v in vehicles:
             try:
-                v.cleanup()         # cleanup() should call off()
+                v.cleanup()  # cleanup() should call off()
             except Exception:
                 pass
-
 
     # ---------- runtime CRUD ----------
     def start(self, vid: str) -> None:
         with self._lock:
             v = self._registry.get(vid)
-            if not v: raise KeyError(vid)
+            if not v:
+                raise KeyError(vid)
         v.on()
 
     def stop(self, vid: str) -> None:
         with self._lock:
             v = self._registry.get(vid)
-            if not v: raise KeyError(vid)
+            if not v:
+                raise KeyError(vid)
         v.off()
 
     def status(self) -> Dict[str, Any]:

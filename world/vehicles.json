@@ -23,7 +23,7 @@
     "release_ticks": 3
   },
   "ZR198": {
-    "active": true,
+    "active": false,
     "route_file": "data/roads/route_1_final.geojson",
     "route": "1",
     "speed_model": "kinematic",
