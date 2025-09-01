@@ -6,54 +6,51 @@ import sys
 import time
 from typing import Dict, Any, Optional
 
-# .\speed_model_sim.py  --tick 0.1 --speed-model aggressive
+# -------------------- vehicles I/O --------------------
 
-# -------------------- assignments I/O --------------------
-
-def deploy_vehicles(path: str = "assignments.json") -> Dict[str, Dict[str, Any]]:
-    """Load the assignments JSON file."""
+def deploy_vehicles(path: str = "vehicles.json") -> Dict[str, Dict[str, Any]]:
+    """Load the vehicles JSON file."""
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data, dict) or not data:
-            raise ValueError("Assignments must be a non-empty JSON object.")
+            raise ValueError("vehicles must be a non-empty JSON object.")
         return data
     except FileNotFoundError:
-        sys.exit(f"Assignments file not found: {path}")
+        sys.exit(f"vehicles file not found: {path}")
     except json.JSONDecodeError as e:
-        sys.exit(f"Invalid JSON in assignments file '{path}': {e}")
+        sys.exit(f"Invalid JSON in vehicles file '{path}': {e}")
 
 
-def select_vehicle(assignments: Dict[str, Dict[str, Any]]) -> str:
+def select_vehicle(vehicles: Dict[str, Dict[str, Any]]) -> str:
     """
-    Choose a vehicle deterministically from assignments:
+    Choose a vehicle deterministically from vehicles:
       1) any with "default": true (if tie, lexicographically first)
       2) else any with "active": true (if tie, lexicographically first)
       3) else if only one, use it
       4) else lexicographically first ID
     """
-    defaults = [vid for vid, cfg in assignments.items() if cfg.get("default") is True]
+    defaults = [vid for vid, cfg in vehicles.items() if cfg.get("default") is True]
     if defaults:
         return sorted(defaults)[0]
 
-    actives = [vid for vid, cfg in assignments.items() if cfg.get("active") is True]
+    actives = [vid for vid, cfg in vehicles.items() if cfg.get("active") is True]
     if actives:
         return sorted(actives)[0]
 
-    vids = list(assignments.keys())
+    vids = list(vehicles.keys())
     if len(vids) == 1:
         return vids[0]
     return sorted(vids)[0]
-
 
 # -------------------- speed model loader --------------------
 
 def load_speed_model(name: str, **kwargs):
     """
-    Dynamically import a speed model class from speed_models/ by name.
-    Example: name="random_walk" -> speed_models/random_walk_speed.py -> RandomWalkSpeed
+    Dynamically import a speed model class from world/speed_models/ by name.
+    Example: name="random_walk" -> world.speed_models.random_walk_speed -> RandomWalkSpeed
     """
-    module_name = f"speed_models.{name}_speed"
+    module_name = f"world.speed_models.{name}_speed"
     class_name = "".join(part.capitalize() for part in name.split("_")) + "Speed"
     try:
         module = importlib.import_module(module_name)
@@ -61,7 +58,6 @@ def load_speed_model(name: str, **kwargs):
         return cls(**kwargs)
     except (ImportError, AttributeError) as e:
         raise RuntimeError(f"Unknown speed model '{name}': {e}")
-
 
 # -------------------- simulation --------------------
 
@@ -85,33 +81,68 @@ def simulate_speed_model(vehicle_config: Dict[str, Any],
     total_time = 0.0      # s
 
     for tick in range(1000):
-        speed_kmh = speed_model.update()                 # km/h
-        total_distance += (speed_kmh * tick_time) / 3600 # km added this tick
+        result = speed_model.update()
+
+        if isinstance(result, dict):
+            velocity     = result.get("velocity", 0.0)
+            acceleration = result.get("acceleration", 0.0)
+            velocity_dir = result.get("velocity_dir", 0.0)
+            accel_dir    = result.get("accel_dir", 0.0)
+        else:
+            velocity     = float(result)
+            acceleration = 0.0
+            velocity_dir = 0.0
+            accel_dir    = 0.0
+
+        total_distance += (velocity * tick_time) / 3600
         total_time += tick_time
 
-        print(f"Tick {tick + 1:4d}: "
-              f"Speed: {speed_kmh:6.2f} km/h | "
-              f"Total Distance: {total_distance:7.2f} km | "
-              f"Total Time: {total_time:.2f} seconds")
+        print(
+            f"Tick {tick + 1:4d}: "
+            f"Velocity: {velocity:6.2f} km/h | "
+            f"Accel: {acceleration:6.2f} | "
+            f"Heading: {velocity_dir:6.2f}° | "
+            f"Steer Δ: {accel_dir:6.2f}° | "
+            f"Total Distance: {total_distance:7.2f} km | "
+            f"Total Time: {total_time:.2f} s"
+        )
 
         time.sleep(tick_time)
 
     return total_distance, total_time
 
-
 # -------------------- entrypoint --------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Simulate vehicle speed based on assignments.json (no vehicle ID arg).")
-    parser.add_argument("--tick", type=float, required=True, help="Tick time in seconds (e.g., 0.1).")
-    parser.add_argument("--speed-model", type=str, help="Override speed model (e.g., 'kinematic', 'random_walk').")
-    parser.add_argument("--assignments", type=str, default="assignments.json",
-                        help="Path to assignments JSON (default: assignments.json).")
+    parser = argparse.ArgumentParser(description="Simulate vehicle speed based on vehicles.json")
+    parser.add_argument(
+        "--tick", type=float, default=0.1,
+        help="Tick time in seconds (default: 0.1)"
+    )
+    parser.add_argument(
+        "--speed-model", type=str,
+        help="Override speed model (e.g., 'kinematic', 'random_walk')."
+    )
+    parser.add_argument(
+        "--vehicles", type=str, default="vehicles.json",
+        help="Path to vehicles JSON (default: vehicles.json)."
+    )
+    parser.add_argument(
+        "--vehicle-id", type=str, default=None,
+        help="Specific vehicle ID from the manifest (default: auto-select)."
+    )
     args = parser.parse_args()
 
-    assignments = deploy_vehicles(args.assignments)
-    vehicle_id = select_vehicle(assignments)
-    vehicle_config = assignments[vehicle_id]
+    vehicles = deploy_vehicles(args.vehicles)
+
+    if args.vehicle_id:
+        if args.vehicle_id not in vehicles:
+            sys.exit(f"Vehicle ID '{args.vehicle_id}' not found in manifest. Available: {', '.join(vehicles.keys())}")
+        vehicle_id = args.vehicle_id
+    else:
+        vehicle_id = select_vehicle(vehicles)
+
+    vehicle_config = vehicles[vehicle_id]
 
     print(f"Using vehicle: {vehicle_id}")
     print(f"Configured model: {vehicle_config.get('speed_model', 'kinematic')}"
@@ -123,7 +154,6 @@ def main():
     print(f"\nFinal Results for Vehicle {vehicle_id}:")
     print(f"Total Distance Traveled: {total_distance:.2f} km")
     print(f"Total Time Elapsed:     {total_time:.2f} seconds")
-
 
 if __name__ == "__main__":
     main()

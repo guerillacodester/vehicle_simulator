@@ -13,15 +13,30 @@
       ]
     },
     {
-    "name": "Debug world_vehicles_simulator",
-    "type": "debugpy",
-    "request": "launch",
-    "program": "${workspaceFolder}/world_vehicles_simulator.py",
-    "cwd": "${workspaceFolder}",
-    "console": "integratedTerminal",
-    "justMyCode": true,
-    "args": [                                                      
-    ]
-  }
+      "name": "Debug world_vehicles_simulator",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/world_vehicles_simulator.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [                                                      
+      ]
+    },
+    {
+      "name": "Debug sim_speed_model",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/sim_speed_model.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--vehicle-id","ZR1001",
+        "--tick", "0.1",
+        "--speed-model", "fixed",
+        "--vehicles", "${workspaceFolder}/world/vehicles.json"
+      ]
+    }
   ]
 }
