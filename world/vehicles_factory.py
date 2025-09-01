@@ -1,105 +1,125 @@
-from __future__ import annotations
-import threading, concurrent.futures
-from typing import Dict, Any, List, Optional
+#!/usr/bin/env python3
+"""
+VehiclesFactory
+---------------
+Responsible for instantiating and managing GPSDevice and EngineBlock
+for all vehicles defined in vehicles.json.
+"""
 
-# your existing Vehicle wrapper
-from .fleet_manifest import FleetManifest
-from .vehicle.vahicle_object import Vehicle
+import json
+import os
+import sys
+import time
+import configparser
+
+from world.vehicle.gps_device.device import GPSDevice
+from world.vehicle.engine.engine_block import Engine
+from world.vehicle.engine.engine_buffer import EngineBuffer
+from world.vehicle.engine.sim_speed_model import load_speed_model
 
 
 class VehiclesFactory:
-    """
-    Runtime orchestration layer.
-    Uses FleetManifest as the source of truth for vehicle configs.
-    """
+    def __init__(self, manifest_path: str = "world/vehicles.json", tick_time: float = 0.1):
+        self.manifest_path = manifest_path
+        self.tick_time = tick_time
+        self.vehicles = {}
+        self._load_manifest()
+        self._load_config()  # load ws_url/auth, normalize
 
-    def __init__(
-        self,
-        manifest: FleetManifest,
-        server_url: str,
-        token: str,
-        default_interval: float = 1.0,
-        start_active: bool = True,
-        max_workers: int = 8,
-    ) -> None:
-        self._manifest = manifest
-        self._server_url = server_url
-        self._token = token
-        self._default_interval = default_interval
-        self._start_active = start_active
-        self._max_workers = max_workers
+    # -------------------- manifest --------------------
 
-        self._lock = threading.RLock()
-        self._registry: Dict[str, Vehicle] = {}
-        self._opened = False
+    def _load_manifest(self):
+        if not os.path.exists(self.manifest_path):
+            sys.exit(f"[ERROR] vehicles manifest not found: {self.manifest_path}")
 
-    # ---------- lifecycle ----------
-    def open(self) -> None:
-        with self._lock:
-            if self._opened:
-                return
-            items = list(self._manifest.all().items())
+        with open(self.manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-        def _spawn(vid: str, cfg: Dict[str, Any]) -> None:
-            v = Vehicle(
-                vehicle_id=vid,
-                server_url=self._server_url,
-                token=self._token,
-                config=cfg,
-                default_interval=self._default_interval,
-            )
-            with self._lock:
-                self._registry[vid] = v
+        if not isinstance(data, dict) or not data:
+            sys.exit(f"[ERROR] vehicles manifest must be a non-empty JSON object")
 
-            # ✅ Step 1: only start if manifest says active
-            if self._start_active and cfg.get("active", False):
-                v.on()
-            else:
-                # optional: log inactive skip
+        self.vehicles = data
+
+    # -------------------- config --------------------
+
+    def _load_config(self):
+        """
+        Load server URL and optional auth token from config.ini (project root).
+        Normalize ws_url to avoid DNS errors (strip, rstrip('/'), http->ws, https->wss).
+        """
+        # Resolve project root (parent of 'world/')
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        cfg_path = os.path.join(project_root, "config.ini")
+
+        cfg = configparser.ConfigParser()
+        cfg.read(cfg_path)
+
+        raw_ws = cfg.get("server", "ws_url", fallback="ws://localhost:5000")
+        ws = raw_ws.strip()
+        ws = ws.rstrip("/")  # avoid //device
+        if ws.startswith("http://"):   # tolerate http -> ws
+            ws = "ws://" + ws[len("http://"):]
+        elif ws.startswith("https://"):  # tolerate https -> wss
+            ws = "wss://" + ws[len("https://"):]
+        self.ws_url = ws
+
+        # token can come from config or ENV (AUTH_TOKEN)
+        self.auth_token = cfg.get("auth", "token", fallback=os.getenv("AUTH_TOKEN", ""))
+
+    # -------------------- lifecycle --------------------
+
+    def start(self):
+        print("[INFO] Starting VehiclesFactory...")
+
+        for vid, cfg in self.vehicles.items():
+            if not cfg.get("active", False):
                 print(f"[INFO] Vehicle {vid} inactive.")
+                continue
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as ex:
-            futs = [ex.submit(_spawn, vid, dict(cfg)) for vid, cfg in items]
-            for f in futs:
-                f.result()
+            # Debug: show connection params
+            masked = (self.auth_token[:4] + "…") if self.auth_token else "(none)"
+            print(f"[DEBUG] GPS init for {vid}: ws_url='{self.ws_url}', token={masked}")
 
-        with self._lock:
-            self._opened = True
+            # Start GPS device (uses real config)
+            gps = GPSDevice(
+                vid,
+                server_url=self.ws_url,
+                auth_token=self.auth_token,
+                method="ws",
+                interval=self.tick_time,
+            )
+            gps.on()
 
-    # AFTER (deterministic shutdown)
-    def close(self) -> None:
-        with self._lock:
-            vehicles = list(self._registry.values())
-            self._opened = False
-            self._registry.clear()
+            # Start Engine
+            buffer = EngineBuffer()
+            model = load_speed_model(cfg["speed_model"], **cfg)
+            engine = Engine(vid, model, buffer, tick_time=self.tick_time)
+            engine.on()
 
-        for v in vehicles:
-            try:
-                v.cleanup()  # cleanup() should call off()
-            except Exception:
-                pass
+            # Store references so we can stop later
+            cfg["_gps"] = gps
+            cfg["_engine"] = engine
+            cfg["_engine_buffer"] = buffer
 
-    # ---------- runtime CRUD ----------
-    def start(self, vid: str) -> None:
-        with self._lock:
-            v = self._registry.get(vid)
-            if not v:
-                raise KeyError(vid)
-        v.on()
+    def stop(self):
+        print("\n[INFO] Stopping VehiclesFactory...")
+        for vid, cfg in self.vehicles.items():
+            gps = cfg.get("_gps")
+            engine = cfg.get("_engine")
 
-    def stop(self, vid: str) -> None:
-        with self._lock:
-            v = self._registry.get(vid)
-            if not v:
-                raise KeyError(vid)
-        v.off()
+            if gps:
+                gps.off()
+                cfg["_gps"] = None
+            if engine:
+                engine.off()
+                cfg["_engine"] = None
 
-    def status(self) -> Dict[str, Any]:
-        with self._lock:
-            return {
-                vid: {
-                    "active": self._manifest.get(vid).get("active", False),
-                    "running": v.is_on() if v else False,
-                }
-                for vid, v in self._registry.items()
-            }
+
+# ---------------------------
+# Manual test support
+# ---------------------------
+if __name__ == "__main__":
+    factory = VehiclesFactory()
+    factory.start()
+    time.sleep(5)
+    factory.stop()

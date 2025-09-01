@@ -1,37 +1,56 @@
+#!/usr/bin/env python3
 """
-World Vehicles Simulator Entrypoint
-Thin bootstrapper: load config, init factory, run briefly, then exit.
+World Vehicles Simulator
+------------------------
+Entry point for starting and stopping the VehiclesFactory, which manages
+GPSDevice and EngineBlock instances for all vehicles in the manifest.
 """
 
+import argparse
+import sys
+import os
 import time
-from config_loader import load_config
-from world.fleet_manifest import FleetManifest
+
+# Ensure project root is in sys.path
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
 from world.vehicles_factory import VehiclesFactory
 
 
 def main():
-    # Load config
-    config = load_config()
-    manifest_path = config["files"]["assignment_file"]
+    parser = argparse.ArgumentParser(description="World Vehicles Simulator")
+    parser.add_argument(
+        "--manifest",
+        type=str,
+        default="world/vehicles.json",
+        help="Path to vehicles manifest (default: world/vehicles.json)",
+    )
+    parser.add_argument(
+        "--tick",
+        type=float,
+        default=0.1,
+        help="Tick interval in seconds (default: 0.1)",
+    )
+    parser.add_argument(
+        "--seconds",
+        type=float,
+        default=5.0,
+        help="How long to run the simulator (default: 5s)",
+    )
+    args = parser.parse_args()
 
-    # Prepare manifest + factory
-    mf = FleetManifest(manifest_path)
-    vf = VehiclesFactory(
-        manifest=mf,
-        server_url=config["server"]["ws_url"],
-        token="",                # TODO: hook in AUTH_TOKEN later
-        default_interval=1.0,
-        start_active=True,
+    # Create VehiclesFactory with corrected arguments
+    factory = VehiclesFactory(
+        manifest_path=args.manifest,
+        tick_time=args.tick,
     )
 
-    print("[INFO] Starting VehiclesFactory...")
-    vf.open()
+    # Start all active vehicles
+    factory.start()
+    time.sleep(args.seconds)
+    factory.stop()
 
-    # Demo: run for a few seconds
-    time.sleep(5)
-
-    print("[INFO] Stopping VehiclesFactory...")
-    vf.close()
+    print(f"\nSimulation complete. Ran for {args.seconds:.1f} seconds\n")
 
 
 if __name__ == "__main__":

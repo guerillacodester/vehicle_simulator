@@ -11,7 +11,7 @@
     "release_ticks": 3
   },
   "ZR1301": {
-    "active": false,
+    "active": true,
     "route_file": "data/roads/route_1_final.geojson",
     "route": "1",
     "speed_model": "kinematic",
@@ -23,10 +23,10 @@
     "release_ticks": 3
   },
   "ZR198": {
-    "active": false,
+    "active": true,
     "route_file": "data/roads/route_1_final.geojson",
     "route": "1",
-    "speed_model": "kinematic",
+    "speed_model": "fixed",
     "speed": 70,
     "cruise_speed": 55,
     "accel_limit": 2.5,
