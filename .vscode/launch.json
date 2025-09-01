@@ -37,6 +37,19 @@
         "--speed-model", "kinematic",
         "--vehicles", "${workspaceFolder}/world/vehicles.json"
       ]
+    },
+    {
+      "name": "Debug navigation_smoketest",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/world/vehicle/driver/navigation/navigator_smoketest.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--seconds","5",
+        "--dump-all"
+      ]
     }
   ]
 }

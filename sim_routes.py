@@ -4,6 +4,8 @@ import json
 import math
 from typing import List, Tuple
 
+from world.routes.route_loader import load_route_coordinates
+
 # Haversine formula to calculate distance between two coordinates (in km)
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371  # Radius of the Earth in km
@@ -33,33 +35,6 @@ def bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     compass_bearing = (initial_bearing + 360) % 360  # Normalize to 0-360 degrees
     
     return compass_bearing
-
-def load_route_coordinates(route_file: str) -> List[Tuple[float, float]]:
-    """Load coordinates from a GeoJSON route file."""
-    with open(route_file) as f:
-        data = json.load(f)
-    
-    coordinates = []
-    
-    for feature in data["features"]:
-        coords = feature["geometry"]["coordinates"]
-        
-        # If it's a MultiLineString or LineString (list of coordinates)
-        if isinstance(coords[0], list):  
-            if isinstance(coords[0][0], list):  # MultiLineString
-                # Flatten the MultiLineString by iterating through all sub-lines
-                for line in coords:
-                    for coord_set in line:
-                        coordinates.append(tuple(coord_set))  # Ensure it's (lat, lon)
-            else:  # LineString: just one list of coordinates
-                for coord_set in coords:
-                    coordinates.append(tuple(coord_set))  # Ensure it's (lat, lon)
-        
-        # If it's a single Point (lat, lon)
-        elif isinstance(coords[0], (float, int)):  # Point
-            coordinates.append(tuple(coords))  # Append as (lat, lon)
-
-    return coordinates
 
 def main():
     # Argument parsing to get the route file
