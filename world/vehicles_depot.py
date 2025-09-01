@@ -16,7 +16,8 @@ from world.vehicle.gps_device.device import GPSDevice
 from world.vehicle.engine.engine_block import Engine
 from world.vehicle.engine.engine_buffer import EngineBuffer
 from world.vehicle.engine.sim_speed_model import load_speed_model
-
+from world.vehicle.driver.navigation.fleet_dispatcher import FleetDispatcher
+from world.vehicle.gps_device.rxtx_buffer import RxTxBuffer
 # Navigator (manages its own TelemetryBuffer internally)
 from world.vehicle.driver.navigation.navigator import Navigator
 
@@ -90,6 +91,21 @@ class VehiclesDepot:
             )
             print(f"[INFO] Navigator boarded for {vid}")
 
+            # ---------------- Buffers ----------------
+            engine_buffer = EngineBuffer()
+            telemetry_buffer = navigator.telemetry_buffer  # Navigator owns this
+            rxtx_buffer = RxTxBuffer()
+
+            # ---------------- FleetDispatcher ONSITE ----------------
+            dispatcher = FleetDispatcher(
+                vehicle_id=vid,
+                telemetry_buffer=telemetry_buffer,
+                rxtx_buffer=rxtx_buffer,
+                route=cfg.get("route", "0"),
+                tick_time=self.tick_time,
+            )
+            dispatcher.on()
+
             # ---------------- GPS device ON ----------------
             gps = GPSDevice(
                 vid,
@@ -102,22 +118,23 @@ class VehiclesDepot:
             # print(f"[INFO] GPSDevice ON for {vid}")
 
             # ---------------- Engine start ----------------
-            buffer = EngineBuffer()
             model = load_speed_model(cfg["speed_model"], **cfg)
-            engine = Engine(vid, model, buffer, tick_time=self.tick_time)
+            engine = Engine(vid, model, engine_buffer, tick_time=self.tick_time)
             engine.on()
             print(f"[INFO] Engine started for {vid}")
 
             # Link engine buffer back into navigator
-            navigator.engine_buffer = buffer
+            navigator.engine_buffer = engine_buffer
             navigator.on()
 
             # ---------------- Store references ----------------
             cfg["_gps"] = gps
             cfg["_engine"] = engine
-            cfg["_engine_buffer"] = buffer
+            cfg["_engine_buffer"] = engine_buffer
             cfg["_navigator"] = navigator
-            cfg["_telemetry_buffer"] = navigator.telemetry_buffer  # ✅ pull from Navigator
+            cfg["_telemetry_buffer"] = telemetry_buffer
+            cfg["_dispatcher"] = dispatcher
+            cfg["_rxtx_buffer"] = rxtx_buffer
 
     def stop(self):
         for vid, cfg in self.vehicles.items():
@@ -130,10 +147,6 @@ class VehiclesDepot:
             if any([dispatcher, nav, engine, gps]):
                 print("")
 
-            if dispatcher:
-                dispatcher.off()
-                cfg["_dispatcher"] = None
-
             if engine:
                 engine.off()
                 print(f"[INFO] Engine stopped for {vid}")
@@ -141,13 +154,18 @@ class VehiclesDepot:
 
             if gps:
                 gps.off()
-                # print(f"[INFO] GPSDevice OFF for {vid}")
+                print(f"[INFO] GPSDevice OFF for {vid}")
                 cfg["_gps"] = None
 
             if nav:
                 nav.off()
                 print(f"[INFO] Navigator disembarked for {vid}")
                 cfg["_navigator"] = None
+
+            if dispatcher:
+                dispatcher.off()
+                print(f"[INFO] FleetDispatcher OFFSITE for {vid}")
+                cfg["_dispatcher"] = None
 
         print("[INFO] Depot UNOPERATIONAL")
         print("[INFO] FleetDispatcher OFFSITE")
