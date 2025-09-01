@@ -11,6 +11,17 @@
       "justMyCode": true,
       "args": [                                                      
       ]
-    }
+    },
+    {
+    "name": "Debug world_vehicles_simulator",
+    "type": "debugpy",
+    "request": "launch",
+    "program": "${workspaceFolder}/world_vehicles_simulator.py",
+    "cwd": "${workspaceFolder}",
+    "console": "integratedTerminal",
+    "justMyCode": true,
+    "args": [                                                      
+    ]
+  }
   ]
 }

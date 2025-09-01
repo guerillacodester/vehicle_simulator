@@ -1,4 +1,3 @@
-# gps_device/device.py
 import os
 import time
 import threading
@@ -59,8 +58,10 @@ class GPSDevice:
 
             # 2) Pump buffer -> packet -> send
             while not self._stop.is_set():
-                # Offload blocking buffer.read() so event loop stays responsive
-                data = await asyncio.to_thread(self.buffer.read, self.interval)
+                # Offload blocking buffer.read(); ensure it times out cooperatively
+                data = await asyncio.to_thread(self.buffer.read, timeout=self.interval)
+                if self._stop.is_set():
+                    break
                 if data is None:
                     continue
 
@@ -81,10 +82,11 @@ class GPSDevice:
                 await self.transmitter.send(pkt)
 
         except Exception as e:
-            print(f"[ERROR] GPSDevice worker failed: {e}")
+            print(f"[ERROR] GPSDevice worker failed for {self.device_id}: {e}")
         finally:
             try:
-                await self.transmitter.close()
+                if self.transmitter is not None:
+                    await self.transmitter.close()
             except Exception:
                 pass
 
@@ -92,15 +94,37 @@ class GPSDevice:
 
     def on(self):
         """Turn on device (start worker thread)."""
-        if not self.thread or not self.thread.is_alive():
-            self._stop.clear()
-            self.thread = threading.Thread(target=self._worker, daemon=True)
-            self.thread.start()
-            print("[INFO] GPSDevice ON")
+        if self.thread and self.thread.is_alive():
+            return
+        self._stop.clear()
+        # Start worker as daemon so process can exit even if misbehaving
+        self.thread = threading.Thread(target=self._worker, daemon=True)
+        self.thread.start()
+        print(f"[INFO] GPSDevice for {self.device_id} turned ON")
 
     def off(self):
         """Turn off device (stop worker and close transmitter)."""
+        # Signal stop
         self._stop.set()
+
+        # Ask transmitter to close to unblock any pending I/O in the event loop
+        try:
+            if self.transmitter and hasattr(self.transmitter, "request_close"):
+                self.transmitter.request_close()
+        except Exception:
+            pass
+
+        # Bounded join; do not block indefinitely
         if self.thread:
-            self.thread.join()
-        print("[INFO] GPSDevice OFF")
+            self.thread.join(timeout=5.0)
+            if self.thread.is_alive():
+                print(f"[WARN] GPSDevice for {self.device_id} did not stop in 5s; forcing TX close")
+                try:
+                    if self.transmitter and hasattr(self.transmitter, "force_close"):
+                        self.transmitter.force_close()
+                except Exception:
+                    pass
+                self.thread.join(timeout=2.0)
+            self.thread = None
+
+        print(f"[INFO] GPSDevice for {self.device_id} turned OFF")

@@ -2,7 +2,7 @@ from __future__ import annotations
 import threading
 from typing import Dict, Any
 
-from gps_device.device import GPSDevice  # authoritative import
+from .gps_device.device import GPSDevice
 
 
 def _install_gpsdevice() -> type[GPSDevice]:

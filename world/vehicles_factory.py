@@ -4,8 +4,8 @@ import threading, concurrent.futures
 from typing import Dict, Any, List, Optional
 
    # your existing Vehicle wrapper
-from fleet_manifest import FleetManifest
-from vahicle_object import Vehicle
+from .fleet_manifest import FleetManifest
+from .vehicle.vahicle_object import Vehicle
 
 
 class VehiclesFactory:
@@ -61,14 +61,19 @@ class VehiclesFactory:
         with self._lock:
             self._opened = True
 
+    # AFTER (deterministic shutdown)
     def close(self) -> None:
         with self._lock:
-            pairs = list(self._registry.items())
-            self._registry.clear()
+            vehicles = list(self._registry.values())
             self._opened = False
-        for _, v in pairs:
-            try: v.cleanup()
-            except Exception: pass
+            self._registry.clear()
+
+        for v in vehicles:
+            try:
+                v.cleanup()         # cleanup() should call off()
+            except Exception:
+                pass
+
 
     # ---------- runtime CRUD ----------
     def start(self, vid: str) -> None:

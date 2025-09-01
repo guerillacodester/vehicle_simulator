@@ -11,5 +11,18 @@
     "decel_limit": 4,
     "corner_slowdown": 1,
     "release_ticks": 3
+  },
+  "ZR1301": {
+    "active": true,
+    "route_file": "data/roads/route_1_final.geojson",
+    "route": "1",
+    "speed_model": "fixed",
+    "min_speed": 1,
+    "max_speed": 90,
+    "cruise_speed": 90,
+    "accel_limit": 3,
+    "decel_limit": 4,
+    "corner_slowdown": 1,
+    "release_ticks": 3
   }
 }
