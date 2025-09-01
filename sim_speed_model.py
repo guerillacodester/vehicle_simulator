@@ -61,18 +61,19 @@ def load_speed_model(name: str, **kwargs):
 
 # -------------------- simulation --------------------
 
-def simulate_speed_model(vehicle_config: Dict[str, Any],
+def simulate_speed_model(vehicle_id: str,
+                         vehicle_config: Dict[str, Any],
                          speed_model_override: Optional[str],
                          tick_time: float):
-    """Run the speed model for 1000 ticks, printing speed, total distance, and time."""
+    """Run the speed model for 1000 ticks, printing vehicle ID, speed, heading, distance, and time."""
     model_name = (speed_model_override or vehicle_config.get("speed_model", "kinematic")).lower()
 
     kwargs = {
-        "min_speed": float(vehicle_config.get("min_speed", 30)),
-        "max_speed": float(vehicle_config.get("max_speed", 80)),
+        "speed": float(vehicle_config.get("speed", 50)),  # single speed field
         "accel_limit": float(vehicle_config.get("accel_limit", 2)),
         "decel_limit": float(vehicle_config.get("decel_limit", 3)),
         "corner_slowdown": float(vehicle_config.get("corner_slowdown", 25)),
+        "release_ticks": int(vehicle_config.get("release_ticks", 3)),
     }
 
     speed_model = load_speed_model(model_name, **kwargs)
@@ -86,7 +87,7 @@ def simulate_speed_model(vehicle_config: Dict[str, Any],
         if isinstance(result, dict):
             velocity     = result.get("velocity", 0.0)
             acceleration = result.get("acceleration", 0.0)
-            velocity_dir = result.get("velocity_dir", 0.0)
+            velocity_dir = result.get("velocity_dir", 0.0)  # heading
             accel_dir    = result.get("accel_dir", 0.0)
         else:
             velocity     = float(result)
@@ -98,20 +99,19 @@ def simulate_speed_model(vehicle_config: Dict[str, Any],
         total_distance += (velocity * tick_time) / 3600
         total_time += tick_time
 
-        # human-friendly display
+        # auto unit for distance
         if total_distance < 1.0:
             display_distance = f"{total_distance * 1000:7.1f} m"
         else:
             display_distance = f"{total_distance:7.3f} km"
 
+        # formatted output with Vehicle ID first
         print(
-            f"Tick {tick + 1:4d}: "
-            f"Velocity: {velocity:6.2f} km/h | "
-            f"Accel: {acceleration:6.2f} | "
+            f"{vehicle_id} | "
+            f"Speed: {velocity:6.2f} km/h | "
             f"Heading: {velocity_dir:6.2f}° | "
-            f"Steer Δ: {accel_dir:6.2f}° | "
-            f"Total Distance: {display_distance} | "
-            f"Total Time: {total_time:.2f} s"
+            f"Distance: {display_distance} | "
+            f"Time: {total_time:.2f} s"
         )
 
         time.sleep(tick_time)
@@ -156,7 +156,7 @@ def main():
           + (f" | Override: {args.speed_model}" if args.speed_model else ""))
     print(f"Tick: {args.tick} s\n")
 
-    total_distance, total_time = simulate_speed_model(vehicle_config, args.speed_model, args.tick)
+    total_distance, total_time = simulate_speed_model(vehicle_id, vehicle_config, args.speed_model, args.tick)
 
     # Final results with auto unit switch
     if total_distance < 1.0:

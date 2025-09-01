@@ -32,9 +32,9 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "args": [
-        "--vehicle-id","ZR1001",
+        "--vehicle-id","ZR1301",
         "--tick", "0.1",
-        "--speed-model", "fixed",
+        "--speed-model", "kinematic",
         "--vehicles", "${workspaceFolder}/world/vehicles.json"
       ]
     }
