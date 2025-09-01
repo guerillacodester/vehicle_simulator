@@ -45,14 +45,14 @@ class Engine:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
-        print(f"[INFO] Engine for {self.vehicle_id} turned ON")
+        # print(f"[INFO] Engine for {self.vehicle_id} turned ON")
 
     def off(self):
         """Stop the engine simulation thread."""
         self._stop_event.set()
         if self._thread:
             self._thread.join()
-        print(f"[INFO] Engine for {self.vehicle_id} turned OFF")
+        # print(f"[INFO] Engine for {self.vehicle_id} turned OFF")
 
     def _run_loop(self):
         """Main loop: run until stopped."""

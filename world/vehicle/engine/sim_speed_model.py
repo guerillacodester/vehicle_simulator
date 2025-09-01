@@ -17,7 +17,7 @@ def load_speed_model(name: str, **kwargs):
         ignore_keys = {"active", "vehicle_id", "route_file", "speed_model", "route"}
         model_kwargs = {k: v for k, v in kwargs.items() if k not in ignore_keys}
 
-        print(f"[DEBUG] Instantiating {class_name} with: {model_kwargs}")
+        # print(f"[DEBUG] Instantiating {class_name} with: {model_kwargs}")
 
         return cls(**model_kwargs)
 

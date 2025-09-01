@@ -69,7 +69,7 @@ class VehiclesDepot:
     # -------------------- lifecycle --------------------
 
     def start(self):
-        print("[INFO] Starting VehiclesDepot...")
+        print("[INFO] Depot OPERATIONAL...")
 
         for vid, cfg in self.vehicles.items():
             if not cfg.get("active", False):
@@ -77,7 +77,7 @@ class VehiclesDepot:
                 continue
 
             masked = (self.auth_token[:4] + "…") if self.auth_token else "(none)"
-            print(f"[DEBUG] Init for {vid}: ws_url='{self.ws_url}', token={masked}")
+            # print(f"[DEBUG] Init for {vid}: ws_url='{self.ws_url}', token={masked}")
 
             # ---------------- Navigator boards ----------------
             navigator = Navigator(
@@ -98,7 +98,7 @@ class VehiclesDepot:
                 interval=self.tick_time,
             )
             gps.on()
-            print(f"[INFO] GPSDevice ON for {vid}")
+            # print(f"[INFO] GPSDevice ON for {vid}")
 
             # ---------------- Engine start ----------------
             buffer = EngineBuffer()
@@ -119,16 +119,19 @@ class VehiclesDepot:
             cfg["_telemetry_buffer"] = navigator.telemetry_buffer  # ✅ pull from Navigator
 
     def stop(self):
-        print("\n[INFO] Stopping VehiclesDepot...")
         for vid, cfg in self.vehicles.items():
+            dispatcher = cfg.get("_dispatcher")
             nav = cfg.get("_navigator")
             engine = cfg.get("_engine")
             gps = cfg.get("_gps")
 
-            if nav:
-                nav.off()
-                print(f"[INFO] Navigator disembarked for {vid}")
-                cfg["_navigator"] = None
+            # Add a clean blank line before shutting down an active vehicle
+            if any([dispatcher, nav, engine, gps]):
+                print("")
+
+            if dispatcher:
+                dispatcher.off()
+                cfg["_dispatcher"] = None
 
             if engine:
                 engine.off()
@@ -137,10 +140,17 @@ class VehiclesDepot:
 
             if gps:
                 gps.off()
-                print(f"[INFO] GPSDevice OFF for {vid}")
+                # print(f"[INFO] GPSDevice OFF for {vid}")
                 cfg["_gps"] = None
 
+            if nav:
+                nav.off()
+                print(f"[INFO] Navigator disembarked for {vid}")
+                cfg["_navigator"] = None
 
+        print("[INFO] Depot UNOPERATIONAL")
+
+    
 # ---------------------------
 # Manual test support
 # ---------------------------
