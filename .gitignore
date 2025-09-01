@@ -11,6 +11,6 @@ simulation/__pycache__/
 common/__pycache__/
 gps_device/__pycache__/
 simulation_engine/__pycache__/
-vehicle_factory/vehicle/engine/
+vehicle_depot/vehicle/engine/
 world/__pycache__/
 world/__pycache__/

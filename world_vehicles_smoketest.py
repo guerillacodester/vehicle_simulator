@@ -16,7 +16,7 @@ once GPSDevice is OFF).
 
 import argparse
 import time
-from world.vehicles_factory import VehiclesFactory
+from world.vehicles_depot import VehiclesDepot
 
 
 def validate_engine_data(entries, cfg, tick_time=0.1, tol=1e-6):
@@ -106,15 +106,15 @@ def main():
     )
     args = parser.parse_args()
 
-    factory = VehiclesFactory(manifest_path=args.manifest, tick_time=args.tick)
+    depot = VehiclesDepot(manifest_path=args.manifest, tick_time=args.tick)
 
-    factory.start()
+    depot.start()
     time.sleep(args.seconds)
-    factory.stop()
+    depot.stop()
 
     print(f"\nSimulation complete. Ran for {args.seconds:.1f} seconds")
 
-    for vid, cfg in factory.vehicles.items():
+    for vid, cfg in depot.vehicles.items():
         engine_buf = cfg.get("_engine_buffer")
         telem_buf = cfg.get("_telemetry_buffer")
 

@@ -1,7 +1,7 @@
 {
     "python.analysis.extraPaths": [
         "./common",
-        "./vehicle_factory/vehicle",
+        "./vehicle_depot/vehicle",
         "./world/vehicle"
     ]
 }

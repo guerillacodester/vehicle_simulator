@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VehiclesFactory
+VehiclesDepot
 ---------------
 Responsible for instantiating and managing Navigator, GPSDevice, and EngineBlock
 for all vehicles defined in vehicles.json.
@@ -21,7 +21,7 @@ from world.vehicle.engine.sim_speed_model import load_speed_model
 from world.vehicle.driver.navigation.navigator import Navigator
 
 
-class VehiclesFactory:
+class VehiclesDepot:
     def __init__(self, manifest_path: str = "world/vehicles.json", tick_time: float = 0.1):
         self.manifest_path = manifest_path
         self.tick_time = tick_time
@@ -69,7 +69,7 @@ class VehiclesFactory:
     # -------------------- lifecycle --------------------
 
     def start(self):
-        print("[INFO] Starting VehiclesFactory...")
+        print("[INFO] Starting VehiclesDepot...")
 
         for vid, cfg in self.vehicles.items():
             if not cfg.get("active", False):
@@ -119,7 +119,7 @@ class VehiclesFactory:
             cfg["_telemetry_buffer"] = navigator.telemetry_buffer  # ✅ pull from Navigator
 
     def stop(self):
-        print("\n[INFO] Stopping VehiclesFactory...")
+        print("\n[INFO] Stopping VehiclesDepot...")
         for vid, cfg in self.vehicles.items():
             nav = cfg.get("_navigator")
             engine = cfg.get("_engine")
@@ -145,7 +145,7 @@ class VehiclesFactory:
 # Manual test support
 # ---------------------------
 if __name__ == "__main__":
-    factory = VehiclesFactory()
-    factory.start()
+    depot = VehiclesDepot()
+    depot.start()
     time.sleep(5)
-    factory.stop()
+    depot.stop()

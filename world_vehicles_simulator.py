@@ -2,7 +2,7 @@
 """
 World Vehicles Simulator
 ------------------------
-Entry point for starting and stopping the VehiclesFactory, which manages
+Entry point for starting and stopping the VehiclesDepot, which manages
 GPSDevice and EngineBlock instances for all vehicles in the manifest.
 """
 
@@ -14,7 +14,7 @@ import time
 # Ensure project root is in sys.path
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from world.vehicles_factory import VehiclesFactory
+from world.vehicles_depot import VehiclesDepot
 
 
 def main():
@@ -39,16 +39,16 @@ def main():
     )
     args = parser.parse_args()
 
-    # Create VehiclesFactory with corrected arguments
-    factory = VehiclesFactory(
+    # Create VehiclesDepot with corrected arguments
+    depot = VehiclesDepot(
         manifest_path=args.manifest,
         tick_time=args.tick,
     )
 
     # Start all active vehicles
-    factory.start()
+    depot.start()
     time.sleep(args.seconds)
-    factory.stop()
+    depot.stop()
 
     print(f"\nSimulation complete. Ran for {args.seconds:.1f} seconds\n")
 
