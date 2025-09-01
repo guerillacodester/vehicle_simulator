@@ -22,11 +22,19 @@ In the real world:
 
 import time
 import threading
+from dataclasses import asdict
 from world.vehicle.gps_device.radio_module.packet import make_packet
 
 
 class FleetDispatcher:
     def __init__(self, vehicle_id, telemetry_buffer, rxtx_buffer, route="0", tick_time: float = 0.1):
+        """
+        :param vehicle_id:   Vehicle ID string
+        :param telemetry_buffer: Source buffer (Navigator output)
+        :param rxtx_buffer:  Destination buffer (for transmission)
+        :param route:        Route identifier (string)
+        :param tick_time:    Dispatch interval in seconds
+        """
         self.vehicle_id = vehicle_id
         self.telemetry_buffer = telemetry_buffer
         self.rxtx_buffer = rxtx_buffer
@@ -53,6 +61,7 @@ class FleetDispatcher:
         while self._running:
             entry = self.telemetry_buffer.read()
             if entry:
+                # Build schema-compliant packet
                 pkt = make_packet(
                     device_id=self.vehicle_id,
                     lat=entry["lat"],
@@ -61,5 +70,6 @@ class FleetDispatcher:
                     heading=entry["bearing"],
                     route=self.route,
                 )
-                self.rxtx_buffer.write(pkt)
+                # Convert dataclass -> dict before writing to RxTxBuffer
+                self.rxtx_buffer.write(asdict(pkt))
             time.sleep(self.tick_time)

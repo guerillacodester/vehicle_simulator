@@ -81,7 +81,7 @@ class VehiclesDepot:
             masked = (self.auth_token[:4] + "…") if self.auth_token else "(none)"
             # print(f"[DEBUG] Init for {vid}: ws_url='{self.ws_url}', token={masked}")
 
-            # ---------------- Navigator boards ----------------
+            # --- Navigator boards ---
             navigator = Navigator(
                 vehicle_id=vid,
                 route_file=cfg.get("route_file"),
@@ -91,22 +91,7 @@ class VehiclesDepot:
             )
             print(f"[INFO] Navigator boarded for {vid}")
 
-            # ---------------- Buffers ----------------
-            engine_buffer = EngineBuffer()
-            telemetry_buffer = navigator.telemetry_buffer  # Navigator owns this
-            rxtx_buffer = RxTxBuffer()
-
-            # ---------------- FleetDispatcher ONSITE ----------------
-            dispatcher = FleetDispatcher(
-                vehicle_id=vid,
-                telemetry_buffer=telemetry_buffer,
-                rxtx_buffer=rxtx_buffer,
-                route=cfg.get("route", "0"),
-                tick_time=self.tick_time,
-            )
-            dispatcher.on()
-
-            # ---------------- GPS device ON ----------------
+            # --- GPSDevice ON ---
             gps = GPSDevice(
                 vid,
                 server_url=self.ws_url,
@@ -115,24 +100,38 @@ class VehiclesDepot:
                 interval=self.tick_time,
             )
             gps.on()
-            # print(f"[INFO] GPSDevice ON for {vid}")
+            print(f"[INFO] GPSDevice ON for {vid}")
 
-            # ---------------- Engine start ----------------
+            # 👉 Use the RxTxBuffer that GPSDevice actually owns
+            rxtx_buffer = gps.buffer
+
+            # --- Engine start ---
+            engine_buffer = EngineBuffer()
             model = load_speed_model(cfg["speed_model"], **cfg)
             engine = Engine(vid, model, engine_buffer, tick_time=self.tick_time)
             engine.on()
             print(f"[INFO] Engine started for {vid}")
 
+            # --- FleetDispatcher ---
+            dispatcher = FleetDispatcher(
+                vehicle_id=vid,
+                telemetry_buffer=navigator.telemetry_buffer,
+                rxtx_buffer=rxtx_buffer,
+                route=cfg.get("route", "0"),
+                tick_time=self.tick_time,
+            )
+            dispatcher.on()
+
             # Link engine buffer back into navigator
             navigator.engine_buffer = engine_buffer
             navigator.on()
 
-            # ---------------- Store references ----------------
+            # --- Store references ---
             cfg["_gps"] = gps
             cfg["_engine"] = engine
             cfg["_engine_buffer"] = engine_buffer
             cfg["_navigator"] = navigator
-            cfg["_telemetry_buffer"] = telemetry_buffer
+            cfg["_telemetry_buffer"] = navigator.telemetry_buffer
             cfg["_dispatcher"] = dispatcher
             cfg["_rxtx_buffer"] = rxtx_buffer
 
