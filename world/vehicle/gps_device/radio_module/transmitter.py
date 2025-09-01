@@ -1,7 +1,8 @@
 # transmitter.py
 import websockets
+
 from .packet import TelemetryPacket, PacketCodec
-from common.ws_utils import to_ws_url  # import the helper
+from common.ws_utils import to_ws_url
 
 class Transmitter:
     async def connect(self): ...

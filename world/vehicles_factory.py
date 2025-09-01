@@ -3,8 +3,9 @@ from __future__ import annotations
 import threading, concurrent.futures
 from typing import Dict, Any, List, Optional
 
-from vehicle import Vehicle   # your existing Vehicle wrapper
+   # your existing Vehicle wrapper
 from fleet_manifest import FleetManifest
+from vahicle_object import Vehicle
 
 
 class VehiclesFactory:

@@ -1,16 +1,8 @@
-import base64
+import base64, json, os
 from dataclasses import asdict
-import json
-import os
-from gps_device.base import TelemetryPacket
-from gps_device.radio_module.packet_codec import PacketCodec
-
+from .packet import TelemetryPacket, PacketCodec
 
 class AESGCMCodec(PacketCodec):
-    """
-    Optional AEAD codec (binary). Prefixes 12-byte nonce.
-    Requires server support for binary frames + key management.
-    """
     name = "aesgcm"
 
     def __init__(self, key_b64: str):

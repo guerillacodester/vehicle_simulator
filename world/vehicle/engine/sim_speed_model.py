@@ -1,10 +1,16 @@
+# world/vehicle/engine/sim_speed_model.py
 import importlib
 
 def load_speed_model(name: str, **kwargs):
-    module_name = f"speed_models.{name}_speed"
+    """
+    Load a speed model from world.speed_models by name.
+    Example: name="fixed" -> world.speed_models.fixed_speed.FixedSpeed
+    """
+    module_name = f"world.speed_models.{name}_speed"
     class_name = "".join([part.capitalize() for part in name.split("_")]) + "Speed"
+
     try:
-        module = importlib.import_module(module_name, package="vehicle_simulator")
+        module = importlib.import_module(module_name)   # ❌ no package="vehicle_simulator"
         cls = getattr(module, class_name)
 
         # 🚨 Ignore keys that belong to vehicles, not models
