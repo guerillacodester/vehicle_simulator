@@ -94,8 +94,15 @@ def simulate_speed_model(vehicle_config: Dict[str, Any],
             velocity_dir = 0.0
             accel_dir    = 0.0
 
+        # accumulate with full precision
         total_distance += (velocity * tick_time) / 3600
         total_time += tick_time
+
+        # human-friendly display
+        if total_distance < 1.0:
+            display_distance = f"{total_distance * 1000:7.1f} m"
+        else:
+            display_distance = f"{total_distance:7.3f} km"
 
         print(
             f"Tick {tick + 1:4d}: "
@@ -103,7 +110,7 @@ def simulate_speed_model(vehicle_config: Dict[str, Any],
             f"Accel: {acceleration:6.2f} | "
             f"Heading: {velocity_dir:6.2f}° | "
             f"Steer Δ: {accel_dir:6.2f}° | "
-            f"Total Distance: {total_distance:7.2f} km | "
+            f"Total Distance: {display_distance} | "
             f"Total Time: {total_time:.2f} s"
         )
 
@@ -151,8 +158,14 @@ def main():
 
     total_distance, total_time = simulate_speed_model(vehicle_config, args.speed_model, args.tick)
 
+    # Final results with auto unit switch
+    if total_distance < 1.0:
+        final_distance = f"{total_distance * 1000:.1f} m"
+    else:
+        final_distance = f"{total_distance:.3f} km"
+
     print(f"\nFinal Results for Vehicle {vehicle_id}:")
-    print(f"Total Distance Traveled: {total_distance:.2f} km")
+    print(f"Total Distance Traveled: {final_distance}")
     print(f"Total Time Elapsed:     {total_time:.2f} seconds")
 
 if __name__ == "__main__":
