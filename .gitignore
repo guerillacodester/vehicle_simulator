@@ -35,3 +35,4 @@ simulation_engine/__pycache__/simulator.cpython-313.pyc
 vehicle_factory/vehicle/engine/__pycache__/__init__.cpython-313.pyc
 vehicle_factory/vehicle/engine/__pycache__/sim_speed_model.cpython-313.pyc
 vehicle_factory/vehicle/engine/__pycache__/simulator.cpython-313.pyc
+world/__pycache__/__init__.cpython-311.pyc
