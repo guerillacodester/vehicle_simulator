@@ -2,7 +2,7 @@
 """
 VehiclesFactory
 ---------------
-Responsible for instantiating and managing GPSDevice and EngineBlock
+Responsible for instantiating and managing Navigator, GPSDevice, and EngineBlock
 for all vehicles defined in vehicles.json.
 """
 
@@ -16,6 +16,9 @@ from world.vehicle.gps_device.device import GPSDevice
 from world.vehicle.engine.engine_block import Engine
 from world.vehicle.engine.engine_buffer import EngineBuffer
 from world.vehicle.engine.sim_speed_model import load_speed_model
+
+# Navigator (manages its own TelemetryBuffer internally)
+from world.vehicle.driver.navigation.navigator import Navigator
 
 
 class VehiclesFactory:
@@ -47,7 +50,6 @@ class VehiclesFactory:
         Load server URL and optional auth token from config.ini (project root).
         Normalize ws_url to avoid DNS errors (strip, rstrip('/'), http->ws, https->wss).
         """
-        # Resolve project root (parent of 'world/')
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         cfg_path = os.path.join(project_root, "config.ini")
 
@@ -55,15 +57,13 @@ class VehiclesFactory:
         cfg.read(cfg_path)
 
         raw_ws = cfg.get("server", "ws_url", fallback="ws://localhost:5000")
-        ws = raw_ws.strip()
-        ws = ws.rstrip("/")  # avoid //device
-        if ws.startswith("http://"):   # tolerate http -> ws
+        ws = raw_ws.strip().rstrip("/")
+        if ws.startswith("http://"):
             ws = "ws://" + ws[len("http://"):]
-        elif ws.startswith("https://"):  # tolerate https -> wss
+        elif ws.startswith("https://"):
             ws = "wss://" + ws[len("https://"):]
         self.ws_url = ws
 
-        # token can come from config or ENV (AUTH_TOKEN)
         self.auth_token = cfg.get("auth", "token", fallback=os.getenv("AUTH_TOKEN", ""))
 
     # -------------------- lifecycle --------------------
@@ -76,11 +76,20 @@ class VehiclesFactory:
                 print(f"[INFO] Vehicle {vid} inactive.")
                 continue
 
-            # Debug: show connection params
             masked = (self.auth_token[:4] + "…") if self.auth_token else "(none)"
-            print(f"[DEBUG] GPS init for {vid}: ws_url='{self.ws_url}', token={masked}")
+            print(f"[DEBUG] Init for {vid}: ws_url='{self.ws_url}', token={masked}")
 
-            # Start GPS device (uses real config)
+            # ---------------- Navigator boards ----------------
+            navigator = Navigator(
+                vehicle_id=vid,
+                route_file=cfg.get("route_file"),
+                engine_buffer=None,   # set after engine below
+                mode=cfg.get("mode", "geodesic"),
+                direction=cfg.get("direction", "outbound"),
+            )
+            print(f"[INFO] Navigator boarded for {vid}")
+
+            # ---------------- GPS device ON ----------------
             gps = GPSDevice(
                 vid,
                 server_url=self.ws_url,
@@ -89,30 +98,47 @@ class VehiclesFactory:
                 interval=self.tick_time,
             )
             gps.on()
+            print(f"[INFO] GPSDevice ON for {vid}")
 
-            # Start Engine
+            # ---------------- Engine start ----------------
             buffer = EngineBuffer()
             model = load_speed_model(cfg["speed_model"], **cfg)
             engine = Engine(vid, model, buffer, tick_time=self.tick_time)
             engine.on()
+            print(f"[INFO] Engine started for {vid}")
 
-            # Store references so we can stop later
+            # Link engine buffer back into navigator
+            navigator.engine_buffer = buffer
+            navigator.on()
+
+            # ---------------- Store references ----------------
             cfg["_gps"] = gps
             cfg["_engine"] = engine
             cfg["_engine_buffer"] = buffer
+            cfg["_navigator"] = navigator
+            cfg["_telemetry_buffer"] = navigator.telemetry_buffer  # ✅ pull from Navigator
 
     def stop(self):
         print("\n[INFO] Stopping VehiclesFactory...")
         for vid, cfg in self.vehicles.items():
-            gps = cfg.get("_gps")
+            nav = cfg.get("_navigator")
             engine = cfg.get("_engine")
+            gps = cfg.get("_gps")
+
+            if nav:
+                nav.off()
+                print(f"[INFO] Navigator disembarked for {vid}")
+                cfg["_navigator"] = None
+
+            if engine:
+                engine.off()
+                print(f"[INFO] Engine stopped for {vid}")
+                cfg["_engine"] = None
 
             if gps:
                 gps.off()
+                print(f"[INFO] GPSDevice OFF for {vid}")
                 cfg["_gps"] = None
-            if engine:
-                engine.off()
-                cfg["_engine"] = None
 
 
 # ---------------------------

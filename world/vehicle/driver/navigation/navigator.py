@@ -128,7 +128,7 @@ class Navigator:
             "bearing": bearing,
             "speed": entry.get("cruise_speed", 0.0),
             "time": entry.get("time", 0.0),
-            "distance": entry.get("distance", 0.0),
+            "distance": entry.get("distance", 0.0) * 1000.0,  # ✅ km → m
         }
 
         self.last_position = (lon, lat)
@@ -154,7 +154,7 @@ class Navigator:
             "bearing": bearing,
             "speed": entry.get("cruise_speed", 0.0),
             "time": entry.get("time", 0.0),
-            "distance": entry.get("distance", 0.0),
+            "distance": entry.get("distance", 0.0) * 1000.0,  # ✅ km → m
         }
 
         self.last_position = (lon, lat)

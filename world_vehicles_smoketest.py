@@ -2,9 +2,16 @@
 """
 World Vehicles Smoke Test
 -------------------------
-Smoke test for world vehicles simulator (GPS + Engine lifecycle).
-Runs all active vehicles from the manifest for N seconds, then shuts down
-and optionally dumps engine diagnostics grouped by vehicle with validation.
+Runs all active vehicles with GPSDevice + Engine + Navigator lifecycles.
+After shutdown, you can optionally dump diagnostic buffers:
+
+  --dump-engine      EngineBuffer only
+  --dump-telemetry   TelemetryBuffer only
+  --dump-all         Both EngineBuffer + TelemetryBuffer
+
+This allows verification of physics (engine), navigation (telemetry),
+or both together, without transmitting live data (RxTxBuffer is empty
+once GPSDevice is OFF).
 """
 
 import argparse
@@ -19,15 +26,19 @@ def validate_engine_data(entries, cfg, tick_time=0.1, tol=1e-6):
     accel_limit = cfg.get("accel_limit", None)
     target = cfg.get("cruise_speed", cfg.get("speed", None))
 
-    prev_speed = 0.0
-    prev_distance = 0.0
     ok = True
     errors = []
 
-    for i, e in enumerate(entries, start=1):
+    if not entries:
+        return ok, errors
+
+    prev_speed = entries[0]["cruise_speed"]
+    prev_distance = entries[0]["distance"]
+
+    # start validation from the 2nd entry
+    for i, e in enumerate(entries[1:], start=2):
         v = e["cruise_speed"]
         d = e["distance"]
-        t = e["time"]
 
         # 1. Check acceleration step
         if accel_limit and v < target:
@@ -53,9 +64,21 @@ def validate_engine_data(entries, cfg, tick_time=0.1, tol=1e-6):
     return ok, errors
 
 
+def drain_buffer(buf):
+    """Drain all entries from a buffer into a list."""
+    entries = []
+    if not buf:
+        return entries
+    while len(buf) > 0:
+        entry = buf.read()
+        if entry:
+            entries.append(entry)
+    return entries
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Smoke test for world vehicles simulator (GPS + Engine lifecycle)."
+        description="Smoke test for world vehicles simulator (GPS + Engine + Navigator lifecycles)."
     )
     parser.add_argument(
         "--manifest", type=str, default="world/vehicles.json",
@@ -71,7 +94,15 @@ def main():
     )
     parser.add_argument(
         "--dump-engine", action="store_true",
-        help="After shutdown, drain and print formatted engine diagnostics per vehicle."
+        help="After shutdown, drain and print EngineBuffer diagnostics per vehicle."
+    )
+    parser.add_argument(
+        "--dump-telemetry", action="store_true",
+        help="After shutdown, drain and print TelemetryBuffer diagnostics per vehicle."
+    )
+    parser.add_argument(
+        "--dump-all", action="store_true",
+        help="After shutdown, drain and print both EngineBuffer and TelemetryBuffer."
     )
     args = parser.parse_args()
 
@@ -83,47 +114,53 @@ def main():
 
     print(f"\nSimulation complete. Ran for {args.seconds:.1f} seconds")
 
-    if args.dump_engine:
-        for vid, cfg in factory.vehicles.items():
-            buf = cfg.get("_engine_buffer")
-            if not buf:
-                continue
+    for vid, cfg in factory.vehicles.items():
+        engine_buf = cfg.get("_engine_buffer")
+        telem_buf = cfg.get("_telemetry_buffer")
 
-            # drain buffer
-            entries = []
-            while len(buf) > 0:
-                entry = buf.read()
-                if entry:
-                    entries.append(entry)
+        # --- Engine diagnostics ---
+        if args.dump_engine or args.dump_all:
+            entries = drain_buffer(engine_buf)
+            if entries:
+                print(f"\n=== Engine Data for {vid} ===")
+                for e in entries:
+                    dist = e["distance"]
+                    if dist < 1.0:
+                        display_distance = f"{dist * 1000:7.1f} m"
+                    else:
+                        display_distance = f"{dist:7.3f} km"
 
-            if not entries:
-                continue
+                    print(
+                        f"{vid} | "
+                        f"Speed: {e['cruise_speed']:6.2f} km/h | "
+                        f"Heading: {e.get('heading', 0.0):6.2f}° | "
+                        f"Distance: {display_distance} | "
+                        f"Time: {e['time']:.2f} s"
+                    )
 
-            # print diagnostics
-            print(f"\n=== Engine Data for {vid} ===")
-            for e in entries:
-                dist = e["distance"]
-                if dist < 1.0:
-                    display_distance = f"{dist * 1000:7.1f} m"
+                ok, errors = validate_engine_data(entries, cfg, tick_time=args.tick)
+                if ok:
+                    print(f"[OK] Physics validated for {vid}")
                 else:
-                    display_distance = f"{dist:7.3f} km"
+                    print(f"[FAIL] Physics mismatches for {vid}:")
+                    for err in errors:
+                        print("   -", err)
 
-                print(
-                    f"{vid} | "
-                    f"Speed: {e['cruise_speed']:6.2f} km/h | "
-                    f"Heading: {e.get('heading', 0.0):6.2f}° | "
-                    f"Distance: {display_distance} | "
-                    f"Time: {e['time']:.2f} s"
-                )
-
-            # validation
-            ok, errors = validate_engine_data(entries, cfg, tick_time=args.tick)
-            if ok:
-                print(f"[OK] Physics validated for {vid}")
-            else:
-                print(f"[FAIL] Physics mismatches for {vid}:")
-                for err in errors:
-                    print("   -", err)
+        # --- Telemetry diagnostics ---
+        if args.dump_telemetry or args.dump_all:
+            entries = drain_buffer(telem_buf)
+            if entries:
+                print(f"\n=== Telemetry Data for {vid} ===")
+                for e in entries:
+                    print(
+                        f"{vid} | "
+                        f"Lon: {e['lon']:.8f} | "
+                        f"Lat: {e['lat']:.8f} | "
+                        f"Bearing: {e['bearing']:.2f}° | "
+                        f"Speed: {e.get('speed', 0.0):6.2f} km/h | "
+                        f"Distance: {e.get('distance', 0.0):.1f} m | "
+                        f"Time: {e.get('time', 0.0):.2f} s"
+                    )
 
 
 if __name__ == "__main__":
