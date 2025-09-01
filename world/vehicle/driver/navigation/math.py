@@ -11,9 +11,8 @@ Pure math helpers for navigation:
 import math
 from typing import List, Tuple
 
-
 # ---------------------------
-# LEGACY FUNCTIONS (unchanged)
+# LEGACY FUNCTIONS
 # ---------------------------
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -62,7 +61,6 @@ def interpolate_along_route(route: List[Tuple[float, float]], distance: float) -
         seg_len = haversine(lat1, lon1, lat2, lon2)
 
         if remaining <= seg_len:
-            # Fraction along this segment
             frac = remaining / seg_len if seg_len > 0 else 0.0
             lat = lat1 + frac * (lat2 - lat1)
             lon = lon1 + frac * (lon2 - lon1)
@@ -71,11 +69,9 @@ def interpolate_along_route(route: List[Tuple[float, float]], distance: float) -
 
         remaining -= seg_len
 
-    # If distance exceeds total length, return last point
     lat1, lon1 = route[-2]
     lat2, lon2 = route[-1]
     return (lat2, lon2, bearing(lat1, lon1, lat2, lon2))
-
 
 # ---------------------------
 # NEW FUNCTIONS
@@ -119,7 +115,6 @@ def interpolate_along_route_geodesic(route: List[Tuple[float, float]], distance_
         seg_len_km = haversine(lat1, lon1, lat2, lon2)
 
         if remaining <= seg_len_km:
-            # Distance in meters along this segment
             dist_m = remaining * 1000.0
             head = bearing(lat1, lon1, lat2, lon2)
             lat, lon = forward_point(lat1, lon1, head, dist_m)
@@ -127,7 +122,6 @@ def interpolate_along_route_geodesic(route: List[Tuple[float, float]], distance_
 
         remaining -= seg_len_km
 
-    # End of route
     lat1, lon1 = route[-2]
     lat2, lon2 = route[-1]
     return (lat2, lon2, bearing(lat1, lon1, lat2, lon2))

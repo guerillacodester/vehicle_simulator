@@ -49,6 +49,10 @@ def main():
         "--mode", choices=["linear", "geodesic"], default="geodesic",
         help="Navigator interpolation mode: 'linear' = legacy, 'geodesic' = improved (default)"
     )
+    parser.add_argument(
+        "--direction", choices=["inbound", "outbound"], default="outbound",
+        help="Route travel direction (default: outbound)"
+    )
 
     args = parser.parse_args()
 
@@ -79,13 +83,13 @@ def main():
         model = load_speed_model(cfg["speed_model"], **cfg)
         engine = Engine(vid, model, eng_buf, tick_time=0.1)
 
-        # Use the new mode argument
         navigator = Navigator(
             vehicle_id=vid,
             route_file=cfg["route_file"],
             engine_buffer=eng_buf,
             tick_time=0.1,
-            mode=args.mode
+            mode=args.mode,
+            direction=args.direction,   # 👈 new param wired in
         )
 
         engine.on()
@@ -127,7 +131,7 @@ def main():
             print()
 
         elif args.dump_telemetry:
-            print(f"=== Vehicle {vid} Telemetry (mode={args.mode}) ===")
+            print(f"=== Vehicle {vid} Telemetry (mode={args.mode}, dir={args.direction}) ===")
             while len(tel_buf) > 0:
                 e = tel_buf.read()
                 if not e:
@@ -141,7 +145,7 @@ def main():
             print()
 
         elif args.dump_all:
-            print(f"=== Vehicle {vid} Engine + Telemetry (mode={args.mode}) ===")
+            print(f"=== Vehicle {vid} Engine + Telemetry (mode={args.mode}, dir={args.direction}) ===")
             while len(tel_buf) > 0:
                 e = tel_buf.read()
                 if not e:

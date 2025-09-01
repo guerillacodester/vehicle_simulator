@@ -12,7 +12,7 @@
   },
   "ZR1301": {
     "active": false,
-    "route_file": "data/roads/route_1_final.geojson",
+    "route_file": "data/roads/route_1_final_processed.geojson",
     "route": "1",
     "speed_model": "kinematic",
     "speed": 60,
