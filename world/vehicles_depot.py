@@ -85,6 +85,7 @@ class VehiclesDepot:
             navigator = Navigator(
                 vehicle_id=vid,
                 route_file=cfg.get("route_file"),
+                route=cfg.get("route"),
                 engine_buffer=None,   # set after engine below
                 mode=cfg.get("mode", "geodesic"),
                 direction=cfg.get("direction", "outbound"),

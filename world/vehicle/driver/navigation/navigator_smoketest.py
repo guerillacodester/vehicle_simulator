@@ -86,6 +86,7 @@ def main():
         navigator = Navigator(
             vehicle_id=vid,
             route_file=cfg["route_file"],
+            route=cfg.get("route"),
             engine_buffer=eng_buf,
             tick_time=0.1,
             mode=args.mode,

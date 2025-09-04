@@ -22,6 +22,7 @@ class Navigator:
         self,
         vehicle_id: str,
         route_file: str,
+        route: str,
         engine_buffer,
         tick_time: float = 0.1,
         mode: str = "geodesic",
