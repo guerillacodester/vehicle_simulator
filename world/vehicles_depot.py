@@ -16,7 +16,7 @@ from world.vehicle.gps_device.device import GPSDevice
 from world.vehicle.engine.engine_block import Engine
 from world.vehicle.engine.engine_buffer import EngineBuffer
 from world.vehicle.engine.sim_speed_model import load_speed_model
-from world.fleet_dispatcher import FleetDispatcher
+from world.dispatcher import FleetDispatcher
 from world.vehicle.gps_device.rxtx_buffer import RxTxBuffer
 # Navigator (manages its own TelemetryBuffer internally)
 from world.vehicle.driver.navigation.navigator import Navigator
