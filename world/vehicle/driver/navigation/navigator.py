@@ -15,22 +15,24 @@ from world.routes.route_loader import load_route_coordinates
 from world.vehicle.driver.navigation import math
 from world.vehicle.driver.navigation.telemetry_buffer import TelemetryBuffer
 from world.vehicle.driver.navigation.route_topology import build_ordered_path
+from world.fleet_manager.manager import FleetManager
 
 
 class Navigator:
     def __init__(
         self,
         vehicle_id: str,
-        route_file: str,
-        route: str,
-        engine_buffer,
+        route_file: Optional[str] = None,
+        route: Optional[str] = None,   # route short_name from DB
+        engine_buffer=None,
         tick_time: float = 0.1,
         mode: str = "geodesic",
         direction: str = "outbound",   # "outbound" = default, "inbound" = reversed
     ):
         """
         :param vehicle_id: vehicle ID string
-        :param route_file: path to GeoJSON route file
+        :param route_file: path to GeoJSON route file (legacy mode)
+        :param route: route short_name in DB (preferred mode)
         :param engine_buffer: EngineBuffer instance for this vehicle
         :param tick_time: worker loop sleep time (s)
         :param mode: "linear" (legacy) or "geodesic" (default)
@@ -44,10 +46,16 @@ class Navigator:
         self.mode = mode
         self.direction = direction
 
-        # Build route using topology (robust)
-        self.route: List[Tuple[float, float]] = build_ordered_path(
-            route_file, direction=direction
-        )
+        if route:  # DB-backed route
+            fm = FleetManager()
+            self.route: List[Tuple[float, float]] = fm.routes.get_route_coordinates(route)
+            fm.close()
+        elif route_file:  # fallback to file
+            self.route: List[Tuple[float, float]] = build_ordered_path(
+                route_file, direction=direction
+            )
+        else:
+            raise ValueError("Navigator requires either a route short_name (DB) or a route_file")
 
         # Precompute segment lengths (km)
         self.segment_lengths: List[float] = []

@@ -115,3 +115,28 @@ def build_ordered_path(route_file: str, direction: str = "outbound") -> List[Coo
     if direction.lower() == "inbound":
         path.reverse()
     return [(lon, lat) for lon, lat in path]
+
+def build_ordered_path_from_featurecollection(fc: dict, direction: str = "outbound") -> List[Coord]:
+    """
+    Build an ordered path from an in-memory GeoJSON FeatureCollection.
+    Mirrors build_ordered_path, but operates on data instead of a file.
+    """
+    segments: List[List[Coord]] = []
+    for feat in fc.get("features", []):
+        geom = feat.get("geometry", {})
+        t = geom.get("type")
+        if t == "LineString":
+            coords = [_round_pt(tuple(c)) for c in geom.get("coordinates", [])]
+            if len(coords) >= 2:
+                segments.append(coords)
+        elif t == "MultiLineString":
+            for seg in geom.get("coordinates", []):
+                coords = [_round_pt(tuple(c)) for c in seg]
+                if len(coords) >= 2:
+                    segments.append(coords)
+
+    adj = _build_graph(segments)
+    path = _bfs_longest_path(adj)
+    if direction.lower() == "inbound":
+        path.reverse()
+    return [(lon, lat) for lon, lat in path]
