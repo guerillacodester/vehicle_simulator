@@ -57,7 +57,7 @@ def main():
     args = parser.parse_args()
 
     # Load manifest
-    with open("world/vehicle_depot/vehicles.json", "r", encoding="utf-8") as f:
+    with open("world/vehicles.json", "r", encoding="utf-8") as f:
         vehicles = json.load(f)
 
     engines, navigators, gps_devices = {}, {}, {}

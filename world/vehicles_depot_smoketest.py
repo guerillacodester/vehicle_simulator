@@ -14,7 +14,7 @@ import os
 # Ensure project root is in sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from .depot_manager import VehiclesDepot
+from world.vehicles_depot import VehiclesDepot
 
 
 def main():
