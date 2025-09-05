@@ -5,14 +5,14 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Absolute import to the routes-only API router
-from world.fleet_manager.api.routers import routes as routes_router
+# Routers
+from world.fleet_manager.api.routers import countries as countries_router
 
 
 def create_app() -> FastAPI:
     """
     FastAPI application factory.
-    Registers modular routers (routes, …) and shared middleware.
+    Registers modular routers and shared middleware.
     """
     app = FastAPI(
         title="ArkNet FleetManager API",
@@ -36,9 +36,8 @@ def create_app() -> FastAPI:
     def healthz() -> str:
         return "ok"
 
-    # Register modular routers here
-    # Routes service (/api/v1/routes/…)
-    app.include_router(routes_router.router)
+    # Register routers
+    app.include_router(countries_router.router)
 
     return app
 
