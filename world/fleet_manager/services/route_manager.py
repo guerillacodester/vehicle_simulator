@@ -236,3 +236,10 @@ class RouteManager:
         for seg in segments:
             flat.extend(seg)
         return flat
+
+    # -------------------------
+    # Alias for API compatibility
+    # -------------------------
+    def get_shapes_for_route(self, route_id: UUID) -> List[Dict[str, Any]]:
+        """Alias for list_route_shapes to satisfy API calls"""
+        return self.list_route_shapes(route_id)

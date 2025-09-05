@@ -7,6 +7,8 @@ from ...models.route import Route
 from ...services.route_manager import RouteManager
 from ..deps import get_route_manager
 from ..schemas.route import RouteOut, RouteCreate, RouteUpdate, CoordinatesResponse
+from typing import List, Dict, Any
+from .. import deps
 
 router = APIRouter(prefix="/api/v1/routes", tags=["routes"])
 
@@ -119,3 +121,15 @@ def get_route_coords_csv(short_name: str,
             for lon, lat in coords:       # type: ignore
                 yield f"{lon},{lat}\n"
     return StreamingResponse(_iter(), media_type="text/csv")
+
+@router.get("/{route_id}/shapes", response_model=List[Dict[str, Any]])
+def get_route_shapes(
+    route_id: UUID,
+    rm: RouteManager = Depends(deps.get_route_manager),
+):
+    """
+    Get all shapes (with metadata) linked to a route.
+    """
+    shapes = rm.get_shapes_for_route(route_id)
+    return shapes
+
