@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Routers
 from world.fleet_manager.api.routers import countries as countries_router
+from world.fleet_manager.api.routers import depots as depots_router   # ✅ NEW
 
 
 def create_app() -> FastAPI:
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
 
     # Register routers
     app.include_router(countries_router.router)
+    app.include_router(depots_router.router)   # ✅ NEW
 
     return app
 
