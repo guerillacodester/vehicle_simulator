@@ -3,23 +3,21 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from uuid import UUID
 
-
 class DepotBase(BaseModel):
     country_id: UUID = Field(..., description="Owning country UUID")
     name: str = Field(..., description="Depot name")
+    location: str | None = Field(None, description="Optional depot location")  # ✅ add
     capacity: int | None = Field(None, description="Max number of vehicles")
     notes: str | None = Field(None, description="Optional notes")
-
 
 class DepotCreate(DepotBase):
     pass
 
-
 class DepotUpdate(BaseModel):
     name: str | None = None
+    location: str | None = None   # ✅ add
     capacity: int | None = None
     notes: str | None = None
-
 
 class DepotRead(DepotBase):
     depot_id: UUID
@@ -27,4 +25,4 @@ class DepotRead(DepotBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True   # Pydantic v2 equivalent of orm_mode
+        from_attributes = True  # Pydantic v2 equivalent of orm_mode

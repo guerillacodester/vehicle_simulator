@@ -11,13 +11,14 @@ router = APIRouter(prefix="/api/v1/shapes", tags=["shapes"])
 
 @router.get("/", response_model=List[ShapeRead])
 def list_shapes(sm: ShapeManager = Depends(deps.get_shape_manager)):
+    # ✅ return [] instead of 404
     shapes = sm.list_shapes()
     return [
         ShapeRead(shape_id=s.shape_id, coordinates=sm.get_coords(s.shape_id))
         for s in shapes
     ]
 
-@router.post("/", response_model=ShapeRead)
+@router.post("/", response_model=ShapeRead, status_code=201)
 def create_shape(payload: ShapeCreate, sm: ShapeManager = Depends(deps.get_shape_manager)):
     s = sm.create_shape(payload.coordinates)
     return ShapeRead(shape_id=s.shape_id, coordinates=payload.coordinates)
@@ -30,7 +31,10 @@ def get_shape(shape_id: UUID, sm: ShapeManager = Depends(deps.get_shape_manager)
     coords = sm.get_coords(shape_id)
     return ShapeRead(shape_id=s.shape_id, coordinates=coords)
 
-@router.delete("/{shape_id}")
+@router.delete("/{shape_id}", status_code=204)
 def delete_shape(shape_id: UUID, sm: ShapeManager = Depends(deps.get_shape_manager)):
+    s = sm.get_shape(shape_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Shape not found")
     sm.delete_shape(shape_id)
-    return {"ok": True}
+    return

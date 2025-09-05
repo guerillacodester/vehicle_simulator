@@ -1,14 +1,12 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from ...models.route import Route
+
 from ...services.route_manager import RouteManager
 from ..deps import get_route_manager
 from ..schemas.route import RouteOut, RouteCreate, RouteUpdate, CoordinatesResponse
-from typing import List, Dict, Any
-from .. import deps
 
 router = APIRouter(prefix="/api/v1/routes", tags=["routes"])
 
@@ -30,7 +28,7 @@ def list_routes(active_only: bool = Query(True),
 def get_route(route_id: UUID, rm: RouteManager = Depends(get_route_manager)):
     r = rm.get_route_by_id(route_id)
     if not r:
-        raise HTTPException(404, f"Route not found: {route_id}")
+        raise HTTPException(404, detail=f"Route not found: {route_id}")
     return RouteOut(
         route_id=r.route_id,
         short_name=r.short_name,
@@ -43,7 +41,7 @@ def get_route(route_id: UUID, rm: RouteManager = Depends(get_route_manager)):
 def get_route_by_short_name(short_name: str, rm: RouteManager = Depends(get_route_manager)):
     r = rm.get_route_by_short_name(short_name)
     if not r:
-        raise HTTPException(404, f"Route not found: {short_name}")
+        raise HTTPException(404, detail=f"Route not found: {short_name}")
     return RouteOut(
         route_id=r.route_id,
         short_name=r.short_name,
@@ -54,8 +52,10 @@ def get_route_by_short_name(short_name: str, rm: RouteManager = Depends(get_rout
 
 @router.post("", response_model=RouteOut, status_code=201)
 def create_route(payload: RouteCreate, rm: RouteManager = Depends(get_route_manager)):
+    if not payload.country_id:
+        raise HTTPException(400, detail="country_id is required")
     r = rm.create_route(
-        country_id=payload.country_id or UUID(int=0),
+        country_id=payload.country_id,
         short_name=payload.short_name,
         long_name=payload.long_name,
         parishes=payload.parishes,
@@ -86,7 +86,7 @@ def delete_route(route_id: UUID, rm: RouteManager = Depends(get_route_manager)):
     rm.delete_route(route_id)
     return
 
-# ----- route coordinates (for Depot/Visualizer) -----
+# ----- route coordinates -----
 @router.get("/{short_name}/coordinates", response_model=CoordinatesResponse)
 def get_route_coords(short_name: str,
                      split_by_shape: bool = Query(False),
@@ -121,15 +121,3 @@ def get_route_coords_csv(short_name: str,
             for lon, lat in coords:       # type: ignore
                 yield f"{lon},{lat}\n"
     return StreamingResponse(_iter(), media_type="text/csv")
-
-@router.get("/{route_id}/shapes", response_model=List[Dict[str, Any]])
-def get_route_shapes(
-    route_id: UUID,
-    rm: RouteManager = Depends(deps.get_route_manager),
-):
-    """
-    Get all shapes (with metadata) linked to a route.
-    """
-    shapes = rm.get_shapes_for_route(route_id)
-    return shapes
-

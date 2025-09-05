@@ -4,13 +4,29 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 # Routers
 from world.fleet_manager.api.routers import routes as routes_router
 from world.fleet_manager.api.routers import countries as countries_router
-from world.fleet_manager.api.routers import depots as depots_router   # ✅ NEW
+from world.fleet_manager.api.routers import depots as depots_router
 from world.fleet_manager.api.routers import vehicles as vehicles_router
 from world.fleet_manager.api.routers import shapes as shapes_router
+from world.fleet_manager.api.routers import admin as admin_router
+
+# DB init
+from world.fleet_manager.database import init_engine
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ✅ Initialize engine + SSH tunnel ONCE at startup
+    engine = init_engine()
+    app.state.engine = engine
+    try:
+        yield
+    finally:
+        # optional: close engine/tunnel if you add stop handles in database.py
+        pass
 
 def create_app() -> FastAPI:
     """
@@ -23,6 +39,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,   # ✅ attach lifespan
     )
 
     # CORS (adjust for production)
@@ -41,13 +58,13 @@ def create_app() -> FastAPI:
 
     # Register routers
     app.include_router(countries_router.router)
-    app.include_router(depots_router.router)   # ✅ NEW
-    app.include_router(vehicles_router.router)  # ✅ NEW
-    app.include_router(routes_router.router)   # ✅ ensure routes API stays available
+    app.include_router(depots_router.router)
+    app.include_router(vehicles_router.router)
+    app.include_router(routes_router.router)
     app.include_router(shapes_router.router)
+    app.include_router(admin_router.router)
     
     return app
-
 
 # Uvicorn entrypoint
 app = create_app()
