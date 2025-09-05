@@ -1,5 +1,4 @@
-from .route import Route
-from .shape import Shape
-from .route_shape import RouteShape
+from .base import Base
 
-__all__ = ["Route", "Shape", "RouteShape"]
+__all__ = ["Base"]
+

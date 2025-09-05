@@ -1,7 +1,7 @@
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import UUID
 from geoalchemy2 import Geometry
-from ..database import Base
+from .base import Base   # ✅ single shared Base
 
 class Shape(Base):
     __tablename__ = "shapes"

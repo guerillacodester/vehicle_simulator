@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from ..database import Base
+from .base import Base   # ✅ single source of truth for Base
 
 class RouteShape(Base):
     __tablename__ = "route_shapes"

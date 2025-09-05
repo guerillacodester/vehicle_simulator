@@ -1,7 +1,8 @@
 from sqlalchemy import Column, String, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from ..database import Base
+
+from .base import Base
 
 class Route(Base):
     __tablename__ = "routes"
