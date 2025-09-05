@@ -16,7 +16,7 @@ once GPSDevice is OFF).
 
 import argparse
 import time
-from world.vehicles_depot import VehiclesDepot
+from world.vehicle_depot.depot_manager import VehiclesDepot
 
 
 def validate_engine_data(entries, cfg, tick_time=0.1, tol=1e-6):

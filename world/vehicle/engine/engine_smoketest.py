@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         "--vehicle-id",
         type=str,
-        help="Vehicle ID to simulate (must exist in world/vehicles.json)",
+        help="Vehicle ID to simulate (must exist in world/vehicle_depot/vevehicles.json)",
     )
     parser.add_argument(
         "--seconds",
@@ -43,7 +43,7 @@ def main():
         sys.exit(1)
 
     # --- Step 1: Load vehicles.json ---
-    vehicles_path = os.path.join(os.path.dirname(__file__), "../../vehicles.json")
+    vehicles_path = os.path.join(os.path.dirname(__file__), "../../vehicle_depot/vehicles.json")
     vehicles_abs = os.path.abspath(vehicles_path)
 
     if not os.path.exists(vehicles_abs):

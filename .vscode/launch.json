@@ -35,7 +35,7 @@
         "--vehicle-id","ZR1301",
         "--tick", "0.1",
         "--speed-model", "kinematic",
-        "--vehicles", "${workspaceFolder}/world/vehicles.json"
+        "--vehicles", "${workspaceFolder}/world/vvehicle_depot/ehicles.json"
       ]
     },
     {
