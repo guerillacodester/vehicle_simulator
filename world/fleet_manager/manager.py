@@ -3,7 +3,7 @@ from .services.route_manager import RouteManager
 from .services.vehicle_manager import VehicleManager
 from .services.country_manager import CountryManager
 from .services.depot_manager import DepotManager   # ✅ add this
-
+from .services.shape_manager import ShapeManager
 
 class FleetManager:
     """
@@ -19,7 +19,8 @@ class FleetManager:
         self.vehicles = VehicleManager(self.db)
         self.countries = CountryManager(self.db)
         self.depots = DepotManager(self.db)        # ✅ wire it in here
-
+        self.shapes = ShapeManager(self.db)
+        
     def close(self):
         if self.db:
             self.db.close()

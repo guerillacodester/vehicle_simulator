@@ -10,6 +10,7 @@ from world.fleet_manager.api.routers import routes as routes_router
 from world.fleet_manager.api.routers import countries as countries_router
 from world.fleet_manager.api.routers import depots as depots_router   # ✅ NEW
 from world.fleet_manager.api.routers import vehicles as vehicles_router
+from world.fleet_manager.api.routers import shapes as shapes_router
 
 def create_app() -> FastAPI:
     """
@@ -43,6 +44,8 @@ def create_app() -> FastAPI:
     app.include_router(depots_router.router)   # ✅ NEW
     app.include_router(vehicles_router.router)  # ✅ NEW
     app.include_router(routes_router.router)   # ✅ ensure routes API stays available
+    app.include_router(shapes_router.router)
+    
     return app
 
 
