@@ -9,7 +9,7 @@ VehicleStatus = Literal["available", "active", "inactive", "maintenance"]
 # ✅ Regex: ZR + 2–3 digits only (ZR12 or ZR123)
 RegCode = Annotated[
     str,
-    StringConstraints(pattern=r"^ZR[0-9]{2,3}$", strip_whitespace=True)
+    StringConstraints(pattern=r"^ZR[0-9]{2,4}$", strip_whitespace=True)
 ]
 
 class VehicleBase(BaseModel):

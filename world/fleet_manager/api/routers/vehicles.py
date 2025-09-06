@@ -29,10 +29,11 @@ def get_vehicle(vehicle_id: UUID, fm=Depends(deps.get_fm)):
 def create_vehicle(payload: VehicleCreate, fm=Depends(deps.get_fm)):
     if payload.home_depot_id and not fm.depots.get_depot(payload.home_depot_id):
         raise HTTPException(400, "home_depot_id does not exist")
-    if payload.preferred_route_id:
-        r = fm.routes.get_route_by_id(payload.preferred_route_id)
-        if not r:
-            raise HTTPException(400, "preferred_route_id does not exist")
+    if payload.preferred_route_id and not fm.routes.get_route_by_id(payload.preferred_route_id):
+        raise HTTPException(400, "preferred_route_id does not exist")
+
+    if fm.vehicles.get_by_reg_code(payload.reg_code):
+        raise HTTPException(409, f"Vehicle '{payload.reg_code}' already exists")
 
     try:
         return fm.vehicles.create_vehicle(
@@ -53,8 +54,11 @@ def create_vehicle(payload: VehicleCreate, fm=Depends(deps.get_fm)):
         if code == errorcodes.NOT_NULL_VIOLATION:
             raise HTTPException(400, "A required field is null")
         if code == errorcodes.CHECK_VIOLATION:
-            raise HTTPException(400, "reg_code must match pattern ZR###")
+            raise HTTPException(400, "reg_code must match pattern ZR followed by 2–4 digits (e.g., ZR01–ZR9999)")
+
         raise
+
+
 
 @router.patch("/{vehicle_id}", response_model=VehicleRead)
 def update_vehicle(vehicle_id: UUID, payload: VehicleUpdate, fm=Depends(deps.get_fm)):

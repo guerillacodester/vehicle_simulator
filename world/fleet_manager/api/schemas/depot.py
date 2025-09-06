@@ -2,11 +2,16 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from uuid import UUID
+from typing import Tuple, Union
 
+LonLat = Tuple[float, float]
 class DepotBase(BaseModel):
     country_id: UUID = Field(..., description="Owning country UUID")
     name: str = Field(..., description="Depot name")
-    location: str | None = Field(None, description="Optional depot location")  # ✅ add
+    location: Union[LonLat, dict, None] = Field(
+        None,
+        description="Depot location (lon, lat) or GeoJSON Point",
+    )
     capacity: int | None = Field(None, description="Max number of vehicles")
     notes: str | None = Field(None, description="Optional notes")
 

@@ -26,7 +26,14 @@ def get_country_by_iso(iso_code: str, fm=Depends(deps.get_fm)):
 
 @router.post("/", response_model=CountryRead, status_code=201)
 def create_country(payload: CountryCreate, fm=Depends(deps.get_fm)):
-    return fm.countries.create_country(iso_code=payload.iso_code, name=payload.name)
+    existing = fm.countries.get_by_iso(payload.iso_code.upper())
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Country {payload.iso_code} already exists")
+
+    return fm.countries.create_country(
+        iso_code=payload.iso_code.upper(),
+        name=payload.name
+    )
 
 @router.patch("/{country_id}", response_model=CountryRead)
 def update_country(country_id: str, payload: CountryUpdate, fm=Depends(deps.get_fm)):

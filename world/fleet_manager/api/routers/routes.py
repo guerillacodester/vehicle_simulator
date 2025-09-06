@@ -52,8 +52,6 @@ def get_route_by_short_name(short_name: str, rm: RouteManager = Depends(get_rout
 
 @router.post("", response_model=RouteOut, status_code=201)
 def create_route(payload: RouteCreate, rm: RouteManager = Depends(get_route_manager)):
-    if not payload.country_id:
-        raise HTTPException(400, detail="country_id is required")
     r = rm.create_route(
         country_id=payload.country_id,
         short_name=payload.short_name,

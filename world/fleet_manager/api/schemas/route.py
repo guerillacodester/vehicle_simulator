@@ -1,7 +1,10 @@
 from __future__ import annotations
-from typing import Optional, List, Tuple, Any
+from typing import Union, Optional, List, Tuple, Any
 from uuid import UUID
 from pydantic import BaseModel, Field
+
+LonLat = Tuple[float, float]
+Coords = Union[List[LonLat], List[List[LonLat]]]
 
 LonLat = Tuple[float, float]
 
@@ -13,7 +16,7 @@ class RouteOut(BaseModel):
     is_active: bool = True
 
 class RouteCreate(BaseModel):
-    country_id: Optional[UUID] = None
+    country_id: UUID
     short_name: str = Field(..., min_length=1, max_length=32)
     long_name: Optional[str] = None
     parishes: Optional[str] = None
@@ -28,4 +31,4 @@ class RouteUpdate(BaseModel):
 class CoordinatesResponse(BaseModel):
     route: str
     split_by_shape: bool
-    coordinates: Any  # List[LonLat] or List[List[LonLat]]
+    coordinates: Coords

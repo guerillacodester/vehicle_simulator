@@ -19,18 +19,17 @@ def get_depot(depot_id: UUID, fm=Depends(deps.get_fm)):
 
 @router.post("/", response_model=DepotRead, status_code=201)
 def create_depot(payload: DepotCreate, fm=Depends(deps.get_fm)):
-    # Optional duplicate check
-    existing = [d for d in fm.depots.list_depots() if d.name == payload.name]
-    if existing:
-        raise HTTPException(status_code=409, detail=f"Depot '{payload.name}' already exists")
-
-    return fm.depots.create_depot(
-        country_id=payload.country_id,   # ✅ UUID stays UUID
+    depot = fm.depots.create_depot(
+        country_id=payload.country_id,
         name=payload.name,
-        location=getattr(payload, "location", None),
+        location=payload.location,
         capacity=payload.capacity,
         notes=payload.notes,
     )
+    if depot is None:
+        raise HTTPException(status_code=409, detail=f"Depot '{payload.name}' already exists")
+    return depot
+
 
 @router.patch("/{depot_id}", response_model=DepotRead)
 def update_depot(depot_id: UUID, payload: DepotUpdate, fm=Depends(deps.get_fm)):
