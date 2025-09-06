@@ -214,27 +214,46 @@ def update_arrival(session, table, vehicle_id, route_id, departure_time_iso, arr
     })
 
 # ---------- Data gen ----------
-def generate_timetable_data():
+def generate_timetable_data(session, trips_per_vehicle=2, headway_minutes=30):
+    """
+    Generate timetable entries by distributing available vehicles across real routes.
+    """
+
+    vehicles = session.execute(
+        text("SELECT vehicle_id, reg_code FROM vehicles WHERE status = 'available' ORDER BY reg_code")
+    ).fetchall()
+
+    routes = session.execute(
+        text("SELECT route_id, short_name FROM routes WHERE is_active = true ORDER BY short_name")
+    ).fetchall()
+
+    if not vehicles:
+        print(Fore.YELLOW + "[WARN] No available vehicles found — timetable generation skipped.")
+        return []
+
+    if not routes:
+        print(Fore.YELLOW + "[WARN] No active routes found — timetable generation skipped.")
+        return []
+
     timetables = []
-    vehicles = [
-        "19c7a341-5fb9-4ad6-b08c-3fd2b3fefe2c",
-        "19c7a341-5fb9-4ad6-b08c-3fd2b3fefe2d",
-    ]
-    routes = [
-        "14aba2e0-8c5e-40f3-9fea-b4f740c7f7a3",
-        "14aba2e0-8c5e-40f3-9fea-b4f740c7f7a4",
-    ]
-    for i in range(2):
-        dep = datetime.utcnow() + timedelta(minutes=i * 30)
-        arr = dep + timedelta(minutes=60)
-        timetables.append({
-            "vehicle_id": vehicles[i],
-            "route_id": routes[i],
-            "departure_time": dep.isoformat() + "Z",
-            "arrival_time":   arr.isoformat() + "Z",
-            "notes": f"Test trip {i+1}",
-        })
+    now = datetime.utcnow().replace(second=0, microsecond=0)
+
+    # Round-robin distribute vehicles to existing routes
+    for i, v in enumerate(vehicles):
+        route = routes[i % len(routes)]
+        for j in range(trips_per_vehicle):
+            dep = now + timedelta(minutes=(i * headway_minutes) + j * 120)
+            arr = dep + timedelta(minutes=60)
+            timetables.append({
+                "vehicle_id": str(v.vehicle_id),
+                "route_id": str(route.route_id),
+                "departure_time": dep.isoformat() + "Z",
+                "arrival_time": arr.isoformat() + "Z",
+                "notes": f"Auto-seeded {v.reg_code} on route {route.short_name}"
+            })
+
     return timetables
+
 
 def write_timetables_sql(timetables, out_dir="."):
     out_path = os.path.join(out_dir, "timetables.sql")
@@ -296,7 +315,8 @@ def seed_timetable(interactive=True):
         elif existing > 0:
             update_mode = True
 
-        data = generate_timetable_data()
+        data = generate_timetable_data(db, trips_per_vehicle=3, headway_minutes=15)
+
         for row in data:
             try:
                 if update_mode:

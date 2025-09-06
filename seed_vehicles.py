@@ -1,232 +1,201 @@
 #!/usr/bin/env python3
 """
-seed_timetable.py
------------------
-Seeds the timetables table interactively or programmatically.
-Creates the table if not present, and populates it with sample data.
+Standalone seed_vehicles.py
+- Connects to Postgres over SSH tunnel
+- Seeds the vehicles table with sample rows
 """
 
-import sys
-import signal
-import os
-import argparse
-from datetime import datetime, timedelta
-from colorama import Fore, Style, init
+import os, sys, signal, argparse, socket, select, threading
+from contextlib import contextmanager
 from configparser import ConfigParser
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Table, MetaData
+from colorama import Fore, Style, init
+
+import paramiko
+from sqlalchemy import create_engine, text, MetaData, Table, Column, Text, DateTime
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.pool import NullPool
 
 init(autoreset=True)
 
-# DB Configuration using .env and config.ini
+# ---------- Config ----------
 def load_configuration():
-    """Load configuration from .env and config.ini."""
-    load_dotenv()  # Load .env file
+    load_dotenv()
+    cfg = ConfigParser()
+    if not cfg.read("config.ini"):
+        raise RuntimeError("config.ini not found")
 
-    # Load PostgreSQL settings from config.ini
-    config = ConfigParser()
-    config.read('config.ini')
+    pg = cfg["postgres"]
+    host = pg.get("host", "127.0.0.1")
+    port = int(pg.get("port", "5432"))
+    db   = pg.get("default_db", "postgres")
 
-    db_config = config['postgres']
-    db_url = f"postgresql://{db_config['host']}:{db_config['port']}/{db_config['default_db']}"
-    
-    return db_url
+    db_user = os.getenv("DB_USER")
+    db_pass = os.getenv("DB_PASS")
+    if not db_user or not db_pass:
+        raise RuntimeError("DB_USER/DB_PASS missing in .env")
 
-# Establish connection to the DB
-def get_db_session():
-    """Establishes a new DB session using the loaded DB URL."""
-    db_url = load_configuration()
-    engine = create_engine(db_url, echo=False, future=True)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-    return db
+    ssh_host = os.getenv("SSH_HOST")
+    ssh_port = int(os.getenv("SSH_PORT", "22"))
+    ssh_user = os.getenv("SSH_USER")
+    ssh_pass = os.getenv("SSH_PASS")
+    if not (ssh_host and ssh_user and ssh_pass):
+        raise RuntimeError("SSH_HOST/SSH_USER/SSH_PASS must be set in .env")
 
-# Helper function to check if a table exists
-def table_exists(db, table_name):
-    """Check if the given table exists in the database."""
-    metadata = MetaData(bind=db.bind)
-    return Table(table_name, metadata, autoload_with=db.bind).exists()
+    db_url = f"postgresql+psycopg2://{db_user}:{db_pass}@127.0.0.1:{port}/{db}"
+    return {
+        "db_url": db_url,
+        "db_host": host,
+        "db_port": port,
+        "db_name": db,
+        "ssh_host": ssh_host,
+        "ssh_port": ssh_port,
+        "ssh_user": ssh_user,
+        "ssh_pass": ssh_pass,
+    }
 
-# Insert operation
-def insert(db, table_name, data, id_column="id"):
-    """Inserts data into the given table."""
+# ---------- SSH Forwarder ----------
+class _Forwarder(threading.Thread):
+    def __init__(self, transport, local_port, remote_host, remote_port):
+        super().__init__(daemon=True)
+        self.transport = transport
+        self.local_port = local_port
+        self.remote = (remote_host, remote_port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(("127.0.0.1", local_port))
+        self.sock.listen(5)
+        self._stop = threading.Event()
+
+    def stop(self):
+        self._stop.set()
+        try: self.sock.close()
+        except Exception: pass
+
+    def run(self):
+        while not self._stop.is_set():
+            r, _, _ = select.select([self.sock], [], [], 0.5)
+            if self.sock in r:
+                try:
+                    client, addr = self.sock.accept()
+                except OSError:
+                    break
+                chan = self.transport.open_channel("direct-tcpip", self.remote, addr)
+                threading.Thread(target=self._pipe, args=(client, chan), daemon=True).start()
+
+    @staticmethod
+    def _pipe(client, chan):
+        if chan is None:
+            client.close()
+            return
+        try:
+            while True:
+                r, _, _ = select.select([client, chan], [], [], 0.5)
+                if client in r:
+                    data = client.recv(65536)
+                    if not data: break
+                    chan.sendall(data)
+                if chan in r:
+                    data = chan.recv(65536)
+                    if not data: break
+                    client.sendall(data)
+        finally:
+            try: chan.close()
+            except: pass
+            try: client.close()
+            except: pass
+
+@contextmanager
+def open_ssh_tunnel(conf):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(conf["ssh_host"], port=conf["ssh_port"],
+                username=conf["ssh_user"], password=conf["ssh_pass"],
+                look_for_keys=False, allow_agent=False, timeout=15)
+    transport = ssh.get_transport()
+    forwarder = _Forwarder(transport, conf["db_port"], conf["db_host"], conf["db_port"])
+    forwarder.start()
     try:
-        db.execute(table_name.insert().values(data))
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+        yield
+    finally:
+        try: forwarder.stop()
+        except: pass
+        try: ssh.close()
+        except: pass
 
-# Update operation
-def update(db, table_name, data, condition):
-    """Update data in the table based on condition."""
-    db.execute(table_name.update().where(condition).values(data))
-    db.commit()
+@contextmanager
+def db_session(conf):
+    with open_ssh_tunnel(conf):
+        engine = create_engine(conf["db_url"], echo=False, poolclass=NullPool, future=True)
+        Session = sessionmaker(bind=engine, future=True)
+        with Session() as s:
+            yield s
 
-# Select operation
-def select(db, table_name, fields="*", condition=None):
-    """Select records from a table based on condition."""
-    if condition:
-        return db.execute(table_name.select().where(condition)).fetchall()
-    return db.execute(table_name.select().with_only_columns(fields)).fetchall()
+# ---------- Helpers ----------
+def ensure_vehicles_table(session):
+    md = MetaData()
+    engine = session.get_bind()
+    md.reflect(engine, only=["vehicles"])
+    return md.tables["vehicles"]
 
-# Graceful exit for script
-def graceful_exit(sig, frame):
-    print("\nExiting gracefully. Goodbye!")
-    sys.exit(0)
+def insert_vehicle(session, table, row):
+    cols = ", ".join(row.keys())
+    vals = ", ".join(f":{k}" for k in row.keys())
+    stmt = text(f"INSERT INTO {table.name} ({cols}) VALUES ({vals})")
+    session.execute(stmt, row)
 
-# Handle Ctrl+C and Ctrl+X
-signal.signal(signal.SIGINT, graceful_exit)   # Ctrl+C
-signal.signal(signal.SIGTERM, graceful_exit)  # Ctrl+X
+import random
 
-def write_timetables_sql(timetables, csv_path):
-    """Generate timetables.sql next to the loaded CSV file."""
-    out_dir = os.path.dirname(csv_path)
-    out_path = os.path.join(out_dir, "timetables.sql")
+def generate_vehicle_data(country_id):
+    """Generate 100 vehicles with random reg codes between ZR90 and ZR502 (inclusive)."""
+    vehicles = []
+    used = set()
 
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write("-- timetables.sql\n")
-        f.write("-- Auto-generated by seed_timetable.py\n\n")
-        f.write("CREATE TABLE IF NOT EXISTS timetables (\n")
-        f.write("    timetable_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n")
-        f.write("    vehicle_id   uuid NOT NULL,\n")
-        f.write("    route_id     uuid NOT NULL,\n")
-        f.write("    departure_time timestamptz NOT NULL,\n")
-        f.write("    arrival_time   timestamptz,\n")
-        f.write("    notes        text,\n")
-        f.write("    created_at   timestamptz NOT NULL DEFAULT now(),\n")
-        f.write("    updated_at   timestamptz NOT NULL DEFAULT now()\n")
-        f.write(");\n\n")
+    while len(vehicles) < 100:
+        num = random.randint(90, 502)
+        if num in used:
+            continue
+        used.add(num)
 
-        f.write("INSERT INTO timetables (vehicle_id, route_id, departure_time, arrival_time, notes) VALUES\n")
-
-        rows = []
-        for row in timetables:
-            vehicle_id = row["vehicle_id"]
-            route_id = row["route_id"]
-            dep_time = row["departure_time"]
-            arr_time = row["arrival_time"]
-            notes = row["notes"].replace("'", "''")
-            rows.append(f"    ('{vehicle_id}', '{route_id}', '{dep_time}', '{arr_time}', '{notes}')")
-
-        f.write(",\n".join(rows))
-        f.write("\nON CONFLICT (vehicle_id, route_id, departure_time) DO UPDATE SET arrival_time = EXCLUDED.arrival_time;\n")
-
-    return out_path
-
-def generate_timetable_data():
-    """Generate or load timetable data."""
-    # Sample data (replace with real-world data or files as needed)
-    timetables = []
-    vehicles = ["19c7a341-5fb9-4ad6-b08c-3fd2b3fefe2c", "19c7a341-5fb9-4ad6-b08c-3fd2b3fefe2d"]  # Example vehicle UUIDs
-    routes = ["14aba2e0-8c5e-40f3-9fea-b4f740c7f7a3", "14aba2e0-8c5e-40f3-9fea-b4f740c7f7a4"]  # Example route UUIDs
-    for i in range(2):
-        departure_time = datetime.utcnow() + timedelta(minutes=i * 30)
-        arrival_time = departure_time + timedelta(minutes=60)  # Example 1-hour trip
-        timetables.append({
-            "vehicle_id": vehicles[i],
-            "route_id": routes[i],
-            "departure_time": departure_time.isoformat(),
-            "arrival_time": arrival_time.isoformat(),
-            "notes": f"Test trip {i+1}"
+        reg_code = f"ZR{num}"
+        vehicles.append({
+            "country_id": country_id,
+            "reg_code": reg_code,
+            "status": "available",
+            "notes": f"Seeded vehicle {len(vehicles)+1}"
         })
-    return timetables
+    return vehicles
 
-def seed_timetable(interactive: bool = True):
-    """
-    Seed the timetables table.
-    - interactive=True: prints help, prompts user, prints row-by-row feedback
-    - interactive=False: runs silently, just returns summary dict
-    Returns: dict with inserted/updated/skipped/sql_file
-    """
-    config = load_configuration()  # Load configuration using the new method
-    result = {"inserted": 0, "updated": 0, "skipped": 0, "sql_file": None}
 
-    with get_db_session() as db:
-        if interactive:
-            print(get_help_text())
+# ---------- Main ----------
+def seed_vehicles(interactive=True):
+    conf = load_configuration()
+    with db_session(conf) as db:
+        table = ensure_vehicles_table(db)
 
-        # Ensure table exists
-        if not table_exists(db, "timetables"):
-            if interactive:
-                print("[INFO] Timetables table not found, creating...")
-            schema_sql = """
-            CREATE TABLE timetables (
-                timetable_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                vehicle_id   uuid NOT NULL,
-                route_id     uuid NOT NULL,
-                departure_time timestamptz NOT NULL,
-                arrival_time   timestamptz,
-                notes        text,
-                created_at   timestamptz NOT NULL DEFAULT now(),
-                updated_at   timestamptz NOT NULL DEFAULT now()
-            );
-            """
-            create_table(db, schema_sql)
+        # get first country_id
+        country_id = db.execute(text("SELECT country_id FROM countries LIMIT 1")).scalar_one()
+        data = generate_vehicle_data(country_id)
 
-        timetables = generate_timetable_data()
-
-        # Check if already populated
-        existing = select(db, "timetables", "count(*) as count")[0]["count"]
-
-        if interactive and existing > 0:
-            choice = input("[?] Timetables table already contains data. Update it? (Y/n, S=skip): ").strip().lower()
-            if choice == "s":
-                if interactive:
-                    print("[INFO] Skipping seeding.")
-                return result
-            update_mode = (choice == "y")
-        else:
-            update_mode = existing > 0
-
-        for row in timetables:
+        inserted = 0
+        for row in data:
             try:
-                if update_mode:
-                    update(db, "timetables", {"arrival_time": row["arrival_time"]}, {"vehicle_id": row["vehicle_id"], "route_id": row["route_id"], "departure_time": row["departure_time"]})
-                    result["updated"] += 1
-                    if interactive:
-                        print(Fore.GREEN + f"[OK] Updated {row['vehicle_id']} on route {row['route_id']} for departure {row['departure_time']}")
-                else:
-                    insert(db, "timetables", row, id_column="timetable_id")
-                    result["inserted"] += 1
-                    if interactive:
-                        print(Fore.GREEN + f"[OK] Inserted timetable for {row['vehicle_id']} on route {row['route_id']}")
-
-            except Exception as e:
-                result["skipped"] += 1
+                insert_vehicle(db, table, row)
+                db.commit()
+                inserted += 1
                 if interactive:
-                    print(Fore.RED + f"[X] Failed timetable for {row['vehicle_id']} on route {row['route_id']}: {e}")
+                    print(Fore.GREEN + f"[OK] Inserted {row['reg_code']}")
+            except Exception as e:
+                db.rollback()
+                print(Fore.RED + f"[X] {e}")
 
-        # Write SQL file
-        sql_path = write_timetables_sql(timetables, config["files"]["timetables"])
-        result["sql_file"] = sql_path
+        print(Style.BRIGHT + f"Inserted {inserted} vehicles.")
 
-        if interactive:
-            print(Style.BRIGHT + f"\nSummary: Inserted={result['inserted']}, Updated={result['updated']}, Skipped={result['skipped']}")
-            print(Fore.GREEN + f"[OK] Generated {sql_path}")
-
-    return result
-
-def get_help_text():
-    return """
-    [Help Menu]
-    - This script will seed the timetables table in your database.
-    - Available options:
-      - Interactive mode (default): Asks for confirmation before inserting or updating timetables.
-      - Silent mode: Runs without asking and just populates the table.
-    - Use -h or --help to show this help menu.
-    """
+def main():
+    p = argparse.ArgumentParser()
+    args = p.parse_args()
+    seed_vehicles(interactive=True)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("-h", "--help", action="store_true", help="Show help menu and exit")
-    args = parser.parse_args()
-
-    if args.help:
-        print(get_help_text())
-        sys.exit(0)
-
-    summary = seed_timetable(interactive=True)
-    print(summary)  # Debug summary dict
+    main()
