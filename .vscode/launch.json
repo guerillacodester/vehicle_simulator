@@ -50,6 +50,17 @@
         "--seconds","5",
         "--dump-all"
       ]
+    },
+    {
+      "name": "Debug seed_timetables",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/seed_timetables.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+      ]
     }
   ]
 }
