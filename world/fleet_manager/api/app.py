@@ -13,6 +13,7 @@ from world.fleet_manager.api.routers import depots as depots_router
 from world.fleet_manager.api.routers import vehicles as vehicles_router
 from world.fleet_manager.api.routers import shapes as shapes_router
 from world.fleet_manager.api.routers import admin as admin_router
+from world.fleet_manager.api.routers import timetables as timetables_router
 
 # DB init
 from world.fleet_manager.database import init_engine
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_router.router)
     app.include_router(shapes_router.router)
     app.include_router(admin_router.router)
+    app.include_router(timetables_router.router)
     
     return app
 

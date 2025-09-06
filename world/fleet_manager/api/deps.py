@@ -8,6 +8,7 @@ from .. import database
 from ..manager import FleetManager
 from ..services.route_manager import RouteManager
 from ..services.shape_manager import ShapeManager
+from ..services.timetable_manager import TimetableManager
 
 def get_db():
     # Optional guard
@@ -27,3 +28,6 @@ def get_route_manager(db: Session = Depends(get_db)) -> RouteManager:
 
 def get_shape_manager(db: Session = Depends(get_db)) -> ShapeManager:
     return ShapeManager(db)
+
+def get_timetable_manager(db: Session = Depends(get_db)) -> TimetableManager:
+    return TimetableManager(db)

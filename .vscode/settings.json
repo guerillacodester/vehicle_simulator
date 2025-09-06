@@ -2,6 +2,7 @@
     "python.analysis.extraPaths": [
         "./common",
         "./vehicle_depot/vehicle",
-        "./world/vehicle"
+        "./world/vehicle",
+        "./world/fleet_manager/models"
     ]
 }
