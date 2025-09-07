@@ -7,8 +7,16 @@ Uses config.ini for DB host/port/default_db and .env for credentials.
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from config_loader import load_config
+import sys
 import os
+from pathlib import Path
+
+# Add project root and scripts to path
+project_root = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "scripts"))
+
+from scripts.config_loader import load_config
 import paramiko, socket, threading
 from dotenv import load_dotenv
 
@@ -78,11 +86,11 @@ def init_engine():
     ssh_host = ssh_cfg.get("host", "arknetglobal.com")
     ssh_port = int(ssh_cfg.get("port", 22))
     ssh_user = ssh_cfg.get("user", "david")
-    ssh_pass = ssh_cfg.get("password", "")
+    ssh_pass = os.getenv("SSH_PASS", "Cabbyminnie5!")
 
     # Database configuration
-    db_user = os.getenv("DB_USER", "postgres")
-    db_pass = os.getenv("DB_PASS", "")
+    db_user = os.getenv("DB_USER", "david")
+    db_pass = os.getenv("DB_PASS", "Ga25w123!")
     db_host = db_cfg.get("host", "localhost")
     db_port = int(db_cfg.get("port", 5432))
     db_name = db_cfg.get("default_db", "arknettransit")
@@ -102,3 +110,14 @@ def init_engine():
     engine = create_engine(DATABASE_URL, echo=False, future=True)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     return engine
+
+# Additional helper functions for migrations
+def get_session():
+    """Get a database session"""
+    if not SessionLocal:
+        init_engine()
+    return SessionLocal()
+
+def get_engine():
+    """Get the database engine"""
+    return init_engine()

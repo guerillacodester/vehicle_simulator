@@ -1,7 +1,10 @@
+"""
+RouteShape model for fleet management
+"""
 from sqlalchemy import Column, String, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from ..database import Base
+from .base import Base
 
 class RouteShape(Base):
     __tablename__ = "route_shapes"
@@ -11,5 +14,8 @@ class RouteShape(Base):
     variant_code = Column(String)
     is_default = Column(Boolean, default=False)
 
-    route = relationship("Route", back_populates="shapes")
-    shape = relationship("Shape")
+    route = relationship("Route", back_populates="route_shapes")
+    shape = relationship("Shape", back_populates="route_shapes")
+
+    def __repr__(self):
+        return f"<RouteShape(route_id='{self.route_id}', shape_id='{self.shape_id}')>"

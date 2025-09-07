@@ -1,13 +1,23 @@
-from sqlalchemy import Column, String, Integer, ForeignKey
+"""
+StopTime model for fleet management
+"""
+from sqlalchemy import Column, Time, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from ..database import Base
+from sqlalchemy.orm import relationship
+from .base import Base
 
 class StopTime(Base):
-    __tablename__ = "stop_times"
-
-    stop_time_id = Column(UUID(as_uuid=True), primary_key=True)
-    trip_id = Column(UUID(as_uuid=True), ForeignKey("trips.trip_id"), nullable=False)
-    stop_id = Column(String, nullable=False)          # placeholder until stops table exists
-    arrival_time = Column(String, nullable=False)     # format: HH:MM:SS
-    departure_time = Column(String, nullable=False)   # format: HH:MM:SS
-    stop_sequence = Column(Integer, nullable=False)   # order in trip
+    __tablename__ = 'stop_times'
+    
+    trip_id = Column(UUID(as_uuid=True), ForeignKey('trips.trip_id'), primary_key=True)
+    stop_id = Column(UUID(as_uuid=True), ForeignKey('stops.stop_id'), primary_key=True)
+    arrival_time = Column(Time, nullable=False)
+    departure_time = Column(Time, nullable=False)
+    stop_sequence = Column(Integer, nullable=False, primary_key=True)
+    
+    # Relationships
+    trip = relationship("Trip", back_populates="stop_times")
+    stop = relationship("Stop", back_populates="stop_times")
+    
+    def __repr__(self):
+        return f"<StopTime(trip_id='{self.trip_id}', stop_sequence={self.stop_sequence})>"

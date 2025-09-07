@@ -1,11 +1,35 @@
-from sqlalchemy import Column, String, Integer, Boolean
+"""
+Vehicle model for fleet management
+"""
+from sqlalchemy import Column, Text, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from ..database import Base
+from sqlalchemy.orm import relationship
+from .base import Base, VehicleStatus
+from sqlalchemy import Enum as SQLEnum
+import uuid
+from datetime import datetime
 
 class Vehicle(Base):
-    __tablename__ = "vehicles"
-
-    vehicle_id = Column(UUID(as_uuid=True), primary_key=True)
-    label = Column(String, nullable=False)       # registration number or display label
-    capacity = Column(Integer, nullable=True)    # passenger capacity (optional)
-    active = Column(Boolean, default=True)       # whether the vehicle is in service
+    __tablename__ = 'vehicles'
+    
+    vehicle_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    country_id = Column(UUID(as_uuid=True), ForeignKey('countries.country_id'), nullable=False)
+    reg_code = Column(Text, nullable=False)
+    home_depot_id = Column(UUID(as_uuid=True), ForeignKey('depots.depot_id'))
+    preferred_route_id = Column(UUID(as_uuid=True), ForeignKey('routes.route_id'))
+    status = Column(SQLEnum(VehicleStatus), nullable=False, default=VehicleStatus.available)
+    profile_id = Column(Text)
+    notes = Column(Text)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    country = relationship("Country", back_populates="vehicles")
+    home_depot = relationship("Depot", back_populates="vehicles")
+    preferred_route = relationship("Route", back_populates="vehicles")
+    timetables = relationship("Timetable", back_populates="vehicle")
+    assignments = relationship("VehicleAssignment", back_populates="vehicle")
+    status_events = relationship("VehicleStatusEvent", back_populates="vehicle")
+    
+    def __repr__(self):
+        return f"<Vehicle(reg_code='{self.reg_code}', status='{self.status}')>"

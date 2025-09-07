@@ -4,11 +4,12 @@ from configparser import ConfigParser
 from typing import Dict, Any
 
 def load_config() -> Dict[str, Any]:
-    base_folder = Path(__file__).resolve().parent
-    config_file = base_folder / "config.ini"
+    # Look for config.ini in the config folder (one level up from scripts)
+    base_folder = Path(__file__).resolve().parent.parent
+    config_file = base_folder / "config" / "config.ini"
 
     if not config_file.exists():
-        print(f"[ERROR] Missing required config.ini in folder: {base_folder}", file=sys.stderr)
+        print(f"[ERROR] Missing required config.ini in folder: {base_folder / 'config'}", file=sys.stderr)
         sys.exit(1)
 
     parser = ConfigParser()
