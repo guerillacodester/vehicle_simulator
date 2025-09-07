@@ -15,3 +15,6 @@ vehicle_depot/vehicle/engine/
 world/__pycache__/
 world/__pycache__/
 .env
+fleet-management-ui/node_modules/
+world/fleet_manager/frontend/.next/
+world/fleet_manager/frontend/node_modules/
