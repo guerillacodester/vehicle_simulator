@@ -57,8 +57,15 @@ async def start_simulator(
         raise HTTPException(status_code=400, detail="Simulator is already running")
     
     try:
-        # Build command arguments
-        cmd = ["python", "world_vehicles_simulator.py"]
+        # Build command arguments using virtual environment Python
+        # Get the project root directory (three levels up from this file)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        venv_python = os.path.join(project_root, ".venv", "Scripts", "python.exe")
+        
+        # Use virtual environment Python if it exists, otherwise fall back to system Python
+        python_executable = venv_python if os.path.exists(venv_python) else "python"
+        
+        cmd = [python_executable, "world_vehicles_simulator.py"]
         cmd.extend(["--tick", str(config.tick)])
         cmd.extend(["--seconds", str(config.seconds)])
         
@@ -70,9 +77,11 @@ async def start_simulator(
         logger.info(f"Starting simulator with command: {' '.join(cmd)}")
         
         # Start simulator process
+        # Set working directory to project root (two levels up from api/endpoints/)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         process = subprocess.Popen(
             cmd,
-            cwd=os.path.dirname(os.path.abspath(__file__)),
+            cwd=project_root,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True

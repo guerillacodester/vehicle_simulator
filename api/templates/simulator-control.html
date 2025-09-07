@@ -193,9 +193,9 @@
                                 <label for="country" class="form-label">Country</label>
                                 <select class="form-select" id="country" name="country">
                                     <option value="">All Countries</option>
-                                    <option value="barbados">Barbados</option>
-                                    <option value="trinidad">Trinidad & Tobago</option>
-                                    <option value="jamaica">Jamaica</option>
+                                    {% for country in countries %}
+                                    <option value="{{ country.code }}">{{ country.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="mb-3">

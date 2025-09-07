@@ -9,13 +9,18 @@ Two main wings:
 2. Simulator Control - Start/stop simulation remotely
 """
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 import uvicorn
 import logging
 from contextlib import asynccontextmanager
+
+# Import database and models
+from .database import get_db
+from models.gtfs.country import Country
 
 # Import GTFS API endpoints
 from .endpoints.countries import router as countries_router
@@ -67,7 +72,7 @@ templates = Jinja2Templates(directory="api/templates")
 if fleet_router:
     app.include_router(fleet_router, prefix="/fleet", tags=["Fleet Management"])
 if sim_router:
-    app.include_router(sim_router, prefix="/simulator", tags=["Simulator Control"])
+    app.include_router(sim_router, prefix="/api/v1/simulator", tags=["Simulator Control"])
 
 # Include GTFS API endpoints
 app.include_router(countries_router, prefix="/api/v1", tags=["Countries"])
@@ -87,9 +92,25 @@ async def fleet_management_interface(request: Request):
     return templates.TemplateResponse("fleet-management.html", {"request": request})
 
 @app.get("/simulator-control", response_class=HTMLResponse)
-async def simulator_control_interface(request: Request):
+async def simulator_control_interface(request: Request, db: Session = Depends(get_db)):
     """Professional simulator control interface"""
-    return templates.TemplateResponse("simulator-control.html", {"request": request})
+    try:
+        # Fetch countries from database
+        countries = db.query(Country).all()
+        countries_list = [{"code": country.country_code, "name": country.country_name} for country in countries]
+    except Exception as e:
+        # Fallback to hardcoded countries if database fails
+        logger.warning(f"Failed to fetch countries from database: {e}")
+        countries_list = [
+            {"code": "barbados", "name": "Barbados"},
+            {"code": "trinidad", "name": "Trinidad & Tobago"},
+            {"code": "jamaica", "name": "Jamaica"}
+        ]
+    
+    return templates.TemplateResponse("simulator-control.html", {
+        "request": request,
+        "countries": countries_list
+    })
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
