@@ -13,7 +13,7 @@ import argparse
 import time
 import textwrap
 import atexit
-from database_vehicles_simulator import DatabaseVehiclesDepot
+from simulators.database_vehicles_simulator import DatabaseVehiclesDepot
 
 # Configure minimal logging with our format
 logging.basicConfig(
