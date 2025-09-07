@@ -62,6 +62,15 @@ class FleetManagement {
                 document.getElementById('add-country-btn').click();
             }
         });
+
+        // CRUD modal event listeners
+        document.getElementById('add-new-country-btn').addEventListener('click', () => {
+            this.openCountryModal();
+        });
+
+        document.getElementById('save-country-btn').addEventListener('click', () => {
+            this.saveCountry();
+        });
     }
 
     setupDragAndDrop() {
@@ -232,7 +241,8 @@ class FleetManagement {
 
     async loadCountries() {
         try {
-            const response = await fetch('/fleet/countries');
+            // Use GTFS API endpoint instead of fleet endpoint
+            const response = await fetch('/api/v1/countries');
             if (response.ok) {
                 this.countries = await response.json();
                 this.displayCountries();
@@ -252,7 +262,7 @@ class FleetManagement {
             container.innerHTML = `
                 <div class="text-center p-3 text-muted">
                     <i class="fas fa-globe fa-2x mb-2"></i>
-                    <p>No countries with fleet data yet.<br>Upload some files to get started!</p>
+                    <p>No countries found.<br>Add a new country to get started!</p>
                 </div>
             `;
             return;
@@ -261,33 +271,30 @@ class FleetManagement {
         container.innerHTML = '';
         
         this.countries.forEach(country => {
-            const item = document.createElement('a');
-            item.className = 'list-group-item list-group-item-action country-item';
-            item.href = '#';
-            item.onclick = (e) => {
-                e.preventDefault();
-                this.selectCountry(country.country);
-            };
+            const item = document.createElement('div');
+            item.className = 'list-group-item country-item';
             
             item.innerHTML = `
                 <div class="d-flex justify-content-between align-items-start">
-                    <div>
+                    <div class="flex-grow-1" style="cursor: pointer;" 
+                         onclick="window.fleetMgmt.selectCountry('${country.iso_code}')">
                         <h6 class="mb-1">
-                            <i class="fas fa-flag me-2"></i>${country.country.toUpperCase()}
+                            <i class="fas fa-flag me-2"></i>${country.name}
                         </h6>
-                        <div class="country-stats">
-                            <span class="country-stat">
-                                <i class="fas fa-route"></i> ${country.routes_count}
-                            </span>
-                            <span class="country-stat">
-                                <i class="fas fa-bus"></i> ${country.vehicles_count}
-                            </span>
-                            <span class="country-stat">
-                                <i class="fas fa-calendar"></i> ${country.timetables_count}
-                            </span>
-                        </div>
+                        <small class="text-muted">ISO: ${country.iso_code}</small>
                     </div>
-                    <small class="text-muted">${this.formatDate(country.last_updated)}</small>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" 
+                                onclick="window.fleetMgmt.openCountryModal(${JSON.stringify(country).replace(/"/g, '&quot;')})" 
+                                title="Edit Country">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" 
+                                onclick="window.fleetMgmt.deleteCountry('${country.country_id}', '${country.name}')" 
+                                title="Delete Country">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -323,16 +330,17 @@ class FleetManagement {
 
     async loadCountryDetails(country) {
         try {
+            // Use GTFS API endpoints instead of fleet endpoints
             const [routesResponse, vehiclesResponse] = await Promise.all([
-                fetch(`/fleet/countries/${country}/routes`),
-                fetch(`/fleet/countries/${country}/vehicles`)
+                fetch(`/api/v1/routes?country=${country}`),
+                fetch(`/api/v1/vehicles?country=${country}`)
             ]);
             
             if (routesResponse.ok && vehiclesResponse.ok) {
                 const routes = await routesResponse.json();
                 const vehicles = await vehiclesResponse.json();
                 
-                this.displayCountryDetails(country, routes.routes, vehicles.vehicles);
+                this.displayCountryDetails(country, routes, vehicles);
             }
         } catch (error) {
             console.error('Error loading country details:', error);
@@ -379,16 +387,33 @@ class FleetManagement {
         document.getElementById('country-details').classList.add('fade-in');
     }
 
-    updateSummaryCards() {
-        const totalCountries = this.countries.length;
-        const totalRoutes = this.countries.reduce((sum, c) => sum + c.routes_count, 0);
-        const totalVehicles = this.countries.reduce((sum, c) => sum + c.vehicles_count, 0);
-        const totalTimetables = this.countries.reduce((sum, c) => sum + c.timetables_count, 0);
-        
-        document.getElementById('total-countries').textContent = totalCountries;
-        document.getElementById('total-routes').textContent = totalRoutes;
-        document.getElementById('total-vehicles').textContent = totalVehicles;
-        document.getElementById('total-timetables').textContent = totalTimetables;
+    async updateSummaryCards() {
+        try {
+            // Fetch totals from GTFS API endpoints
+            const [countriesResponse, routesResponse, vehiclesResponse, timetablesResponse] = await Promise.all([
+                fetch('/api/v1/countries'),
+                fetch('/api/v1/routes'),
+                fetch('/api/v1/vehicles'),
+                fetch('/api/v1/timetables')
+            ]);
+            
+            const countries = countriesResponse.ok ? await countriesResponse.json() : [];
+            const routes = routesResponse.ok ? await routesResponse.json() : [];
+            const vehicles = vehiclesResponse.ok ? await vehiclesResponse.json() : [];
+            const timetables = timetablesResponse.ok ? await timetablesResponse.json() : [];
+            
+            document.getElementById('total-countries').textContent = countries.length;
+            document.getElementById('total-routes').textContent = routes.length;
+            document.getElementById('total-vehicles').textContent = vehicles.length;
+            document.getElementById('total-timetables').textContent = timetables.length;
+        } catch (error) {
+            console.error('Error updating summary cards:', error);
+            // Set defaults if API calls fail
+            document.getElementById('total-countries').textContent = '0';
+            document.getElementById('total-routes').textContent = '0';
+            document.getElementById('total-vehicles').textContent = '0';
+            document.getElementById('total-timetables').textContent = '0';
+        }
     }
 
     showProgressModal() {
@@ -415,6 +440,105 @@ class FleetManagement {
         
         const bsToast = new bootstrap.Toast(toast);
         bsToast.show();
+    }
+
+    // CRUD Operations for Countries
+    openCountryModal(country = null) {
+        const modal = new bootstrap.Modal(document.getElementById('countryModal'));
+        const title = document.getElementById('countryModalTitle');
+        const saveBtn = document.getElementById('save-country-btn');
+        
+        if (country) {
+            title.innerHTML = '<i class="fas fa-edit me-2"></i>Edit Country';
+            saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Update Country';
+            document.getElementById('country-iso-code').value = country.iso_code;
+            document.getElementById('country-name').value = country.name;
+            saveBtn.setAttribute('data-country-id', country.country_id);
+        } else {
+            title.innerHTML = '<i class="fas fa-plus me-2"></i>Add New Country';
+            saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Country';
+            document.getElementById('country-form').reset();
+            saveBtn.removeAttribute('data-country-id');
+        }
+        
+        modal.show();
+    }
+
+    async saveCountry() {
+        const isoCode = document.getElementById('country-iso-code').value.trim().toUpperCase();
+        const name = document.getElementById('country-name').value.trim();
+        const saveBtn = document.getElementById('save-country-btn');
+        const countryId = saveBtn.getAttribute('data-country-id');
+        
+        if (!isoCode || !name) {
+            this.showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+
+        try {
+            saveBtn.disabled = true;
+            
+            const payload = { iso_code: isoCode, name: name };
+            let response;
+            
+            if (countryId) {
+                // Update existing country
+                response = await fetch(`/api/v1/countries/${countryId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                // Create new country
+                response = await fetch('/api/v1/countries', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+            
+            if (response.ok) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('countryModal'));
+                modal.hide();
+                this.showNotification(
+                    countryId ? 'Country updated successfully' : 'Country created successfully', 
+                    'success'
+                );
+                await this.loadCountries();
+                await this.updateSummaryCards();
+            } else {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to save country');
+            }
+        } catch (error) {
+            console.error('Error saving country:', error);
+            this.showNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            saveBtn.disabled = false;
+        }
+    }
+
+    async deleteCountry(countryId, countryName) {
+        if (!confirm(`Are you sure you want to delete "${countryName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/v1/countries/${countryId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                this.showNotification('Country deleted successfully', 'success');
+                await this.loadCountries();
+                await this.updateSummaryCards();
+            } else {
+                throw new Error('Failed to delete country');
+            }
+        } catch (error) {
+            console.error('Error deleting country:', error);
+            this.showNotification(`Error: ${error.message}`, 'error');
+        }
     }
 
     formatFileSize(bytes) {

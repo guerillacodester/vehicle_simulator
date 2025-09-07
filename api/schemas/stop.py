@@ -35,6 +35,10 @@ class Stop(StopBase):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
+class StopResponse(Stop):
+    """Response schema for Stop model"""
+    pass
+
 class StopList(BaseSchema):
     stops: list[Stop]
     total: int

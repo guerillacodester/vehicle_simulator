@@ -11,7 +11,7 @@ from uuid import UUID
 
 from ..database import get_db
 from ..schemas.country import CountryCreate, CountryUpdate, CountryResponse
-from ...models.gtfs import Country
+from models.gtfs import Country
 
 router = APIRouter()
 

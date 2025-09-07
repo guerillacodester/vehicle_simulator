@@ -10,8 +10,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from ..database import get_db
-from ...models.gtfs import VehicleStatusEvent
-from ...models.gtfs.enums import VehicleStatusEnum
+from models.gtfs import VehicleStatusEvent
+from models.gtfs.enums import VehicleStatusEnum
 
 router = APIRouter()
 

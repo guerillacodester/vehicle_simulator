@@ -11,7 +11,7 @@ from uuid import UUID
 from datetime import datetime
 
 from ..database import get_db
-from ...models.gtfs import Timetable
+from models.gtfs import Timetable
 
 router = APIRouter()
 

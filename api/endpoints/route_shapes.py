@@ -10,7 +10,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from ..database import get_db
-from ...models.gtfs import RouteShape
+from models.gtfs import RouteShape
 
 router = APIRouter()
 

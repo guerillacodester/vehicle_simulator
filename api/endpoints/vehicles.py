@@ -11,8 +11,8 @@ from uuid import UUID
 
 from ..database import get_db
 from ..schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse
-from ...models.gtfs import Vehicle
-from ...models.gtfs.enums import VehicleStatusEnum
+from models.gtfs import Vehicle
+from models.gtfs.enums import VehicleStatusEnum
 
 router = APIRouter()
 

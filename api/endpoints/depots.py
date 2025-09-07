@@ -11,7 +11,7 @@ from uuid import UUID
 
 from ..database import get_db
 from ..schemas.depot import DepotCreate, DepotUpdate, DepotResponse
-from ...models.gtfs import Depot
+from models.gtfs import Depot
 
 router = APIRouter()
 

@@ -11,7 +11,7 @@ from uuid import UUID
 
 from ..database import get_db
 from ..schemas.stop import StopCreate, StopUpdate, StopResponse
-from ...models.gtfs import Stop
+from models.gtfs import Stop
 
 router = APIRouter()
 

@@ -11,7 +11,7 @@ from uuid import UUID
 
 from ..database import get_db
 from ..schemas.route import RouteCreate, RouteUpdate, RouteResponse
-from ...models.gtfs import Route
+from models.gtfs import Route
 
 router = APIRouter()
 

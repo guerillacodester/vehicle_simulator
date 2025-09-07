@@ -33,6 +33,10 @@ class Depot(DepotBase, TimestampMixin):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
+class DepotResponse(Depot):
+    """Response schema for Depot model"""
+    pass
+
 class DepotList(BaseSchema):
     depots: list[Depot]
     total: int

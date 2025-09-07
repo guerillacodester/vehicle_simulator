@@ -34,6 +34,10 @@ class Trip(TripBase):
     block_id: Optional[UUID] = None
     created_at: datetime
 
+class TripResponse(Trip):
+    """Response schema for Trip model"""
+    pass
+
 class TripList(BaseSchema):
     trips: list[Trip]
     total: int

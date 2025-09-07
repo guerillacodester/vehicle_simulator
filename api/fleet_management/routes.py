@@ -2,6 +2,7 @@
 Fleet Management Routes
 ======================
 Handle uploading and managing routes, timetables, vehicles by country
+Uses GTFS API endpoints for platform-agnostic distributed deployment
 """
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
@@ -14,10 +15,13 @@ import logging
 
 from .services import FleetService
 from .models import UploadResponse, CountryData, VehicleData
+from .config import FleetConfig
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-fleet_service = FleetService()
+
+# Initialize fleet service with configurable API URL
+fleet_service = FleetService(api_base_url=FleetConfig.get_api_url())
 
 @router.post("/upload/routes", response_model=UploadResponse)
 async def upload_routes(

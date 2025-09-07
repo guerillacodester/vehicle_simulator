@@ -6,6 +6,11 @@ python-socketio[client]>=5.11.0,<6.0.0
 requests>=2.32.0,<3.0.0
 pydantic>=2.6.0,<3.0.0
 shapely>=2.0.0
-websockets>=12.0,<13.0
-python-dotenv>=1.0.0,<2.0.0
+aiohttp>=3.9.0,<4.0.0
+sqlalchemy>=2.0.0,<3.0.0
+alembic>=1.13.0,<2.0.0
+geoalchemy2>=0.14.0,<1.0.0
+psycopg2-binary>=2.9.0,<3.0.0
+sshtunnel>=0.4.0,<1.0.0
+python-multipart>=0.0.6,<1.0.0
 folium

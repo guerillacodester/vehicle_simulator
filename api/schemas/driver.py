@@ -30,6 +30,10 @@ class Driver(DriverBase, TimestampMixin):
     country_id: UUID
     home_depot_id: Optional[UUID] = None
 
+class DriverResponse(Driver):
+    """Response schema for Driver model"""
+    pass
+
 class DriverList(BaseSchema):
     drivers: list[Driver]
     total: int

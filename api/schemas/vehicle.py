@@ -42,6 +42,10 @@ class Vehicle(VehicleBase, TimestampMixin):
     home_depot_id: Optional[UUID] = None
     preferred_route_id: Optional[UUID] = None
 
+class VehicleResponse(Vehicle):
+    """Response schema for Vehicle model"""
+    pass
+
 class VehicleList(BaseSchema):
     vehicles: list[Vehicle]
     total: int

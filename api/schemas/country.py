@@ -25,6 +25,10 @@ class Country(CountryBase):
     country_id: UUID
     created_at: datetime
 
+class CountryResponse(Country):
+    """Response schema for Country model"""
+    pass
+
 class CountryList(BaseSchema):
     countries: list[Country]
     total: int

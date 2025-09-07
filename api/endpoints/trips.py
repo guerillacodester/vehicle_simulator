@@ -11,7 +11,7 @@ from uuid import UUID
 
 from ..database import get_db
 from ..schemas.trip import TripCreate, TripUpdate, TripResponse
-from ...models.gtfs import Trip
+from models.gtfs import Trip
 
 router = APIRouter()
 

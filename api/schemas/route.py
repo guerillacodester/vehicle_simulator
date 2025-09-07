@@ -33,6 +33,10 @@ class Route(RouteBase, TimestampMixin):
     route_id: UUID
     country_id: UUID
 
+class RouteResponse(Route):
+    """Response schema for Route model"""
+    pass
+
 class RouteList(BaseSchema):
     routes: list[Route]
     total: int

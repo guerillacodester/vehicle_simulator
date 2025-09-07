@@ -11,7 +11,7 @@ from uuid import UUID
 
 from ..database import get_db
 from ..schemas.driver import DriverCreate, DriverUpdate, DriverResponse
-from ...models.gtfs import Driver
+from models.gtfs import Driver
 
 router = APIRouter()
 
