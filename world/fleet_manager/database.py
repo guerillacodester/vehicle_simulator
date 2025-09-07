@@ -69,16 +69,24 @@ def init_engine():
     global SessionLocal
 
     cfg = load_config()
-    pg_cfg = cfg["postgres"]
+    
+    # Use our existing config structure
+    ssh_cfg = cfg.get("SSH", {})
+    db_cfg = cfg.get("DATABASE", {})
 
-    # SSH + DB credentials from .env
-    ssh_host = os.getenv("SSH_HOST")
-    ssh_port = int(os.getenv("SSH_PORT", 22))
-    ssh_user = os.getenv("SSH_USER")
-    ssh_pass = os.getenv("SSH_PASS")
+    # SSH configuration
+    ssh_host = ssh_cfg.get("host", "arknetglobal.com")
+    ssh_port = int(ssh_cfg.get("port", 22))
+    ssh_user = ssh_cfg.get("user", "david")
+    ssh_pass = ssh_cfg.get("password", "")
 
-    db_user = os.getenv("DB_USER")
-    db_pass = os.getenv("DB_PASS")
+    # Database configuration
+    db_user = os.getenv("DB_USER", "postgres")
+    db_pass = os.getenv("DB_PASS", "")
+    db_host = db_cfg.get("host", "localhost")
+    db_port = int(db_cfg.get("port", 5432))
+    db_name = db_cfg.get("default_db", "arknettransit")
+    local_port = int(db_cfg.get("local_port", 6543))
 
     # SSH connection
     ssh_client = paramiko.SSHClient()
@@ -86,12 +94,11 @@ def init_engine():
     ssh_client.connect(ssh_host, port=ssh_port, username=ssh_user, password=ssh_pass)
 
     # Tunnel
-    local_port = 6543
-    forwarder = Forwarder(ssh_client.get_transport(), local_port, pg_cfg["host"], int(pg_cfg["port"]))
+    forwarder = Forwarder(ssh_client.get_transport(), local_port, db_host, db_port)
     forwarder.start()
 
     # Engine
-    DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_pass}@127.0.0.1:{local_port}/{pg_cfg['default_db']}"
+    DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_pass}@127.0.0.1:{local_port}/{db_name}"
     engine = create_engine(DATABASE_URL, echo=False, future=True)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     return engine

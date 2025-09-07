@@ -63,7 +63,29 @@ class VehiclesDepot:
         if not isinstance(data, dict) or not data:
             sys.exit(f"[ERROR] vehicles manifest must be a non-empty JSON object")
 
-        self.vehicles = data
+        # Initialize vehicles dictionary
+        self.vehicles = {}
+        
+        # Process individual vehicle configurations (like ZR1001)
+        for key, value in data.items():
+            if key != "vehicles" and isinstance(value, dict):
+                self.vehicles[key] = value
+        
+        # Process vehicles array if it exists
+        if "vehicles" in data and isinstance(data["vehicles"], list):
+            for vehicle in data["vehicles"]:
+                if isinstance(vehicle, dict) and "id" in vehicle:
+                    # Convert array format to configuration format
+                    vehicle_id = vehicle["id"]
+                    self.vehicles[vehicle_id] = {
+                        "active": vehicle.get("status") == "active",
+                        "route": vehicle.get("route_id", ""),
+                        "initial_position": vehicle.get("position", {}),
+                        "heading": vehicle.get("heading", 0),
+                        "speed": vehicle.get("speed", 0),
+                        "capacity": vehicle.get("capacity", 40),
+                        "passengers": vehicle.get("passengers", 0)
+                    }
 
     # -------------------- config --------------------
 

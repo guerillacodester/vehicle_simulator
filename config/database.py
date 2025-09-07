@@ -24,8 +24,12 @@ def get_ssh_tunnel() -> SSHTunnelForwarder:
         ssh_username=SSH_USER,
         ssh_password=SSH_PASS,
         remote_bind_address=('127.0.0.1', 5432),
-        local_bind_address=('127.0.0.1', 6543),
-        mute_exceptions=False
+        # Let SSH tunnel choose local port dynamically
+        mute_exceptions=False,
+        ssh_config_file=None,
+        compression=False,
+        set_keepalive=5.0,
+        threaded=True
     )
 
 def get_db_config(tunnel: SSHTunnelForwarder = None) -> Dict[str, str]:

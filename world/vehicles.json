@@ -11,5 +11,46 @@
     "release_ticks": 3,
     "initial_state": "AT_TERMINAL",
     "terminal_id": "TERMINAL_1"
-  }
+  },
+  "vehicles": [
+    {
+      "id": "BUS001",
+      "route_id": "R001",
+      "status": "active",
+      "position": {
+        "lat": 40.730610,
+        "lng": -73.935242
+      },
+      "heading": 45,
+      "speed": 0,
+      "capacity": 40,
+      "passengers": 0
+    },
+    {
+      "id": "BUS002", 
+      "route_id": "R002",
+      "status": "active",
+      "position": {
+        "lat": 40.730610,
+        "lng": -73.935242
+      },
+      "heading": 90,
+      "speed": 0,
+      "capacity": 40,
+      "passengers": 0
+    },
+    {
+      "id": "BUS003",
+      "route_id": "R003", 
+      "status": "active",
+      "position": {
+        "lat": 40.730610,
+        "lng": -73.935242
+      },
+      "heading": 0,
+      "speed": 0,
+      "capacity": 40,
+      "passengers": 0
+    }
+  ]
 }
