@@ -1,6 +1,7 @@
 from __future__ import annotations
 import threading
 from typing import Dict, Any
+from enum import Enum
 
 from .gps_device.device import GPSDevice
 
@@ -8,6 +9,17 @@ from .gps_device.device import GPSDevice
 def _install_gpsdevice() -> type[GPSDevice]:
     """Hook to swap/validate the GPSDevice class if needed later."""
     return GPSDevice
+
+
+class VehicleState(Enum):
+    AT_TERMINAL = "AT_TERMINAL"
+    ON_ROUTE = "ON_ROUTE"
+    STARTING = "STARTING"
+    ACTIVE = "ACTIVE"
+    STOPPED = "STOPPED"
+    
+    def __str__(self):
+        return self.value
 
 
 class Vehicle:
@@ -28,6 +40,7 @@ class Vehicle:
         self._cfg = dict(config)  # shallow copy
         self._lock = threading.RLock()
         self._on = False
+        self.state = VehicleState.AT_TERMINAL
 
         interval = float(self._cfg.get("interval", default_interval))
         method = self._cfg.get("method", "ws")
@@ -84,3 +97,10 @@ class Vehicle:
     def cleanup(self) -> None:
         """Ensure GPSDevice is stopped and release references."""
         self.off()
+
+    def get_state(self) -> VehicleState:
+        return self.state
+
+    def set_state(self, new_state: VehicleState) -> None:
+        self.state = new_state
+        print(f"[INFO] Vehicle {self.id} state changed to {new_state}")

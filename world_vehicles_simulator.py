@@ -6,16 +6,19 @@ Entry point for starting and stopping the VehiclesDepot, which manages
 GPSDevice and EngineBlock instances for all vehicles in the manifest.
 """
 
-import argparse
+import logging
 import sys
 import os
+import argparse
 import time
+from world.vehicles_depot import VehiclesDepot  # Add this import
 
-# Ensure project root is in sys.path
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
-from world.vehicles_depot import VehiclesDepot
-
+# Configure logging
+logging.basicConfig(
+    format='[%(levelname)s] %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(description="World Vehicles Simulator")
@@ -28,27 +31,35 @@ def main():
     parser.add_argument(
         "--tick",
         type=float,
-        default=0.1,
-        help="Tick interval in seconds (default: 0.1)",
+        default=1.0,
+        help="Simulation tick interval in seconds"
     )
     parser.add_argument(
         "--seconds",
         type=float,
-        default=5.0,
-        help="How long to run the simulator (default: 5s)",
+        default=10.0,
+        help="Total simulation time in seconds"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging"
+    )
+
     args = parser.parse_args()
 
-    # Create VehiclesDepot with corrected arguments
-    depot = VehiclesDepot(
-        manifest_path=args.manifest,
-        tick_time=args.tick,
-    )
+    # Set root logger level for debug mode
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("Debug logging enabled")
 
-    # Start all active vehicles
+    depot = VehiclesDepot(manifest_path=args.manifest, tick_time=args.tick)
     depot.start()
-    time.sleep(args.seconds)
-    depot.stop()
+    
+    try:
+        time.sleep(args.seconds)
+    finally:
+        depot.stop()
 
     print(f"\nSimulation complete. Ran for {args.seconds:.1f} seconds\n")
 

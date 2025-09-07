@@ -35,6 +35,8 @@ def validate_engine_data(entries, cfg, tick_time=0.1, tol=1e-6):
     prev_speed = entries[0]["cruise_speed"]
     prev_distance = entries[0]["distance"]
 
+    print(f"[INFO] Vehicle state: {entries[0].get('state', 'UNKNOWN')}")
+
     # start validation from the 2nd entry
     for i, e in enumerate(entries[1:], start=2):
         v = e["cruise_speed"]

@@ -8,7 +8,9 @@
     "accel_limit": 3,
     "decel_limit": 4,
     "corner_slowdown": 1,
-    "release_ticks": 3
+    "release_ticks": 3,
+    "initial_state": "AT_TERMINAL",
+    "terminal_id": "TERMINAL_1"
   },
   "ZR1301": {
     "active": false,

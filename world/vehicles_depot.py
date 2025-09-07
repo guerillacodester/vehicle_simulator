@@ -11,6 +11,7 @@ import os
 import sys
 import time
 import configparser
+import logging
 
 from world.vehicle.gps_device.device import GPSDevice
 from world.vehicle.engine.engine_block import Engine
@@ -20,7 +21,9 @@ from world.fleet_dispatcher.dispatcher import FleetDispatcher
 from world.vehicle.gps_device.rxtx_buffer import RxTxBuffer
 # Navigator (manages its own TelemetryBuffer internally)
 from world.vehicle.driver.navigation.navigator import Navigator
+from world.vehicle.vahicle_object import VehicleState
 
+logger = logging.getLogger(__name__)
 
 class VehiclesDepot:
     def __init__(self, manifest_path: str = "world/vehicles.json", tick_time: float = 0.1):
@@ -70,6 +73,7 @@ class VehiclesDepot:
     # -------------------- lifecycle --------------------
 
     def start(self):
+        """Start all active vehicles"""
         print("[INFO] FleetDispatcher ONSITE")
         print("[INFO] Depot OPERATIONAL...")
 
@@ -78,10 +82,10 @@ class VehiclesDepot:
                 print(f"[INFO] Vehicle {vid} inactive.")
                 continue
 
-            masked = (self.auth_token[:4] + "…") if self.auth_token else "(none)"
-            # print(f"[DEBUG] Init for {vid}: ws_url='{self.ws_url}', token={masked}")
+            # Initial state
+            logger.debug(f"Vehicle {vid} initial state: {VehicleState.AT_TERMINAL}")
 
-            # --- Navigator boards ---
+            # After navigator boards - preparing state
             navigator = Navigator(
                 vehicle_id=vid,
                 route_file=cfg.get("route_file"),
@@ -91,6 +95,7 @@ class VehiclesDepot:
                 direction=cfg.get("direction", "outbound"),
             )
             print(f"[INFO] Navigator boarded for {vid}")
+            logger.debug(f"Vehicle {vid} state: {VehicleState.STARTING}")
 
             # --- GPSDevice ON ---
             gps = GPSDevice(
@@ -122,6 +127,7 @@ class VehiclesDepot:
                 tick_time=self.tick_time,
             )
             dispatcher.on()
+            logger.debug(f"Vehicle {vid} state: {VehicleState.ACTIVE}")
 
             # Link engine buffer back into navigator
             navigator.engine_buffer = engine_buffer
@@ -137,7 +143,12 @@ class VehiclesDepot:
             cfg["_rxtx_buffer"] = rxtx_buffer
 
     def stop(self):
+        """Stop all active vehicles"""
         for vid, cfg in self.vehicles.items():
+            if cfg.get("active", False):
+                # Start shutdown process
+                logger.debug(f"Vehicle {vid} state: {VehicleState.STOPPED}")
+
             dispatcher = cfg.get("_dispatcher")
             nav = cfg.get("_navigator")
             engine = cfg.get("_engine")
@@ -166,6 +177,9 @@ class VehiclesDepot:
                 dispatcher.off()
                 print(f"[INFO] FleetDispatcher OFFSITE for {vid}")
                 cfg["_dispatcher"] = None
+
+            logger.debug(f"Vehicle {vid} stopping from state: {VehicleState.ACTIVE}")
+            logger.debug(f"Vehicle {vid} final state: {VehicleState.AT_TERMINAL}")
 
         print("[INFO] Depot UNOPERATIONAL")
         print("[INFO] FleetDispatcher OFFSITE")
