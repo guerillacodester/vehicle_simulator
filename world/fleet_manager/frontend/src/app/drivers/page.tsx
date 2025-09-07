@@ -4,6 +4,7 @@
 
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { getDrivers, type Driver } from '@/lib/drivers-api'
 
 export const metadata: Metadata = {
   title: 'Drivers',
@@ -11,8 +12,15 @@ export const metadata: Metadata = {
 }
 
 export default async function DriversPage() {
-  // TODO: Fetch drivers data from API in production
-  const drivers: unknown[] = []
+  let drivers: Driver[] = []
+  let error: string | null = null
+  
+  try {
+    drivers = await getDrivers()
+  } catch (e) {
+    console.error('Error loading drivers:', e)
+    error = 'Failed to load drivers data'
+  }
 
   return (
     <main className="main-content">
@@ -55,7 +63,17 @@ export default async function DriversPage() {
         </div>
         
         <div className="p-6">
-          {drivers.length === 0 ? (
+          {error ? (
+            <div className="text-center py-12">
+              <div className="text-red-500 mb-4">
+                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Drivers</h3>
+              <p className="text-gray-500 mb-4">{error}</p>
+            </div>
+          ) : drivers.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-500 mb-4">
                 <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -84,7 +102,47 @@ export default async function DriversPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Driver rows will be rendered here */}
+                  {drivers.map((driver) => (
+                    <tr key={driver.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-sm text-gray-900">
+                        {driver.employeeId || driver.id.slice(0, 8)}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-900">
+                        {driver.firstName} {driver.lastName}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-900">
+                        {driver.licenseNumber}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          driver.status === 'active' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {driver.status.charAt(0).toUpperCase() + driver.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        <div className="flex space-x-2">
+                          <Link
+                            href={`/drivers/${driver.id}`}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            View
+                          </Link>
+                          <Link
+                            href={`/drivers/${driver.id}/edit`}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Edit
+                          </Link>
+                          <button className="text-red-600 hover:text-red-900">
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

@@ -5,7 +5,6 @@
  */
 
 import { dataProvider } from '../data-provider';
-import { MockApiService } from '../mock-api';
 import { 
   Vehicle, 
   Driver, 
@@ -24,99 +23,112 @@ import {
   AssignmentRepository 
 } from '@/domain/repositories';
 
+// API Response Types (what the API actually returns)
+interface ApiVehicleResponse {
+  vehicle_id: string;
+  country_id: string;
+  reg_code: string;
+  home_depot_id: string | null;
+  preferred_route_id: string | null;
+  status: 'available' | 'in_service' | 'maintenance' | 'retired';
+  profile_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ApiDriverResponse {
+  driver_id: string;
+  country_id: string;
+  name: string;
+  license_no: string;
+  home_depot_id: string | null;
+  employment_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Mapping functions to transform API responses to domain entities
+function mapApiVehicleToVehicle(apiVehicle: ApiVehicleResponse): Vehicle {
+  const statusMap: Record<string, VehicleStatus> = {
+    'available': VehicleStatus.ACTIVE,
+    'in_service': VehicleStatus.ACTIVE,
+    'maintenance': VehicleStatus.MAINTENANCE,
+    'retired': VehicleStatus.OUT_OF_SERVICE
+  };
+
+  return {
+    id: apiVehicle.vehicle_id,
+    countryId: apiVehicle.country_id,
+    depotId: apiVehicle.home_depot_id || '',
+    plateNumber: apiVehicle.reg_code, // Using reg_code as plateNumber for now
+    regCode: apiVehicle.reg_code,
+    model: 'Unknown', // API doesn't provide model yet
+    capacity: 0, // API doesn't provide capacity yet
+    status: statusMap[apiVehicle.status] || VehicleStatus.ACTIVE,
+    createdAt: new Date(apiVehicle.created_at),
+    updatedAt: apiVehicle.updated_at ? new Date(apiVehicle.updated_at) : undefined
+  };
+}
+
+function mapApiDriverToDriver(apiDriver: ApiDriverResponse): Driver {
+  const [firstName, ...lastNameParts] = apiDriver.name.split(' ');
+  const lastName = lastNameParts.join(' ');
+
+  return {
+    id: apiDriver.driver_id,
+    countryId: apiDriver.country_id,
+    employeeId: apiDriver.driver_id, // Use driver_id as employeeId since employee_id is not in the API
+    firstName: firstName || '',
+    lastName: lastName || '',
+    licenseNumber: apiDriver.license_no,
+    phoneNumber: undefined, // Not available in current API response
+    email: undefined, // Not available in current API response
+    createdAt: new Date(apiDriver.created_at),
+    updatedAt: apiDriver.updated_at ? new Date(apiDriver.updated_at) : undefined
+  };
+}
+
 // Configuration for API client
 interface ApiConfig {
   baseURL: string;
   timeout?: number;
   headers?: Record<string, string>;
-  enableMock?: boolean;
 }
 
 export class ApiClient {
-  private mockApi: MockApiService;
-  private useMock: boolean = false;
-  private useRemoteAPI: boolean = true;
-
   constructor(config: ApiConfig) {
-    this.mockApi = MockApiService.getInstance();
-    this.useMock = config.enableMock || false;
-    
-    // Configure the data provider if not using mock
-    if (!this.useMock && config.baseURL) {
-      dataProvider.updateConfig({
-        baseURL: config.baseURL,
-        timeout: config.timeout,
-        enableLogging: true
-      });
-    }
+    // Configure the data provider to use real API only
+    dataProvider.updateConfig({
+      baseURL: config.baseURL,
+      timeout: config.timeout || 10000,
+      enableLogging: true
+    });
   }
 
   async get<T>(url: string): Promise<T> {
-    if (this.useMock) {
-      const response = await this.mockApi.get<T>(url);
-      return response.data;
-    }
-    
-    try {
-      return await dataProvider.get<T>(url);
-    } catch (error) {
-      console.warn('Remote API failed, falling back to mock:', error);
-      const response = await this.mockApi.get<T>(url);
-      return response.data;
-    }
+    return dataProvider.get<T>(url);
   }
 
   async post<T>(url: string, data: unknown): Promise<T> {
-    if (this.useMock) {
-      const response = await this.mockApi.post<T>(url, data);
-      return response.data;
-    }
-    
-    try {
-      return await dataProvider.post<T>(url, data);
-    } catch (error) {
-      console.warn('Remote API failed, falling back to mock:', error);
-      const response = await this.mockApi.post<T>(url, data);
-      return response.data;
-    }
+    return dataProvider.post<T>(url, data);
   }
 
   async put<T>(url: string, data: unknown): Promise<T> {
-    if (this.useMock) {
-      const response = await this.mockApi.put<T>(url, data);
-      return response.data;
-    }
-    
-    try {
-      return await dataProvider.put<T>(url, data);
-    } catch (error) {
-      console.warn('Remote API failed, falling back to mock:', error);
-      const response = await this.mockApi.put<T>(url, data);
-      return response.data;
-    }
+    return dataProvider.put<T>(url, data);
+  }
+
+  async patch<T>(url: string, data: unknown): Promise<T> {
+    return dataProvider.patch<T>(url, data);
   }
 
   async delete(url: string): Promise<void> {
-    if (this.useMock) {
-      await this.mockApi.delete(url);
-      return;
-    }
-    
-    try {
-      await dataProvider.delete(url);
-    } catch (error) {
-      console.warn('Remote API failed, falling back to mock:', error);
-      await this.mockApi.delete(url);
-    }
+    return dataProvider.delete(url);
   }
 
   // Health check method to test connectivity
   async healthCheck(): Promise<boolean> {
-    if (this.useMock) {
-      return true;
-    }
-    
-    return await dataProvider.healthCheck();
+    return dataProvider.healthCheck();
   }
 }
 
@@ -125,12 +137,14 @@ export class ApiVehicleRepository implements VehicleRepository {
   constructor(private apiClient: ApiClient) {}
 
   async findAll(): Promise<Vehicle[]> {
-    return this.apiClient.get<Vehicle[]>('/api/vehicles');
+    const apiVehicles = await this.apiClient.get<ApiVehicleResponse[]>('/api/v1/vehicles');
+    return apiVehicles.map(mapApiVehicleToVehicle);
   }
 
   async findById(id: string): Promise<Vehicle | null> {
     try {
-      return await this.apiClient.get<Vehicle>(`/api/vehicles/${id}`);
+      const apiVehicle = await this.apiClient.get<ApiVehicleResponse>(`/api/v1/vehicles/${id}`);
+      return mapApiVehicleToVehicle(apiVehicle);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -141,7 +155,8 @@ export class ApiVehicleRepository implements VehicleRepository {
 
   async findByPlateNumber(plateNumber: string): Promise<Vehicle | null> {
     try {
-      return await this.apiClient.get<Vehicle>(`/api/vehicles/plate/${plateNumber}`);
+      const apiVehicle = await this.apiClient.get<ApiVehicleResponse>(`/api/v1/vehicles/plate/${plateNumber}`);
+      return mapApiVehicleToVehicle(apiVehicle);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -151,11 +166,20 @@ export class ApiVehicleRepository implements VehicleRepository {
   }
 
   async findByStatus(status: VehicleStatus): Promise<Vehicle[]> {
-    return this.apiClient.get<Vehicle[]>(`/api/vehicles?status=${status}`);
+    // Map domain status to API status
+    const apiStatusMap: Record<VehicleStatus, string> = {
+      [VehicleStatus.ACTIVE]: 'available',
+      [VehicleStatus.MAINTENANCE]: 'maintenance',
+      [VehicleStatus.OUT_OF_SERVICE]: 'retired'
+    };
+    
+    const apiVehicles = await this.apiClient.get<ApiVehicleResponse[]>(`/api/v1/vehicles?status=${apiStatusMap[status]}`);
+    return apiVehicles.map(mapApiVehicleToVehicle);
   }
 
   async findByDepot(depotId: string): Promise<Vehicle[]> {
-    return this.apiClient.get<Vehicle[]>(`/api/vehicles?depotId=${depotId}`);
+    const apiVehicles = await this.apiClient.get<ApiVehicleResponse[]>(`/api/v1/vehicles?depotId=${depotId}`);
+    return apiVehicles.map(mapApiVehicleToVehicle);
   }
 
   async findByDepotId(depotId: string): Promise<Vehicle[]> {
@@ -163,19 +187,31 @@ export class ApiVehicleRepository implements VehicleRepository {
   }
 
   async bulkCreate(vehicles: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<Vehicle[]> {
-    return this.apiClient.post<Vehicle[]>('/api/vehicles/bulk', { vehicles });
+    // This would need proper mapping from domain to API format
+    const apiVehicles = await this.apiClient.post<ApiVehicleResponse[]>('/api/v1/vehicles/bulk', { vehicles });
+    return apiVehicles.map(mapApiVehicleToVehicle);
   }
 
   async create(data: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>): Promise<Vehicle> {
-    return this.apiClient.post<Vehicle>('/api/vehicles', data);
+    // Map domain vehicle to API format
+    const apiData = {
+      country_id: data.countryId,
+      reg_code: data.regCode,
+      status: 'available' // Default status
+    };
+    
+    const apiVehicle = await this.apiClient.post<ApiVehicleResponse>('/api/v1/vehicles', apiData);
+    return mapApiVehicleToVehicle(apiVehicle);
   }
 
   async update(id: string, data: Partial<Vehicle>): Promise<Vehicle> {
-    return this.apiClient.put<Vehicle>(`/api/vehicles/${id}`, data);
+    // This would need proper mapping from domain to API format
+    const apiVehicle = await this.apiClient.put<ApiVehicleResponse>(`/api/v1/vehicles/${id}`, data);
+    return mapApiVehicleToVehicle(apiVehicle);
   }
 
   async delete(id: string): Promise<void> {
-    return this.apiClient.delete(`/api/vehicles/${id}`);
+    return this.apiClient.delete(`/api/v1/vehicles/${id}`);
   }
 }
 
@@ -183,12 +219,14 @@ export class ApiDriverRepository implements DriverRepository {
   constructor(private apiClient: ApiClient) {}
 
   async findAll(): Promise<Driver[]> {
-    return this.apiClient.get<Driver[]>('/api/drivers');
+    const apiDrivers = await this.apiClient.get<ApiDriverResponse[]>('/api/v1/drivers');
+    return apiDrivers.map(mapApiDriverToDriver);
   }
 
   async findById(id: string): Promise<Driver | null> {
     try {
-      return await this.apiClient.get<Driver>(`/api/drivers/${id}`);
+      const apiDriver = await this.apiClient.get<ApiDriverResponse>(`/api/v1/drivers/${id}`);
+      return mapApiDriverToDriver(apiDriver);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -199,7 +237,8 @@ export class ApiDriverRepository implements DriverRepository {
 
   async findByEmployeeId(employeeId: string): Promise<Driver | null> {
     try {
-      return await this.apiClient.get<Driver>(`/api/drivers/employee/${employeeId}`);
+      const apiDriver = await this.apiClient.get<ApiDriverResponse>(`/api/v1/drivers/employee/${employeeId}`);
+      return mapApiDriverToDriver(apiDriver);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -210,7 +249,8 @@ export class ApiDriverRepository implements DriverRepository {
 
   async findByLicenseNumber(licenseNumber: string): Promise<Driver | null> {
     try {
-      return await this.apiClient.get<Driver>(`/api/drivers/license/${licenseNumber}`);
+      const apiDriver = await this.apiClient.get<ApiDriverResponse>(`/api/v1/drivers/license/${licenseNumber}`);
+      return mapApiDriverToDriver(apiDriver);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -220,23 +260,39 @@ export class ApiDriverRepository implements DriverRepository {
   }
 
   async findByStatus(status: string): Promise<Driver[]> {
-    return this.apiClient.get<Driver[]>(`/api/drivers?status=${status}`);
+    const apiDrivers = await this.apiClient.get<ApiDriverResponse[]>(`/api/v1/drivers?status=${status}`);
+    return apiDrivers.map(mapApiDriverToDriver);
   }
 
   async bulkCreate(drivers: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<Driver[]> {
-    return this.apiClient.post<Driver[]>('/api/drivers/bulk', { drivers });
+    // This would need proper mapping from domain to API format
+    const apiDrivers = await this.apiClient.post<ApiDriverResponse[]>('/api/v1/drivers/bulk', { drivers });
+    return apiDrivers.map(mapApiDriverToDriver);
   }
 
   async create(data: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>): Promise<Driver> {
-    return this.apiClient.post<Driver>('/api/drivers', data);
+    // Map domain driver to API format
+    const apiData = {
+      country_id: data.countryId,
+      employee_id: data.employeeId,
+      name: `${data.firstName} ${data.lastName}`.trim(),
+      license_no: data.licenseNumber,
+      phone_number: data.phoneNumber || null,
+      email: data.email || null
+    };
+    
+    const apiDriver = await this.apiClient.post<ApiDriverResponse>('/api/v1/drivers', apiData);
+    return mapApiDriverToDriver(apiDriver);
   }
 
   async update(id: string, data: Partial<Driver>): Promise<Driver> {
-    return this.apiClient.put<Driver>(`/api/drivers/${id}`, data);
+    // This would need proper mapping from domain to API format
+    const apiDriver = await this.apiClient.put<ApiDriverResponse>(`/api/v1/drivers/${id}`, data);
+    return mapApiDriverToDriver(apiDriver);
   }
 
   async delete(id: string): Promise<void> {
-    return this.apiClient.delete(`/api/drivers/${id}`);
+    return this.apiClient.delete(`/api/v1/drivers/${id}`);
   }
 }
 
@@ -244,12 +300,12 @@ export class ApiRouteRepository implements RouteRepository {
   constructor(private apiClient: ApiClient) {}
 
   async findAll(): Promise<Route[]> {
-    return this.apiClient.get<Route[]>('/api/routes');
+    return this.apiClient.get<Route[]>('/api/v1/routes');
   }
 
   async findById(id: string): Promise<Route | null> {
     try {
-      return await this.apiClient.get<Route>(`/api/routes/${id}`);
+      return await this.apiClient.get<Route>(`/api/v1/routes/${id}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -260,7 +316,7 @@ export class ApiRouteRepository implements RouteRepository {
 
   async findByRouteNumber(routeNumber: string): Promise<Route | null> {
     try {
-      return await this.apiClient.get<Route>(`/api/routes/number/${routeNumber}`);
+      return await this.apiClient.get<Route>(`/api/v1/routes/number/${routeNumber}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -270,12 +326,12 @@ export class ApiRouteRepository implements RouteRepository {
   }
 
   async findByCountryId(countryId: string): Promise<Route[]> {
-    return this.apiClient.get<Route[]>(`/api/routes?countryId=${countryId}`);
+    return this.apiClient.get<Route[]>(`/api/v1/routes?countryId=${countryId}`);
   }
 
   async findByRouteCode(routeCode: string): Promise<Route | null> {
     try {
-      return await this.apiClient.get<Route>(`/api/routes/code/${routeCode}`);
+      return await this.apiClient.get<Route>(`/api/v1/routes/code/${routeCode}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -285,15 +341,15 @@ export class ApiRouteRepository implements RouteRepository {
   }
 
   async create(data: Omit<Route, 'id' | 'createdAt' | 'updatedAt'>): Promise<Route> {
-    return this.apiClient.post<Route>('/api/routes', data);
+    return this.apiClient.post<Route>('/api/v1/routes', data);
   }
 
   async update(id: string, data: Partial<Route>): Promise<Route> {
-    return this.apiClient.put<Route>(`/api/routes/${id}`, data);
+    return this.apiClient.put<Route>(`/api/v1/routes/${id}`, data);
   }
 
   async delete(id: string): Promise<void> {
-    return this.apiClient.delete(`/api/routes/${id}`);
+    return this.apiClient.delete(`/api/v1/routes/${id}`);
   }
 }
 
@@ -302,12 +358,12 @@ export class ApiStopRepository implements StopRepository {
   constructor(private apiClient: ApiClient) {}
 
   async findAll(): Promise<Stop[]> {
-    return this.apiClient.get<Stop[]>('/api/stops');
+    return this.apiClient.get<Stop[]>('/api/v1/stops');
   }
 
   async findById(id: string): Promise<Stop | null> {
     try {
-      return await this.apiClient.get<Stop>(`/api/stops/${id}`);
+      return await this.apiClient.get<Stop>(`/api/v1/stops/${id}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -317,16 +373,16 @@ export class ApiStopRepository implements StopRepository {
   }
 
   async findByRoute(routeId: string): Promise<Stop[]> {
-    return this.apiClient.get<Stop[]>(`/api/stops/route/${routeId}`);
+    return this.apiClient.get<Stop[]>(`/api/v1/stops/route/${routeId}`);
   }
 
   async findByCountryId(countryId: string): Promise<Stop[]> {
-    return this.apiClient.get<Stop[]>(`/api/stops?countryId=${countryId}`);
+    return this.apiClient.get<Stop[]>(`/api/v1/stops?countryId=${countryId}`);
   }
 
   async findByCode(code: string): Promise<Stop | null> {
     try {
-      return await this.apiClient.get<Stop>(`/api/stops/code/${code}`);
+      return await this.apiClient.get<Stop>(`/api/v1/stops/code/${code}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'Resource not found') {
         return null;
@@ -336,19 +392,19 @@ export class ApiStopRepository implements StopRepository {
   }
 
   async findNearby(latitude: number, longitude: number, radiusKm: number): Promise<Stop[]> {
-    return this.apiClient.get<Stop[]>(`/api/stops/nearby?lat=${latitude}&lon=${longitude}&radius=${radiusKm}`);
+    return this.apiClient.get<Stop[]>(`/api/v1/stops/nearby?lat=${latitude}&lon=${longitude}&radius=${radiusKm}`);
   }
 
   async create(data: Omit<Stop, 'id' | 'createdAt' | 'updatedAt'>): Promise<Stop> {
-    return this.apiClient.post<Stop>('/api/stops', data);
+    return this.apiClient.post<Stop>('/api/v1/stops', data);
   }
 
   async update(id: string, data: Partial<Stop>): Promise<Stop> {
-    return this.apiClient.put<Stop>(`/api/stops/${id}`, data);
+    return this.apiClient.put<Stop>(`/api/v1/stops/${id}`, data);
   }
 
   async delete(id: string): Promise<void> {
-    return this.apiClient.delete(`/api/stops/${id}`);
+    return this.apiClient.delete(`/api/v1/stops/${id}`);
   }
 }
 

@@ -39,11 +39,10 @@ export class FleetManagementApp {
   constructor(config: AppConfig = defaultConfig) {
     this.config = config;
     
-    // Initialize Infrastructure Layer
+    // Initialize Infrastructure Layer - Real API only
     this.container = new DependencyContainer({
       baseURL: config.apiBaseURL,
       timeout: 10000,
-      enableMock: false, // Use real API by default, fallback to mock on failure
       headers: {
         'X-App-Version': '1.0.0',
         'X-Environment': config.environment

@@ -2,7 +2,21 @@
 
 /**
  * VEHICLES CLIENT COMPONENT - Vehicle Management Interface
- * Client-side component for vehicle CRUD operations
+ * Client-side component fo                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">
+                              {(vehicle.plateNumber || vehicle.regCode || 'UK').substring(0, 2)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="text-lg font-medium text-gray-900">
+                            {vehicle.plateNumber || vehicle.regCode || 'Unknown'}
+                          </h3>
+                          <p className="text-sm text-gray-500">{vehicle.model || 'Vehicle'}</p>
+                        </div>
+                      </div>operations
  */
 
 import React, { useState, useEffect } from 'react';
@@ -140,11 +154,11 @@ export default function VehiclesClient() {
                       </div>
                       <div>
                         <dt className="font-medium text-gray-500">Capacity</dt>
-                        <dd className="text-gray-900">{vehicle.capacity} passengers</dd>
+                        <dd className="text-gray-900">{vehicle.capacity > 0 ? `${vehicle.capacity} passengers` : 'Not specified'}</dd>
                       </div>
                       <div>
                         <dt className="font-medium text-gray-500">Depot</dt>
-                        <dd className="text-gray-900">{vehicle.depotId}</dd>
+                        <dd className="text-gray-900">{vehicle.depotId || 'Not assigned'}</dd>
                       </div>
                       <div>
                         <dt className="font-medium text-gray-500">Country</dt>
