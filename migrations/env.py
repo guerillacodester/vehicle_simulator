@@ -1,26 +1,22 @@
 from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from config_loader import load_config
-import paramiko
-import socket
-import threading
+import sys
 import os
+
+# Add the project root to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from sqlalchemy import engine_from_config, create_engine
+from sqlalchemy import pool
+from config.database import get_ssh_tunnel, get_db_config
 from dotenv import load_dotenv
 
 from alembic import context
 
-# Import database SSH tunnel from database.py
-from world.fleet_manager.database import Forwarder
+# Import all models
+from models.gtfs import Base
 
 # Load .env
 load_dotenv()
-
-# Load ssh config
-config_ini = load_config()
-db_config = config_ini['DATABASE']
-ssh_config = config_ini['SSH']
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -33,7 +29,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from models import Base
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -57,30 +52,22 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    # Set up SSH tunnel
-    ssh_client = paramiko.SSHClient()
-    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
-    # Connect to SSH server
-    ssh_password = os.getenv('SSH_PASS')
-    ssh_client.connect(
-        ssh_config['host'],
-        port=int(ssh_config.get('port', 22)),
-        username=ssh_config['user'],
-        password=ssh_password
-    )
-    
-    # Create tunnel
-    transport = ssh_client.get_transport()
-    forwarder = Forwarder(
-        transport,
-        int(db_config['local_port']),
-        db_config['host'],
-        int(db_config['port'])
-    )
-    forwarder.start()
-
+    # Set up SSH tunnel and database connection
+    tunnel = None
     try:
+        # Start SSH tunnel
+        tunnel = get_ssh_tunnel()
+        tunnel.start()
+        
+        # Get database config with tunnel
+        db_config = get_db_config(tunnel)
+        
+        # Create connection string
+        connection_string = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['dbname']}"
+        
+        # Override the config with our dynamic connection string
+        config.set_main_option("sqlalchemy.url", connection_string)
+        
         connectable = engine_from_config(
             config.get_section(config.config_ini_section, {}),
             prefix="sqlalchemy.",
@@ -89,16 +76,17 @@ def run_migrations_online() -> None:
 
         with connectable.connect() as connection:
             context.configure(
-                connection=connection, target_metadata=target_metadata
+                connection=connection, 
+                target_metadata=target_metadata,
+                compare_type=True,
+                compare_server_default=True
             )
 
             with context.begin_transaction():
                 context.run_migrations()
     finally:
-        forwarder._stop.set()
-        if forwarder.sock:
-            forwarder.sock.close()
-        ssh_client.close()
+        if tunnel:
+            tunnel.stop()
 
 
 if context.is_offline_mode():

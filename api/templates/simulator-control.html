@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulator Control - Vehicle Simulator</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/fleet-management.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-bus me-2"></i>
+                Vehicle Simulator Control Center
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/fleet-management">
+                    <i class="fas fa-upload me-1"></i>Fleet Management
+                </a>
+                <a class="nav-link active" href="/simulator-control">
+                    <i class="fas fa-play me-1"></i>Simulator Control
+                </a>
+                <a class="nav-link" href="/docs">
+                    <i class="fas fa-book me-1"></i>API Docs
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="page-header mb-4">
+                    <h1><i class="fas fa-play-circle text-primary me-3"></i>Simulator Control</h1>
+                    <p class="lead">Start, stop, and monitor vehicle simulations in real-time</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Panel -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-tachometer-alt text-info me-2"></i>
+                            Simulation Status
+                        </h5>
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div id="status-indicator" class="status-indicator status-stopped">
+                                    <i class="fas fa-stop-circle"></i>
+                                    <span>Stopped</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button id="refresh-status" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-sync-alt"></i> Refresh Status
+                                </button>
+                            </div>
+                        </div>
+                        <div id="simulation-details" class="mt-3" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <small class="text-muted">Duration:</small>
+                                    <div id="sim-duration">--</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Active Vehicles:</small>
+                                    <div id="sim-vehicles">--</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Country:</small>
+                                    <div id="sim-country">--</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">GPS Enabled:</small>
+                                    <div id="sim-gps">--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-play text-success me-2"></i>
+                            Start Simulation
+                        </h5>
+                        <form id="start-simulation-form">
+                            <div class="mb-3">
+                                <label for="country" class="form-label">Country</label>
+                                <select class="form-select" id="country" name="country">
+                                    <option value="">All Countries</option>
+                                    <option value="barbados">Barbados</option>
+                                    <option value="trinidad">Trinidad & Tobago</option>
+                                    <option value="jamaica">Jamaica</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="duration" class="form-label">Duration (seconds)</label>
+                                <input type="number" class="form-control" id="duration" name="duration_seconds" 
+                                       value="60" min="10" max="3600">
+                            </div>
+                            <div class="mb-3">
+                                <label for="interval" class="form-label">Update Interval (seconds)</label>
+                                <input type="number" class="form-control" id="interval" name="update_interval" 
+                                       value="1.0" min="0.1" max="10" step="0.1">
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="gps" name="gps_enabled" checked>
+                                <label class="form-check-label" for="gps">
+                                    Enable GPS Transmission
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-success" id="start-btn">
+                                <i class="fas fa-play me-2"></i>Start Simulation
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-stop text-danger me-2"></i>
+                            Stop Simulation
+                        </h5>
+                        <p class="text-muted">Stop the currently running simulation</p>
+                        <button id="stop-btn" class="btn btn-danger" disabled>
+                            <i class="fas fa-stop me-2"></i>Stop Simulation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Vehicles -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-bus text-primary me-2"></i>
+                            Active Vehicles
+                        </h5>
+                        <div id="vehicles-container">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-bus fa-3x mb-3"></i>
+                                <p>No active vehicles. Start a simulation to see vehicles here.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Messages -->
+    <div id="status-messages" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/simulator-control.js"></script>
+</body>
+</html>

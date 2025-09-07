@@ -1,0 +1,18 @@
+{
+  "vehicles": [
+    {
+      "vehicle_id": "BUS001",
+      "vehicle_type": "bus",
+      "capacity": 45,
+      "route_id": "route_1",
+      "status": "active"
+    },
+    {
+      "vehicle_id": "BUS002", 
+      "vehicle_type": "bus",
+      "capacity": 45,
+      "route_id": "route_1",
+      "status": "active"
+    }
+  ]
+}

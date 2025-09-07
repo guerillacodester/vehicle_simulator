@@ -1,0 +1,89 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "route_id": "barbados_route_1",
+        "route_short_name": "Route 1",
+        "name": "Bridgetown to Speightstown",
+        "description": "Main coastal route connecting Bridgetown to Speightstown"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-59.6174, 13.0969],
+          [-59.6200, 13.1020],
+          [-59.6250, 13.1080],
+          [-59.6300, 13.1150],
+          [-59.6350, 13.1220],
+          [-59.6400, 13.1290],
+          [-59.6450, 13.1360],
+          [-59.6500, 13.1430],
+          [-59.6550, 13.1500],
+          [-59.6600, 13.1570],
+          [-59.6650, 13.1640],
+          [-59.6700, 13.1710],
+          [-59.6750, 13.1780],
+          [-59.6800, 13.1850],
+          [-59.6850, 13.1920],
+          [-59.6900, 13.1990],
+          [-59.6950, 13.2060],
+          [-59.7000, 13.2130],
+          [-59.7050, 13.2200],
+          [-59.7100, 13.2270]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "route_id": "barbados_route_2",
+        "route_short_name": "Route 2",
+        "name": "Bridgetown to Oistins",
+        "description": "Southern coastal route to Oistins fishing village"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-59.6174, 13.0969],
+          [-59.6150, 13.0920],
+          [-59.6100, 13.0870],
+          [-59.6050, 13.0820],
+          [-59.6000, 13.0770],
+          [-59.5950, 13.0720],
+          [-59.5900, 13.0670],
+          [-59.5850, 13.0620],
+          [-59.5800, 13.0570],
+          [-59.5750, 13.0520],
+          [-59.5700, 13.0470],
+          [-59.5650, 13.0420]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "route_id": "barbados_route_3",
+        "route_short_name": "Route 3",
+        "name": "Cross-Island Express",
+        "description": "Fast route across the island through St. George Valley"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-59.6174, 13.0969],
+          [-59.6000, 13.1000],
+          [-59.5800, 13.1050],
+          [-59.5600, 13.1100],
+          [-59.5400, 13.1150],
+          [-59.5200, 13.1200],
+          [-59.5000, 13.1250],
+          [-59.4800, 13.1300],
+          [-59.4600, 13.1350],
+          [-59.4400, 13.1400]
+        ]
+      }
+    }
+  ]
+}

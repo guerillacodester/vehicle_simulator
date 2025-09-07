@@ -1,0 +1,90 @@
+[
+  {
+    "vehicle_id": "barbados_bus_001",
+    "status": "available",
+    "route_id": "barbados_route_1",
+    "capacity": 45,
+    "type": "standard_bus",
+    "license_plate": "BDS-001",
+    "year": 2020,
+    "manufacturer": "Mercedes",
+    "model": "Citaro"
+  },
+  {
+    "vehicle_id": "barbados_bus_002",
+    "status": "in_service",
+    "route_id": "barbados_route_1",
+    "capacity": 45,
+    "type": "standard_bus",
+    "license_plate": "BDS-002",
+    "year": 2019,
+    "manufacturer": "Mercedes",
+    "model": "Citaro"
+  },
+  {
+    "vehicle_id": "barbados_bus_003",
+    "status": "available",
+    "route_id": "barbados_route_2",
+    "capacity": 35,
+    "type": "minibus",
+    "license_plate": "BDS-003",
+    "year": 2021,
+    "manufacturer": "Ford",
+    "model": "Transit"
+  },
+  {
+    "vehicle_id": "barbados_bus_004",
+    "status": "maintenance",
+    "route_id": null,
+    "capacity": 50,
+    "type": "articulated_bus",
+    "license_plate": "BDS-004",
+    "year": 2018,
+    "manufacturer": "Volvo",
+    "model": "7900A"
+  },
+  {
+    "vehicle_id": "barbados_bus_005",
+    "status": "available",
+    "route_id": "barbados_route_3",
+    "capacity": 40,
+    "type": "standard_bus",
+    "license_plate": "BDS-005",
+    "year": 2020,
+    "manufacturer": "Scania",
+    "model": "Citywide LF"
+  },
+  {
+    "vehicle_id": "barbados_bus_006",
+    "status": "in_service",
+    "route_id": "barbados_route_2",
+    "capacity": 35,
+    "type": "minibus",
+    "license_plate": "BDS-006",
+    "year": 2022,
+    "manufacturer": "Ford",
+    "model": "Transit"
+  },
+  {
+    "vehicle_id": "barbados_bus_007",
+    "status": "available",
+    "route_id": "barbados_route_1",
+    "capacity": 45,
+    "type": "standard_bus",
+    "license_plate": "BDS-007",
+    "year": 2019,
+    "manufacturer": "Mercedes",
+    "model": "Citaro"
+  },
+  {
+    "vehicle_id": "barbados_bus_008",
+    "status": "available",
+    "route_id": "barbados_route_3",
+    "capacity": 40,
+    "type": "standard_bus",
+    "license_plate": "BDS-008",
+    "year": 2021,
+    "manufacturer": "Scania",
+    "model": "Citywide LF"
+  }
+]
