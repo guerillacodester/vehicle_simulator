@@ -43,7 +43,7 @@ export class FleetManagementApp {
     this.container = new DependencyContainer({
       baseURL: config.apiBaseURL,
       timeout: 10000,
-      enableMock: config.environment === 'development', // Use mock data in development
+      enableMock: false, // Use real API by default, fallback to mock on failure
       headers: {
         'X-App-Version': '1.0.0',
         'X-Environment': config.environment

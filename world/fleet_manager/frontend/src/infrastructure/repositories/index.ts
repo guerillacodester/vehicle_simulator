@@ -4,7 +4,7 @@
  * They depend on domain abstractions, not the other way around
  */
 
-import axios, { AxiosInstance, AxiosResponse, AxiosError, CreateAxiosDefaults } from 'axios';
+import { dataProvider } from '../data-provider';
 import { MockApiService } from '../mock-api';
 import { 
   Vehicle, 
@@ -33,85 +33,90 @@ interface ApiConfig {
 }
 
 export class ApiClient {
-  private client: AxiosInstance | null = null;
   private mockApi: MockApiService;
   private useMock: boolean = false;
+  private useRemoteAPI: boolean = true;
 
   constructor(config: ApiConfig) {
     this.mockApi = MockApiService.getInstance();
+    this.useMock = config.enableMock || false;
     
-    try {
-      // Try to create a real HTTP client
-      this.client = axios.create({
+    // Configure the data provider if not using mock
+    if (!this.useMock && config.baseURL) {
+      dataProvider.updateConfig({
         baseURL: config.baseURL,
-        timeout: config.timeout || 10000,
-        headers: {
-          'Content-Type': 'application/json',
-          ...config.headers,
-        },
+        timeout: config.timeout,
+        enableLogging: true
       });
-
-      // Add request/response interceptors for error handling
-      this.client.interceptors.response.use(
-        (response: AxiosResponse) => response,
-        (error: AxiosError) => {
-          // Transform API errors into domain-friendly format
-          if (error.response?.status === 404) {
-            throw new Error('Resource not found');
-          }
-          if (error.response?.status === 400) {
-            const errorMessage = error.response.data && 
-              typeof error.response.data === 'object' && 
-              'message' in error.response.data 
-              ? String((error.response.data as { message: string }).message)
-              : 'Invalid request';
-            throw new Error(errorMessage);
-          }
-          if (error.response?.status && error.response.status >= 500) {
-            throw new Error('Server error - please try again later');
-          }
-          throw new Error(error.message || 'Network error');
-        }
-      );
-      
-      this.useMock = config.enableMock || false;
-    } catch (error) {
-      // If Axios fails to initialize, fall back to mock
-      console.warn('Axios initialization failed, falling back to mock API:', error);
-      this.useMock = true;
     }
   }
 
   async get<T>(url: string): Promise<T> {
-    if (this.useMock || !this.client) {
+    if (this.useMock) {
       const response = await this.mockApi.get<T>(url);
       return response.data;
     }
-    return this.client.get<T>(url).then((response: AxiosResponse<T>) => response.data);
+    
+    try {
+      return await dataProvider.get<T>(url);
+    } catch (error) {
+      console.warn('Remote API failed, falling back to mock:', error);
+      const response = await this.mockApi.get<T>(url);
+      return response.data;
+    }
   }
 
   async post<T>(url: string, data: unknown): Promise<T> {
-    if (this.useMock || !this.client) {
+    if (this.useMock) {
       const response = await this.mockApi.post<T>(url, data);
       return response.data;
     }
-    return this.client.post<T>(url, data).then((response: AxiosResponse<T>) => response.data);
+    
+    try {
+      return await dataProvider.post<T>(url, data);
+    } catch (error) {
+      console.warn('Remote API failed, falling back to mock:', error);
+      const response = await this.mockApi.post<T>(url, data);
+      return response.data;
+    }
   }
 
   async put<T>(url: string, data: unknown): Promise<T> {
-    if (this.useMock || !this.client) {
+    if (this.useMock) {
       const response = await this.mockApi.put<T>(url, data);
       return response.data;
     }
-    return this.client.put<T>(url, data).then((response: AxiosResponse<T>) => response.data);
+    
+    try {
+      return await dataProvider.put<T>(url, data);
+    } catch (error) {
+      console.warn('Remote API failed, falling back to mock:', error);
+      const response = await this.mockApi.put<T>(url, data);
+      return response.data;
+    }
   }
 
   async delete(url: string): Promise<void> {
-    if (this.useMock || !this.client) {
+    if (this.useMock) {
       await this.mockApi.delete(url);
       return;
     }
-    return this.client.delete(url).then(() => void 0);
+    
+    try {
+      await dataProvider.delete(url);
+    } catch (error) {
+      console.warn('Remote API failed, falling back to mock:', error);
+      await this.mockApi.delete(url);
+    }
+  }
+
+  // Health check method to test connectivity
+  async healthCheck(): Promise<boolean> {
+    if (this.useMock) {
+      return true;
+    }
+    
+    return await dataProvider.healthCheck();
   }
 }
 

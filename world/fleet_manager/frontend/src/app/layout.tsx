@@ -5,6 +5,7 @@
 
 import type { Metadata } from 'next'
 import Navigation from '@/components/Navigation'
+import ConnectionStatus from '@/components/ConnectionStatus'
 // TODO: Import font once Next.js is properly set up
 // import { Inter } from 'next/font/google'
 import './globals.css'
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <main className="flex-1">
             {children}
           </main>
+          <ConnectionStatus />
         </div>
       </body>
     </html>

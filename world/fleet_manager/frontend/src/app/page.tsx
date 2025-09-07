@@ -5,6 +5,7 @@
 
 import { Metadata } from 'next'
 import DashboardClient from './dashboard-client'
+import { dataProvider } from '@/infrastructure/data-provider'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -13,24 +14,32 @@ export const metadata: Metadata = {
 
 // Server Component - handles data fetching and static content
 export default async function DashboardPage() {
-  // TODO: Fetch real data from API in production
-  const dashboardData = {
-    vehicleStats: {
-      total: 45,
-      active: 38,
-      maintenance: 5,
-      outOfService: 2
-    },
-    driverStats: {
-      total: 52,
-      available: 15,
-      onDuty: 35,
-      onLeave: 2
-    },
-    routeStats: {
-      total: 12,
-      active: 10
-    }
+  let dashboardData;
+  
+  try {
+    // Try to fetch real data from the API
+    dashboardData = await dataProvider.getDashboardStats();
+  } catch (error) {
+    console.warn('Failed to fetch dashboard data from API, using fallback data:', error);
+    // Fallback data if API is unavailable
+    dashboardData = {
+      vehicleStats: {
+        total: 0,
+        active: 0,
+        maintenance: 0,
+        outOfService: 0
+      },
+      driverStats: {
+        total: 0,
+        available: 0,
+        onDuty: 0,
+        onLeave: 0
+      },
+      routeStats: {
+        total: 0,
+        active: 0
+      }
+    };
   }
 
   return (
