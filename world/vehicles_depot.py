@@ -12,7 +12,10 @@ import sys
 import time
 import configparser
 import logging
+from datetime import datetime
+from typing import Optional
 
+from world.models.timetable_manager import TimetableManager
 from world.vehicle.gps_device.device import GPSDevice
 from world.vehicle.engine.engine_block import Engine
 from world.vehicle.engine.engine_buffer import EngineBuffer
@@ -23,15 +26,30 @@ from world.vehicle.gps_device.rxtx_buffer import RxTxBuffer
 from world.vehicle.driver.navigation.navigator import Navigator
 from world.vehicle.vahicle_object import VehicleState
 
+# Create logger for this module
 logger = logging.getLogger(__name__)
 
 class VehiclesDepot:
-    def __init__(self, manifest_path: str = "world/vehicles.json", tick_time: float = 0.1):
+    def __init__(self, manifest_path: str = "world/vehicles.json", 
+                 tick_time: float = 0.1, 
+                 timetable_path: Optional[str] = None):
+        # Initialize basic properties
         self.manifest_path = manifest_path
         self.tick_time = tick_time
         self.vehicles = {}
+        
+        # Setup logger
+        self.logger = logging.getLogger(__name__)
+        
+        # Load configurations
         self._load_manifest()
-        self._load_config()  # load ws_url/auth, normalize
+        self._load_config()
+        
+        # Initialize timetable
+        self.timetable_manager = TimetableManager()
+        if timetable_path and os.path.exists(timetable_path):
+            if self.timetable_manager.load_timetable(timetable_path):
+                self.logger.debug(f"Loaded timetable from {timetable_path}")
 
     # -------------------- manifest --------------------
 
@@ -74,6 +92,7 @@ class VehiclesDepot:
 
     def start(self):
         """Start all active vehicles"""
+        self.logger.info("Starting depot operations")
         print("[INFO] FleetDispatcher ONSITE")
         print("[INFO] Depot OPERATIONAL...")
 
@@ -184,6 +203,87 @@ class VehiclesDepot:
         print("[INFO] Depot UNOPERATIONAL")
         print("[INFO] FleetDispatcher OFFSITE")
     
+    def check_departures(self):
+        """Check if vehicles should depart based on timetable"""
+        current_time = datetime.now().time()
+        for vid, cfg in self.vehicles.items():
+            if not cfg.get("active", False):
+                continue
+                
+            departure = self.timetable_manager.get_next_departure(vid)
+            if departure and current_time >= departure.departure_time:
+                self.logger.debug(f"Vehicle {vid} scheduled departure at {departure.departure_time}")
+                if not cfg.get("_engine"):  # Only start if not already running
+                    self.start_vehicle(vid)
+
+    def start_vehicle(self, vid):
+        """Start a specific vehicle"""
+        if vid not in self.vehicles:
+            return
+            
+        cfg = self.vehicles[vid]
+        if not cfg.get("active", False):
+            return
+            
+        self.logger.debug(f"Vehicle {vid} initial state: {VehicleState.AT_TERMINAL}")
+
+        # After navigator boards - preparing state
+        navigator = Navigator(
+            vehicle_id=vid,
+            route_file=cfg.get("route_file"),
+            route=cfg.get("route"),
+            engine_buffer=None,   # set after engine below
+            mode=cfg.get("mode", "geodesic"),
+            direction=cfg.get("direction", "outbound"),
+        )
+        print(f"[INFO] Navigator boarded for {vid}")
+        logger.debug(f"Vehicle {vid} state: {VehicleState.STARTING}")
+
+        # --- GPSDevice ON ---
+        gps = GPSDevice(
+            vid,
+            server_url=self.ws_url,
+            auth_token=self.auth_token,
+            method="ws",
+            interval=self.tick_time,
+        )
+        gps.on()
+        print(f"[INFO] GPSDevice ON for {vid}")
+
+        # 👉 Use the RxTxBuffer that GPSDevice actually owns
+        rxtx_buffer = gps.buffer
+
+        # --- Engine start ---
+        engine_buffer = EngineBuffer()
+        model = load_speed_model(cfg["speed_model"], **cfg)
+        engine = Engine(vid, model, engine_buffer, tick_time=self.tick_time)
+        engine.on()
+        print(f"[INFO] Engine started for {vid}")
+
+        # --- FleetDispatcher ---
+        dispatcher = FleetDispatcher(
+            vehicle_id=vid,
+            telemetry_buffer=navigator.telemetry_buffer,
+            rxtx_buffer=rxtx_buffer,
+            route=cfg.get("route", "0"),
+            tick_time=self.tick_time,
+        )
+        dispatcher.on()
+        logger.debug(f"Vehicle {vid} state: {VehicleState.ACTIVE}")
+
+        # Link engine buffer back into navigator
+        navigator.engine_buffer = engine_buffer
+        navigator.on()
+
+        # --- Store references ---
+        cfg["_gps"] = gps
+        cfg["_engine"] = engine
+        cfg["_engine_buffer"] = engine_buffer
+        cfg["_navigator"] = navigator
+        cfg["_telemetry_buffer"] = navigator.telemetry_buffer
+        cfg["_dispatcher"] = dispatcher
+        cfg["_rxtx_buffer"] = rxtx_buffer
+
 # ---------------------------
 # Manual test support
 # ---------------------------

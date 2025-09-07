@@ -11,29 +11,5 @@
     "release_ticks": 3,
     "initial_state": "AT_TERMINAL",
     "terminal_id": "TERMINAL_1"
-  },
-  "ZR1301": {
-    "active": false,
-    "route_file": "data/roads/route_1_final_processed.geojson",
-    "route": "1",
-    "speed_model": "kinematic",
-    "speed": 60,
-    "cruise_speed": 60,
-    "accel_limit": 2.5,
-    "decel_limit": 3.5,
-    "corner_slowdown": 20,
-    "release_ticks": 3
-  },
-  "ZR198": {
-    "active": false,
-    "route_file": "data/roads/route_1_final.geojson",
-    "route": "1",
-    "speed_model": "fixed",
-    "speed": 70,
-    "cruise_speed": 55,
-    "accel_limit": 2.5,
-    "decel_limit": 3.5,
-    "corner_slowdown": 20,
-    "release_ticks": 3
   }
 }
