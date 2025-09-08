@@ -7,9 +7,15 @@ import type { Metadata } from 'next'
 import Navigation from '@/components/Navigation'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import { ThemeProvider } from '@/components/theme-provider'
+import { preloadCountryData } from '@/lib/flags'
 // TODO: Import font once Next.js is properly set up
 // import { Inter } from 'next/font/google'
 import './globals.css'
+
+// Preload country data on app initialization
+if (typeof window !== 'undefined') {
+  preloadCountryData();
+}
 
 // TODO: Initialize font once Next.js is set up
 // const inter = Inter({ subsets: ['latin'] })

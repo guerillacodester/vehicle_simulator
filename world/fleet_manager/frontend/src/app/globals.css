@@ -749,3 +749,95 @@ a {
   color: #374151;
   background: rgba(0, 0, 0, 0.05);
 }
+
+/* 3D Card Animation Styles */
+@layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  
+  .translate-z-1 {
+    transform: translateZ(1px);
+  }
+  
+  .translate-z-2 {
+    transform: translateZ(2px);
+  }
+  
+  .translate-z-4 {
+    transform: translateZ(4px);
+  }
+  
+  .group:hover .translate-z-1 {
+    transform: translateZ(1px);
+  }
+  
+  .group:hover .translate-z-2 {
+    transform: translateZ(2px);
+  }
+  
+  .group:hover .translate-z-4 {
+    transform: translateZ(4px);
+  }
+}
+
+/* Enhanced 3D Card Hover Effects */
+.card-3d {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.card-3d:hover {
+  transform: rotateX(5deg) rotateY(-5deg) scale(1.05) translateY(-8px);
+  box-shadow: 
+    0 25px 50px -12px rgba(59, 130, 246, 0.25),
+    0 0 0 1px rgba(59, 130, 246, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.card-3d:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.card-3d .card-content {
+  transform: translateZ(20px);
+  transition: transform 0.3s ease;
+}
+
+.card-3d:hover .card-content {
+  transform: translateZ(40px);
+}
+
+/* Dynamic Flag Styling */
+.flag-emoji-sm {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.flag-emoji-md {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.flag-emoji-lg {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.flag-emoji-xl {
+  font-size: 20px;
+  line-height: 1;
+}

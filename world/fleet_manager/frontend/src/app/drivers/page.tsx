@@ -1,154 +1,327 @@
 /**
- * DRIVERS PAGE - Driver Management (App Router)
+ * DRIVERS PAGE - Unified Framework Implementation
  */
 
-import { Metadata } from 'next'
-import Link from 'next/link'
-import { getDrivers, type Driver } from '@/lib/drivers-api'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Drivers',
-  description: 'Manage your fleet drivers'
+import { useState, useEffect } from 'react'
+import { UnifiedPage } from '@/components/shared/UnifiedPage'
+import { 
+  FilterConfig, 
+  ActionConfig, 
+  CardFieldConfig, 
+  ListColumnConfig,
+  BaseEntity 
+} from '@/types/shared'
+
+// Flag mapping for country codes
+const flagMapping: Record<string, string> = {
+  'BB': '🇧🇧', // Barbados
+  'JM': '🇯🇲', // Jamaica  
+  'TT': '🇹🇹', // Trinidad and Tobago
+  'GY': '🇬🇾', // Guyana
+  'SR': '🇸🇷', // Suriname
+  'BS': '🇧🇸', // Bahamas
+  'BZ': '🇧🇿', // Belize
+  'LC': '🇱🇨', // Saint Lucia
+  'GD': '🇬🇩', // Grenada
+  'VC': '🇻🇨', // Saint Vincent and the Grenadines
+  'AG': '🇦🇬', // Antigua and Barbuda
+  'DM': '🇩🇲', // Dominica
+  'KN': '🇰🇳', // Saint Kitts and Nevis
 }
 
-export default async function DriversPage() {
-  let drivers: Driver[] = []
-  let error: string | null = null
-  
-  try {
-    drivers = await getDrivers()
-  } catch (e) {
-    console.error('Error loading drivers:', e)
-    error = 'Failed to load drivers data'
+// Driver entity extending BaseEntity
+interface Driver extends BaseEntity {
+  driver_id: string
+  license_number: string
+  first_name: string
+  last_name: string
+  phone: string
+  email: string
+  status: 'active' | 'inactive' | 'on_leave' | 'suspended'
+  hire_date: string
+  license_expiry: string
+  vehicle_id?: string
+  route_id?: string
+  experience_years?: number
+  rating?: number
+}
+
+export default function DriversPage() {
+  const [drivers, setDrivers] = useState<Driver[]>([])
+  const [loading, setLoading] = useState(true)
+  const [countries, setCountries] = useState<any[]>([])
+
+  // Load drivers data
+  useEffect(() => {
+    const loadDrivers = async () => {
+      try {
+        setLoading(true)
+        
+        // Load drivers
+        const driversResponse = await fetch('/api/v1/drivers/')
+        if (driversResponse.ok) {
+          const data = await driversResponse.json()
+          // Transform data to match our interface
+          const transformedDrivers = data.map((driver: any) => ({
+            ...driver,
+            name: driver.name,
+            description: `License: ${driver.license_no}`,
+            entity_type: 'driver',
+            driver_id: driver.driver_id,
+            license_number: driver.license_no,
+            first_name: driver.name.split(' ')[0],
+            last_name: driver.name.split(' ').slice(1).join(' '),
+            status: driver.employment_status === 'active' ? 'active' : 'inactive',
+            hire_date: new Date(driver.created_at).toISOString().split('T')[0]
+          }))
+          setDrivers(transformedDrivers)
+        } else {
+          console.error('Failed to load drivers:', driversResponse.statusText)
+        }
+
+        // Load countries
+        const countriesResponse = await fetch('/api/v1/countries/')
+        if (countriesResponse.ok) {
+          const countriesData = await countriesResponse.json()
+          setCountries(countriesData)
+        } else {
+          console.error('Failed to load countries:', countriesResponse.statusText)
+        }
+      } catch (error) {
+        console.error('Error loading data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDrivers()
+  }, [])
+
+  // Filter configuration
+  const filters: FilterConfig[] = [
+    {
+      key: 'search',
+      type: 'search',
+      label: 'Search',
+      placeholder: 'Search by name, license...'
+    },
+    {
+      key: 'employment_status',
+      type: 'select',
+      label: 'Employment Status',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+        { value: 'on_leave', label: 'On Leave' },
+        { value: 'suspended', label: 'Suspended' }
+      ]
+    },
+    {
+      key: 'country_id',
+      type: 'select',
+      label: 'Country',
+      options: countries.map(country => ({
+        value: country.country_id,
+        label: `${flagMapping[country.iso_code] || '🌍'} ${country.name}`
+      }))
+    }
+  ]
+
+  // Action configuration
+  const actions: ActionConfig[] = [
+    {
+      action: 'view',
+      label: 'View Profile',
+      icon: 'User',
+      onClick: (driver: Driver) => {
+        console.log('View driver:', driver.id)
+        // Navigate to driver profile
+      }
+    },
+    {
+      action: 'edit',
+      label: 'Edit Driver',
+      icon: 'Edit',
+      onClick: (driver: Driver) => {
+        console.log('Edit driver:', driver.id)
+        // Open edit modal or navigate to edit page
+      }
+    },
+    {
+      action: 'assign',
+      label: 'Assign Vehicle',
+      icon: 'Car',
+      onClick: (driver: Driver) => {
+        console.log('Assign vehicle to driver:', driver.id)
+        // Open vehicle assignment modal
+      }
+    },
+    {
+      action: 'delete',
+      label: 'Remove Driver',
+      icon: 'Trash2',
+      variant: 'destructive',
+      onClick: (driver: Driver) => {
+        if (confirm(`Are you sure you want to remove driver ${driver.name}?`)) {
+          console.log('Delete driver:', driver.id)
+          // Call delete API
+        }
+      }
+    }
+  ]
+
+  // Card view field configuration
+  const cardFields: CardFieldConfig[] = [
+    {
+      key: 'name',
+      label: 'Full Name',
+      type: 'primary',
+      showInHeader: true
+    },
+    {
+      key: 'license_number',
+      label: 'License Number',
+      type: 'secondary'
+    },
+    {
+      key: 'phone',
+      label: 'Phone',
+      type: 'secondary'
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      type: 'secondary'
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'badge',
+      showInHeader: true
+    },
+    {
+      key: 'vehicle_id',
+      label: 'Assigned Vehicle',
+      type: 'secondary'
+    },
+    {
+      key: 'route_id',
+      label: 'Current Route',
+      type: 'secondary'
+    },
+    {
+      key: 'experience_years',
+      label: 'Experience',
+      type: 'secondary',
+      format: (value) => value ? `${value} years` : 'Not specified'
+    },
+    {
+      key: 'rating',
+      label: 'Rating',
+      type: 'secondary',
+      format: (value) => value ? `${value}/5.0` : 'No rating'
+    }
+  ]
+
+  // List view column configuration
+  const listColumns: ListColumnConfig[] = [
+    {
+      key: 'name',
+      label: 'Driver',
+      type: 'avatar',
+      sortable: true,
+      width: 'w-48'
+    },
+    {
+      key: 'license_number',
+      label: 'License',
+      type: 'text',
+      sortable: true,
+      width: 'w-32'
+    },
+    {
+      key: 'phone',
+      label: 'Phone',
+      type: 'text',
+      sortable: false,
+      width: 'w-32'
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'status',
+      sortable: true,
+      width: 'w-28'
+    },
+    {
+      key: 'vehicle_id',
+      label: 'Vehicle',
+      type: 'badge',
+      sortable: true,
+      width: 'w-32'
+    },
+    {
+      key: 'route_id',
+      label: 'Route',
+      type: 'badge',
+      sortable: true,
+      width: 'w-32'
+    },
+    {
+      key: 'hire_date',
+      label: 'Hire Date',
+      type: 'date',
+      sortable: true,
+      width: 'w-32'
+    },
+    {
+      key: 'license_expiry',
+      label: 'License Expiry',
+      type: 'date',
+      sortable: true,
+      width: 'w-32'
+    }
+  ]
+
+  const handleCreateNew = () => {
+    console.log('Create new driver')
+    // Navigate to create driver page or open modal
+  }
+
+  const handleRefresh = () => {
+    console.log('Refresh drivers')
+    // Reload drivers data
+    setDrivers(prev => [...prev]) // Force re-render for demo
+  }
+
+  const handleFilter = (filters: any) => {
+    console.log('Apply filters:', filters)
+    // Filters are applied automatically by UnifiedPage
+  }
+
+  const handleSort = (column: string, direction: 'asc' | 'desc') => {
+    console.log('Sort by:', column, direction)
+    // Sorting is handled automatically by UnifiedPage
   }
 
   return (
-    <main className="main-content">
-      <div className="page-header">
-        <h1 className="text-3xl font-bold text-gray-900">Driver Management</h1>
-        <p className="text-gray-600">Manage your fleet drivers</p>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <div className="flex space-x-4">
-              <input
-                type="text"
-                placeholder="Search drivers..."
-                className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <select
-                aria-label="Driver status"
-                className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Status</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="ON_LEAVE">On Leave</option>
-              </select>
-            </div>
-            <div className="flex space-x-2">
-              <Link
-                href="/drivers/new"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Add Driver
-              </Link>
-              <button className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                Import Drivers
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div className="p-6">
-          {error ? (
-            <div className="text-center py-12">
-              <div className="text-red-500 mb-4">
-                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Drivers</h3>
-              <p className="text-gray-500 mb-4">{error}</p>
-            </div>
-          ) : drivers.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-500 mb-4">
-                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No drivers found</h3>
-              <p className="text-gray-500 mb-4">Get started by adding your first driver</p>
-              <Link
-                href="/drivers/new"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Add Driver
-              </Link>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full table-auto">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Employee ID</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">License Number</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {drivers.map((driver) => (
-                    <tr key={driver.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-900">
-                        {driver.employeeId || driver.id.slice(0, 8)}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-900">
-                        {driver.firstName} {driver.lastName}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-900">
-                        {driver.licenseNumber}
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          driver.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {driver.status.charAt(0).toUpperCase() + driver.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        <div className="flex space-x-2">
-                          <Link
-                            href={`/drivers/${driver.id}`}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            View
-                          </Link>
-                          <Link
-                            href={`/drivers/${driver.id}/edit`}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Edit
-                          </Link>
-                          <button className="text-red-600 hover:text-red-900">
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </main>
+    <UnifiedPage
+      title="Driver Management"
+      subtitle="Manage your fleet drivers with real-time status tracking and assignments"
+      entities={drivers}
+      loading={loading}
+      filters={filters}
+      actions={actions}
+      cardFields={cardFields}
+      listColumns={listColumns}
+      onCreateNew={handleCreateNew}
+      onRefresh={handleRefresh}
+      onFilter={handleFilter}
+      onSort={handleSort}
+      createButtonText="Add Driver"
+      emptyMessage="No drivers found. Add your first driver to get started."
+    />
   )
 }

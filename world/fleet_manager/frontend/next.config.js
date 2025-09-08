@@ -28,6 +28,16 @@ const nextConfig = {
       // Add any redirects here if needed
     ]
   },
+
+  // Rewrites for API proxying
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://localhost:8000/api/v1/:path*',
+      },
+    ]
+  },
   
   // Headers configuration
   async headers() {

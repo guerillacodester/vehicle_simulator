@@ -1,111 +1,307 @@
 /**
- * TIMETABLES PAGE - Timetable Management (App Router)
+ * TIMETABLES PAGE - Unified Framework Implementation
  */
 
-import { Metadata } from 'next'
-import Link from 'next/link'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Timetables',
-  description: 'Manage transit timetables and schedules'
+import { useState, useEffect } from 'react'
+import { UnifiedPage } from '@/components/shared/UnifiedPage'
+import { 
+  FilterConfig, 
+  ActionConfig, 
+  CardFieldConfig, 
+  ListColumnConfig,
+  BaseEntity 
+} from '@/types/shared'
+
+// Timetable entity extending BaseEntity
+interface Timetable extends BaseEntity {
+  timetable_id: string
+  timetable_name: string
+  route_id: string
+  route_name: string
+  effective_date: string
+  expiry_date: string
+  status: 'active' | 'inactive' | 'draft' | 'archived'
+  service_type: 'weekday' | 'weekend' | 'holiday' | 'special'
+  trips_count: number
+  first_departure: string
+  last_departure: string
+  frequency_minutes: number
 }
 
 export default function TimetablesPage() {
+  const [timetables, setTimetables] = useState<Timetable[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Load timetables data
+  useEffect(() => {
+    const loadTimetables = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/v1/timetables/')
+        if (response.ok) {
+          const data = await response.json()
+          // Transform data to match our interface
+          const transformedTimetables = data.map((timetable: any) => ({
+            ...timetable,
+            name: timetable.timetable_name,
+            description: `${timetable.route_name} - ${timetable.service_type}`,
+            entity_type: 'timetable'
+          }))
+          setTimetables(transformedTimetables)
+        } else {
+          console.error('Failed to load timetables:', response.statusText)
+        }
+      } catch (error) {
+        console.error('Error loading timetables:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadTimetables()
+  }, [])
+
+  // Filter configuration
+  const filters: FilterConfig[] = [
+    {
+      key: 'search',
+      type: 'search',
+      label: 'Search timetables',
+      placeholder: 'Search by timetable name, route...'
+    },
+    {
+      key: 'status',
+      type: 'select',
+      label: 'Status',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+        { value: 'draft', label: 'Draft' },
+        { value: 'archived', label: 'Archived' }
+      ]
+    },
+    {
+      key: 'service_type',
+      type: 'multiselect',
+      label: 'Service Type',
+      options: [
+        { value: 'weekday', label: 'Weekday' },
+        { value: 'weekend', label: 'Weekend' },
+        { value: 'holiday', label: 'Holiday' },
+        { value: 'special', label: 'Special' }
+      ]
+    },
+    {
+      key: 'route_id',
+      type: 'select',
+      label: 'Route',
+      options: [
+        { value: 'route_1', label: 'Route 1' },
+        { value: 'route_2', label: 'Route 2' },
+        { value: 'route_3', label: 'Route 3' }
+      ]
+    },
+    {
+      key: 'effective_date',
+      type: 'date',
+      label: 'Effective Date'
+    }
+  ]
+
+  // Action configuration
+  const actions: ActionConfig[] = [
+    {
+      action: 'view',
+      label: 'View Timetable',
+      icon: 'Calendar',
+      onClick: (timetable: Timetable) => {
+        console.log('View timetable:', timetable.id)
+        // Navigate to timetable details
+      }
+    },
+    {
+      action: 'edit',
+      label: 'Edit Timetable',
+      icon: 'Edit',
+      onClick: (timetable: Timetable) => {
+        console.log('Edit timetable:', timetable.id)
+        // Open edit modal or navigate to edit page
+      }
+    },
+    {
+      action: 'assign',
+      label: 'Assign Route',
+      icon: 'Route',
+      onClick: (timetable: Timetable) => {
+        console.log('Assign route to timetable:', timetable.id)
+        // Open route assignment modal
+      }
+    },
+    {
+      action: 'delete',
+      label: 'Delete Timetable',
+      icon: 'Trash2',
+      variant: 'destructive',
+      onClick: (timetable: Timetable) => {
+        if (confirm(`Are you sure you want to delete timetable ${timetable.name}?`)) {
+          console.log('Delete timetable:', timetable.id)
+          // Call delete API
+        }
+      }
+    }
+  ]
+
+  // Card view field configuration
+  const cardFields: CardFieldConfig[] = [
+    {
+      key: 'name',
+      label: 'Timetable Name',
+      type: 'primary',
+      showInHeader: true
+    },
+    {
+      key: 'route_name',
+      label: 'Route',
+      type: 'secondary'
+    },
+    {
+      key: 'service_type',
+      label: 'Service Type',
+      type: 'badge'
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'badge',
+      showInHeader: true
+    },
+    {
+      key: 'effective_date',
+      label: 'Effective Date',
+      type: 'date'
+    },
+    {
+      key: 'expiry_date',
+      label: 'Expiry Date',
+      type: 'date'
+    },
+    {
+      key: 'trips_count',
+      label: 'Total Trips',
+      type: 'secondary',
+      format: (value) => value ? `${value} trips` : 'No trips'
+    },
+    {
+      key: 'first_departure',
+      label: 'First Departure',
+      type: 'secondary'
+    },
+    {
+      key: 'last_departure',
+      label: 'Last Departure',
+      type: 'secondary'
+    }
+  ]
+
+  // List view column configuration
+  const listColumns: ListColumnConfig[] = [
+    {
+      key: 'name',
+      label: 'Timetable',
+      type: 'avatar',
+      sortable: true,
+      width: 'w-48'
+    },
+    {
+      key: 'route_name',
+      label: 'Route',
+      type: 'text',
+      sortable: true,
+      width: 'w-32'
+    },
+    {
+      key: 'service_type',
+      label: 'Service',
+      type: 'badge',
+      sortable: true,
+      width: 'w-28'
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'status',
+      sortable: true,
+      width: 'w-24'
+    },
+    {
+      key: 'effective_date',
+      label: 'Effective',
+      type: 'date',
+      sortable: true,
+      width: 'w-32'
+    },
+    {
+      key: 'expiry_date',
+      label: 'Expiry',
+      type: 'date',
+      sortable: true,
+      width: 'w-32'
+    },
+    {
+      key: 'trips_count',
+      label: 'Trips',
+      type: 'text',
+      sortable: true,
+      width: 'w-20'
+    },
+    {
+      key: 'first_departure',
+      label: 'First',
+      type: 'text',
+      sortable: false,
+      width: 'w-24'
+    }
+  ]
+
+  const handleCreateNew = () => {
+    console.log('Create new timetable')
+    // Navigate to create timetable page or open modal
+  }
+
+  const handleRefresh = () => {
+    console.log('Refresh timetables')
+    // Reload timetables data
+    setTimetables(prev => [...prev]) // Force re-render for demo
+  }
+
+  const handleFilter = (filters: any) => {
+    console.log('Apply filters:', filters)
+    // Filters are applied automatically by UnifiedPage
+  }
+
+  const handleSort = (column: string, direction: 'asc' | 'desc') => {
+    console.log('Sort by:', column, direction)
+    // Sorting is handled automatically by UnifiedPage
+  }
+
   return (
-    <main className="main-content">
-      <div className="page-header">
-        <h1 className="text-3xl font-bold text-gray-900">Timetable Management</h1>
-        <p className="text-gray-600">Manage transit schedules and timetables</p>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <div className="flex space-x-4">
-              <input
-                type="text"
-                placeholder="Search timetables..."
-                className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <select
-                aria-label="Timetable status"
-                className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Schedules</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="DRAFT">Draft</option>
-              </select>
-            </div>
-            <div className="flex space-x-2">
-              <Link
-                href="/timetables/new"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Create Timetable
-              </Link>
-              <button className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                Import Schedule
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div className="p-6">
-          <div className="text-center py-12">
-            <div className="text-gray-500 mb-4">
-              <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Timetables Coming Soon</h3>
-            <p className="text-gray-500 mb-4">Schedule management functionality will be available soon</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Related Endpoints</h4>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• Trips</li>
-                  <li>• Services</li>
-                  <li>• Blocks</li>
-                  <li>• Stops</li>
-                </ul>
-              </div>
-              
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-medium text-green-900 mb-2">Available Now</h4>
-                <ul className="text-sm text-green-700 space-y-1">
-                  <li>
-                    <Link href="/vehicles" className="hover:underline">• Vehicle Management</Link>
-                  </li>
-                  <li>
-                    <Link href="/drivers" className="hover:underline">• Driver Management</Link>
-                  </li>
-                  <li>
-                    <Link href="/routes" className="hover:underline">• Route Planning</Link>
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <h4 className="font-medium text-purple-900 mb-2">Features Planned</h4>
-                <ul className="text-sm text-purple-700 space-y-1">
-                  <li>• Schedule Creation</li>
-                  <li>• Time Table Import</li>
-                  <li>• Service Blocks</li>
-                  <li>• Trip Planning</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="mt-8 p-4 bg-yellow-50 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                <strong>System Status:</strong> Real API connected • Database integrated • Mock API eliminated
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
+    <UnifiedPage
+      title="Timetable Management"
+      subtitle="Manage transit schedules and timetables with real-time updates"
+      entities={timetables}
+      loading={loading}
+      filters={filters}
+      actions={actions}
+      cardFields={cardFields}
+      listColumns={listColumns}
+      onCreateNew={handleCreateNew}
+      onRefresh={handleRefresh}
+      onFilter={handleFilter}
+      onSort={handleSort}
+      createButtonText="Create Timetable"
+      emptyMessage="No timetables found. Create your first timetable to get started."
+    />
   )
 }

@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { getAppInstance } from '@/app'
+import { dataProvider } from '@/infrastructure/data-provider'
 import FleetCharts from '@/components/FleetCharts'
 import { 
   Truck, 
@@ -63,8 +64,10 @@ export default function DashboardClient({ data }: DashboardClientProps) {
   const handleRefreshData = async () => {
     setIsLoading(true)
     try {
-      // TODO: Refresh dashboard data from API
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Mock delay
+      // Refresh dashboard data from API
+      const stats = await dataProvider.getDashboardStats()
+      // TODO: Update dashboard state with real data
+      console.log('Dashboard stats:', stats)
     } catch (err) {
       setError('Failed to refresh data')
     } finally {

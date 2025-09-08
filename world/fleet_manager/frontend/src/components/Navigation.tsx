@@ -20,7 +20,7 @@ import {
   Menu,
   X
 } from 'lucide-react'
-import { CountrySelector } from './country-selector'
+import CountrySelector from './country-selector'
 import { ThemeToggle } from './theme-toggle'
 
 interface NavigationItem {
@@ -41,7 +41,14 @@ const navigationItems: NavigationItem[] = [
 
 export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
+  const [selectedCountry, setSelectedCountry] = React.useState<string>('')
   const pathname = usePathname()
+
+  const handleCountryChange = (countryId: string, countryName: string) => {
+    setSelectedCountry(countryId)
+    // You can add additional logic here, like storing in localStorage or context
+    console.log('Selected country:', countryName, 'ID:', countryId)
+  }
 
   return (
     <nav className="bg-white dark:bg-gray-900 shadow-lg border-b border-arknet-yellow-300 dark:border-arknet-yellow-600">
@@ -93,7 +100,12 @@ export default function Navigation() {
           {/* Right Side Controls */}
           <div className="flex items-center space-x-3">
             {/* Country Selector */}
-            <CountrySelector />
+            <CountrySelector 
+              value={selectedCountry}
+              onChange={handleCountryChange}
+              size="sm"
+              className="min-w-[200px]"
+            />
             
             {/* Theme Toggle */}
             <ThemeToggle />

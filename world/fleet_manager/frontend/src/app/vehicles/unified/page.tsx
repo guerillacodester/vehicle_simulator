@@ -1,5 +1,6 @@
 /**
- * VEHICLES PAGE - Unified Framework Implementation  
+ * VEHICLES PAGE - UNIFIED FRAMEWORK EXAMPLE
+ * Complete example of the new unified page architecture
  */
 
 'use client'
@@ -13,23 +14,6 @@ import {
   ListColumnConfig,
   BaseEntity 
 } from '@/types/shared'
-
-// Flag mapping for country codes
-const flagMapping: Record<string, string> = {
-  'BB': '🇧🇧', // Barbados
-  'JM': '🇯🇲', // Jamaica  
-  'TT': '🇹🇹', // Trinidad and Tobago
-  'GY': '🇬🇾', // Guyana
-  'SR': '🇸🇷', // Suriname
-  'BS': '🇧🇸', // Bahamas
-  'BZ': '🇧🇿', // Belize
-  'LC': '🇱🇨', // Saint Lucia
-  'GD': '🇬🇩', // Grenada
-  'VC': '🇻🇨', // Saint Vincent and the Grenadines
-  'AG': '🇦🇬', // Antigua and Barbuda
-  'DM': '🇩🇲', // Dominica
-  'KN': '🇰🇳', // Saint Kitts and Nevis
-}
 
 // Vehicle entity extending BaseEntity
 interface Vehicle extends BaseEntity {
@@ -45,42 +29,21 @@ interface Vehicle extends BaseEntity {
   fuel_level?: number
 }
 
-export default function VehiclesPage() {
+export default function VehiclesPageUnified() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
-  const [countries, setCountries] = useState<any[]>([])
 
   // Load vehicles data
   useEffect(() => {
     const loadVehicles = async () => {
       try {
         setLoading(true)
-        
-        // Load vehicles
-        const vehiclesResponse = await fetch('/api/v1/vehicles/')
-        if (vehiclesResponse.ok) {
-          const data = await vehiclesResponse.json()
-          // Transform data to match our interface
-          const transformedVehicles = data.map((vehicle: any) => ({
-            ...vehicle,
-            name: vehicle.reg_code || `Vehicle ${vehicle.vehicle_id.slice(0, 8)}`,
-            description: `Status: ${vehicle.status}`,
-            entity_type: 'vehicle',
-            license_plate: vehicle.reg_code,
-            last_maintenance: new Date(vehicle.updated_at).toISOString().split('T')[0]
-          }))
-          setVehicles(transformedVehicles)
+        const response = await fetch('/api/vehicles/')
+        if (response.ok) {
+          const data = await response.json()
+          setVehicles(data)
         } else {
-          console.error('Failed to load vehicles:', vehiclesResponse.statusText)
-        }
-
-        // Load countries
-        const countriesResponse = await fetch('/api/v1/countries/')
-        if (countriesResponse.ok) {
-          const countriesData = await countriesResponse.json()
-          setCountries(countriesData)
-        } else {
-          console.error('Failed to load countries:', countriesResponse.statusText)
+          console.error('Failed to load vehicles:', response.statusText)
         }
       } catch (error) {
         console.error('Error loading vehicles:', error)
@@ -97,27 +60,40 @@ export default function VehiclesPage() {
     {
       key: 'search',
       type: 'search',
-      label: 'Search',
-      placeholder: 'Search by registration, status...'
+      label: 'Search vehicles',
+      placeholder: 'Search by ID, license plate, make, model...'
     },
     {
       key: 'status',
       type: 'select',
       label: 'Status',
       options: [
-        { value: 'available', label: 'Available' },
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
         { value: 'maintenance', label: 'Maintenance' },
-        { value: 'retired', label: 'Retired' }
+        { value: 'out_of_service', label: 'Out of Service' }
       ]
     },
     {
-      key: 'country_id',
+      key: 'make',
+      type: 'multiselect',
+      label: 'Make',
+      options: [
+        { value: 'toyota', label: 'Toyota' },
+        { value: 'ford', label: 'Ford' },
+        { value: 'mercedes', label: 'Mercedes' },
+        { value: 'volvo', label: 'Volvo' }
+      ]
+    },
+    {
+      key: 'route_id',
       type: 'select',
-      label: 'Country',
-      options: countries.map(country => ({
-        value: country.country_id,
-        label: `${flagMapping[country.iso_code] || '🌍'} ${country.name}`
-      }))
+      label: 'Route',
+      options: [
+        { value: 'route_1', label: 'Route 1' },
+        { value: 'route_2', label: 'Route 2' },
+        { value: 'route_3', label: 'Route 3' }
+      ]
     }
   ]
 
@@ -139,15 +115,6 @@ export default function VehiclesPage() {
       onClick: (vehicle: Vehicle) => {
         console.log('Edit vehicle:', vehicle.id)
         // Open edit modal or navigate to edit page
-      }
-    },
-    {
-      action: 'assign',
-      label: 'Assign Driver',
-      icon: 'User',
-      onClick: (vehicle: Vehicle) => {
-        console.log('Assign driver to vehicle:', vehicle.id)
-        // Open driver assignment modal
       }
     },
     {

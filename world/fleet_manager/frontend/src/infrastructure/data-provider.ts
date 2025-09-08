@@ -291,15 +291,11 @@ class CentralizedDataProvider {
 
   // Route-specific methods
   async getRoutes(): Promise<Route[]> {
-    try {
-      return await this.get<Route[]>('/api/v1/routes/');
-    } catch (error) {
-      if (error instanceof Error && error.message === 'EMPTY_COLLECTION') {
-        console.log('📋 No routes found in database, returning empty array');
-        return [];
-      }
-      throw error;
-    }
+    // Routes endpoint does not exist in current API
+    // All vehicles have preferred_route_id: null anyway
+    // Return empty array to prevent 404 errors
+    console.log('📋 Routes endpoint not available, returning empty array');
+    return [];
   }
 
   async getRouteById(id: string): Promise<Route> {
@@ -321,6 +317,30 @@ class CentralizedDataProvider {
 
   async getStopById(id: string): Promise<Stop> {
     return this.get<Stop>(`/api/v1/stops/${id}`);
+  }
+
+  async getCountries(): Promise<any[]> {
+    try {
+      return await this.get<any[]>('/api/v1/countries/');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'EMPTY_COLLECTION') {
+        console.log('📋 No countries found in database, returning empty array');
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async getDepots(): Promise<any[]> {
+    try {
+      return await this.get<any[]>('/api/v1/depots/');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'EMPTY_COLLECTION') {
+        console.log('📋 No depots found in database, returning empty array');
+        return [];
+      }
+      throw error;
+    }
   }
 
   // Dashboard data methods
@@ -349,19 +369,19 @@ class CentralizedDataProvider {
       this.getRoutes()
     ]);
 
-    // Calculate statistics
+    // Calculate statistics using actual database status values
     const vehicleStats = {
       total: vehicles.length,
-      active: vehicles.filter(v => v.status === VehicleStatus.ACTIVE).length,
-      maintenance: vehicles.filter(v => v.status === VehicleStatus.MAINTENANCE).length,
-      outOfService: vehicles.filter(v => v.status === VehicleStatus.OUT_OF_SERVICE).length
+      active: vehicles.filter(v => (v.status as any) === 'available').length,
+      maintenance: vehicles.filter(v => (v.status as any) === 'maintenance').length,
+      outOfService: vehicles.filter(v => (v.status as any) === 'retired').length
     };
 
     const driverStats = {
       total: drivers.length,
-      available: drivers.filter(d => d.status === DriverStatus.ACTIVE).length,
-      onDuty: drivers.filter(d => d.status === DriverStatus.ACTIVE).length, // TODO: Distinguish from available
-      onLeave: drivers.filter(d => d.status === DriverStatus.ON_LEAVE).length
+      available: drivers.filter((d: any) => d.employment_status === 'active').length,
+      onDuty: drivers.filter((d: any) => d.employment_status === 'active').length, // TODO: Distinguish from available
+      onLeave: drivers.filter((d: any) => d.employment_status === 'on_leave').length
     };
 
     const routeStats = {
