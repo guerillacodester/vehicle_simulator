@@ -7,6 +7,22 @@
 
 import { useEffect, useState } from 'react'
 import { getAppInstance } from '@/app'
+import FleetCharts from '@/components/FleetCharts'
+import { 
+  Truck, 
+  Users, 
+  Map, 
+  RefreshCw, 
+  AlertCircle,
+  X,
+  Plus,
+  Activity,
+  TrendingUp,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  XCircle
+} from 'lucide-react'
 
 interface DashboardStats {
   vehicleStats: {
@@ -57,11 +73,11 @@ export default function DashboardClient({ data }: DashboardClientProps) {
   }
 
   const quickActions = [
-    { label: 'Manage Vehicles', href: '/vehicles' },
-    { label: 'Add Vehicle', href: '/vehicles/new' },
-    { label: 'Add Driver', href: '/drivers/new' },
-    { label: 'Create Route', href: '/routes/new' },
-    { label: 'Import Data', href: '/import' }
+    { label: 'Manage Vehicles', href: '/vehicles', icon: Truck },
+    { label: 'Add Vehicle', href: '/vehicles/new', icon: Plus },
+    { label: 'Add Driver', href: '/drivers/new', icon: Users },
+    { label: 'Create Route', href: '/routes/new', icon: Map },
+    { label: 'Import Data', href: '/import', icon: TrendingUp }
   ]
 
   // TODO: Replace with actual Material-UI components once installed
@@ -74,26 +90,32 @@ export default function DashboardClient({ data }: DashboardClientProps) {
           disabled={isLoading}
           className="refresh-button"
         >
+          <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
           {isLoading ? 'Refreshing...' : 'Refresh Data'}
         </button>
       </header>
 
       {error && (
         <div className="error-banner">
-          <p>Error: {error}</p>
-          <button onClick={() => setError(null)}>Dismiss</button>
+          <div className="flex items-center">
+            <AlertCircle size={20} className="mr-2" />
+            <p>Error: {error}</p>
+          </div>
+          <button onClick={() => setError(null)} title="Dismiss error">
+            <X size={16} />
+          </button>
         </div>
       )}
 
       <div className="stats-grid">
         {/* Vehicles Stats */}
         <div className="stat-card">
-          <h2>Vehicles</h2>
+          <h2><Truck size={20} />Vehicles</h2>
           <div className="stat-number">{data.vehicleStats.total}</div>
           <div className="stat-breakdown">
-            <div>Active: {data.vehicleStats.active}</div>
-            <div>Maintenance: {data.vehicleStats.maintenance}</div>
-            <div>Out of Service: {data.vehicleStats.outOfService}</div>
+            <div><CheckCircle size={16} className="text-green-500" />Active: {data.vehicleStats.active}</div>
+            <div><AlertTriangle size={16} className="text-yellow-500" />Maintenance: {data.vehicleStats.maintenance}</div>
+            <div><XCircle size={16} className="text-red-500" />Out of Service: {data.vehicleStats.outOfService}</div>
           </div>
           {data.vehicleStats.total === 0 && (
             <div className="empty-state-hint">
@@ -105,12 +127,12 @@ export default function DashboardClient({ data }: DashboardClientProps) {
 
         {/* Drivers Stats */}
         <div className="stat-card">
-          <h2>Drivers</h2>
+          <h2><Users size={20} />Drivers</h2>
           <div className="stat-number">{data.driverStats.total}</div>
           <div className="stat-breakdown">
-            <div>Available: {data.driverStats.available}</div>
-            <div>On Duty: {data.driverStats.onDuty}</div>
-            <div>On Leave: {data.driverStats.onLeave}</div>
+            <div><CheckCircle size={16} className="text-green-500" />Available: {data.driverStats.available}</div>
+            <div><Clock size={16} className="text-blue-500" />On Duty: {data.driverStats.onDuty}</div>
+            <div><AlertCircle size={16} className="text-gray-500" />On Leave: {data.driverStats.onLeave}</div>
           </div>
           {data.driverStats.total === 0 && (
             <div className="empty-state-hint">
@@ -122,10 +144,10 @@ export default function DashboardClient({ data }: DashboardClientProps) {
 
         {/* Routes Stats */}
         <div className="stat-card">
-          <h2>Routes</h2>
+          <h2><Map size={20} />Routes</h2>
           <div className="stat-number">{data.routeStats.total}</div>
           <div className="stat-breakdown">
-            <div>Active: {data.routeStats.active}</div>
+            <div><Activity size={16} className="text-green-500" />Active: {data.routeStats.active}</div>
           </div>
           {data.routeStats.total === 0 && (
             <div className="empty-state-hint">
@@ -139,17 +161,23 @@ export default function DashboardClient({ data }: DashboardClientProps) {
       <div className="quick-actions">
         <h2>Quick Actions</h2>
         <div className="actions-grid">
-          {quickActions.map((action, index) => (
-            <a
-              key={index}
-              href={action.href}
-              className="action-button"
-            >
-              {action.label}
-            </a>
-          ))}
+          {quickActions.map((action, index) => {
+            const IconComponent = action.icon
+            return (
+              <a
+                key={index}
+                href={action.href}
+                className="action-button"
+              >
+                <IconComponent size={18} />
+                {action.label}
+              </a>
+            )
+          })}
         </div>
       </div>
+
+      <FleetCharts vehicleStats={data.vehicleStats} driverStats={data.driverStats} />
 
       <div className="recent-activity">
         <h2>Recent Activity</h2>

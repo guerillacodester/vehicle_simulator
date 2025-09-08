@@ -2,11 +2,12 @@
 
 /**
  * CONNECTION STATUS COMPONENT
- * Shows the current connection status to the remote API
+ * Shows real-time connection status using Socket.io
  */
 
 import React, { useState, useEffect } from 'react';
-import { dataProvider } from '@/infrastructure/data-provider';
+import { socketConnectionService, ConnectionStatus as SocketConnectionStatus } from '@/services/socket-connection';
+import { Wifi, WifiOff, Clock, AlertCircle, Activity } from 'lucide-react';
 
 interface ConnectionStatus {
   isConnected: boolean;
@@ -20,85 +21,75 @@ export default function ConnectionStatusIndicator() {
     isConnected: false,
     lastChecked: undefined
   });
-  const [isChecking, setIsChecking] = useState(false);
-
-  const checkConnection = async () => {
-    setIsChecking(true);
-    try {
-      const result = await dataProvider.testConnection();
-      setStatus({
-        ...result,
-        lastChecked: new Date()
-      });
-    } catch (error) {
-      setStatus({
-        isConnected: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        lastChecked: new Date()
-      });
-    } finally {
-      setIsChecking(false);
-    }
-  };
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Check connection on mount
-    checkConnection();
+    // Initialize socket connection
+    socketConnectionService.connect();
 
-    // Set up periodic checks every 30 seconds
-    const interval = setInterval(checkConnection, 30000);
+    // Subscribe to real-time status updates
+    const unsubscribe = socketConnectionService.onStatusChange((newStatus: SocketConnectionStatus) => {
+      setStatus(newStatus);
+    });
 
-    return () => clearInterval(interval);
+    // Ping every 10 seconds to measure latency
+    const pingInterval = setInterval(() => {
+      socketConnectionService.ping();
+    }, 10000);
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribe();
+      clearInterval(pingInterval);
+      // Note: We don't disconnect the socket here as other components might be using it
+    };
   }, []);
 
-  const getStatusColor = () => {
-    if (isChecking) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    return status.isConnected 
-      ? 'bg-green-100 text-green-800 border-green-300'
-      : 'bg-red-100 text-red-800 border-red-300';
-  };
+  if (!isVisible) return null;
 
-  const getStatusIcon = () => {
-    if (isChecking) return '🔄';
-    return status.isConnected ? '✅' : '❌';
-  };
-
-  const getStatusText = () => {
-    if (isChecking) return 'Checking...';
-    if (status.isConnected) {
-      return `Connected to API${status.responseTime ? ` (${status.responseTime}ms)` : ''}`;
-    }
-    return status.error ? `Disconnected: ${status.error}` : 'Disconnected from API';
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <div className="fixed top-4 right-4 z-50">
-      <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg border text-sm font-medium ${getStatusColor()}`}>
-        <span className={isChecking ? 'animate-spin' : ''}>{getStatusIcon()}</span>
-        <span>{getStatusText()}</span>
-        {!isChecking && (
-          <button
-            onClick={checkConnection}
-            className="ml-2 text-xs underline hover:no-underline"
-            title="Refresh connection status"
-          >
-            Refresh
-          </button>
+    <div className={`connection-status ${status.isConnected ? 'connected' : 'disconnected'}`}>
+      <div className="connection-content">
+        <div className="status-icon">
+          {status.isConnected ? (
+            <Wifi size={16} />
+          ) : (
+            <WifiOff size={16} />
+          )}
+        </div>
+        
+        <div className="status-text">
+          <span className="status-label">
+            {status.isConnected ? 'Connected' : 'Disconnected'}
+          </span>
+          {status.responseTime && (
+            <span className="response-time">{status.responseTime}ms</span>
+          )}
+          {status.lastChecked && (
+            <span className="last-checked">
+              Last: {formatTime(status.lastChecked)}
+            </span>
+          )}
+        </div>
+
+        {status.error && (
+          <div className="error-indicator" title={status.error}>
+            <AlertCircle size={14} />
+          </div>
         )}
       </div>
       
-      {status.lastChecked && (
-        <div className="text-xs text-gray-500 text-right mt-1">
-          Last checked: {status.lastChecked.toLocaleTimeString()}
-        </div>
-      )}
-      
-      {!status.isConnected && (
-        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-          <div className="font-medium">Using Mock Data</div>
-          <div>API unavailable - showing sample data for development</div>
-        </div>
-      )}
+      <button 
+        onClick={() => setIsVisible(false)} 
+        className="dismiss-button"
+        title="Hide connection status"
+      >
+        ×
+      </button>
     </div>
   );
 }

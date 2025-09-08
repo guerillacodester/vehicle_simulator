@@ -9,6 +9,7 @@ import uvicorn
 from typing import List
 import sys
 from pathlib import Path
+import socketio
 
 # Add project root to path
 project_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -35,6 +36,14 @@ except Exception as e:
     print(f"❌ Database connection failed: {e}")
     sys.exit(1)
 
+# Create Socket.io server
+sio = socketio.AsyncServer(
+    async_mode='asgi',
+    cors_allowed_origins="*",
+    logger=True,
+    engineio_logger=True
+)
+
 # Create FastAPI app
 app = FastAPI(
     title="Fleet Management API",
@@ -43,6 +52,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Mount Socket.io
+socket_app = socketio.ASGIApp(sio, app)
 
 # Add CORS middleware
 app.add_middleware(
@@ -70,6 +82,23 @@ app.include_router(stops_router, prefix="/api/v1")
 app.include_router(trips_router, prefix="/api/v1")
 app.include_router(services_router, prefix="/api/v1")
 app.include_router(blocks_router, prefix="/api/v1")
+
+# Socket.io event handlers
+@sio.event
+async def connect(sid, environ):
+    """Handle client connection"""
+    print(f"🔌 Client connected: {sid}")
+    await sio.emit('connection_status', {'status': 'connected', 'server': 'online'}, room=sid)
+
+@sio.event
+async def disconnect(sid):
+    """Handle client disconnection"""
+    print(f"🔌 Client disconnected: {sid}")
+
+@sio.event
+async def ping(sid, data):
+    """Handle ping requests from clients"""
+    await sio.emit('pong', {'timestamp': data.get('timestamp', None)}, room=sid)
 
 @app.get("/")
 async def root():
@@ -116,7 +145,7 @@ if __name__ == "__main__":
     # Run the app directly instead of using uvicorn.run() to avoid reload issues
     import uvicorn
     uvicorn.run(
-        app,
+        socket_app,  # Use socket_app instead of app for Socket.io support
         host="0.0.0.0",
         port=8000,
         log_level="info"

@@ -15,7 +15,7 @@ sys.path.insert(0, str(project_root))
 def start_api_server():
     """Start the API server with proper configuration"""
     uvicorn.run(
-        "world.fleet_manager.api.main:app",
+        "world.fleet_manager.api.main:socket_app",  # Use socket_app for Socket.io support
         host="0.0.0.0",
         port=8000,
         reload=True,

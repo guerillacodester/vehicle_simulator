@@ -234,7 +234,7 @@ class CentralizedDataProvider {
   // Vehicle-specific methods
   async getVehicles(): Promise<Vehicle[]> {
     try {
-      return await this.get<Vehicle[]>('/api/v1/vehicles');
+      return await this.get<Vehicle[]>('/api/v1/vehicles/');
     } catch (error) {
       if (error instanceof Error && error.message === 'EMPTY_COLLECTION') {
         console.log('📋 No vehicles found in database, returning empty array');
@@ -263,7 +263,7 @@ class CentralizedDataProvider {
   // Driver-specific methods
   async getDrivers(): Promise<Driver[]> {
     try {
-      return await this.get<Driver[]>('/api/v1/drivers');
+      return await this.get<Driver[]>('/api/v1/drivers/');
     } catch (error) {
       if (error instanceof Error && error.message === 'EMPTY_COLLECTION') {
         console.log('📋 No drivers found in database, returning empty array');
@@ -292,7 +292,7 @@ class CentralizedDataProvider {
   // Route-specific methods
   async getRoutes(): Promise<Route[]> {
     try {
-      return await this.get<Route[]>('/api/v1/routes');
+      return await this.get<Route[]>('/api/v1/routes/');
     } catch (error) {
       if (error instanceof Error && error.message === 'EMPTY_COLLECTION') {
         console.log('📋 No routes found in database, returning empty array');

@@ -20,7 +20,7 @@ interface AppConfig {
 
 // Default configuration
 const defaultConfig: AppConfig = {
-  apiBaseURL: 'http://localhost:8000', // TODO: Will be configured via environment variables
+  apiBaseURL: 'http://localhost:8001', // Updated to use correct API port
   environment: 'development', // TODO: Will be configured via environment variables
   features: {
     enableFileUpload: true,
