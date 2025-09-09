@@ -20,7 +20,7 @@ from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
 from world.vehicle_simulator.vehicle.engine.engine_block import Engine
 from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
 from world.vehicle_simulator.vehicle.engine.sim_speed_model import load_speed_model
-from world.vehicle_simulator.core.fleet_dispatcher.dispatcher import FleetDispatcher
+# FleetDispatcher removed - plugin architecture handles telemetry processing
 from world.vehicle_simulator.vehicle.gps_device.rxtx_buffer import RxTxBuffer
 # Navigator (manages its own TelemetryBuffer internally)
 from world.vehicle_simulator.vehicle.driver.navigation.navigator import Navigator
@@ -171,7 +171,6 @@ class VehiclesDepot:
     def start(self):
         """Start all active vehicles"""
         self.logger.info("Starting depot operations")
-        print("[INFO] FleetDispatcher ONSITE")
         print("[INFO] Depot OPERATIONAL...")
 
         for vid, cfg in self.vehicles.items():
@@ -196,18 +195,35 @@ class VehiclesDepot:
             logger.debug(f"Vehicle {vid} state: {VehicleState.STARTING}")
 
             # --- GPSDevice ON ---
-            gps = GPSDevice(
-                vid,
+            # Create WebSocket transmitter for new plugin architecture
+            from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
+            from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
+            
+            transmitter = WebSocketTransmitter(
                 server_url=self.ws_url,
-                auth_token=self.auth_token,
-                method="ws",
-                interval=self.tick_time,
+                token=self.auth_token,
+                device_id=vid,
+                codec=PacketCodec()
+            )
+            
+            # Configure Navigator plugin to use Navigator telemetry
+            plugin_config = {
+                "type": "navigator_telemetry", 
+                "device_id": vid,
+                "navigator": navigator,  # Pass navigator reference
+                "update_interval": self.tick_time
+            }
+            
+            gps = GPSDevice(
+                device_id=vid,
+                ws_transmitter=transmitter,
+                plugin_config=plugin_config
             )
             gps.on()
             print(f"[INFO] GPSDevice ON for {vid}")
 
             # 👉 Use the RxTxBuffer that GPSDevice actually owns
-            rxtx_buffer = gps.buffer
+            rxtx_buffer = gps.rxtx_buffer
 
             # --- Engine start ---
             engine_buffer = EngineBuffer()
@@ -216,20 +232,12 @@ class VehiclesDepot:
             engine.on()
             print(f"[INFO] Engine started for {vid}")
 
-            # --- FleetDispatcher ---
-            dispatcher = FleetDispatcher(
-                vehicle_id=vid,
-                telemetry_buffer=navigator.telemetry_buffer,
-                rxtx_buffer=rxtx_buffer,
-                route=cfg.get("route", "0"),
-                tick_time=self.tick_time,
-            )
-            dispatcher.on()
+            # FleetDispatcher removed - plugin architecture handles telemetry processing
             logger.debug(f"Vehicle {vid} state: {VehicleState.ACTIVE}")
 
-            # Link engine buffer back into navigator
+            # Link engine buffer back into navigator BEFORE starting navigator
             navigator.engine_buffer = engine_buffer
-            navigator.on()
+            navigator.on()  # Start navigator AFTER engine_buffer is set
 
             # --- Store references ---
             cfg["_gps"] = gps
@@ -237,7 +245,6 @@ class VehiclesDepot:
             cfg["_engine_buffer"] = engine_buffer
             cfg["_navigator"] = navigator
             cfg["_telemetry_buffer"] = navigator.telemetry_buffer
-            cfg["_dispatcher"] = dispatcher
             cfg["_rxtx_buffer"] = rxtx_buffer
 
     def stop(self):
@@ -247,13 +254,12 @@ class VehiclesDepot:
                 # Start shutdown process
                 logger.debug(f"Vehicle {vid} state: {VehicleState.STOPPED}")
 
-            dispatcher = cfg.get("_dispatcher")
             nav = cfg.get("_navigator")
             engine = cfg.get("_engine")
             gps = cfg.get("_gps")
 
             # Add a clean blank line before shutting down an active vehicle
-            if any([dispatcher, nav, engine, gps]):
+            if any([nav, engine, gps]):
                 print("")
 
             if engine:
@@ -271,16 +277,10 @@ class VehiclesDepot:
                 print(f"[INFO] Navigator disembarked for {vid}")
                 cfg["_navigator"] = None
 
-            if dispatcher:
-                dispatcher.off()
-                print(f"[INFO] FleetDispatcher OFFSITE for {vid}")
-                cfg["_dispatcher"] = None
-
             logger.debug(f"Vehicle {vid} stopping from state: {VehicleState.ACTIVE}")
             logger.debug(f"Vehicle {vid} final state: {VehicleState.AT_TERMINAL}")
 
         print("[INFO] Depot UNOPERATIONAL")
-        print("[INFO] FleetDispatcher OFFSITE")
     
     def check_departures(self):
         """Check if vehicles should depart based on timetable"""
@@ -341,15 +341,7 @@ class VehiclesDepot:
         engine.on()
         print(f"[INFO] Engine started for {vid}")
 
-        # --- FleetDispatcher ---
-        dispatcher = FleetDispatcher(
-            vehicle_id=vid,
-            telemetry_buffer=navigator.telemetry_buffer,
-            rxtx_buffer=rxtx_buffer,
-            route=cfg.get("route", "0"),
-            tick_time=self.tick_time,
-        )
-        dispatcher.on()
+        # FleetDispatcher removed - plugin architecture handles telemetry processing
         logger.debug(f"Vehicle {vid} state: {VehicleState.ACTIVE}")
 
         # Link engine buffer back into navigator
@@ -362,7 +354,6 @@ class VehiclesDepot:
         cfg["_engine_buffer"] = engine_buffer
         cfg["_navigator"] = navigator
         cfg["_telemetry_buffer"] = navigator.telemetry_buffer
-        cfg["_dispatcher"] = dispatcher
         cfg["_rxtx_buffer"] = rxtx_buffer
 
 # ---------------------------

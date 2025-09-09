@@ -34,10 +34,12 @@ class PluginManager:
             from .simulation_plugin import SimulationTelemetryPlugin
             from .esp32_plugin import ESP32TelemetryPlugin
             from .file_replay_plugin import FileReplayTelemetryPlugin
+            from .navigator_plugin import NavigatorTelemetryPlugin
             
             self.register_plugin(SimulationTelemetryPlugin)
             self.register_plugin(ESP32TelemetryPlugin)
             self.register_plugin(FileReplayTelemetryPlugin)
+            self.register_plugin(NavigatorTelemetryPlugin)
             
             logger.info("Built-in plugins discovered and registered")
             

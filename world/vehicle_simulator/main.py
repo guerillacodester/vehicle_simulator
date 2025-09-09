@@ -27,10 +27,14 @@ from world.vehicle_simulator.core.vehicles_depot import VehiclesDepot
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.WARNING,  # Reduced default level
+    format='%(message)s'     # Simplified format
 )
 logger = logging.getLogger(__name__)
+
+# Only show INFO for main simulator messages
+logging.getLogger('world.vehicle_simulator.main').setLevel(logging.INFO)
+logging.getLogger('world.vehicle_simulator.simulators.simulator').setLevel(logging.INFO)
 
 
 class VehicleSimulatorApp:
@@ -43,40 +47,44 @@ class VehicleSimulatorApp:
         self.depot = None
         self._active_simulator = None  # Track active simulator for cleanup
         
-        logger.info("Vehicle Simulator initialized in standalone mode")
+        # Use debug logging for internal initialization
+        logger.debug("Vehicle Simulator initialized in standalone mode")
     
-    def run_enhanced_simulator(self):
-        """Run the enhanced vehicle simulator"""
+    def run_simulator(self):
+        """Run the vehicle simulator"""
         try:
-            logger.info("Starting Enhanced Vehicle Simulator...")
-            
-            # Create enhanced simulator
+            # Create simulator
             simulator = VehicleSimulator()
             simulator.start()
             
             # Store reference for cleanup
             self._active_simulator = simulator
             
-            logger.info("Enhanced Vehicle Simulator started successfully")
+            # Success message handled by simulator
             return simulator
             
         except Exception as e:
-            logger.error(f"Failed to start enhanced simulator: {e}")
+            logger.error(f"Failed to start simulator: {e}")
             raise
     
-    def run_depot_simulator(self):
-        """Run the depot-based vehicle simulator"""
+    def run_depot_simulator(self, tick_time: float = 1.0):
+        """Run the depot-based vehicle simulator with Navigator"""
         try:
-            logger.info("Starting Depot Vehicle Simulator...")
+            print("🏭 Starting Depot Vehicle Simulator...")
+            print("   📍 Using Navigator for realistic route following")
+            print(f"   ⏱️ Tick time: {tick_time} seconds")
             
-            # Create vehicles depot with route provider
-            self.depot = VehiclesDepot(route_provider=self.fleet_manager.route_provider)
+            # Create vehicles depot with route provider and tick time
+            self.depot = VehiclesDepot(
+                route_provider=self.fleet_manager.route_provider,
+                tick_time=tick_time
+            )
             self.depot.start()
             
             # Store reference for cleanup
             self._active_simulator = self.depot
             
-            logger.info("Depot Vehicle Simulator started successfully")
+            print("✅ Depot Vehicle Simulator started successfully")
             return self.depot
             
         except Exception as e:
@@ -123,25 +131,26 @@ class VehicleSimulatorApp:
 def create_parser():
     """Create command line argument parser"""
     parser = argparse.ArgumentParser(
-        description="Standalone Vehicle Simulator",
+        description="Vehicle Simulator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py --mode enhanced                         # Run enhanced simulator continuously
-  python main.py --mode depot                           # Run depot simulator continuously
-  python main.py --mode enhanced --duration 30          # Run enhanced for 30 seconds
-  python main.py --duration 30 --tick-time 1.0          # Run for 30 seconds, 1s ticks
-  python main.py --list-routes                          # List available routes
-  python main.py --status                               # Show simulator status
-  python main.py --config custom_config.ini             # Use custom config
+  python main.py                                 # Run basic simulator continuously
+  python main.py --mode depot                   # Run depot with Navigator
+  python main.py --duration 30                  # Run for 30 seconds
+  python main.py --mode depot --duration 60     # Run depot mode for 60s
+  python main.py --duration 60 --tick-time 0.5  # Run 60s with 0.5s updates
+  python main.py --list-routes                  # List available routes
+  python main.py --status                       # Show simulator status
+  python main.py --config custom_config.ini     # Use custom config
         """
     )
     
     parser.add_argument(
         '--mode', 
-        choices=['enhanced', 'depot'], 
-        default='enhanced',
-        help='Simulation mode to run (default: enhanced)'
+        choices=['basic', 'depot'], 
+        default='basic',
+        help='Simulation mode: basic=simple movement, depot=Navigator route following (default: basic)'
     )
     
     parser.add_argument(
@@ -191,6 +200,14 @@ def main():
     # Setup debug logging if requested
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Restore detailed format for debug mode
+        for handler in logging.getLogger().handlers:
+            handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    else:
+        # Quiet mode - only show essential messages
+        logging.getLogger('world.vehicle_simulator.core').setLevel(logging.WARNING)
+        logging.getLogger('world.vehicle_simulator.vehicle').setLevel(logging.WARNING)
+        logging.getLogger('world.vehicle_simulator.providers').setLevel(logging.WARNING)
     
     try:
         # Initialize simulator app
@@ -217,10 +234,10 @@ def main():
         
         # Run simulator based on mode
         simulator = None
-        if args.mode == 'enhanced':
-            simulator = app.run_enhanced_simulator()
+        if args.mode == 'basic':
+            simulator = app.run_simulator()
         elif args.mode == 'depot':
-            simulator = app.run_depot_simulator()
+            simulator = app.run_depot_simulator(args.tick_time)
         
         # Handle timed simulation
         if simulator:
@@ -253,7 +270,7 @@ def main():
                             if hasattr(simulator, 'get_status'):
                                 print(simulator.get_status())
                             else:
-                                print(f"Simulator running ({args.mode} mode)")
+                                print("Simulator running")
                             last_status_time = current_time
                         
                         time.sleep(tick_time)
@@ -267,7 +284,7 @@ def main():
             else:
                 # Continuous simulation mode
                 try:
-                    print(f"🚌 Vehicle Simulator running in {args.mode} mode (continuous)")
+                    print(f"🚌 Vehicle Simulator running continuously ({args.mode} mode)")
                     print("Press Ctrl+C to stop...")
                     while True:
                         time.sleep(1)

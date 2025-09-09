@@ -2,54 +2,34 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug gps_device_simulator ",
+      "name": "Debug Depot Mode",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/gps_device_simulator.py",
+      "program": "${workspaceFolder}/world/vehicle_simulator/main.py",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": [                                                      
-      ]
+      "args": ["--mode", "depot", "--duration", "30"]
     },
     {
-      "name": "Debug world_vehicles_simulator",
+      "name": "Debug Basic Mode", 
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/world_vehicles_simulator.py",
+      "program": "${workspaceFolder}/world/vehicle_simulator/main.py",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": [                                                      
-      ]
+      "args": ["--mode", "basic", "--duration", "30"]
     },
     {
-      "name": "Debug sim_speed_model",
+      "name": "Debug Depot (Verbose)",
       "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/sim_speed_model.py",
+      "request": "launch", 
+      "program": "${workspaceFolder}/world/vehicle_simulator/main.py",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": [
-        "--vehicle-id","ZR1301",
-        "--tick", "0.1",
-        "--speed-model", "kinematic",
-        "--vehicles", "${workspaceFolder}/world/vehicles.json"
-      ]
-    },
-    {
-      "name": "Debug navigation_smoketest",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/world/vehicle/driver/navigation/navigator_smoketest.py",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "args": [
-        "--seconds","5",
-        "--dump-all"
-      ]
+      "args": ["--mode", "depot", "--debug", "--duration", "60"]
     }
   ]
 }

@@ -20,8 +20,7 @@ from dataclasses import dataclass
 from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
 from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import make_packet
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Get logger (don't configure it here - let main.py handle it)
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +68,7 @@ class VehicleSimulator:
         
     def _initialize_gps_devices(self):
         """Initialize GPS devices for each vehicle"""
-        logger.info("📡 Initializing GPS devices...")
+        print("📡 Initializing GPS devices...")
         
         for vehicle_id, vehicle in self.vehicles.items():
             try:
@@ -105,7 +104,7 @@ class VehicleSimulator:
                 # Set the vehicle state for the plugin
                 gps_device.set_vehicle_state(vehicle)
                 
-                logger.info(f"   📡 {vehicle_id}: GPS device started with simulation plugin")
+                print(f"   📡 {vehicle_id}: GPS device ready")
                 
             except Exception as e:
                 logger.warning(f"   ⚠️ {vehicle_id}: GPS device failed - {e}")
@@ -225,12 +224,12 @@ class VehicleSimulator:
     def start(self):
         """Start the simulation"""
         self.running = True
-        logger.info("🚌 Enhanced vehicle simulation started")
-        logger.info(f"📡 GPS transmission: {'enabled' if self.enable_gps else 'disabled'}")
+        print("🚌 Vehicle simulation started")
+        print(f"📡 GPS transmission: {'enabled' if self.enable_gps else 'disabled'}")
         
         for vehicle_id, vehicle in self.vehicles.items():
             gps_status = "📡" if vehicle.gps_device else "🔒"
-            logger.info(f"   {gps_status} {vehicle_id}: Route {vehicle.route_id} at ({vehicle.lat:.6f}, {vehicle.lng:.6f})")
+            print(f"   {gps_status} {vehicle_id}: Route {vehicle.route_id} at ({vehicle.lat:.6f}, {vehicle.lng:.6f})")
             
     def update(self):
         """Update all vehicle positions and transmit GPS data"""
@@ -264,7 +263,7 @@ class VehicleSimulator:
     def stop(self):
         """Stop the simulation and GPS devices"""
         self.running = False
-        logger.info("🛑 Stopping simulation...")
+        print("🛑 Stopping simulation...")
         
         # Stop all GPS devices
         if self.enable_gps:
@@ -273,11 +272,11 @@ class VehicleSimulator:
                 if vehicle.gps_device:
                     try:
                         vehicle.gps_device.off()
-                        logger.info(f"   📡 {vehicle_id}: GPS device stopped")
+                        print(f"   📡 {vehicle_id}: GPS device stopped")
                     except Exception as e:
                         logger.warning(f"   ⚠️ {vehicle_id}: GPS stop failed - {e}")
                         
-        logger.info("✅ Simulation stopped")
+        print("✅ Simulation stopped")
         
     def get_status(self) -> str:
         """Get current simulation status"""

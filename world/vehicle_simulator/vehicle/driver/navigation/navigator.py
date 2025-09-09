@@ -113,15 +113,15 @@ class Navigator:
             self._thread = threading.Thread(target=self._worker, daemon=True)
             self._thread.start()
             print(
-                # f"[INFO] Navigator for {self.vehicle_id} turned ON "
-                # f"(mode={self.mode}, direction={self.direction})"
+                f"[INFO] Navigator for {self.vehicle_id} turned ON "
+                f"(mode={self.mode}, direction={self.direction})"
             )
 
     def off(self):
         self._running = False
         if self._thread:
             self._thread.join(timeout=2)
-        # print(f"[INFO] Navigator for {self.vehicle_id} turned OFF")
+        print(f"[INFO] Navigator for {self.vehicle_id} turned OFF")
 
     def _worker(self):
         while self._running:
@@ -202,6 +202,10 @@ class Navigator:
 
     def step(self) -> Optional[dict]:
         if self.mode == "geodesic":
+            # DEBUG: Show which interpolation method is being used
+            # print(f"[DEBUG] {self.vehicle_id}: Using GEODESIC interpolation")
             return self._step_geodesic()
         else:
+            # DEBUG: Show which interpolation method is being used  
+            # print(f"[DEBUG] {self.vehicle_id}: Using LINEAR interpolation")
             return self._step_linear()
