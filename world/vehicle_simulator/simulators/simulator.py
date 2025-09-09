@@ -73,20 +73,39 @@ class VehicleSimulator:
         
         for vehicle_id, vehicle in self.vehicles.items():
             try:
-                # Create GPS device for this vehicle
+                # Create WebSocket transmitter
+                from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
+                from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
+                
+                transmitter = WebSocketTransmitter(
+                    server_url=self.gps_config["server_url"],
+                    token=self.gps_config["auth_token"],
+                    device_id=vehicle_id,
+                    codec=PacketCodec()
+                )
+                
+                # Configure simulation plugin
+                plugin_config = {
+                    "type": "simulation",
+                    "update_interval": self.tick_time,
+                    "device_id": vehicle_id
+                }
+                
+                # Create GPS device with plugin system
                 gps_device = GPSDevice(
                     device_id=vehicle_id,
-                    server_url=self.gps_config["server_url"],
-                    auth_token=self.gps_config["auth_token"],
-                    method="ws",
-                    interval=self.tick_time
+                    ws_transmitter=transmitter,
+                    plugin_config=plugin_config
                 )
                 
                 # Start the GPS device
                 gps_device.on()
                 vehicle.gps_device = gps_device
                 
-                logger.info(f"   📡 {vehicle_id}: GPS device started")
+                # Set the vehicle state for the plugin
+                gps_device.set_vehicle_state(vehicle)
+                
+                logger.info(f"   📡 {vehicle_id}: GPS device started with simulation plugin")
                 
             except Exception as e:
                 logger.warning(f"   ⚠️ {vehicle_id}: GPS device failed - {e}")
@@ -240,31 +259,8 @@ class VehicleSimulator:
             vehicle.speed += random.uniform(-3, 3)
             vehicle.speed = max(15, min(75, vehicle.speed))  # Keep speed reasonable
             
-            # Transmit GPS data if GPS device is available
-            if self.enable_gps and vehicle.gps_device:
-                self._transmit_gps_data(vehicle)
+            # GPS data transmission is now handled by the plugin system automatically
                 
-    def _transmit_gps_data(self, vehicle: VehicleState):
-        """Transmit current vehicle position via GPS device buffer"""
-        try:
-            # Write data directly to GPS device buffer
-            if vehicle.gps_device:
-                telemetry_data = {
-                    "lat": vehicle.lat,
-                    "lon": vehicle.lng,
-                    "speed": vehicle.speed,
-                    "heading": vehicle.heading,
-                    "route": vehicle.route_id,
-                    "vehicle_reg": vehicle.vehicle_id,
-                    "driver_id": f"drv-{vehicle.vehicle_id}",
-                    "driver_name": {"first": "Sim", "last": vehicle.vehicle_id},
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-                vehicle.gps_device.buffer.write(telemetry_data)
-            
-        except Exception as e:
-            logger.warning(f"⚠️ GPS transmission failed for {vehicle.vehicle_id}: {e}")
-            
     def stop(self):
         """Stop the simulation and GPS devices"""
         self.running = False
