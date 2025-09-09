@@ -14,9 +14,9 @@ from pathlib import Path
 # Add project root and scripts to path
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "scripts"))
+sys.path.insert(0, str(project_root / "world" / "fleet_manager" / "scripts"))
 
-from scripts.config_loader import load_config
+from .scripts.config_loader import load_config
 import paramiko, socket, threading
 from dotenv import load_dotenv
 
