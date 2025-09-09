@@ -6,9 +6,6 @@ Demonstrates how to use the telemetry interface with different data sources.
 
 import time
 from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import (
-    TelemetryInjector, SimulatedTelemetrySource, SerialTelemetrySource, FileTelemetrySource
-)
 
 
 def example_simulated_telemetry():

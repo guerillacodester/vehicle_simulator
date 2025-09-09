@@ -16,49 +16,13 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
-# Import GPS device and telemetry interface
+# Import GPS device
 from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import (
-    ITelemetryDataSource, TelemetryInjector
-)
 from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import make_packet
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-
-class VehicleTelemetrySource(ITelemetryDataSource):
-    """Telemetry data source for a specific vehicle in the simulation"""
-    
-    def __init__(self, vehicle_state):
-        self.vehicle_state = vehicle_state
-        self._available = True
-    
-    def get_telemetry_data(self):
-        """Generate telemetry packet from current vehicle state"""
-        if not self._available:
-            return None
-            
-        return make_packet(
-            device_id=self.vehicle_state.vehicle_id,
-            lat=self.vehicle_state.lat,
-            lon=self.vehicle_state.lng,
-            speed=self.vehicle_state.speed,
-            heading=self.vehicle_state.heading,
-            route=self.vehicle_state.route_id,
-            driver_id=f"drv-{self.vehicle_state.vehicle_id}",
-            driver_name={"first": "Sim", "last": self.vehicle_state.vehicle_id}
-        )
-    
-    def is_available(self):
-        return self._available
-    
-    def start(self):
-        self._available = True
-    
-    def stop(self):
-        self._available = False
 
 
 @dataclass
@@ -72,7 +36,6 @@ class VehicleState:
     speed: float = 0.0
     last_update: datetime = None
     gps_device: Optional[GPSDevice] = None
-    telemetry_injector: Optional[TelemetryInjector] = None
 
 class VehicleSimulator:
     def __init__(self, tick_time: float = 1.0, enable_gps: bool = True):
@@ -105,8 +68,8 @@ class VehicleSimulator:
         }
         
     def _initialize_gps_devices(self):
-        """Initialize GPS devices and telemetry injectors for each vehicle"""
-        logger.info("📡 Initializing GPS devices and telemetry injectors...")
+        """Initialize GPS devices for each vehicle"""
+        logger.info("📡 Initializing GPS devices...")
         
         for vehicle_id, vehicle in self.vehicles.items():
             try:
@@ -123,15 +86,7 @@ class VehicleSimulator:
                 gps_device.on()
                 vehicle.gps_device = gps_device
                 
-                # Create telemetry data source for this vehicle
-                telemetry_source = VehicleTelemetrySource(vehicle)
-                
-                # Create telemetry injector
-                telemetry_injector = TelemetryInjector(gps_device, telemetry_source)
-                telemetry_injector.start_injection()
-                vehicle.telemetry_injector = telemetry_injector
-                
-                logger.info(f"   📡 {vehicle_id}: GPS device and telemetry injector started")
+                logger.info(f"   📡 {vehicle_id}: GPS device started")
                 
             except Exception as e:
                 logger.warning(f"   ⚠️ {vehicle_id}: GPS device failed - {e}")
@@ -290,31 +245,34 @@ class VehicleSimulator:
                 self._transmit_gps_data(vehicle)
                 
     def _transmit_gps_data(self, vehicle: VehicleState):
-        """Transmit current vehicle position via telemetry injector"""
+        """Transmit current vehicle position via GPS device buffer"""
         try:
-            # Use telemetry injector to send data
-            if vehicle.telemetry_injector:
-                vehicle.telemetry_injector.inject_single()
+            # Write data directly to GPS device buffer
+            if vehicle.gps_device:
+                telemetry_data = {
+                    "lat": vehicle.lat,
+                    "lon": vehicle.lng,
+                    "speed": vehicle.speed,
+                    "heading": vehicle.heading,
+                    "route": vehicle.route_id,
+                    "vehicle_reg": vehicle.vehicle_id,
+                    "driver_id": f"drv-{vehicle.vehicle_id}",
+                    "driver_name": {"first": "Sim", "last": vehicle.vehicle_id},
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                vehicle.gps_device.buffer.write(telemetry_data)
             
         except Exception as e:
             logger.warning(f"⚠️ GPS transmission failed for {vehicle.vehicle_id}: {e}")
             
     def stop(self):
-        """Stop the simulation, telemetry injectors, and GPS devices"""
+        """Stop the simulation and GPS devices"""
         self.running = False
         logger.info("🛑 Stopping simulation...")
         
-        # Stop all telemetry injectors and GPS devices
+        # Stop all GPS devices
         if self.enable_gps:
             for vehicle_id, vehicle in self.vehicles.items():
-                # Stop telemetry injector
-                if vehicle.telemetry_injector:
-                    try:
-                        vehicle.telemetry_injector.stop_injection()
-                        logger.info(f"   🔌 {vehicle_id}: Telemetry injector stopped")
-                    except Exception as e:
-                        logger.warning(f"   ⚠️ {vehicle_id}: Injector stop failed - {e}")
-                
                 # Stop GPS device
                 if vehicle.gps_device:
                     try:
