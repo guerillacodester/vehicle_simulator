@@ -15,7 +15,6 @@ from queue import Queue, Empty
 
 logger = logging.getLogger(__name__)
 
-
 class ScheduledOperation:
     """Represents a scheduled vehicle operation"""
     
