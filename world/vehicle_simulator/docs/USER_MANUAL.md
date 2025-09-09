@@ -5,9 +5,9 @@
 1. [Overview](#overview)
 2. [System Architecture](#system-architecture)
 3. [Installation & Setup](#installation--setup)
-4. [Operating Modes](#operating-modes)
+4. [Plugin System](#plugin-system)
 5. [GPS Device Integration](#gps-device-integration)
-6. [Telemetry Interface](#telemetry-interface)
+6. [Operating Modes](#operating-modes)
 7. [Configuration Guide](#configuration-guide)
 8. [Command Line Interface](#command-line-interface)
 9. [Real Data Integration](#real-data-integration)
@@ -18,14 +18,15 @@
 
 ## Overview
 
-The Vehicle Simulator is a comprehensive system designed to simulate vehicle operations, GPS telemetry transmission, and fleet management scenarios. It provides realistic vehicle behavior simulation with real-time GPS data transmission capabilities, making it ideal for testing, development, and demonstration of transportation management systems.
+The Vehicle Simulator is a comprehensive system designed to simulate vehicle operations, GPS telemetry transmission, and fleet management scenarios. Built with a modern **plugin architecture**, it provides realistic vehicle behavior simulation with real-time GPS data transmission capabilities, making it ideal for testing, development, and demonstration of transportation management systems.
 
 ### Core Capabilities
 
-- **Realistic Vehicle Simulation** - Physics-based movement and behavior
+- **Plugin-Based Architecture** - Extensible telemetry data sources
+- **Realistic Vehicle Simulation** - Physics-based movement and behavior  
+- **Multiple Data Sources** - Simulation, ESP32 hardware, file replay, custom plugins
 - **GPS Telemetry Transmission** - Real-time data via WebSocket
 - **Multiple Operating Modes** - Standalone, enhanced, and depot modes
-- **Source-Agnostic Design** - Works with simulated or real GPS data
 - **Database Integration** - PostgreSQL support with SSH tunneling
 - **Route Management** - File-based and database route providers
 - **Flexible Deployment** - Portable GPS device architecture
@@ -37,6 +38,7 @@ The Vehicle Simulator is a comprehensive system designed to simulate vehicle ope
 - **WebSocket Server** (for GPS transmission)
 - **Minimum 4GB RAM** (for multiple vehicle simulation)
 - **Network Access** (for remote database/WebSocket connections)
+- **Serial Port Access** (for ESP32 hardware plugins)
 
 ---
 
@@ -47,24 +49,29 @@ The Vehicle Simulator is a comprehensive system designed to simulate vehicle ope
 ```text
 ┌─────────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │  Vehicle Simulator  │───▶│   GPS Device     │───▶│  WebSocket      │
-│                     │    │   RxTx Buffer    │    │  Transmission   │
-├─────────────────────┤    ├──────────────────┤    ├─────────────────┤
-│ • Physics Engine    │    │ • Telemetry      │    │ • Fleet Manager │
-│ • Route Following   │    │   Interface      │    │ • Real-time     │
-│ • Speed Models      │    │ • Radio Modules  │    │   Updates       │
-│ • State Management  │    │ • Packet Codecs  │    │ • Live Tracking │
-└─────────────────────┘    └──────────────────┘    └─────────────────┘
-         │                           │                       │
-         └───────────────────────────┼───────────────────────┘
-                                     │
-                        ┌──────────────────┐
-                        │   Data Sources   │
-                        │ • Simulation     │
-                        │ • Real GPS       │
-                        │ • File Replay    │
-                        │ • Network Stream │
-                        └──────────────────┘
+│                     │    │   Plugin System  │    │  Transmission   │
+│ • Route Provider    │    │   RxTx Buffer    │    │                 │
+│ • Physics Engine    │    └──────────────────┘    └─────────────────┘
+│ • Speed Model       │             │
+└─────────────────────┘             │
+                                    ▼
+                            ┌──────────────────┐
+                            │ Telemetry Plugin │
+                            │                  │
+                            │ • Simulation     │
+                            │ • ESP32          │
+                            │ • File Replay    │
+                            │ • Custom         │
+                            └──────────────────┘
 ```
+
+### Key Components
+
+1. **Vehicle Simulator** - Core simulation engine with physics and route following
+2. **GPS Device** - Hardware abstraction layer with plugin system
+3. **Plugin System** - Extensible telemetry data source architecture
+4. **WebSocket Transmission** - Real-time data streaming to fleet management
+5. **Route Provider** - File-based or database route data access
 
 ### Directory Structure
 
@@ -72,12 +79,14 @@ The Vehicle Simulator is a comprehensive system designed to simulate vehicle ope
 world/vehicle_simulator/
 ├── main.py                      # Main application entry point
 ├── config/
-│   └── config.ini              # Configuration settings
+│   ├── config.ini              # Configuration settings
+│   └── vehicles.json           # Vehicle fleet configuration
 ├── core/
-│   ├── fleet_manager.py        # Fleet management logic
-│   └── vehicle_manager.py      # Vehicle coordination
+│   ├── standalone_manager.py   # Standalone simulation manager
+│   └── vehicles_depot.py       # Vehicle depot management
 ├── interfaces/
-│   └── route_provider.py       # Route data interface
+│   ├── route_provider.py       # Route data interface
+│   └── telemetry_source.py     # Telemetry source interface (deprecated)
 ├── providers/
 │   ├── config_provider.py      # Configuration management
 │   ├── database_route_provider.py  # Database route access
@@ -90,8 +99,18 @@ world/vehicle_simulator/
 │   └── telemetry_utils.py      # Telemetry helper functions
 ├── vehicle/
 │   ├── driver/                 # Driver behavior simulation
-│   └── gps_device/            # GPS transmission system
+│   └── gps_device/            # GPS transmission system with plugins
+│       ├── device.py          # Main GPS device controller
+│       ├── plugins/           # Telemetry plugin system
+│       │   ├── interface.py   # Plugin interface definition
+│       │   ├── manager.py     # Plugin management
+│       │   ├── simulation.py  # Simulation data plugin
+│       │   ├── esp32.py       # ESP32 hardware plugin
+│       │   └── file_replay.py # File replay plugin
+│       └── radio_module/      # WebSocket communication
 └── docs/                       # Documentation
+    ├── USER_MANUAL.md         # This manual
+    └── PLUGIN_INTERFACE_TUTORIAL.md  # Plugin development guide
 ```
 
 ---
@@ -302,97 +321,171 @@ GPS telemetry packets include:
 
 ---
 
-## Telemetry Interface
+## Plugin System
 
-### Source-Agnostic Design
+### Modern Plugin Architecture
 
-The telemetry interface allows connection of any data source to the GPS device:
+The Vehicle Simulator uses a modern plugin system that provides clean separation between the GPS device and telemetry data sources. This architecture allows for easy extension and switching between different data sources.
 
 ```python
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import (
-    ITelemetryDataSource, TelemetryInjector
-)
+from world.vehicle_simulator.vehicle.gps_device.plugins.manager import PluginManager
+from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
 
-# Create custom data source
-class MyTelemetrySource(ITelemetryDataSource):
-    def get_telemetry_data(self):
-        # Return TelemetryPacket or None
-        return make_packet(...)
+# Configure plugin
+plugin_config = {
+    "type": "simulation",  # or "esp32_hardware", "file_replay"
+    "device_id": "VEHICLE_001",
+    "update_interval": 1.0
+}
+
+# Create GPS device with plugin
+gps_device = GPSDevice(
+    device_id="VEHICLE_001",
+    ws_transmitter=transmitter,
+    plugin_config=plugin_config
+)
+```
+
+### Available Plugins
+
+#### 1. Simulation Plugin (Default)
+
+Used for development and testing with simulated GPS data:
+
+```python
+plugin_config = {
+    "type": "simulation",
+    "device_id": "BUS001",
+    "route": "R001",
+    "update_interval": 1.0
+}
+```
+
+**Features:**
+
+- Realistic GPS coordinate generation
+- Configurable movement patterns
+- Variable speed simulation
+- No external dependencies
+
+#### 2. ESP32 Hardware Plugin
+
+For real GPS hardware connected via ESP32:
+
+```python
+plugin_config = {
+    "type": "esp32_hardware", 
+    "device_id": "GPS001",
+    "serial_port": "COM3",        # Windows
+    # "serial_port": "/dev/ttyUSB0",  # Linux
+    "baud_rate": 115200,
+    "timeout": 2.0
+}
+```
+
+**Features:**
+
+- Real GPS data from ESP32 device
+- Serial communication protocol
+- Hardware status monitoring
+- Automatic error recovery
+
+#### 3. File Replay Plugin
+
+For testing with recorded GPS data:
+
+```python
+plugin_config = {
+    "type": "file_replay",
+    "device_id": "REPLAY001", 
+    "file_path": "gps_data.json",
+    "loop": True,
+    "speed_multiplier": 1.0
+}
+```
+
+**Features:**
+
+- Replay recorded GPS traces
+- Support for various file formats
+- Configurable playback speed
+- Loop functionality for continuous testing
+
+### Plugin Development
+
+To create custom plugins, implement the `ITelemetryPlugin` interface:
+
+```python
+from world.vehicle_simulator.vehicle.gps_device.plugins.interface import ITelemetryPlugin
+
+class MyCustomPlugin(ITelemetryPlugin):
+    @property
+    def source_type(self) -> str:
+        return "my_custom"
     
-    def is_available(self):
+    def initialize(self, config: dict) -> bool:
+        # Initialize your plugin
         return True
-
-# Connect to GPS device
-injector = TelemetryInjector(gps_device, my_source)
-injector.start_injection()
+    
+    def start_data_stream(self) -> bool:
+        # Start data collection
+        return True
+    
+    def get_data(self) -> Optional[dict]:
+        # Return GPS data in standard format
+        return {
+            "lat": 13.2810,
+            "lon": -59.6463,
+            "speed": 45.0,
+            "heading": 90.0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            # ... other required fields
+        }
+    
+    def stop_data_stream(self) -> None:
+        # Stop data collection
+        pass
+    
+    def is_connected(self) -> bool:
+        # Return connection status
+        return True
 ```
 
-### Built-in Data Sources
+For complete plugin development instructions, see the [Plugin Interface Tutorial](PLUGIN_INTERFACE_TUTORIAL.md).
 
-#### 1. Simulated Source (Default)
+### Runtime Plugin Management
 
-Used for development and testing:
+#### Switch Plugins at Runtime
 
 ```python
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import SimulatedTelemetrySource
+# Switch to ESP32 hardware
+new_config = {
+    "type": "esp32_hardware",
+    "device_id": "VEHICLE_001", 
+    "serial_port": "/dev/ttyUSB0"
+}
 
-sim_source = SimulatedTelemetrySource(
-    device_id="BUS001",
-    route="R001"
-)
+gps_device.switch_plugin(new_config)
 ```
 
-#### 2. Serial GPS Source
-
-For real GPS hardware:
+#### Get Plugin Information
 
 ```python
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import SerialTelemetrySource
-
-serial_source = SerialTelemetrySource(
-    port="COM3",           # Windows
-    # port="/dev/ttyUSB0", # Linux
-    baudrate=9600,
-    device_id="GPS001"
-)
+# Check current plugin
+plugin_info = gps_device.get_plugin_info()
+print(f"Active plugin: {plugin_info['type']}")
+print(f"Plugin version: {plugin_info['version']}")
+print(f"Connection status: {plugin_info['connected']}")
 ```
 
-#### 3. File Replay Source
-
-For testing with recorded data:
+#### Plugin Discovery
 
 ```python
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import FileTelemetrySource
+from world.vehicle_simulator.vehicle.gps_device.plugins.manager import PluginManager
 
-file_source = FileTelemetrySource(
-    file_path="telemetry_log.json",
-    device_id="REPLAY001"
-)
-```
-
-### Integration Examples
-
-#### Replace Simulation with Real GPS
-
-```python
-# In simulator.py modification
-def _initialize_gps_devices(self):
-    for vehicle_id, vehicle in self.vehicles.items():
-        # Create GPS device
-        gps_device = GPSDevice(...)
-        
-        # Use real GPS instead of simulation
-        if USE_REAL_GPS:
-            data_source = SerialTelemetrySource(
-                port=GPS_PORT,
-                device_id=vehicle_id
-            )
-        else:
-            data_source = VehicleTelemetrySource(vehicle)
-        
-        # Create injector
-        injector = TelemetryInjector(gps_device, data_source)
-        injector.start_injection()
+manager = PluginManager()
+available_plugins = manager.list_available_plugins()
+print("Available plugins:", available_plugins)
 ```
 
 ---
