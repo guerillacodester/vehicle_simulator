@@ -2,359 +2,587 @@
 """
 VehiclesDepot
 ---------------
-Responsible for instantiating and managing Navigator, GPSDevice, and EngineBlock
-for all vehicles defined in vehicles.json.
+Database-driven fleet depot that manages real-time vehicle operations.
+Uses FleetDataProvider to get all fleet data from database and TimetableScheduler
+for schedule-driven vehicle dispatch. Eliminates vehicles.json dependency.
 """
 
-import json
-import os
-import sys
-import time
-import configparser
 import logging
+import time
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 
-# Note: TimetableManager removed - was part of old coupled system
+# Vehicle simulation components
 from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
 from world.vehicle_simulator.vehicle.engine.engine_block import Engine
 from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
 from world.vehicle_simulator.vehicle.engine.sim_speed_model import load_speed_model
-# FleetDispatcher removed - plugin architecture handles telemetry processing
 from world.vehicle_simulator.vehicle.gps_device.rxtx_buffer import RxTxBuffer
-# Navigator (manages its own TelemetryBuffer internally)
 from world.vehicle_simulator.vehicle.driver.navigation.navigator import Navigator
 from world.vehicle_simulator.vehicle.vahicle_object import VehicleState
+
+# New architecture components
+from world.vehicle_simulator.providers.data_provider import FleetDataProvider
+from world.vehicle_simulator.core.timetable_scheduler import TimetableScheduler
+from world.vehicle_simulator.config.config_loader import ConfigLoader
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
 
 class VehiclesDepot:
-    def __init__(self, manifest_path: str = "world/vehicle_simulator/config/vehicles.json", 
-                 tick_time: float = 0.1, 
-                 timetable_path: Optional[str] = None,
-                 route_provider=None):
-        # Initialize basic properties
-        self.manifest_path = manifest_path
+    def __init__(self, tick_time: float = 1.0, 
+                 route_provider=None,  # Legacy compatibility - will be replaced
+                 enable_timetable: bool = True):
+        """
+        Initialize database-driven vehicles depot.
+        
+        Args:
+            tick_time: Time interval for vehicle updates
+            route_provider: Legacy parameter - ignored in new architecture
+            enable_timetable: Whether to use timetable-driven operations
+        """
+        # Initialize core properties
         self.tick_time = tick_time
+        self.enable_timetable = enable_timetable
         self.vehicles = {}
-        self.route_provider = route_provider
+        self.running = False
         
         # Setup logger
         self.logger = logging.getLogger(__name__)
         
-        # Load configurations
-        self._load_manifest()
-        self._load_config()
-        
-        # Initialize timetable
-        # Note: TimetableManager removed - standalone mode doesn't need complex timetabling
-        self.timetable_manager = None  # Simplified timetable management
-        if timetable_path and os.path.exists(timetable_path):
-            # Note: Timetable loading simplified for standalone mode
-            self.logger.debug(f"Timetable file found: {timetable_path} (simplified loading)")
-
-    # -------------------- manifest --------------------
-
-    def _resolve_manifest_path(self):
-        """Resolve the manifest path from various potential locations."""
-        from pathlib import Path
-        
-        # Convert to Path object for easier manipulation
-        manifest_path = Path(self.manifest_path)
-        
-        # Strategy 1: Try the original path as-is
-        if manifest_path.exists():
-            self.logger.debug(f"Found manifest at original path: {manifest_path}")
-            return str(manifest_path)
-        
-        # Strategy 2: Try relative to current working directory
-        cwd_path = Path.cwd() / manifest_path
-        if cwd_path.exists():
-            self.logger.debug(f"Found manifest relative to CWD: {cwd_path}")
-            return str(cwd_path)
-        
-        # Strategy 3: Try going up directories to find the manifest
-        current_dir = Path.cwd()
-        for _ in range(3):  # Look up to 3 levels up
-            candidate = current_dir / manifest_path.name  # Just the filename
-            if candidate.exists():
-                self.logger.debug(f"Found manifest going up directories: {candidate}")
-                return str(candidate)
+        # Initialize new architecture components
+        try:
+            # Load configuration
+            self.config_loader = ConfigLoader()
+            self.config = self.config_loader.get_all_config()
             
-            # Also try the full relative path from each parent
-            candidate = current_dir / manifest_path
-            if candidate.exists():
-                self.logger.debug(f"Found manifest with full path from parent: {candidate}")
-                return str(candidate)
+            # Initialize data provider (connects to database with Socket.IO monitoring)
+            server_url = self.config.get('fleet', {}).get('api_url', 'http://localhost:8000')
+            self.data_provider = FleetDataProvider(server_url)
             
-            current_dir = current_dir.parent
+            # Add API status callback
+            self.data_provider.api_monitor.add_status_callback(self._on_api_status_change)
+            
+            # Initialize timetable scheduler if enabled
+            if self.enable_timetable:
+                precision = self.config['simulation'].get('schedule_precision_seconds', 30)
+                self.scheduler = TimetableScheduler(self.data_provider, precision)
+            else:
+                self.scheduler = None
+            
+            # Load fleet data from database (will wait for API availability)
+            self._load_fleet_data()
+            
+            # Create vehicle instances
+            self._create_vehicle_instances()
+            
+            # Load schedule if timetable is enabled
+            if self.scheduler:
+                self._setup_timetable_operations()
+            
+            logger.info("✅ VehiclesDepot initialized with database-driven architecture")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize VehiclesDepot: {e}")
+            raise
+
+    def _on_api_status_change(self, status):
+        """Handle API status changes"""
+        if status.is_connected:
+            logger.info(f"🔌 Fleet Manager API connected (response: {status.response_time:.3f}s)")
+        else:
+            logger.warning(f"⚠️ Fleet Manager API disconnected: {status.error}")
+
+    # ==================== NEW DATABASE-DRIVEN METHODS ====================
+
+    def _load_fleet_data(self):
+        """Load complete fleet data from database"""
+        try:
+            logger.info("Loading fleet data from database...")
+            
+            # Wait for API connection (up to 10 seconds)
+            max_wait = 10
+            wait_time = 0
+            while not self.data_provider.is_api_available() and wait_time < max_wait:
+                logger.info(f"Waiting for API connection... ({wait_time}s/{max_wait}s)")
+                time.sleep(1)
+                wait_time += 1
+            
+            # Check API availability after waiting
+            if not self.data_provider.is_api_available():
+                logger.warning("Fleet Manager API not available after waiting - using empty fleet data")
+                # Create empty fleet data structure
+                self.fleet_data = {
+                    'vehicles': [],
+                    'routes': {},
+                    'schedules': [],
+                    'timetables': [],
+                    'drivers': [],
+                    'services': [],
+                    'depots': []
+                }
+                self.routes = {}
+                return
+            
+            logger.info("✅ API connected! Loading fleet data...")
+            self.fleet_data = self.data_provider.get_all_fleet_data()
+            
+            # Log what we loaded
+            vehicles_count = len(self.fleet_data['vehicles'])
+            routes_count = len(self.fleet_data['routes'])
+            schedules_count = len(self.fleet_data['schedules'])
+            
+            logger.info(f"Loaded {vehicles_count} vehicles, {routes_count} routes, {schedules_count} schedules")
+            
+            # Store routes for easy access
+            self.routes = self.fleet_data['routes']
+            
+        except Exception as e:
+            logger.error(f"Failed to load fleet data: {e}")
+            # Create fallback empty structure
+            self.fleet_data = {
+                'vehicles': [],
+                'routes': {},
+                'schedules': [],
+                'timetables': [],
+                'drivers': [],
+                'services': [],
+                'depots': []
+            }
+            self.routes = {}
+
+    def _create_vehicle_instances(self):
+        """Create vehicle instances from database data"""
+        try:
+            logger.info("Creating vehicle instances from database data...")
+            
+            for vehicle_data in self.fleet_data['vehicles']:
+                vehicle_id = vehicle_data['id']
+                
+                if not vehicle_data.get('active', False):
+                    logger.info(f"Vehicle {vehicle_id} is inactive, skipping")
+                    continue
+                
+                # Create vehicle configuration from database data
+                vehicle_config = self._create_vehicle_config(vehicle_data)
+                
+                # Create vehicle components
+                vehicle_components = self._create_vehicle_components(vehicle_id, vehicle_config)
+                
+                # Store vehicle
+                self.vehicles[vehicle_id] = vehicle_components
+                
+                logger.info(f"✅ Created vehicle instance: {vehicle_id}")
+            
+            logger.info(f"Created {len(self.vehicles)} vehicle instances")
+            
+        except Exception as e:
+            logger.error(f"Failed to create vehicle instances: {e}")
+            raise
+
+    def _create_vehicle_config(self, vehicle_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert database vehicle data to configuration format"""
+        assignment = vehicle_data.get('current_assignment', {})
         
-        # Strategy 4: Try from the project root (look for world/vehicle_simulator/config/vehicles.json pattern)
-        current_dir = Path.cwd()
-        while current_dir.parent != current_dir:  # Until we reach the root
-            candidate = current_dir / "world" / "vehicle_simulator" / "config" / "vehicles.json"
-            if candidate.exists():
-                self.logger.debug(f"Found manifest in vehicle_simulator config directory: {candidate}")
-                return str(candidate)
-            current_dir = current_dir.parent
+        config = {
+            'active': vehicle_data.get('active', True),
+            'route': assignment.get('route_id', ''),
+            'speed_model': 'kinematic',  # Default speed model
+            'speed': 60,  # Default speed
+            'accel_limit': 3,
+            'decel_limit': 4,
+            'corner_slowdown': 1,
+            'release_ticks': 3,
+            'capacity': vehicle_data.get('capacity', 40),
+            'passengers': 0,
+            'license_plate': vehicle_data.get('license_plate', ''),
+            'depot_id': vehicle_data.get('depot_id', ''),
+            'assignment': assignment
+        }
         
-        self.logger.error(f"Could not resolve manifest path: {self.manifest_path}")
-        return None
+        return config
 
-    def _load_manifest(self):
-        # Resolve manifest path similar to route resolution
-        manifest_path = self._resolve_manifest_path()
-        if not manifest_path or not os.path.exists(manifest_path):
-            sys.exit(f"[ERROR] vehicles manifest not found: {self.manifest_path}")
-
-        with open(manifest_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        if not isinstance(data, dict) or not data:
-            sys.exit(f"[ERROR] vehicles manifest must be a non-empty JSON object")
-
-        # Initialize vehicles dictionary
-        self.vehicles = {}
-        
-        # Process individual vehicle configurations (like ZR1001)
-        for key, value in data.items():
-            if key != "vehicles" and isinstance(value, dict):
-                self.vehicles[key] = value
-        
-        # Process vehicles array if it exists
-        if "vehicles" in data and isinstance(data["vehicles"], list):
-            for vehicle in data["vehicles"]:
-                if isinstance(vehicle, dict) and "id" in vehicle:
-                    # Convert array format to configuration format
-                    vehicle_id = vehicle["id"]
-                    self.vehicles[vehicle_id] = {
-                        "active": vehicle.get("status") == "active",
-                        "route": vehicle.get("route_id", ""),
-                        "speed_model": vehicle.get("speed_model", "kinematic"),
-                        "speed": vehicle.get("speed", 60),
-                        "accel_limit": vehicle.get("accel_limit", 3),
-                        "decel_limit": vehicle.get("decel_limit", 4),
-                        "corner_slowdown": vehicle.get("corner_slowdown", 1),
-                        "release_ticks": vehicle.get("release_ticks", 3),
-                        "initial_position": vehicle.get("position", {}),
-                        "heading": vehicle.get("heading", 0),
-                        "capacity": vehicle.get("capacity", 40),
-                        "passengers": vehicle.get("passengers", 0)
-                    }
-
-    # -------------------- config --------------------
-
-    def _load_config(self):
-        """
-        Load server URL and optional auth token from config.ini (project root).
-        Normalize ws_url to avoid DNS errors (strip, rstrip('/'), http->ws, https->wss).
-        """
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        cfg_path = os.path.join(project_root, "config.ini")
-
-        cfg = configparser.ConfigParser()
-        cfg.read(cfg_path)
-
-        raw_ws = cfg.get("server", "ws_url", fallback="ws://localhost:5000")
-        ws = raw_ws.strip().rstrip("/")
-        if ws.startswith("http://"):
-            ws = "ws://" + ws[len("http://"):]
-        elif ws.startswith("https://"):
-            ws = "wss://" + ws[len("https://"):]
-        self.ws_url = ws
-
-        self.auth_token = cfg.get("auth", "token", fallback=os.getenv("AUTH_TOKEN", ""))
-
-    # -------------------- lifecycle --------------------
-
-    def start(self):
-        """Start all active vehicles"""
-        self.logger.info("Starting depot operations")
-        print("[INFO] Depot OPERATIONAL...")
-
-        for vid, cfg in self.vehicles.items():
-            if not cfg.get("active", False):
-                print(f"[INFO] Vehicle {vid} inactive.")
-                continue
-
-            # Initial state
-            logger.debug(f"Vehicle {vid} initial state: {VehicleState.AT_TERMINAL}")
-
-            # After navigator boards - preparing state
-            navigator = Navigator(
-                vehicle_id=vid,
-                route_file=cfg.get("route_file"),
-                route=cfg.get("route"),
-                engine_buffer=None,   # set after engine below
-                mode=cfg.get("mode", "geodesic"),
-                direction=cfg.get("direction", "outbound"),
-                route_provider=self.route_provider,  # Use the injected route provider
+    def _create_vehicle_components(self, vehicle_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Create Navigator, Engine, and GPSDevice for a vehicle"""
+        try:
+            # Create components
+            engine_buffer = EngineBuffer()
+            
+            # Load speed model
+            speed_model = load_speed_model(
+                config['speed_model'],
+                speed=config['speed'],
+                accel_limit=config['accel_limit'],
+                decel_limit=config['decel_limit'],
+                corner_slowdown=config['corner_slowdown'],
+                release_ticks=config['release_ticks']
             )
-            print(f"[INFO] Navigator boarded for {vid}")
-            logger.debug(f"Vehicle {vid} state: {VehicleState.STARTING}")
-
-            # --- GPSDevice ON ---
-            # Create WebSocket transmitter for new plugin architecture
-            from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
-            from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
             
-            transmitter = WebSocketTransmitter(
-                server_url=self.ws_url,
-                token=self.auth_token,
-                device_id=vid,
-                codec=PacketCodec()
+            # Create Engine
+            engine = Engine(vehicle_id, speed_model, engine_buffer, tick_time=self.tick_time)
+            
+            # Create Navigator with route if assigned
+            navigator = None
+            route_id = config.get('route')
+            if route_id and route_id in self.routes:
+                route_coords = self.routes[route_id].get('coordinates', [])
+                if route_coords:
+                    navigator = Navigator(
+                        vehicle_id=vehicle_id,
+                        route_coordinates=route_coords,
+                        engine_buffer=engine_buffer,
+                        tick_time=self.tick_time,
+                        mode="geodesic",
+                        direction="outbound"
+                    )
+                    logger.debug(f"Navigator created for {vehicle_id} with route {route_id}")
+                else:
+                    logger.warning(f"No coordinates found for route {route_id}")
+            else:
+                logger.info(f"No route assigned to vehicle {vehicle_id}")
+            
+            # Create GPSDevice with navigator_telemetry plugin
+            gps_device = GPSDevice(
+                vehicle_id=vehicle_id,
+                device_config={'plugin': 'navigator_telemetry'},
+                navigator_instance=navigator
             )
             
-            # Configure Navigator plugin to use Navigator telemetry
-            plugin_config = {
-                "type": "navigator_telemetry", 
-                "device_id": vid,
-                "navigator": navigator,  # Pass navigator reference
-                "update_interval": self.tick_time
+            return {
+                '_engine': engine,
+                '_navigator': navigator,
+                '_gps': gps_device,
+                'config': config,
+                'vehicle_id': vehicle_id
             }
             
-            gps = GPSDevice(
-                device_id=vid,
-                ws_transmitter=transmitter,
-                plugin_config=plugin_config
-            )
-            gps.on()
-            print(f"[INFO] GPSDevice ON for {vid}")
+        except Exception as e:
+            logger.error(f"Failed to create components for vehicle {vehicle_id}: {e}")
+            raise
 
-            # 👉 Use the RxTxBuffer that GPSDevice actually owns
-            rxtx_buffer = gps.rxtx_buffer
+    def _setup_timetable_operations(self):
+        """Setup timetable scheduler with vehicle handlers"""
+        try:
+            logger.info("Setting up timetable operations...")
+            
+            # Register vehicle handlers with scheduler
+            for vehicle_id, vehicle_handler in self.vehicles.items():
+                self.scheduler.register_vehicle_handler(vehicle_id, vehicle_handler)
+            
+            # Load today's schedule
+            self.scheduler.load_today_schedule()
+            
+            logger.info("✅ Timetable operations setup complete")
+            
+        except Exception as e:
+            logger.error(f"Failed to setup timetable operations: {e}")
+            raise
 
-            # --- Engine start ---
-            engine_buffer = EngineBuffer()
-            model = load_speed_model(cfg["speed_model"], **cfg)
-            engine = Engine(vid, model, engine_buffer, tick_time=self.tick_time)
-            engine.on()
-            print(f"[INFO] Engine started for {vid}")
+    # ==================== DEPOT OPERATIONS ====================
 
-            # FleetDispatcher removed - plugin architecture handles telemetry processing
-            logger.debug(f"Vehicle {vid} state: {VehicleState.ACTIVE}")
+    def start(self):
+        """Start depot operations - either manual or timetable-driven"""
+        try:
+            logger.info("Starting depot operations")
+            print("[INFO] Depot OPERATIONAL...")
+            
+            self.running = True
+            
+            if self.enable_timetable and self.scheduler:
+                # Start timetable-driven operations
+                logger.info("Starting timetable-driven fleet operations")
+                self.scheduler.start()
+                print("[INFO] Timetable scheduler started - vehicles will start per schedule")
+            else:
+                # Start all vehicles manually (legacy mode)
+                logger.info("Starting all vehicles manually (legacy mode)")
+                self._start_all_vehicles_manually()
+            
+        except Exception as e:
+            logger.error(f"Failed to start depot operations: {e}")
+            raise
 
-            # Link engine buffer back into navigator BEFORE starting navigator
-            navigator.engine_buffer = engine_buffer
-            navigator.on()  # Start navigator AFTER engine_buffer is set
-
-            # --- Store references ---
-            cfg["_gps"] = gps
-            cfg["_engine"] = engine
-            cfg["_engine_buffer"] = engine_buffer
-            cfg["_navigator"] = navigator
-            cfg["_telemetry_buffer"] = navigator.telemetry_buffer
-            cfg["_rxtx_buffer"] = rxtx_buffer
+    def _start_all_vehicles_manually(self):
+        """Start all active vehicles manually (legacy behavior)"""
+        for vehicle_id, vehicle_handler in self.vehicles.items():
+            try:
+                config = vehicle_handler['config']
+                
+                if not config.get('active', False):
+                    print(f"[INFO] Vehicle {vehicle_id} inactive.")
+                    continue
+                
+                print(f"[INFO] Navigator boarded for {vehicle_id}")
+                
+                # Create and start GPSDevice
+                gps_device = vehicle_handler['_gps']
+                gps_device.on()
+                print(f"[INFO] GPSDevice ON for {vehicle_id}")
+                
+                # Start Engine
+                engine = vehicle_handler['_engine']
+                engine.on()
+                print(f"[INFO] Engine started for {vehicle_id}")
+                
+                # Start Navigator if available
+                navigator = vehicle_handler['_navigator']
+                if navigator:
+                    navigator.on()
+                    print(f"[INFO] Navigator for {vehicle_id} turned ON (mode=geodesic, direction=outbound)")
+                else:
+                    print(f"[INFO] No navigator available for {vehicle_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to start vehicle {vehicle_id}: {e}")
 
     def stop(self):
-        """Stop all active vehicles"""
-        for vid, cfg in self.vehicles.items():
-            if cfg.get("active", False):
-                # Start shutdown process
-                logger.debug(f"Vehicle {vid} state: {VehicleState.STOPPED}")
+        """Stop all depot operations"""
+        try:
+            logger.info("Stopping depot operations")
+            
+            self.running = False
+            
+            # Stop scheduler if running
+            if self.scheduler:
+                self.scheduler.stop()
+            
+            # Stop all vehicles
+            for vehicle_id, vehicle_handler in self.vehicles.items():
+                try:
+                    # Stop Navigator
+                    navigator = vehicle_handler.get('_navigator')
+                    if navigator:
+                        navigator.off()
+                    
+                    # Stop Engine
+                    engine = vehicle_handler.get('_engine')
+                    if engine:
+                        engine.off()
+                    
+                    # Stop GPSDevice
+                    gps_device = vehicle_handler.get('_gps')
+                    if gps_device:
+                        gps_device.off()
+                    
+                    logger.debug(f"Stopped vehicle {vehicle_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to stop vehicle {vehicle_id}: {e}")
+            
+            print("[INFO] Depot operations stopped")
+            
+        except Exception as e:
+            logger.error(f"Failed to stop depot operations: {e}")
 
-            nav = cfg.get("_navigator")
-            engine = cfg.get("_engine")
-            gps = cfg.get("_gps")
+    def get_vehicle_status(self, vehicle_id: str) -> Dict[str, Any]:
+        """Get current status of a vehicle"""
+        if vehicle_id not in self.vehicles:
+            return {'error': f'Vehicle {vehicle_id} not found'}
+        
+        vehicle_handler = self.vehicles[vehicle_id]
+        
+        try:
+            navigator = vehicle_handler.get('_navigator')
+            engine = vehicle_handler.get('_engine')
+            gps_device = vehicle_handler.get('_gps')
+            
+            status = {
+                'vehicle_id': vehicle_id,
+                'active': vehicle_handler['config'].get('active', False),
+                'navigator': {
+                    'running': navigator._running if navigator else False,
+                    'position': navigator.last_position if navigator else None,
+                    'route': vehicle_handler['config'].get('route', '')
+                },
+                'engine': {
+                    'running': engine._running if engine else False
+                },
+                'gps': {
+                    'active': hasattr(gps_device, '_running') and gps_device._running if gps_device else False
+                }
+            }
+            
+            return status
+            
+        except Exception as e:
+            logger.error(f"Failed to get status for vehicle {vehicle_id}: {e}")
+            return {'error': str(e)}
 
-            # Add a clean blank line before shutting down an active vehicle
-            if any([nav, engine, gps]):
-                print("")
-
-            if engine:
-                engine.off()
-                print(f"[INFO] Engine stopped for {vid}")
-                cfg["_engine"] = None
-
-            if gps:
-                gps.off()
-                print(f"[INFO] GPSDevice OFF for {vid}")
-                cfg["_gps"] = None
-
-            if nav:
-                nav.off()
-                print(f"[INFO] Navigator disembarked for {vid}")
-                cfg["_navigator"] = None
-
-            logger.debug(f"Vehicle {vid} stopping from state: {VehicleState.ACTIVE}")
-            logger.debug(f"Vehicle {vid} final state: {VehicleState.AT_TERMINAL}")
-
-        print("[INFO] Depot UNOPERATIONAL")
-    
-    def check_departures(self):
-        """Check if vehicles should depart based on timetable"""
-        current_time = datetime.now().time()
-        for vid, cfg in self.vehicles.items():
-            if not cfg.get("active", False):
-                continue
+    def get_fleet_status(self) -> Dict[str, Any]:
+        """Get comprehensive status of entire fleet including timetable and countdown information"""
+        try:
+            api_status = self.data_provider.get_api_status()
+            
+            # Get timetable and resource information
+            schedule_status = None
+            resource_availability = None
+            
+            if self.scheduler:
+                schedule_status = self.scheduler.get_schedule_status()
+                resource_availability = self.scheduler.get_resource_availability()
+            
+            fleet_status = {
+                'depot_running': self.running,
+                'timetable_enabled': self.enable_timetable,
+                'scheduler_running': self.scheduler.running if self.scheduler else False,
+                'api_status': api_status,
+                'api_available': self.data_provider.is_api_available(),
+                'total_vehicles': len(self.vehicles),
+                'active_vehicles': 0,
+                'vehicles': {},
+                # Enhanced timetable information
+                'schedule_status': schedule_status,
+                'resource_availability': resource_availability,
+                'countdown_info': self._get_countdown_display(schedule_status) if schedule_status else None
+            }
+            
+            for vehicle_id in self.vehicles:
+                vehicle_status = self.get_vehicle_status(vehicle_id)
+                fleet_status['vehicles'][vehicle_id] = vehicle_status
                 
-            # Note: Simplified departure scheduling for standalone mode
-            departure = None  # No complex timetabling in standalone mode
-            if departure and current_time >= departure.departure_time:
-                self.logger.debug(f"Vehicle {vid} scheduled departure at {departure.departure_time}")
-                if not cfg.get("_engine"):  # Only start if not already running
-                    self.start_vehicle(vid)
-
-    def start_vehicle(self, vid):
-        """Start a specific vehicle"""
-        if vid not in self.vehicles:
-            return
+                if vehicle_status.get('navigator', {}).get('running', False):
+                    fleet_status['active_vehicles'] += 1
             
-        cfg = self.vehicles[vid]
-        if not cfg.get("active", False):
-            return
+            return fleet_status
             
-        self.logger.debug(f"Vehicle {vid} initial state: {VehicleState.AT_TERMINAL}")
+        except Exception as e:
+            logger.error(f"Failed to get fleet status: {e}")
+            return {'error': str(e)}
+    
+    def _get_countdown_display(self, schedule_status: Dict[str, Any]) -> Optional[str]:
+        """Generate human-readable countdown display"""
+        if not schedule_status or not schedule_status.get('next_departure'):
+            return "No scheduled departures"
+        
+        next_dep = schedule_status['next_departure']
+        if not next_dep['countdown_display']:
+            return "No upcoming departures"
+        
+        return (f"Next departure: Vehicle {next_dep['vehicle_id']} "
+                f"on Route {next_dep['route_id']} "
+                f"at {next_dep['scheduled_time']} "
+                f"(in {next_dep['countdown_display']})")
+    
+    def get_detailed_schedule_status(self) -> str:
+        """Get formatted schedule status for console display"""
+        try:
+            status = self.get_fleet_status()
+            
+            lines = []
+            lines.append("📅 TIMETABLE & SCHEDULE STATUS")
+            lines.append("=" * 50)
+            
+            # API and resource status
+            if status.get('api_available'):
+                lines.append("✅ Fleet Manager API: Connected")
+            else:
+                lines.append("❌ Fleet Manager API: Disconnected")
+            
+            resource_avail = status.get('resource_availability', {})
+            lines.append(f"🚌 Vehicles Available: {resource_avail.get('vehicles_available', 0)}")
+            lines.append(f"🛣️  Routes Available: {resource_avail.get('routes_available', 0)}")
+            lines.append(f"👨‍✈️ Drivers Available: {resource_avail.get('drivers_available', 0)}")
+            
+            # Schedule status
+            schedule = status.get('schedule_status', {})
+            if schedule and schedule.get('timetable_loaded'):
+                lines.append(f"📋 Schedule Operations: {schedule['total_operations']} total, {schedule['pending_operations']} pending")
+                lines.append(f"🚦 Active Vehicles: {schedule['active_vehicles']}")
+                
+                # Next departure countdown
+                if status.get('countdown_info'):
+                    lines.append(f"⏰ {status['countdown_info']}")
+                else:
+                    lines.append("⏰ No upcoming departures scheduled")
+                
+                # Show next few operations
+                upcoming = schedule.get('upcoming_operations', [])
+                if upcoming:
+                    lines.append("\n📍 UPCOMING OPERATIONS:")
+                    for i, op in enumerate(upcoming[:3]):  # Show next 3
+                        countdown = op.get('countdown_seconds', 0)
+                        if countdown >= 0:
+                            lines.append(f"   {i+1}. Vehicle {op['vehicle_id']} - {op['operation']} at {op['scheduled_time']} (in {self._format_countdown_simple(countdown)})")
+                        else:
+                            lines.append(f"   {i+1}. Vehicle {op['vehicle_id']} - {op['operation']} at {op['scheduled_time']} (OVERDUE)")
+            else:
+                lines.append("❌ No timetable loaded or no scheduled operations")
+                
+            # Resource validation
+            if resource_avail.get('resource_status') == 'insufficient_resources':
+                lines.append("\n📋 SYSTEM STATUS:")
+                if resource_avail.get('vehicles_available', 0) == 0:
+                    lines.append("   - No vehicles designated")
+                if resource_avail.get('routes_available', 0) == 0:
+                    lines.append("   - No routes designated")
+                if not schedule.get('timetable_loaded'):
+                    lines.append("   - No timetable set")
+            elif resource_avail.get('resource_status') == 'ready':
+                lines.append("\n✅ All resources available for operations")
+            
+            return "\n".join(lines)
+            
+        except Exception as e:
+            return f"❌ Failed to get schedule status: {e}"
+    
+    def _format_countdown_simple(self, seconds: int) -> str:
+        """Simple countdown formatter"""
+        if seconds < 60:
+            return f"{seconds}s"
+        elif seconds < 3600:
+            return f"{seconds//60}m {seconds%60}s"
+        else:
+            return f"{seconds//3600}h {(seconds%3600)//60}m"
 
-        # After navigator boards - preparing state
-        navigator = Navigator(
-            vehicle_id=vid,
-            route_file=cfg.get("route_file"),
-            route=cfg.get("route"),
-            engine_buffer=None,   # set after engine below
-            mode=cfg.get("mode", "geodesic"),
-            direction=cfg.get("direction", "outbound"),
-            route_provider=self.route_provider,  # Use the injected route provider
-        )
-        print(f"[INFO] Navigator boarded for {vid}")
-        logger.debug(f"Vehicle {vid} state: {VehicleState.STARTING}")
+    def get_api_status(self) -> Dict[str, Any]:
+        """Get current API connection status"""
+        try:
+            return self.data_provider.get_api_status()
+        except Exception as e:
+            return {'error': str(e), 'is_connected': False}
 
-        # --- GPSDevice ON ---
-        gps = GPSDevice(
-            vid,
-            server_url=self.ws_url,
-            auth_token=self.auth_token,
-            method="ws",
-            interval=self.tick_time,
-        )
-        gps.on()
-        print(f"[INFO] GPSDevice ON for {vid}")
+    def force_api_reconnect(self):
+        """Force API reconnection attempt"""
+        try:
+            self.data_provider.force_reconnect()
+            logger.info("API reconnection attempt initiated")
+        except Exception as e:
+            logger.error(f"Failed to force API reconnection: {e}")
+            raise
 
-        # 👉 Use the RxTxBuffer that GPSDevice actually owns
-        rxtx_buffer = gps.buffer
+    def force_start_vehicle(self, vehicle_id: str, route_id: str = None):
+        """Manually force start a vehicle (for testing/debugging)"""
+        if self.scheduler:
+            try:
+                # Use scheduler to force operation
+                self.scheduler.force_execute_operation(
+                    vehicle_id=vehicle_id,
+                    operation_type='start_service',
+                    route_id=route_id
+                )
+                logger.info(f"Force started vehicle {vehicle_id}")
+            except Exception as e:
+                logger.error(f"Failed to force start vehicle {vehicle_id}: {e}")
+                raise
+        else:
+            logger.warning("No scheduler available for force start operation")
 
-        # --- Engine start ---
-        engine_buffer = EngineBuffer()
-        model = load_speed_model(cfg["speed_model"], **cfg)
-        engine = Engine(vid, model, engine_buffer, tick_time=self.tick_time)
-        engine.on()
-        print(f"[INFO] Engine started for {vid}")
+    def force_stop_vehicle(self, vehicle_id: str):
+        """Manually force stop a vehicle (for testing/debugging)"""
+        if self.scheduler:
+            try:
+                # Use scheduler to force operation
+                self.scheduler.force_execute_operation(
+                    vehicle_id=vehicle_id,
+                    operation_type='end_service'
+                )
+                logger.info(f"Force stopped vehicle {vehicle_id}")
+            except Exception as e:
+                logger.error(f"Failed to force stop vehicle {vehicle_id}: {e}")
+                raise
+        else:
+            logger.warning("No scheduler available for force stop operation")
 
-        # FleetDispatcher removed - plugin architecture handles telemetry processing
-        logger.debug(f"Vehicle {vid} state: {VehicleState.ACTIVE}")
-
-        # Link engine buffer back into navigator
-        navigator.engine_buffer = engine_buffer
-        navigator.on()
-
-        # --- Store references ---
-        cfg["_gps"] = gps
-        cfg["_engine"] = engine
-        cfg["_engine_buffer"] = engine_buffer
-        cfg["_navigator"] = navigator
-        cfg["_telemetry_buffer"] = navigator.telemetry_buffer
-        cfg["_rxtx_buffer"] = rxtx_buffer
 
 # ---------------------------
 # Manual test support

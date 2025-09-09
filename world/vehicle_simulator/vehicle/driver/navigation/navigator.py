@@ -5,68 +5,54 @@ Navigator
 Maps engine-produced cumulative distance onto a route polyline and produces
 interpolated GPS positions that lie on that polyline. Results are written to
 a TelemetryBuffer (separate from RxTx/GPS buffers).
+
+Navigator is a pure data consumer - it accepts route coordinates directly
+and does not load from files or databases on its own.
 """
 
 import time
 import threading
 from typing import List, Tuple, Optional
 
-from world.vehicle_simulator.utils.routes.route_loader import load_route_coordinates
 from . import math
 from .telemetry_buffer import TelemetryBuffer
-from .route_topology import build_ordered_path
-
-# Decoupled route provider imports
-from world.vehicle_simulator.interfaces.route_provider import IRouteProvider
-try:
-    from world.vehicle_simulator.providers.database_route_provider import DatabaseRouteProvider
-except ImportError:
-    DatabaseRouteProvider = None
-from world.vehicle_simulator.providers.file_route_provider import FileRouteProvider
 
 
 class Navigator:
     def __init__(
         self,
         vehicle_id: str,
-        route_file: Optional[str] = None,
-        route: Optional[str] = None,   # route short_name from DB
+        route_coordinates: List[Tuple[float, float]],
         engine_buffer=None,
         tick_time: float = 0.1,
         mode: str = "geodesic",
-        direction: str = "outbound",   # "outbound" = default, "inbound" = reversed
-        route_provider: Optional[IRouteProvider] = None,  # Injectable route provider
+        direction: str = "outbound"
     ):
         """
+        Navigator that accepts route coordinates directly.
+        
         :param vehicle_id: vehicle ID string
-        :param route_file: path to GeoJSON route file (legacy mode)
-        :param route: route short_name in DB (preferred mode)
+        :param route_coordinates: List of (longitude, latitude) coordinate pairs
         :param engine_buffer: EngineBuffer instance for this vehicle
         :param tick_time: worker loop sleep time (s)
         :param mode: "linear" (legacy) or "geodesic" (default)
         :param direction: "outbound" (default) or "inbound" (reverse route)
-        :param route_provider: Injectable route provider (auto-detected if None)
         """
+        if not route_coordinates:
+            raise ValueError("Navigator requires route coordinates")
+        
         self.vehicle_id = vehicle_id
-        self.route_file = route_file
         self.engine_buffer = engine_buffer
         self.telemetry_buffer = TelemetryBuffer()
         self.tick_time = tick_time
         self.mode = mode
         self.direction = direction
 
-        # Auto-detect or use provided route provider
-        if route_provider is None:
-            route_provider = self._get_default_route_provider(route, route_file)
-
-        if route:  # DB-backed route
-            self.route: List[Tuple[float, float]] = route_provider.get_route_coordinates(route)
-        elif route_file:  # fallback to file
-            self.route: List[Tuple[float, float]] = build_ordered_path(
-                route_file, direction=direction
-            )
+        # Set route coordinates (reverse if inbound direction)
+        if direction == "inbound":
+            self.route: List[Tuple[float, float]] = list(reversed(route_coordinates))
         else:
-            raise ValueError("Navigator requires either a route short_name (DB) or a route_file")
+            self.route: List[Tuple[float, float]] = route_coordinates
 
         # Precompute segment lengths (km)
         self.segment_lengths: List[float] = []
@@ -86,26 +72,6 @@ class Navigator:
         # Worker
         self._running = False
         self._thread: Optional[threading.Thread] = None
-
-    def _get_default_route_provider(self, route: Optional[str], route_file: Optional[str]) -> object:
-        """
-        Returns the default route provider based on whether a database route or file route is requested.
-        """
-        if route:  # Database route requested
-            if DatabaseRouteProvider is not None:
-                try:
-                    return DatabaseRouteProvider()
-                except (RuntimeError, Exception):
-                    # Fleet manager not available, fall back to file provider
-                    import logging
-                    logging.warning("Fleet manager not available, falling back to file-based routes")
-                    return FileRouteProvider()
-            else:
-                import logging
-                logging.warning("DatabaseRouteProvider not available, falling back to file-based routes")
-                return FileRouteProvider()
-        else:  # File route requested or fallback
-            return FileRouteProvider()
 
     def on(self):
         if not self._running:

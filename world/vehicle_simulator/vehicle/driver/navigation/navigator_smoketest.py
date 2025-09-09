@@ -83,22 +83,32 @@ def main():
         model = load_speed_model(cfg["speed_model"], **cfg)
         engine = Engine(vid, model, eng_buf, tick_time=0.1)
 
-        navigator = Navigator(
-            vehicle_id=vid,
-            route_file=cfg["route_file"],
-            route=cfg.get("route"),
-            engine_buffer=eng_buf,
-            tick_time=0.1,
-            mode=args.mode,
-            direction=args.direction,   # 👈 new param wired in
-        )
+        # Create Navigator with route coordination utility
+        navigator = None
+        try:
+            from world.vehicle_simulator.utils.routes.route_coordinator import create_navigator_with_route
+            navigator = create_navigator_with_route(
+                vehicle_id=vid,
+                route_id=cfg.get("route"),
+                route_file=cfg.get("route_file"),
+                engine_buffer=eng_buf,
+                tick_time=0.1,
+                mode=args.mode,
+                direction=args.direction
+            )
+            print(f"[INFO] Navigator created for vehicle {vid}")
+        except Exception as e:
+            print(f"[ERROR] Failed to create navigator for vehicle {vid}: {e}")
+            continue
 
         engine.on()
-        navigator.on()
+        if navigator:
+            navigator.on()
 
         gps_devices[vid] = gps
         engines[vid] = (engine, eng_buf)
-        navigators[vid] = navigator
+        if navigator:
+            navigators[vid] = navigator
 
     # Run for N seconds
     time.sleep(args.seconds)

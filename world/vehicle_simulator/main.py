@@ -20,8 +20,8 @@ import time
 from typing import Optional
 
 # Vehicle simulator imports
-from world.vehicle_simulator.core.standalone_manager import StandaloneFleetManager
-from world.vehicle_simulator.providers.config_provider import SelfContainedConfigProvider
+from world.vehicle_simulator.providers.data_provider import FleetDataProvider
+from world.vehicle_simulator.config.config_loader import ConfigLoader
 from world.vehicle_simulator.simulators.simulator import VehicleSimulator
 from world.vehicle_simulator.core.vehicles_depot import VehiclesDepot
 
@@ -42,13 +42,24 @@ class VehicleSimulatorApp:
     
     def __init__(self, config_file: Optional[str] = None):
         self.config_file = config_file or str(current_dir / "config" / "config.ini")
-        self.config_provider = SelfContainedConfigProvider(self.config_file)
-        self.fleet_manager = StandaloneFleetManager(config_provider=self.config_provider)
+        
+        # Initialize new architecture components
+        self.config_loader = ConfigLoader(self.config_file)
+        self.config = self.config_loader.get_all_config()
+        
+        # Initialize data provider for database access
+        try:
+            self.data_provider = FleetDataProvider()
+            logger.info("Database connection established")
+        except Exception as e:
+            logger.warning(f"Database connection failed: {e}")
+            self.data_provider = None
+        
         self.depot = None
         self._active_simulator = None  # Track active simulator for cleanup
         
         # Use debug logging for internal initialization
-        logger.debug("Vehicle Simulator initialized in standalone mode")
+        logger.debug("Vehicle Simulator initialized with database-driven architecture")
     
     def run_simulator(self):
         """Run the vehicle simulator"""
@@ -70,21 +81,38 @@ class VehicleSimulatorApp:
     def run_depot_simulator(self, tick_time: float = 1.0):
         """Run the depot-based vehicle simulator with Navigator"""
         try:
-            print("🏭 Starting Depot Vehicle Simulator...")
-            print("   📍 Using Navigator for realistic route following")
+            print("🏭 Starting Database-Driven Depot Simulator...")
+            print("   �️ Using database for fleet data")
+            print("   📍 Navigator provides realistic route following")
             print(f"   ⏱️ Tick time: {tick_time} seconds")
             
-            # Create vehicles depot with route provider and tick time
+            if not self.data_provider:
+                print("   ⚠️ Database unavailable - using fallback mode")
+                enable_timetable = False
+            else:
+                enable_timetable = self.config['simulation'].get('enable_timetable', True)
+                print(f"   📅 Timetable operations: {'enabled' if enable_timetable else 'disabled'}")
+            
+            # Create vehicles depot with new architecture
             self.depot = VehiclesDepot(
-                route_provider=self.fleet_manager.route_provider,
-                tick_time=tick_time
+                tick_time=tick_time,
+                enable_timetable=enable_timetable
             )
             self.depot.start()
             
             # Store reference for cleanup
             self._active_simulator = self.depot
             
-            print("✅ Depot Vehicle Simulator started successfully")
+            print("✅ Database-Driven Depot Simulator started successfully")
+            
+            # Show initial detailed status
+            print("\n" + "=" * 60)
+            print("📊 INITIAL SYSTEM STATUS")
+            print("=" * 60)
+            if hasattr(self.depot, 'get_detailed_schedule_status'):
+                print(self.depot.get_detailed_schedule_status())
+            print("=" * 60)
+            
             return self.depot
             
         except Exception as e:
@@ -148,9 +176,9 @@ Examples:
     
     parser.add_argument(
         '--mode', 
-        choices=['basic', 'depot'], 
-        default='basic',
-        help='Simulation mode: basic=simple movement, depot=Navigator route following (default: basic)'
+        choices=['depot'], 
+        default='depot',
+        help='Simulation mode: depot=Navigator route following with database-driven operations (basic mode deprecated)'
     )
     
     parser.add_argument(
@@ -232,12 +260,8 @@ def main():
                 print(f"  {key}: {value}")
             return
         
-        # Run simulator based on mode
-        simulator = None
-        if args.mode == 'basic':
-            simulator = app.run_simulator()
-        elif args.mode == 'depot':
-            simulator = app.run_depot_simulator(args.tick_time)
+        # Run depot simulator (basic mode deprecated)
+        simulator = app.run_depot_simulator(args.tick_time)
         
         # Handle timed simulation
         if simulator:
@@ -263,11 +287,13 @@ def main():
                         if hasattr(simulator, 'update'):
                             simulator.update()
                         
-                        # Show status every 15 seconds
+                        # Show detailed status every 15 seconds
                         current_time = time.time() - start_time
                         if current_time - last_status_time >= 15:
                             print(f"\n⏰ Time: {current_time:.1f}s")
-                            if hasattr(simulator, 'get_status'):
+                            if hasattr(simulator, 'get_detailed_schedule_status'):
+                                print(simulator.get_detailed_schedule_status())
+                            elif hasattr(simulator, 'get_status'):
                                 print(simulator.get_status())
                             else:
                                 print("Simulator running")
