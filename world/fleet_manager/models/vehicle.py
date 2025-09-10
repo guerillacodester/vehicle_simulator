@@ -1,7 +1,7 @@
 """
 Vehicle model for fleet management
 """
-from sqlalchemy import Column, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Text, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from .base import Base, VehicleStatus
@@ -18,6 +18,7 @@ class Vehicle(Base):
     home_depot_id = Column(UUID(as_uuid=True), ForeignKey('depots.depot_id'))
     preferred_route_id = Column(UUID(as_uuid=True), ForeignKey('routes.route_id'))
     status = Column(SQLEnum(VehicleStatus), nullable=False, default=VehicleStatus.available)
+    capacity = Column(Integer, nullable=True, default=11)  # Passenger capacity (ZR van default)
     profile_id = Column(Text)
     notes = Column(Text)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)

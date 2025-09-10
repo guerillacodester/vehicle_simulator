@@ -165,7 +165,7 @@ class FleetDataProvider:
                 vehicle_data = {
                     'id': vehicle.vehicle_id,
                     'license_plate': vehicle.reg_code,
-                    'capacity': None,  # Vehicle model doesn't have capacity field
+                    'capacity': vehicle.capacity,  # Now available from database
                     'fuel_type': None,  # Vehicle model doesn't have fuel_type field
                     'status': vehicle.status,
                     'depot_id': vehicle.home_depot_id,

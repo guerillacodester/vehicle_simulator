@@ -11,17 +11,24 @@
 - **Real-time API Monitoring**: Socket.IO connection monitoring with automatic reconnection
 
 #### 🔧 **Core Components Implemented**
-- **VehiclesDepot**: Database-driven fleet operations with timetable scheduling
+- **VehiclesDepot**: Database-driven fleet operations with dual scheduling modes
 - **FleetDataProvider**: Unified data access layer for vehicles, routes, drivers, schedules
-- **TimetableScheduler**: Real-time schedule monitoring with countdown timers
+- **TimetableScheduler**: Dual-mode scheduler supporting both time-based and capacity-based operations
 - **Navigator Refactoring**: Pure data consumer, accepts route coordinates directly
 - **Socket.IO Integration**: Real-time API status monitoring with fixed SimpleClient implementation
 
 #### 📊 **Enhanced Monitoring & Status**
-- **Countdown Timers**: Ready for vehicle departure scheduling
+- **Countdown Timers**: Ready for vehicle departure scheduling (both modes)
 - **Resource Availability**: Real-time tracking of vehicles, routes, drivers
 - **Detailed Status Display**: Comprehensive system status with neutral messaging
 - **API Connection Status**: Live monitoring of fleet manager connectivity
+
+#### 🚐 **ZR Van Capacity-Based Scheduling (NEW!)**
+- **Realistic ZR Van Operations**: Vehicles depart when full OR after max wait time
+- **Passenger Boarding Simulation**: Automatic passenger arrival simulation
+- **Dual Mode Support**: Toggle between capacity-based (ZR style) and time-based (traditional) scheduling
+- **Barbados-Specific Logic**: Default 11-passenger capacity with configurable max wait times
+- **Live Boarding Status**: Real-time passenger count and boarding progress monitoring
 
 #### 🛠️ **Database Schema Integration**
 - Fixed all attribute mapping issues (reg_code, license_no, employment_status, etc.)
@@ -32,9 +39,11 @@
 - ✅ 6 vehicles available in database
 - ✅ 4 drivers available in database  
 - ✅ Fleet Manager API connected
-- ✅ Timetable scheduler operational
-- ✅ Real-time status monitoring
+- ✅ Timetable scheduler operational (dual-mode)
+- ✅ **Capacity-based scheduling** for ZR van operations
+- ✅ Real-time passenger boarding simulation
 - ✅ Plugin system functional
+- ✅ Real-time status monitoring
 - ⚠️ 0 routes designated (expected - waiting for next phase)
 - ⚠️ No timetable set (expected - waiting for next phase)
 

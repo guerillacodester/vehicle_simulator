@@ -66,7 +66,16 @@ class VehiclesDepot:
             # Initialize timetable scheduler if enabled
             if self.enable_timetable:
                 precision = self.config['simulation'].get('schedule_precision_seconds', 30)
-                self.scheduler = TimetableScheduler(self.data_provider, precision)
+                # Default to capacity-based scheduling (ZR van style)
+                schedule_mode = self.config['simulation'].get('schedule_mode', 'capacity')
+                default_capacity = self.config['simulation'].get('default_vehicle_capacity', 11)
+                
+                self.scheduler = TimetableScheduler(
+                    self.data_provider, 
+                    precision, 
+                    default_mode=schedule_mode,
+                    default_capacity=default_capacity
+                )
             else:
                 self.scheduler = None
             
@@ -450,18 +459,29 @@ class VehiclesDepot:
             return {'error': str(e)}
     
     def _get_countdown_display(self, schedule_status: Dict[str, Any]) -> Optional[str]:
-        """Generate human-readable countdown display"""
+        """Generate human-readable countdown display for both operation modes"""
         if not schedule_status or not schedule_status.get('next_departure'):
             return "No scheduled departures"
         
         next_dep = schedule_status['next_departure']
-        if not next_dep['countdown_display']:
-            return "No upcoming departures"
+        mode = schedule_status.get('mode', 'time')
         
-        return (f"Next departure: Vehicle {next_dep['vehicle_id']} "
-                f"on Route {next_dep['route_id']} "
-                f"at {next_dep['scheduled_time']} "
-                f"(in {next_dep['countdown_display']})")
+        if mode == 'capacity':
+            if next_dep.get('ready_to_depart'):
+                return (f"🚐 Vehicle {next_dep['vehicle_id']} ready to depart: "
+                       f"{next_dep['departure_reason']}")
+            else:
+                return (f"🚌 Vehicle {next_dep['vehicle_id']} boarding "
+                       f"({next_dep['passengers']}) - "
+                       f"Max wait: {next_dep['max_wait_remaining']}")
+        else:
+            # Time-based display
+            if not next_dep.get('countdown_display'):
+                return "No upcoming departures"
+            return (f"Next departure: Vehicle {next_dep['vehicle_id']} "
+                   f"on Route {next_dep['route_id']} "
+                   f"at {next_dep['scheduled_time']} "
+                   f"(in {next_dep['countdown_display']})")
     
     def get_detailed_schedule_status(self) -> str:
         """Get formatted schedule status for console display"""
@@ -485,26 +505,44 @@ class VehiclesDepot:
             
             # Schedule status
             schedule = status.get('schedule_status', {})
+            mode = schedule.get('mode', 'time')
+            
             if schedule and schedule.get('timetable_loaded'):
+                lines.append(f"📋 Schedule Mode: {mode.upper()}")
                 lines.append(f"📋 Schedule Operations: {schedule['total_operations']} total, {schedule['pending_operations']} pending")
-                lines.append(f"🚦 Active Vehicles: {schedule['active_vehicles']}")
                 
-                # Next departure countdown
+                if mode == 'capacity':
+                    lines.append(f"� Boarding Vehicles: {schedule.get('boarding_vehicles', 0)}")
+                else:
+                    lines.append(f"�🚦 Active Vehicles: {schedule.get('active_vehicles', 0)}")
+                
+                # Next departure info
                 if status.get('countdown_info'):
                     lines.append(f"⏰ {status['countdown_info']}")
                 else:
-                    lines.append("⏰ No upcoming departures scheduled")
+                    lines.append("⏰ No upcoming departures")
                 
-                # Show next few operations
-                upcoming = schedule.get('upcoming_operations', [])
-                if upcoming:
-                    lines.append("\n📍 UPCOMING OPERATIONS:")
-                    for i, op in enumerate(upcoming[:3]):  # Show next 3
-                        countdown = op.get('countdown_seconds', 0)
-                        if countdown >= 0:
-                            lines.append(f"   {i+1}. Vehicle {op['vehicle_id']} - {op['operation']} at {op['scheduled_time']} (in {self._format_countdown_simple(countdown)})")
-                        else:
-                            lines.append(f"   {i+1}. Vehicle {op['vehicle_id']} - {op['operation']} at {op['scheduled_time']} (OVERDUE)")
+                # Show operations based on mode
+                if mode == 'capacity':
+                    capacity_ops = schedule.get('capacity_operations', [])
+                    if capacity_ops:
+                        lines.append("\n🚐 CAPACITY-BASED OPERATIONS:")
+                        for i, op in enumerate(capacity_ops[:3]):
+                            status_emoji = "✅" if op['executed'] else ("🚌" if op['boarding'] else "⏳")
+                            boarding_status = "BOARDING" if op['boarding'] else "WAITING"
+                            ready_status = "READY!" if op['ready'] else ""
+                            lines.append(f"   {i+1}. {status_emoji} Vehicle {op['vehicle_id']} - "
+                                       f"{op['passengers']} passengers - {boarding_status} {ready_status}")
+                else:
+                    upcoming = schedule.get('upcoming_operations', [])
+                    if upcoming:
+                        lines.append("\n📍 UPCOMING OPERATIONS:")
+                        for i, op in enumerate(upcoming[:3]):
+                            countdown = op.get('countdown_seconds', 0)
+                            if countdown >= 0:
+                                lines.append(f"   {i+1}. Vehicle {op['vehicle_id']} - {op['operation']} at {op['scheduled_time']} (in {self._format_countdown_simple(countdown)})")
+                            else:
+                                lines.append(f"   {i+1}. Vehicle {op['vehicle_id']} - {op['operation']} at {op['scheduled_time']} (OVERDUE)")
             else:
                 lines.append("❌ No timetable loaded or no scheduled operations")
                 
@@ -533,6 +571,25 @@ class VehiclesDepot:
             return f"{seconds//60}m {seconds%60}s"
         else:
             return f"{seconds//3600}h {(seconds%3600)//60}m"
+    
+    def simulate_passenger_arrival(self, vehicle_id: str = None, passenger_count: int = None):
+        """Manually simulate passenger arrival for testing capacity-based operations"""
+        if not self.scheduler:
+            logger.warning("No scheduler available for passenger simulation")
+            return
+        
+        if vehicle_id:
+            self.scheduler.simulate_passenger_arrival(vehicle_id, passenger_count)
+        else:
+            # Simulate for a random vehicle
+            capacity_ops = [op for op in self.scheduler.capacity_operations if not op.executed]
+            if capacity_ops:
+                import random
+                random_op = random.choice(capacity_ops)
+                self.scheduler.simulate_passenger_arrival(random_op.vehicle_id, passenger_count)
+                logger.info(f"Simulated passenger arrival for vehicle {random_op.vehicle_id}")
+            else:
+                logger.info("No capacity-based operations available for passenger simulation")
 
     def get_api_status(self) -> Dict[str, Any]:
         """Get current API connection status"""

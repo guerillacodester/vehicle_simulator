@@ -16,7 +16,11 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "world" / "fleet_manager" / "scripts"))
 
-from .scripts.config_loader import load_config
+try:
+    from .scripts.config_loader import load_config
+except ImportError:
+    # When called from alembic, use absolute import
+    from scripts.config_loader import load_config
 import paramiko, socket, threading
 from dotenv import load_dotenv
 

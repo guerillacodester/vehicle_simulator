@@ -9,11 +9,59 @@ Replaces manual vehicle startup with automated, schedule-driven operations.
 import logging
 import threading
 import time as time_module
+import random
 from datetime import datetime, time, timedelta
 from typing import Dict, List, Callable, Any, Optional
 from queue import Queue, Empty
 
 logger = logging.getLogger(__name__)
+
+
+class CapacityBasedOperation:
+    """Represents a capacity-based vehicle operation (ZR van style)"""
+    
+    def __init__(self, vehicle_id: str, operation: str, capacity_threshold: int,
+                 route_id: str = None, driver_id: str = None, **kwargs):
+        self.vehicle_id = vehicle_id
+        self.operation = operation  # 'start_service', 'end_service', 'change_route'
+        self.capacity_threshold = capacity_threshold  # Number of passengers to trigger departure
+        self.current_passengers = 0
+        self.route_id = route_id
+        self.driver_id = driver_id
+        self.params = kwargs
+        self.executed = False
+        self.boarding_start_time = None
+        self.max_wait_time = kwargs.get('max_wait_time', 1800)  # 30 minutes max wait
+    
+    def add_passenger(self, passenger_count: int = 1):
+        """Add passengers to the vehicle"""
+        self.current_passengers += passenger_count
+        if self.boarding_start_time is None:
+            self.boarding_start_time = datetime.now()
+    
+    def is_ready_to_depart(self) -> bool:
+        """Check if vehicle is ready to depart based on capacity or max wait time"""
+        # Depart when full
+        if self.current_passengers >= self.capacity_threshold:
+            return True
+        
+        # Depart after max wait time even if not full
+        if (self.boarding_start_time and 
+            (datetime.now() - self.boarding_start_time).total_seconds() >= self.max_wait_time):
+            return True
+            
+        return False
+    
+    def get_departure_reason(self) -> str:
+        """Get reason for departure"""
+        if self.current_passengers >= self.capacity_threshold:
+            return f"FULL ({self.current_passengers}/{self.capacity_threshold} passengers)"
+        else:
+            return f"MAX_WAIT_TIME ({self.current_passengers}/{self.capacity_threshold} passengers)"
+    
+    def __str__(self):
+        return f"CapacityBasedOperation({self.vehicle_id}, {self.current_passengers}/{self.capacity_threshold}, {self.operation})"
+
 
 class ScheduledOperation:
     """Represents a scheduled vehicle operation"""
@@ -34,18 +82,30 @@ class ScheduledOperation:
 
 class TimetableScheduler:
     """
-    Real-time scheduler for fleet operations based on database timetables.
-    Monitors current time and executes vehicle operations at scheduled times.
+    Real-time scheduler for fleet operations supporting both time-based and capacity-based scheduling.
+    - Time-based: Traditional fixed schedule departures
+    - Capacity-based: ZR van style - depart when full or after max wait time
     """
     
-    def __init__(self, data_provider, precision_seconds: int = 30):
+    def __init__(self, data_provider, precision_seconds: int = 30, 
+                 default_mode: str = 'capacity', default_capacity: int = 11):
         self.data_provider = data_provider
         self.precision_seconds = precision_seconds
+        self.default_mode = default_mode  # 'capacity' or 'time'
+        self.default_capacity = default_capacity  # Default ZR van capacity
+        
+        # Operation queues
         self.operations_queue = Queue()
         self.scheduled_operations: List[ScheduledOperation] = []
+        self.capacity_operations: List[CapacityBasedOperation] = []
+        
         self.vehicle_handlers: Dict[str, Any] = {}  # vehicle_id -> vehicle handler
         self.running = False
         self.scheduler_thread = None
+        
+        # Passenger simulation for capacity-based operations
+        self.passenger_simulation_enabled = True
+        self.passenger_arrival_rate = 0.3  # Passengers per second
         
         # Callbacks for vehicle operations
         self.operation_callbacks: Dict[str, Callable] = {}
@@ -62,54 +122,128 @@ class TimetableScheduler:
         self.operation_callbacks[operation] = callback
         logger.debug(f"Registered callback for operation: {operation}")
     
-    def load_today_schedule(self):
-        """Load today's schedule from database and create scheduled operations"""
+    def load_today_schedule(self, force_mode: str = None):
+        """
+        Load today's schedule from database and create operations based on mode.
+        
+        Args:
+            force_mode: Override default mode ('time' or 'capacity')
+        """
         try:
-            logger.info("Loading today's vehicle schedules...")
+            mode = force_mode or self.default_mode
+            logger.info(f"Loading today's vehicle schedules in {mode} mode...")
             
             schedules = self.data_provider.get_schedules()
             routes = self.data_provider.get_routes()
+            vehicles = self.data_provider.get_vehicles()
             
-            for schedule in schedules:
-                vehicle_id = schedule['vehicle_id']
-                route_id = schedule['route_id']
-                start_time = schedule['start_time']
-                end_time = schedule['end_time']
-                driver_id = schedule.get('driver_id')
-                
-                # Create start service operation
-                start_op = ScheduledOperation(
-                    vehicle_id=vehicle_id,
-                    operation='start_service',
-                    scheduled_time=start_time,
-                    route_id=route_id,
-                    driver_id=driver_id,
-                    route_data=routes.get(route_id)
-                )
-                self.scheduled_operations.append(start_op)
-                
-                # Create end service operation
-                end_op = ScheduledOperation(
-                    vehicle_id=vehicle_id,
-                    operation='end_service',
-                    scheduled_time=end_time,
-                    route_id=route_id,
-                    driver_id=driver_id
-                )
-                self.scheduled_operations.append(end_op)
-            
-            # Sort operations by time
-            self.scheduled_operations.sort(key=lambda op: op.scheduled_time)
-            
-            logger.info(f"Loaded {len(self.scheduled_operations)} scheduled operations")
-            
-            # Log upcoming operations
-            for op in self.scheduled_operations[:5]:  # Show first 5
-                logger.info(f"Scheduled: {op}")
+            if mode == 'capacity':
+                self._load_capacity_based_operations(schedules, routes, vehicles)
+            else:
+                self._load_time_based_operations(schedules, routes)
                 
         except Exception as e:
             logger.error(f"Failed to load schedule: {e}")
             raise
+    
+    def _load_time_based_operations(self, schedules, routes):
+        """Load traditional time-based scheduled operations"""
+        for schedule in schedules:
+            vehicle_id = schedule['vehicle_id']
+            route_id = schedule['route_id']
+            start_time = schedule['start_time']
+            end_time = schedule['end_time']
+            driver_id = schedule.get('driver_id')
+            
+            # Create start service operation
+            start_op = ScheduledOperation(
+                vehicle_id=vehicle_id,
+                operation='start_service',
+                scheduled_time=start_time,
+                route_id=route_id,
+                driver_id=driver_id,
+                route_data=routes.get(route_id)
+            )
+            self.scheduled_operations.append(start_op)
+            
+            # Create end service operation
+            end_op = ScheduledOperation(
+                vehicle_id=vehicle_id,
+                operation='end_service',
+                scheduled_time=end_time,
+                route_id=route_id,
+                driver_id=driver_id
+            )
+            self.scheduled_operations.append(end_op)
+        
+        # Sort operations by time
+        self.scheduled_operations.sort(key=lambda op: op.scheduled_time)
+        
+        logger.info(f"Loaded {len(self.scheduled_operations)} time-based scheduled operations")
+        
+        # Log upcoming operations
+        for op in self.scheduled_operations[:5]:  # Show first 5
+            logger.info(f"Scheduled: {op}")
+    
+    def _load_capacity_based_operations(self, schedules, routes, vehicles):
+        """Load ZR van style capacity-based operations"""
+        for schedule in schedules:
+            vehicle_id = schedule['vehicle_id']
+            route_id = schedule['route_id']
+            driver_id = schedule.get('driver_id')
+            
+            # Get vehicle capacity
+            vehicle_info = vehicles.get(vehicle_id, {})
+            capacity = vehicle_info.get('capacity', self.default_capacity)
+            
+            # Create capacity-based start operation
+            capacity_op = CapacityBasedOperation(
+                vehicle_id=vehicle_id,
+                operation='start_service',
+                capacity_threshold=capacity,
+                route_id=route_id,
+                driver_id=driver_id,
+                route_data=routes.get(route_id),
+                max_wait_time=schedule.get('max_wait_time', 1800)  # 30 min default
+            )
+            self.capacity_operations.append(capacity_op)
+        
+        logger.info(f"Loaded {len(self.capacity_operations)} capacity-based operations")
+        
+        # Log capacity operations
+        for op in self.capacity_operations:
+            logger.info(f"Capacity Operation: {op}")
+    
+    def simulate_passenger_arrival(self, vehicle_id: str, passenger_count: int = None):
+        """Simulate passengers arriving for a specific vehicle"""
+        if not self.passenger_simulation_enabled:
+            return
+        
+        # Find the capacity operation for this vehicle
+        for op in self.capacity_operations:
+            if op.vehicle_id == vehicle_id and not op.executed:
+                if passenger_count is None:
+                    # Random passenger arrival (1-3 passengers)
+                    passenger_count = random.randint(1, 3)
+                
+                op.add_passenger(passenger_count)
+                logger.info(f"🚶 {passenger_count} passengers boarded {vehicle_id} "
+                          f"({op.current_passengers}/{op.capacity_threshold})")
+                
+                # Check if ready to depart
+                if op.is_ready_to_depart():
+                    logger.info(f"🚐 Vehicle {vehicle_id} ready to depart: {op.get_departure_reason()}")
+                    self._execute_capacity_operation(op)
+                break
+    
+    def _execute_capacity_operation(self, operation: CapacityBasedOperation):
+        """Execute a capacity-based operation"""
+        try:
+            operation.executed = True
+            self._execute_operation_common(operation)
+            logger.info(f"Executed capacity operation: {operation}")
+        except Exception as e:
+            logger.error(f"Failed to execute capacity operation: {e}")
     
     def start(self):
         """Start the scheduler"""
@@ -132,16 +266,15 @@ class TimetableScheduler:
         logger.info("Timetable scheduler stopped")
     
     def _scheduler_loop(self):
-        """Main scheduler loop - monitors time and executes operations"""
-        logger.info("Scheduler monitoring loop started")
+        """Main scheduler loop - monitors both time-based and capacity-based operations"""
+        logger.info(f"Scheduler monitoring loop started in {self.default_mode} mode")
         
         while self.running:
             try:
                 current_time = datetime.now().time()
                 
-                # Check for operations that need to be executed
+                # Handle time-based operations
                 due_operations = self._get_due_operations(current_time)
-                
                 for operation in due_operations:
                     try:
                         self._execute_operation(operation)
@@ -149,6 +282,13 @@ class TimetableScheduler:
                         logger.info(f"Executed: {operation}")
                     except Exception as e:
                         logger.error(f"Failed to execute operation {operation}: {e}")
+                
+                # Handle capacity-based operations (simulate passenger arrivals)
+                if self.default_mode == 'capacity':
+                    self._simulate_passenger_arrivals()
+                
+                # Check capacity operations for max wait time expiry
+                self._check_capacity_timeouts()
                 
                 # Sleep for precision interval
                 time_module.sleep(self.precision_seconds)
@@ -314,11 +454,116 @@ class TimetableScheduler:
                    if not op.executed and op.scheduled_time >= current_time]
         return upcoming[:limit]
     
+    def _simulate_passenger_arrivals(self):
+        """Simulate passengers arriving at depot for capacity-based operations"""
+        for op in self.capacity_operations:
+            if not op.executed and op.boarding_start_time is None:
+                # Start boarding for vehicles that haven't started yet
+                if random.random() < 0.1:  # 10% chance per tick to start boarding
+                    op.boarding_start_time = datetime.now()
+                    logger.info(f"🚶 Passengers started boarding vehicle {op.vehicle_id}")
+            
+            elif not op.executed and op.boarding_start_time:
+                # Continue boarding for vehicles already boarding
+                if random.random() < self.passenger_arrival_rate:
+                    passenger_count = random.randint(1, 2)
+                    op.add_passenger(passenger_count)
+                    logger.info(f"🚶 {passenger_count} passengers boarded {op.vehicle_id} "
+                              f"({op.current_passengers}/{op.capacity_threshold})")
+                    
+                    # Check if ready to depart
+                    if op.is_ready_to_depart():
+                        logger.info(f"🚐 Vehicle {op.vehicle_id} ready to depart: {op.get_departure_reason()}")
+                        self._execute_capacity_operation(op)
+    
+    def _check_capacity_timeouts(self):
+        """Check for capacity operations that have exceeded max wait time"""
+        for op in self.capacity_operations:
+            if not op.executed and op.boarding_start_time:
+                if op.is_ready_to_depart():
+                    reason = op.get_departure_reason()
+                    if "MAX_WAIT_TIME" in reason:
+                        logger.info(f"⏰ Vehicle {op.vehicle_id} departing due to max wait time: {reason}")
+                        self._execute_capacity_operation(op)
+    
+    def _execute_operation_common(self, operation):
+        """Common execution logic for both operation types"""
+        vehicle_id = operation.vehicle_id
+        operation_type = operation.operation
+        
+        # Get vehicle handler
+        vehicle_handler = self.vehicle_handlers.get(vehicle_id)
+        if not vehicle_handler:
+            logger.warning(f"No handler registered for vehicle {vehicle_id}")
+            return
+        
+        # Execute based on operation type
+        if operation_type == 'start_service':
+            self._start_vehicle_service(vehicle_handler, operation)
+        elif operation_type == 'end_service':
+            self._end_vehicle_service(vehicle_handler, operation)
+        else:
+            logger.warning(f"Unknown operation type: {operation_type}")
+    
     def get_schedule_status(self) -> Dict[str, Any]:
-        """Get comprehensive schedule status with countdowns"""
+        """Get comprehensive schedule status with countdowns for both operation types"""
         current_time = datetime.now().time()
         current_datetime = datetime.now()
         
+        # Handle different operation modes
+        if self.default_mode == 'capacity':
+            return self._get_capacity_status()
+        else:
+            return self._get_time_based_status(current_time, current_datetime)
+    
+    def _get_capacity_status(self) -> Dict[str, Any]:
+        """Get status for capacity-based operations"""
+        total_capacity_ops = len(self.capacity_operations)
+        completed_capacity_ops = len([op for op in self.capacity_operations if op.executed])
+        boarding_vehicles = [op for op in self.capacity_operations 
+                           if not op.executed and op.boarding_start_time]
+        
+        # Find next vehicle ready to depart
+        next_departure_info = None
+        for op in self.capacity_operations:
+            if not op.executed and op.boarding_start_time:
+                boarding_time = (datetime.now() - op.boarding_start_time).total_seconds()
+                time_remaining = max(0, op.max_wait_time - boarding_time)
+                
+                next_departure_info = {
+                    'vehicle_id': op.vehicle_id,
+                    'route_id': op.route_id,
+                    'mode': 'capacity',
+                    'passengers': f"{op.current_passengers}/{op.capacity_threshold}",
+                    'boarding_time': f"{int(boarding_time)}s",
+                    'max_wait_remaining': f"{int(time_remaining)}s",
+                    'ready_to_depart': op.is_ready_to_depart(),
+                    'departure_reason': op.get_departure_reason() if op.is_ready_to_depart() else None
+                }
+                break
+        
+        return {
+            'mode': 'capacity',
+            'timetable_loaded': total_capacity_ops > 0,
+            'total_operations': total_capacity_ops,
+            'completed_operations': completed_capacity_ops,
+            'pending_operations': total_capacity_ops - completed_capacity_ops,
+            'boarding_vehicles': len(boarding_vehicles),
+            'next_departure': next_departure_info,
+            'capacity_operations': [
+                {
+                    'vehicle_id': op.vehicle_id,
+                    'route_id': op.route_id,
+                    'passengers': f"{op.current_passengers}/{op.capacity_threshold}",
+                    'boarding': op.boarding_start_time is not None,
+                    'ready': op.is_ready_to_depart(),
+                    'executed': op.executed
+                } for op in self.capacity_operations[:5]
+            ]
+        }
+    
+    def _get_time_based_status(self, current_time, current_datetime) -> Dict[str, Any]:
+        """Get status for time-based operations"""
         # Get next upcoming operations
         upcoming = self.get_next_operations(5)
         
@@ -345,6 +590,7 @@ class TimetableScheduler:
         active_vehicles = self.get_active_vehicles()
         
         return {
+            'mode': 'time',
             'timetable_loaded': total_operations > 0,
             'total_operations': total_operations,
             'completed_operations': completed_operations,
