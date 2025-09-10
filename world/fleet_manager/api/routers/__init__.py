@@ -9,6 +9,9 @@ from .stops import router as stops_router
 from .trips import router as trips_router
 from .services import router as services_router
 from .blocks import router as blocks_router
+from .routes import router as routes_router
+from .shapes import router as shapes_router
+from .route_shapes import router as route_shapes_router
 
 __all__ = [
     "countries_router",
@@ -19,4 +22,7 @@ __all__ = [
     "trips_router",
     "services_router",
     "blocks_router",
+    "routes_router",
+    "shapes_router",
+    "route_shapes_router",
 ]

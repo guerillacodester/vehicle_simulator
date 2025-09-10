@@ -1,0 +1,381 @@
+[
+  {
+    "route": "1",
+    "name": "Connell Town – Speightstown",
+    "via": [
+      "Crab Hill",
+      "Broomfield",
+      "Checker Hall",
+      "Shermans",
+      "Six Men's"
+    ],
+    "parishes": [
+      "St. Lucy",
+      "St. Peter"
+    ]
+  },
+  {
+    "route": "1A",
+    "name": "Josey Hill – Speightstown",
+    "via": [
+      "St. Lucy Church",
+      "Checker Hall",
+      "Shermans",
+      "Six Men's"
+    ],
+    "parishes": [
+      "St. Lucy",
+      "St. Peter"
+    ]
+  },
+  {
+    "route": "1B",
+    "name": "Date Tree Hill/Pie Corner – Speightstown",
+    "via": [
+      "Nesfield",
+      "Trents",
+      "Colleton",
+      "Six Men's",
+      "Heywoods"
+    ],
+    "parishes": [
+      "St. Peter",
+      "St. Lucy"
+    ]
+  },
+  {
+    "route": "1D",
+    "name": "Bridgetown (Cheapside) – Bibby's Lane No. 3",
+    "via": [
+      "Baxter's Road",
+      "Eagle Hall",
+      "Green Hill",
+      "Warrens",
+      "Jackson"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "2",
+    "name": "Speightstown – Boscobelle",
+    "via": [
+      "Mile-and-a-Quarter",
+      "Indian Ground",
+      "Ashton Hall"
+    ],
+    "parishes": [
+      "St. Peter"
+    ]
+  },
+  {
+    "route": "3",
+    "name": "Bridgetown (Cheapside) – Redman's Village",
+    "via": [
+      "Eagle Hall",
+      "Black Rock",
+      "Cave Hill (UWI)",
+      "Wanstead",
+      "Prior Park"
+    ],
+    "parishes": [
+      "St. Michael",
+      "St. Thomas"
+    ]
+  },
+  {
+    "route": "3C",
+    "name": "Bridgetown (Constitution River) – Pegwell Boggs",
+    "via": [
+      "Bay Street",
+      "Hastings",
+      "Worthing",
+      "Oistins"
+    ],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "3D",
+    "name": "Bridgetown – Grantley Adams International Airport (GAIA)",
+    "via": [
+      "Oistins",
+      "Parish Land"
+    ],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "3E",
+    "name": "Speightstown – Vuemont",
+    "via": [
+      "Ashton Hall",
+      "Mount Brevitor"
+    ],
+    "parishes": [
+      "St. Peter"
+    ]
+  },
+  {
+    "route": "3L",
+    "name": "Bridgetown (Cheapside) – Grazettes",
+    "via": [
+      "Deacons",
+      "West Terrace"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "3M",
+    "name": "Bridgetown – Eden Lodge",
+    "via": [
+      "Bibby's Lane No. 3"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "3N",
+    "name": "Bridgetown – Eden Lodge",
+    "via": [
+      "Bibby's Lane No. 3"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "3O",
+    "name": "Speightstown – Oistins (cross-island)",
+    "via": [
+      "Highway 2A",
+      "ABC Highway"
+    ],
+    "parishes": [
+      "St. Peter",
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "3Q",
+    "name": "Bridgetown (Constitution River) – Martins Bay",
+    "via": [
+      "Hothersal Turning",
+      "Market Hill",
+      "Sweet Vale",
+      "Clifton Hall"
+    ],
+    "parishes": [
+      "St. Michael",
+      "St. George",
+      "St. John"
+    ]
+  },
+  {
+    "route": "3R",
+    "name": "Bridgetown (Cheapside) – Cane Garden Park/Bibby's Lane Loop",
+    "via": [
+      "Barbarees Hill",
+      "Jackson"
+    ],
+    "parishes": [
+      "St. Michael",
+      "St. Thomas"
+    ]
+  },
+  {
+    "route": "3V",
+    "name": "Bridgetown (Constitution River) – Newton/Kingsland",
+    "via": [
+      "Wildey",
+      "Vauxhall",
+      "Kendal Hill",
+      "Wotton"
+    ],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "3W",
+    "name": "Bridgetown – Proute Village/Airy Hill",
+    "via": [
+      "Halls Road",
+      "Jackmans",
+      "Clifton Hall"
+    ],
+    "parishes": [
+      "St. Michael",
+      "St. Thomas",
+      "St. Joseph"
+    ]
+  },
+  {
+    "route": "4",
+    "name": "Bridgetown – Grazettes",
+    "via": [
+      "Deacons Farm",
+      "Black Rock"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "5",
+    "name": "Bridgetown – Eden Lodge",
+    "via": [
+      "Bank Hall",
+      "Bush Hall",
+      "Green Hill"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "6",
+    "name": "Bridgetown – Bush Hall",
+    "via": [
+      "Station Hill"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "7",
+    "name": "Bridgetown – Howells & Ivy",
+    "via": [
+      "Fairfield Road"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  },
+  {
+    "route": "8",
+    "name": "Bridgetown – Brittons Hill/Forde's Road",
+    "via": [],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "8B",
+    "name": "Bridgetown – Forde's Road",
+    "via": [],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "9",
+    "name": "Bridgetown – Rendezvous Gardens",
+    "via": [
+      "Beckles Road",
+      "Darrell's Road"
+    ],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "10",
+    "name": "Bridgetown – Newton",
+    "via": [
+      "Silver Hill",
+      "Gall Hill"
+    ],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "11",
+    "name": "Bridgetown – Silver Sands",
+    "via": [
+      "Oistins",
+      "Christ Church Parish Church"
+    ],
+    "parishes": [
+      "St. Michael",
+      "Christ Church"
+    ]
+  },
+  {
+    "route": "12",
+    "name": "Bridgetown – Market Hill",
+    "via": [
+      "Bourne's Village",
+      "Locust Hall"
+    ],
+    "parishes": [
+      "St. Michael",
+      "St. George"
+    ]
+  },
+  {
+    "route": "15",
+    "name": "Bridgetown – Flat Rock/Groves",
+    "via": [
+      "Hothersal Turning",
+      "Lower Estate"
+    ],
+    "parishes": [
+      "St. Michael",
+      "St. George"
+    ]
+  },
+  {
+    "route": "17",
+    "name": "Speightstown – Baltic",
+    "via": [
+      "Boscobel",
+      "Indian Ground",
+      "Mile-and-a-Quarter",
+      "Ashton Hall"
+    ],
+    "parishes": [
+      "St. Peter"
+    ]
+  },
+  {
+    "route": "19",
+    "name": "Bridgetown – Dash Valley",
+    "via": [
+      "Government Hill",
+      "Monroe",
+      "Haggatt Hall"
+    ],
+    "parishes": [
+      "St. Michael",
+      "St. George"
+    ]
+  },
+  {
+    "route": "61",
+    "name": "Bridgetown – Meadows Road Housing (Wildey)",
+    "via": [
+      "Bishop's Court Hill",
+      "Pinelands"
+    ],
+    "parishes": [
+      "St. Michael"
+    ]
+  }
+]

@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 
-from ...database import get_db
+try:
+    from ..dependencies import get_db
+except ImportError:
+    from world.fleet_manager.api.start_fleet_manager import get_db
 from ...models.route import Route as RouteModel
 from ..schemas.route import Route, RouteCreate, RouteUpdate
 
