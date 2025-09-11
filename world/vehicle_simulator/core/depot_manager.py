@@ -25,6 +25,7 @@ from world.vehicle_simulator.vehicle.vahicle_object import VehicleState
 from world.vehicle_simulator.providers.data_provider import FleetDataProvider
 from world.vehicle_simulator.core.timetable_scheduler import TimetableScheduler
 from world.vehicle_simulator.config.config_loader import ConfigLoader
+from world.vehicle_simulator.core.dispatcher import Dispatcher
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -32,7 +33,8 @@ logger = logging.getLogger(__name__)
 class DepotManager:
     def __init__(self, tick_time: float = 1.0, 
                  route_provider=None,  # Legacy compatibility - will be replaced
-                 enable_timetable: bool = True):
+                 enable_timetable: bool = True,
+                 enable_dispatcher: bool = False):
         """
         Initialize database-driven vehicles depot.
         
@@ -40,10 +42,12 @@ class DepotManager:
             tick_time: Time interval for vehicle updates
             route_provider: Legacy parameter - ignored in new architecture
             enable_timetable: Whether to use timetable-driven operations
+            enable_dispatcher: Whether to use Dispatcher for route assignments (Step 3 architecture)
         """
         # Initialize core properties
         self.tick_time = tick_time
         self.enable_timetable = enable_timetable
+        self.enable_dispatcher = enable_dispatcher
         self.vehicles = {}
         self.running = False
         
@@ -79,11 +83,26 @@ class DepotManager:
             else:
                 self.scheduler = None
             
+            # Initialize dispatcher if enabled (Step 3 architecture)
+            if self.enable_dispatcher:
+                self.dispatcher = Dispatcher(
+                    enable_route_caching=True,
+                    max_queue_size=50,
+                    dispatch_interval=1.0
+                )
+                logger.info("✅ Dispatcher enabled for Step 3 architecture")
+            else:
+                self.dispatcher = None
+            
             # Load fleet data from database (will wait for API availability)
             self._load_fleet_data()
             
             # Create vehicle instances
             self._create_vehicle_instances()
+            
+            # Register vehicles with dispatcher if enabled
+            if self.dispatcher:
+                self._setup_dispatcher_operations()
             
             # Load schedule if timetable is enabled
             if self.scheduler:
@@ -271,6 +290,28 @@ class DepotManager:
             logger.error(f"Failed to create components for vehicle {vehicle_id}: {e}")
             raise
 
+    def _setup_dispatcher_operations(self):
+        """Setup dispatcher with vehicle registrations"""
+        try:
+            logger.info("Setting up dispatcher operations...")
+            
+            # Register all vehicles with dispatcher
+            for vehicle_id, vehicle_handler in self.vehicles.items():
+                success = self.dispatcher.register_vehicle(vehicle_id, vehicle_handler)
+                if success:
+                    logger.debug(f"Vehicle {vehicle_id} registered with dispatcher")
+                else:
+                    logger.warning(f"Failed to register vehicle {vehicle_id} with dispatcher")
+            
+            # Start dispatcher
+            self.dispatcher.start()
+            
+            logger.info("✅ Dispatcher operations setup complete")
+            
+        except Exception as e:
+            logger.error(f"Failed to setup dispatcher operations: {e}")
+            raise
+
     def _setup_timetable_operations(self):
         """Setup timetable scheduler with vehicle handlers"""
         try:
@@ -298,6 +339,12 @@ class DepotManager:
             print("[INFO] Depot OPERATIONAL...")
             
             self.running = True
+            
+            # Start dispatcher if enabled (runs alongside other modes)
+            if self.dispatcher:
+                # Dispatcher was already started in setup, just log status
+                logger.info("Dispatcher is active for route assignments")
+                print("[INFO] Dispatcher active - handling route assignments")
             
             if self.enable_timetable and self.scheduler:
                 # Start timetable-driven operations
@@ -356,6 +403,10 @@ class DepotManager:
             # Stop scheduler if running
             if self.scheduler:
                 self.scheduler.stop()
+            
+            # Stop dispatcher if running
+            if self.dispatcher:
+                self.dispatcher.stop()
             
             # Stop all vehicles
             for vehicle_id, vehicle_handler in self.vehicles.items():
@@ -432,10 +483,17 @@ class DepotManager:
                 schedule_status = self.scheduler.get_schedule_status()
                 resource_availability = self.scheduler.get_resource_availability()
             
+            # Get dispatcher information
+            dispatcher_status = None
+            if self.dispatcher:
+                dispatcher_status = self.dispatcher.get_dispatcher_status()
+            
             fleet_status = {
                 'depot_running': self.running,
                 'timetable_enabled': self.enable_timetable,
+                'dispatcher_enabled': self.enable_dispatcher,
                 'scheduler_running': self.scheduler.running if self.scheduler else False,
+                'dispatcher_running': self.dispatcher.running if self.dispatcher else False,
                 'api_status': api_status,
                 'api_available': self.data_provider.is_api_available(),
                 'total_vehicles': len(self.vehicles),
@@ -444,7 +502,9 @@ class DepotManager:
                 # Enhanced timetable information
                 'schedule_status': schedule_status,
                 'resource_availability': resource_availability,
-                'countdown_info': self._get_countdown_display(schedule_status) if schedule_status else None
+                'countdown_info': self._get_countdown_display(schedule_status) if schedule_status else None,
+                # Dispatcher information
+                'dispatcher_status': dispatcher_status
             }
             
             for vehicle_id in self.vehicles:
