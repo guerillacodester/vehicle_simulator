@@ -169,59 +169,55 @@ class VehicleSimulatorLogger:
         """Create a filter for normal mode that only shows essential messages."""
         class NormalModeFilter(logging.Filter):
             def filter(self, record):
-                # Only allow essential high-level messages in normal mode
-                essential_patterns = [
-                    # Main application lifecycle
-                    "Vehicle Simulator",
-                    "Starting", "✅", "🚌", "🛑", "Complete",
-                    
-                    # Critical status updates
-                    "GPS transmission:",
-                    "Simulation started", "Simulation stopped",
-                    
-                    # Errors and warnings (always show)
-                    "ERROR", "CRITICAL", "Failed", "Error",
-                    
-                    # Key system status
-                    "Mode:", "Duration:", "Update Interval:",
-                    
-                    # Fleet/Vehicle high-level status
-                    "vehicles", "fleet", "depot",
-                    
-                    # Dashboard separators
-                    "====", "----"
-                ]
-                
                 # Always show ERROR and WARNING levels regardless of content
                 if record.levelno >= logging.WARNING:
                     return True
                 
-                # Check if message contains essential patterns
-                message = record.getMessage().lower()
-                for pattern in essential_patterns:
-                    if pattern.lower() in message:
-                        return True
+                message = record.getMessage()
                 
-                # Filter out verbose component initialization messages
-                component_noise = [
-                    "registered plugin", "plugin initialized", "plugin discovered",
-                    "socket.io", "api monitor", "connection", "loaded plugin",
-                    "gpsdevice", "device initialized", "data worker", "turned on",
-                    "transmitter", "data stream", "configuration from:",
-                    "logging system configured", "fleet data provider",
-                    "timetable scheduler", "loading", "waiting for", "attempting",
-                    "created", "setting up", "vehicle state set", "built-in plugins",
-                    "loaded simulation plugin", "no vehicle state available",
-                    "socket.io monitoring", "fleet manager api", "database connection",
-                    "using database for fleet", "navigator provides", "timetable operations",
-                    "using empty fleet data", "creating vehicle instances", "active simulator"
+                # Whitelist only essential high-level messages
+                essential_messages = [
+                    # Core lifecycle events
+                    "🚌 Vehicle Simulator Starting...",
+                    "🚌 Starting Basic Vehicle Simulator",
+                    "✅ Basic Vehicle Simulator started",
+                    "🛑 Stopping simulation...",
+                    "✅ Simulation stopped",
+                    "Vehicle Simulator stopped",
+                    "Timed Simulation Complete",
+                    
+                    # Key status displays
+                    "🚌 Vehicle Simulator - Timed Mode",
+                    "⏱️  Update Interval:",
+                    "⏰ Duration:",
+                    "🚀 Mode:",
+                    "📡 GPS transmission:",
+                    "🚌 Vehicle simulation started",
+                    
+                    # Dashboard separators
+                    "============================================================",
+                    "------------------------------------------------------------",
+                    
+                    # High-level system status
+                    "🎭 Created",
+                    "dummy vehicles"
                 ]
                 
-                for noise in component_noise:
-                    if noise in message:
-                        return False
+                # Check for exact essential messages or key patterns
+                for essential in essential_messages:
+                    if essential in message:
+                        return True
                 
-                return True
+                # Allow fallback messages
+                if "Falling back to basic vehicle simulator" in message:
+                    return True
+                
+                # Allow GPS device status (the emoji lines)
+                if message.strip().startswith("📡") and ("GPS device" in message):
+                    return True
+                
+                # Block everything else in normal mode
+                return False
         
         return NormalModeFilter()
     

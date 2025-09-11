@@ -1384,3 +1384,762 @@
 2025-09-11 20:20:27 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for ZR1001 turned OFF
 2025-09-11 20:20:27 | INFO     | world.vehicle_simulator.main:201 | stop() | Active simulator stopped
 2025-09-11 20:20:27 | INFO     | world.vehicle_simulator.main:203 | stop() | Vehicle Simulator stopped
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:258 | configure() | Logging system configured: level=INFO, verbose=False, console=True, file=True, structured=False
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:382 | log_system_info() | 🚌 Vehicle Simulator Starting...
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:20:52 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:51 | __init__() | Database connection established
+2025-09-11 20:20:52 | DEBUG    | world.vehicle_simulator.main:62 | __init__() | Vehicle Simulator initialized with database-driven architecture
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:108 | run_depot_simulator() | Starting Database-Driven Depot Simulator...
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:109 | run_depot_simulator() |    Using database for fleet data
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:110 | run_depot_simulator() |    Navigator provides realistic route following
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:111 | run_depot_simulator() |    Tick time: 2.0 seconds
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.main:118 | run_depot_simulator() |    Timetable operations: enabled
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:20:52 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:20:52 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.core.timetable_scheduler:113 | __init__() | Timetable scheduler initialized with 30s precision
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.core.depot_manager:129 | _load_fleet_data() | Loading fleet data from database...
+2025-09-11 20:20:52 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (0s/10s)
+2025-09-11 20:20:53 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (1s/10s)
+2025-09-11 20:20:54 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (2s/10s)
+2025-09-11 20:20:54 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:20:54 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:20:54 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:20:54 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.03s
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.core.depot_manager:120 | _on_api_status_change() | 🔌 Fleet Manager API connected (response: 2.042s)
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.04s
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.core.depot_manager:155 | _load_fleet_data() | ✅ API connected! Loading fleet data...
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.providers.data_provider:124 | get_all_fleet_data() | Loading complete fleet data from database...
+2025-09-11 20:20:55 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.providers.data_provider:136 | get_all_fleet_data() | Loaded fleet data: 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.core.depot_manager:163 | _load_fleet_data() | Loaded 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.core.depot_manager:185 | _create_vehicle_instances() | Creating vehicle instances from database data...
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.core.depot_manager:193 | _create_vehicle_instances() | Vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98 is inactive in database, activating for simulation
+2025-09-11 20:20:55 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:20:55 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:20:55 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:148 | run_depot_simulator() | Falling back to basic vehicle simulator with GPS transmission...
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:150 | run_depot_simulator() | 🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:151 | run_depot_simulator() |    📡 GPS transmission enabled
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:152 | run_depot_simulator() |    ⏱️ Tick time: 2.0 seconds
+2025-09-11 20:20:55 | WARNING  | world.vehicle_simulator.simulators.simulator:118 | _load_vehicles() | Database unavailable (module 'paramiko' has no attribute 'DSSKey'), using dummy data
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.simulators.simulator:222 | _load_dummy_data() | 🎭 Created 4 dummy vehicles
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS001 initialized
+2025-09-11 20:20:55 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS001 data worker started
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS001 turned ON
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS002
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS002 initialized
+2025-09-11 20:20:55 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS002
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS002
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS002 data worker started
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS002 turned ON
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS002
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS003
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS003 initialized
+2025-09-11 20:20:55 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS003
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS003
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS003 data worker started
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS003 turned ON
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS003
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device ZR1001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice ZR1001 initialized
+2025-09-11 20:20:55 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin ZR1001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for ZR1001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device ZR1001 data worker started
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for ZR1001 turned ON
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: ZR1001
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:162 | run_depot_simulator() | ✅ Basic Vehicle Simulator started with GPS transmission
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:339 | main() | ============================================================
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:340 | main() | 🚌 Vehicle Simulator - Timed Mode
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:341 | main() | ============================================================
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:342 | main() | ⏱️  Update Interval: 2.0 seconds
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:343 | main() | ⏰ Duration: 5.0 seconds
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:344 | main() | 🚀 Mode: depot
+2025-09-11 20:20:55 | INFO     | world.vehicle_simulator.main:345 | main() | ------------------------------------------------------------
+2025-09-11 20:20:57 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS003 transmitter connected
+2025-09-11 20:20:57 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device ZR1001 transmitter connected
+2025-09-11 20:20:58 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS001 transmitter connected
+2025-09-11 20:20:58 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS002 transmitter connected
+2025-09-11 20:21:01 | INFO     | world.vehicle_simulator.main:379 | main() | ------------------------------------------------------------
+2025-09-11 20:21:01 | INFO     | world.vehicle_simulator.main:380 | main() | ✅ Timed Simulation Complete
+2025-09-11 20:21:01 | INFO     | world.vehicle_simulator.main:192 | stop() | Stopping Vehicle Simulator...
+2025-09-11 20:21:01 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS001
+2025-09-11 20:21:01 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:21:02 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS001 transmitter disconnected
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS001 data worker stopped
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS001 turned OFF
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS002
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS002 data worker stopped
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS002 transmitter disconnected
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS002 turned OFF
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS003
+2025-09-11 20:21:03 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:21:04 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS003 transmitter disconnected
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS003 data worker stopped
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS003 turned OFF
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for ZR1001
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device ZR1001 data worker stopped
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device ZR1001 transmitter disconnected
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for ZR1001 turned OFF
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.main:201 | stop() | Active simulator stopped
+2025-09-11 20:21:05 | INFO     | world.vehicle_simulator.main:203 | stop() | Vehicle Simulator stopped
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:261 | configure() | Logging system configured: level=INFO, verbose=False, console=True, file=True, structured=False
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:385 | log_system_info() | 🚌 Vehicle Simulator Starting...
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:21:56 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:51 | __init__() | Database connection established
+2025-09-11 20:21:56 | DEBUG    | world.vehicle_simulator.main:62 | __init__() | Vehicle Simulator initialized with database-driven architecture
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:108 | run_depot_simulator() | Starting Database-Driven Depot Simulator...
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:109 | run_depot_simulator() |    Using database for fleet data
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:110 | run_depot_simulator() |    Navigator provides realistic route following
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:111 | run_depot_simulator() |    Tick time: 2.0 seconds
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.main:118 | run_depot_simulator() |    Timetable operations: enabled
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:21:56 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:21:56 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.core.timetable_scheduler:113 | __init__() | Timetable scheduler initialized with 30s precision
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.core.depot_manager:129 | _load_fleet_data() | Loading fleet data from database...
+2025-09-11 20:21:56 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (0s/10s)
+2025-09-11 20:21:57 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (1s/10s)
+2025-09-11 20:21:58 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (2s/10s)
+2025-09-11 20:21:58 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:21:58 | INFO     | world.vehicle_simulator.core.depot_manager:120 | _on_api_status_change() | 🔌 Fleet Manager API connected (response: 2.036s)
+2025-09-11 20:21:58 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:21:58 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:21:58 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.04s
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.04s
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.core.depot_manager:155 | _load_fleet_data() | ✅ API connected! Loading fleet data...
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.providers.data_provider:124 | get_all_fleet_data() | Loading complete fleet data from database...
+2025-09-11 20:21:59 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.providers.data_provider:136 | get_all_fleet_data() | Loaded fleet data: 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.core.depot_manager:163 | _load_fleet_data() | Loaded 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.core.depot_manager:185 | _create_vehicle_instances() | Creating vehicle instances from database data...
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.core.depot_manager:193 | _create_vehicle_instances() | Vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98 is inactive in database, activating for simulation
+2025-09-11 20:21:59 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:21:59 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:21:59 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:148 | run_depot_simulator() | Falling back to basic vehicle simulator with GPS transmission...
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:150 | run_depot_simulator() | 🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:151 | run_depot_simulator() |    📡 GPS transmission enabled
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:152 | run_depot_simulator() |    ⏱️ Tick time: 2.0 seconds
+2025-09-11 20:21:59 | WARNING  | world.vehicle_simulator.simulators.simulator:118 | _load_vehicles() | Database unavailable (module 'paramiko' has no attribute 'DSSKey'), using dummy data
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.simulators.simulator:222 | _load_dummy_data() | 🎭 Created 4 dummy vehicles
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS001 initialized
+2025-09-11 20:21:59 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS001 data worker started
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS001 turned ON
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS002
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS002 initialized
+2025-09-11 20:21:59 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS002
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS002
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS002 data worker started
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS002 turned ON
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS002
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS003
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS003 initialized
+2025-09-11 20:21:59 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS003
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS003
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS003 data worker started
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS003 turned ON
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS003
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device ZR1001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice ZR1001 initialized
+2025-09-11 20:21:59 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin ZR1001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for ZR1001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device ZR1001 data worker started
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for ZR1001 turned ON
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: ZR1001
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:162 | run_depot_simulator() | ✅ Basic Vehicle Simulator started with GPS transmission
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:339 | main() | ============================================================
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:340 | main() | 🚌 Vehicle Simulator - Timed Mode
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:341 | main() | ============================================================
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:342 | main() | ⏱️  Update Interval: 2.0 seconds
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:343 | main() | ⏰ Duration: 5.0 seconds
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:344 | main() | 🚀 Mode: depot
+2025-09-11 20:21:59 | INFO     | world.vehicle_simulator.main:345 | main() | ------------------------------------------------------------
+2025-09-11 20:22:01 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS003 transmitter connected
+2025-09-11 20:22:01 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS002 transmitter connected
+2025-09-11 20:22:01 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device ZR1001 transmitter connected
+2025-09-11 20:22:01 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS001 transmitter connected
+2025-09-11 20:22:05 | INFO     | world.vehicle_simulator.main:379 | main() | ------------------------------------------------------------
+2025-09-11 20:22:05 | INFO     | world.vehicle_simulator.main:380 | main() | ✅ Timed Simulation Complete
+2025-09-11 20:22:05 | INFO     | world.vehicle_simulator.main:192 | stop() | Stopping Vehicle Simulator...
+2025-09-11 20:22:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS001
+2025-09-11 20:22:05 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:06 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS001 transmitter disconnected
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS001 data worker stopped
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS001 turned OFF
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS002
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS002 data worker stopped
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS002 transmitter disconnected
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS002 turned OFF
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS003
+2025-09-11 20:22:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:08 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS003 transmitter disconnected
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS003 data worker stopped
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS003 turned OFF
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for ZR1001
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device ZR1001 data worker stopped
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device ZR1001 transmitter disconnected
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for ZR1001 turned OFF
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.main:201 | stop() | Active simulator stopped
+2025-09-11 20:22:09 | INFO     | world.vehicle_simulator.main:203 | stop() | Vehicle Simulator stopped
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:254 | configure() | Logging system configured: level=INFO, verbose=False, console=True, file=True, structured=False
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:378 | log_system_info() | 🚌 Vehicle Simulator Starting...
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:22:40 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:51 | __init__() | Database connection established
+2025-09-11 20:22:40 | DEBUG    | world.vehicle_simulator.main:62 | __init__() | Vehicle Simulator initialized with database-driven architecture
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:108 | run_depot_simulator() | Starting Database-Driven Depot Simulator...
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:109 | run_depot_simulator() |    Using database for fleet data
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:110 | run_depot_simulator() |    Navigator provides realistic route following
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:111 | run_depot_simulator() |    Tick time: 2.0 seconds
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.main:118 | run_depot_simulator() |    Timetable operations: enabled
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:22:40 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:22:40 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.core.timetable_scheduler:113 | __init__() | Timetable scheduler initialized with 30s precision
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.core.depot_manager:129 | _load_fleet_data() | Loading fleet data from database...
+2025-09-11 20:22:40 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (0s/10s)
+2025-09-11 20:22:41 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (1s/10s)
+2025-09-11 20:22:42 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (2s/10s)
+2025-09-11 20:22:42 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:22:42 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:22:42 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:22:42 | INFO     | world.vehicle_simulator.core.depot_manager:120 | _on_api_status_change() | 🔌 Fleet Manager API connected (response: 2.057s)
+2025-09-11 20:22:42 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:22:42 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:22:42 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.04s
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.06s
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.core.depot_manager:155 | _load_fleet_data() | ✅ API connected! Loading fleet data...
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.providers.data_provider:124 | get_all_fleet_data() | Loading complete fleet data from database...
+2025-09-11 20:22:43 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.providers.data_provider:136 | get_all_fleet_data() | Loaded fleet data: 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.core.depot_manager:163 | _load_fleet_data() | Loaded 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.core.depot_manager:185 | _create_vehicle_instances() | Creating vehicle instances from database data...
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.core.depot_manager:193 | _create_vehicle_instances() | Vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98 is inactive in database, activating for simulation
+2025-09-11 20:22:43 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:22:43 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:22:43 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:148 | run_depot_simulator() | Falling back to basic vehicle simulator with GPS transmission...
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:150 | run_depot_simulator() | 🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:151 | run_depot_simulator() |    📡 GPS transmission enabled
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:152 | run_depot_simulator() |    ⏱️ Tick time: 2.0 seconds
+2025-09-11 20:22:43 | WARNING  | world.vehicle_simulator.simulators.simulator:118 | _load_vehicles() | Database unavailable (module 'paramiko' has no attribute 'DSSKey'), using dummy data
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.simulators.simulator:222 | _load_dummy_data() | 🎭 Created 4 dummy vehicles
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS001 initialized
+2025-09-11 20:22:43 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS001 data worker started
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS001 turned ON
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS002
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS002 initialized
+2025-09-11 20:22:43 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS002
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS002
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS002 data worker started
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS002 turned ON
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS002
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS003
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS003 initialized
+2025-09-11 20:22:43 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS003
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS003
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS003 data worker started
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS003 turned ON
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS003
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device ZR1001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice ZR1001 initialized
+2025-09-11 20:22:43 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin ZR1001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for ZR1001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device ZR1001 data worker started
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for ZR1001 turned ON
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: ZR1001
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:162 | run_depot_simulator() | ✅ Basic Vehicle Simulator started with GPS transmission
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:339 | main() | ============================================================
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:340 | main() | 🚌 Vehicle Simulator - Timed Mode
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:341 | main() | ============================================================
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:342 | main() | ⏱️  Update Interval: 2.0 seconds
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:343 | main() | ⏰ Duration: 5.0 seconds
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:344 | main() | 🚀 Mode: depot
+2025-09-11 20:22:43 | INFO     | world.vehicle_simulator.main:345 | main() | ------------------------------------------------------------
+2025-09-11 20:22:45 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS002 transmitter connected
+2025-09-11 20:22:45 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS001 transmitter connected
+2025-09-11 20:22:45 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device ZR1001 transmitter connected
+2025-09-11 20:22:45 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS003 transmitter connected
+2025-09-11 20:22:49 | INFO     | world.vehicle_simulator.main:379 | main() | ------------------------------------------------------------
+2025-09-11 20:22:49 | INFO     | world.vehicle_simulator.main:380 | main() | ✅ Timed Simulation Complete
+2025-09-11 20:22:49 | INFO     | world.vehicle_simulator.main:192 | stop() | Stopping Vehicle Simulator...
+2025-09-11 20:22:49 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS001
+2025-09-11 20:22:49 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:50 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS001 transmitter disconnected
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS001 data worker stopped
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS001 turned OFF
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS002
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS002 data worker stopped
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS002 transmitter disconnected
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS002 turned OFF
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS003
+2025-09-11 20:22:51 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:52 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS003 transmitter disconnected
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS003 data worker stopped
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS003 turned OFF
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for ZR1001
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device ZR1001 data worker stopped
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device ZR1001 transmitter disconnected
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for ZR1001 turned OFF
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.main:201 | stop() | Active simulator stopped
+2025-09-11 20:22:53 | INFO     | world.vehicle_simulator.main:203 | stop() | Vehicle Simulator stopped
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:254 | configure() | Logging system configured: level=INFO, verbose=False, console=True, file=True, structured=False
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:380 | log_system_info() | ============================================================
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:381 | log_system_info() | VEHICLE SIMULATOR LOGGING SYSTEM
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:382 | log_system_info() | ============================================================
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:383 | log_system_info() | Log Level: INFO
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:384 | log_system_info() | Logging Mode: debug
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:385 | log_system_info() | Console Logging: True
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:386 | log_system_info() | File Logging: True
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:387 | log_system_info() | Structured Logging: False
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:389 | log_system_info() | Log Directory: E:\projects\arknettransit\vehicle_simulator\logs
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:390 | log_system_info() | ============================================================
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:23:03 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:51 | __init__() | Database connection established
+2025-09-11 20:23:03 | DEBUG    | world.vehicle_simulator.main:62 | __init__() | Vehicle Simulator initialized with database-driven architecture
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:108 | run_depot_simulator() | Starting Database-Driven Depot Simulator...
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:109 | run_depot_simulator() |    Using database for fleet data
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:110 | run_depot_simulator() |    Navigator provides realistic route following
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:111 | run_depot_simulator() |    Tick time: 2.0 seconds
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.main:118 | run_depot_simulator() |    Timetable operations: enabled
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:23:03 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:23:03 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.core.timetable_scheduler:113 | __init__() | Timetable scheduler initialized with 30s precision
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.core.depot_manager:129 | _load_fleet_data() | Loading fleet data from database...
+2025-09-11 20:23:03 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (0s/10s)
+2025-09-11 20:23:04 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (1s/10s)
+2025-09-11 20:23:05 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (2s/10s)
+2025-09-11 20:23:05 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:23:05 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:23:05 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:23:05 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:23:06 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:23:06 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:23:06 | INFO     | world.vehicle_simulator.core.depot_manager:120 | _on_api_status_change() | 🔌 Fleet Manager API connected (response: 2.049s)
+2025-09-11 20:23:06 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.05s
+2025-09-11 20:23:06 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.05s
+2025-09-11 20:23:06 | INFO     | world.vehicle_simulator.core.depot_manager:155 | _load_fleet_data() | ✅ API connected! Loading fleet data...
+2025-09-11 20:23:06 | INFO     | world.vehicle_simulator.providers.data_provider:124 | get_all_fleet_data() | Loading complete fleet data from database...
+2025-09-11 20:23:07 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.providers.data_provider:136 | get_all_fleet_data() | Loaded fleet data: 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.core.depot_manager:163 | _load_fleet_data() | Loaded 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.core.depot_manager:185 | _create_vehicle_instances() | Creating vehicle instances from database data...
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.core.depot_manager:193 | _create_vehicle_instances() | Vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98 is inactive in database, activating for simulation
+2025-09-11 20:23:07 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:23:07 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:23:07 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:148 | run_depot_simulator() | Falling back to basic vehicle simulator with GPS transmission...
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:150 | run_depot_simulator() | 🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:151 | run_depot_simulator() |    📡 GPS transmission enabled
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:152 | run_depot_simulator() |    ⏱️ Tick time: 2.0 seconds
+2025-09-11 20:23:07 | WARNING  | world.vehicle_simulator.simulators.simulator:118 | _load_vehicles() | Database unavailable (module 'paramiko' has no attribute 'DSSKey'), using dummy data
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.simulators.simulator:222 | _load_dummy_data() | 🎭 Created 4 dummy vehicles
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS001 initialized
+2025-09-11 20:23:07 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS001 data worker started
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS001 turned ON
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS002
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS002 initialized
+2025-09-11 20:23:07 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS002
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS002
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS002 data worker started
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS002 turned ON
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS002
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS003
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS003 initialized
+2025-09-11 20:23:07 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS003
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS003
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS003 data worker started
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS003 turned ON
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS003
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device ZR1001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice ZR1001 initialized
+2025-09-11 20:23:07 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin ZR1001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for ZR1001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device ZR1001 data worker started
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for ZR1001 turned ON
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: ZR1001
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:162 | run_depot_simulator() | ✅ Basic Vehicle Simulator started with GPS transmission
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:339 | main() | ============================================================
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:340 | main() | 🚌 Vehicle Simulator - Timed Mode
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:341 | main() | ============================================================
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:342 | main() | ⏱️  Update Interval: 2.0 seconds
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:343 | main() | ⏰ Duration: 3.0 seconds
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:344 | main() | 🚀 Mode: depot
+2025-09-11 20:23:07 | INFO     | world.vehicle_simulator.main:345 | main() | ------------------------------------------------------------
+2025-09-11 20:23:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS003 transmitter connected
+2025-09-11 20:23:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS001 transmitter connected
+2025-09-11 20:23:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device ZR1001 transmitter connected
+2025-09-11 20:23:09 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS002 transmitter connected
+2025-09-11 20:23:11 | INFO     | world.vehicle_simulator.main:379 | main() | ------------------------------------------------------------
+2025-09-11 20:23:11 | INFO     | world.vehicle_simulator.main:380 | main() | ✅ Timed Simulation Complete
+2025-09-11 20:23:11 | INFO     | world.vehicle_simulator.main:192 | stop() | Stopping Vehicle Simulator...
+2025-09-11 20:23:11 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS001
+2025-09-11 20:23:11 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:23:12 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS001 transmitter disconnected
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS001 data worker stopped
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS001 turned OFF
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS002
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS002 data worker stopped
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS002 transmitter disconnected
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS002 turned OFF
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS003
+2025-09-11 20:23:13 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:23:14 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS003 transmitter disconnected
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS003 data worker stopped
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS003 turned OFF
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for ZR1001
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device ZR1001 data worker stopped
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device ZR1001 transmitter disconnected
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for ZR1001 turned OFF
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.main:201 | stop() | Active simulator stopped
+2025-09-11 20:23:15 | INFO     | world.vehicle_simulator.main:203 | stop() | Vehicle Simulator stopped
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:254 | configure() | Logging system configured: level=INFO, verbose=False, console=True, file=True, structured=False
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:378 | log_system_info() | 🚌 Vehicle Simulator Starting...
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:24:32 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:51 | __init__() | Database connection established
+2025-09-11 20:24:32 | DEBUG    | world.vehicle_simulator.main:62 | __init__() | Vehicle Simulator initialized with database-driven architecture
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:108 | run_depot_simulator() | Starting Database-Driven Depot Simulator...
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:109 | run_depot_simulator() |    Using database for fleet data
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:110 | run_depot_simulator() |    Navigator provides realistic route following
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:111 | run_depot_simulator() |    Tick time: 1.0 seconds
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.main:118 | run_depot_simulator() |    Timetable operations: enabled
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.config.config_loader:53 | _load_config() | Loaded configuration from: E:\projects\arknettransit\vehicle_simulator\world\vehicle_simulator\config\config.ini
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:80 | __init__() | Socket.IO API monitor initialized for: http://localhost:8000
+2025-09-11 20:24:32 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:132 | _monitor_loop() | Starting Socket.IO monitoring loop
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:110 | start_monitoring() | Socket.IO API monitoring started
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.data_provider:41 | __init__() | Fleet data provider initialized with Socket.IO monitoring for http://localhost:8000
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.data_provider:42 | __init__() | Waiting for fleet manager API connection...
+2025-09-11 20:24:32 | DEBUG    | world.vehicle_simulator.providers.api_monitor:85 | add_status_callback() | Added status callback: _on_api_status_change
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.core.timetable_scheduler:113 | __init__() | Timetable scheduler initialized with 30s precision
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.providers.api_monitor:153 | _attempt_connection() | Attempting Socket.IO connection to http://localhost:8000
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.core.depot_manager:129 | _load_fleet_data() | Loading fleet data from database...
+2025-09-11 20:24:32 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (0s/10s)
+2025-09-11 20:24:33 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (1s/10s)
+2025-09-11 20:24:34 | INFO     | world.vehicle_simulator.core.depot_manager:135 | _load_fleet_data() | Waiting for API connection... (2s/10s)
+2025-09-11 20:24:35 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:24:35 | DEBUG    | world.vehicle_simulator.providers.api_monitor:210 | _setup_event_handlers() | Event handlers setup complete for SimpleClient
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.core.depot_manager:120 | _on_api_status_change() | 🔌 Fleet Manager API connected (response: 2.070s)
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.providers.data_provider:50 | _on_api_status_change() | ✅ Fleet Manager API is now available - initializing connection
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.providers.data_provider:66 | _initialize_fleet_manager() | ✅ Fleet manager connection established
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.07s
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.providers.api_monitor:179 | _attempt_connection() | ✅ Socket.IO connected in 2.04s
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.core.depot_manager:155 | _load_fleet_data() | ✅ API connected! Loading fleet data...
+2025-09-11 20:24:35 | INFO     | world.vehicle_simulator.providers.data_provider:124 | get_all_fleet_data() | Loading complete fleet data from database...
+2025-09-11 20:24:36 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.providers.data_provider:136 | get_all_fleet_data() | Loaded fleet data: 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.core.depot_manager:163 | _load_fleet_data() | Loaded 6 vehicles, 0 routes, 0 schedules
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.core.depot_manager:185 | _create_vehicle_instances() | Creating vehicle instances from database data...
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.core.depot_manager:193 | _create_vehicle_instances() | Vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98 is inactive in database, activating for simulation
+2025-09-11 20:24:36 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:24:36 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:24:36 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:148 | run_depot_simulator() | Falling back to basic vehicle simulator with GPS transmission...
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:150 | run_depot_simulator() | 🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:151 | run_depot_simulator() |    📡 GPS transmission enabled
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:152 | run_depot_simulator() |    ⏱️ Tick time: 1.0 seconds
+2025-09-11 20:24:36 | WARNING  | world.vehicle_simulator.simulators.simulator:118 | _load_vehicles() | Database unavailable (No password or public key available!), using dummy data
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.simulators.simulator:222 | _load_dummy_data() | 🎭 Created 4 dummy vehicles
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS001 initialized
+2025-09-11 20:24:36 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS001 data worker started
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS001 turned ON
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS002
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS002 initialized
+2025-09-11 20:24:36 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS002
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS002
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS002 data worker started
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS002 turned ON
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS002
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device BUS003
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice BUS003 initialized
+2025-09-11 20:24:36 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin BUS003
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for BUS003
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device BUS003 data worker started
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for BUS003 turned ON
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: BUS003
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: simulation v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: esp32_hardware v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: file_replay v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:66 | register_plugin() | Registered plugin: navigator_telemetry v1.0.0
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:44 | _discover_builtin_plugins() | Built-in plugins discovered and registered
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:62 | initialize() | Simulation plugin initialized without vehicle_state (can be set later)
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:107 | load_plugin() | Successfully loaded plugin: simulation
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:84 | _setup_plugin() | Loaded simulation plugin for device ZR1001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:67 | __init__() | GPSDevice ZR1001 initialized
+2025-09-11 20:24:36 | WARNING  | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:81 | start_data_stream() | No vehicle state available for simulation plugin ZR1001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:85 | start_data_stream() | Simulation data stream started for ZR1001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:98 | _data_worker() | GPS device ZR1001 data worker started
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:210 | on() | GPSDevice for ZR1001 turned ON
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:75 | set_vehicle_state() | Vehicle state set for simulation plugin: ZR1001
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:162 | run_depot_simulator() | ✅ Basic Vehicle Simulator started with GPS transmission
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:339 | main() | ============================================================
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:340 | main() | 🚌 Vehicle Simulator - Timed Mode
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:341 | main() | ============================================================
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:342 | main() | ⏱️  Update Interval: 1.0 seconds
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:343 | main() | ⏰ Duration: 5.0 seconds
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:344 | main() | 🚀 Mode: depot
+2025-09-11 20:24:36 | INFO     | world.vehicle_simulator.main:345 | main() | ------------------------------------------------------------
+2025-09-11 20:24:38 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS001 transmitter connected
+2025-09-11 20:24:38 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device ZR1001 transmitter connected
+2025-09-11 20:24:38 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS003 transmitter connected
+2025-09-11 20:24:38 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:134 | _async_transmitter() | GPS device BUS002 transmitter connected
+2025-09-11 20:24:41 | INFO     | world.vehicle_simulator.main:379 | main() | ------------------------------------------------------------
+2025-09-11 20:24:41 | INFO     | world.vehicle_simulator.main:380 | main() | ✅ Timed Simulation Complete
+2025-09-11 20:24:41 | INFO     | world.vehicle_simulator.main:192 | stop() | Stopping Vehicle Simulator...
+2025-09-11 20:24:41 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS001
+2025-09-11 20:24:41 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:24:42 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS001 data worker stopped
+2025-09-11 20:24:42 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS001 transmitter disconnected
+2025-09-11 20:24:42 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS001 turned OFF
+2025-09-11 20:24:42 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS002
+2025-09-11 20:24:42 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:24:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS002 data worker stopped
+2025-09-11 20:24:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS002 transmitter disconnected
+2025-09-11 20:24:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS002 turned OFF
+2025-09-11 20:24:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for BUS003
+2025-09-11 20:24:43 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:24:44 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device BUS003 data worker stopped
+2025-09-11 20:24:44 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device BUS003 transmitter disconnected
+2025-09-11 20:24:44 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for BUS003 turned OFF
+2025-09-11 20:24:44 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.simulation_plugin:142 | stop_data_stream() | Simulation data stream stopped for ZR1001
+2025-09-11 20:24:44 | INFO     | world.vehicle_simulator.vehicle.gps_device.plugins.manager:124 | unload_current_plugin() | Unloaded plugin: simulation
+2025-09-11 20:24:45 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:121 | _data_worker() | GPS device ZR1001 data worker stopped
+2025-09-11 20:24:45 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:182 | _async_transmitter() | GPS device ZR1001 transmitter disconnected
+2025-09-11 20:24:45 | INFO     | world.vehicle_simulator.vehicle.gps_device.device:254 | off() | GPSDevice for ZR1001 turned OFF
+2025-09-11 20:24:45 | INFO     | world.vehicle_simulator.main:201 | stop() | Active simulator stopped
+2025-09-11 20:24:45 | INFO     | world.vehicle_simulator.main:203 | stop() | Vehicle Simulator stopped
