@@ -21,101 +21,81 @@ try:
 except ImportError:
     # When called from alembic, use absolute import
     from scripts.config_loader import load_config
-import paramiko, socket, threading
+import sshtunnel
 from dotenv import load_dotenv
+
+# Monkey patch to fix paramiko 4.x DSSKey compatibility
+def patch_paramiko_for_dss_compatibility():
+    """Patch paramiko to handle missing DSSKey for compatibility with paramiko 4.x"""
+    try:
+        import paramiko
+        # If DSSKey doesn't exist, create a dummy class to prevent import errors
+        if not hasattr(paramiko, 'DSSKey'):
+            class DummyDSSKey:
+                @staticmethod
+                def from_private_key_file(*args, **kwargs):
+                    raise NotImplementedError("DSS keys are not supported in paramiko 4.x")
+                @staticmethod  
+                def from_private_key(*args, **kwargs):
+                    raise NotImplementedError("DSS keys are not supported in paramiko 4.x")
+            paramiko.DSSKey = DummyDSSKey
+    except ImportError:
+        pass
+
+# Apply the patch
+patch_paramiko_for_dss_compatibility()
 
 # Load .env
 load_dotenv()
 
 Base = declarative_base()
 SessionLocal = None
-
-class Forwarder(threading.Thread):
-    daemon = True
-    def __init__(self, transport, local_port, remote_host, remote_port):
-        super().__init__()
-        self.transport = transport
-        self.local_port = local_port
-        self.remote_host = remote_host
-        self.remote_port = remote_port
-        self.sock = None
-        self._stop = threading.Event()
-
-    def run(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(("127.0.0.1", self.local_port))
-        self.sock.listen(1)
-        while not self._stop.is_set():
-            try:
-                client, _ = self.sock.accept()
-                chan = self.transport.open_channel(
-                    "direct-tcpip",
-                    (self.remote_host, self.remote_port),
-                    client.getsockname(),
-                )
-                threading.Thread(target=self._pipe, args=(client, chan), daemon=True).start()
-                threading.Thread(target=self._pipe, args=(chan, client), daemon=True).start()
-            except Exception:
-                break
-
-    def _pipe(self, src, dst):
-        try:
-            while True:
-                data = src.recv(1024)
-                if not data:
-                    break
-                dst.sendall(data)
-        except Exception:
-            pass
-        finally:
-            src.close()
-            dst.close()
-
-    def stop(self):
-        self._stop.set()
-        if self.sock:
-            self.sock.close()
+tunnel = None  # Global tunnel instance
 
 def init_engine():
-    global SessionLocal
+    global SessionLocal, tunnel
 
-    cfg = load_config()
-    
-    # Use our existing config structure
-    ssh_cfg = cfg.get("SSH", {})
-    db_cfg = cfg.get("DATABASE", {})
+    try:
+        cfg = load_config()
+        
+        # Use our existing config structure
+        ssh_cfg = cfg.get("SSH", {})
+        db_cfg = cfg.get("DATABASE", {})
 
-    # SSH configuration
-    ssh_host = ssh_cfg.get("host", "arknetglobal.com")
-    ssh_port = int(ssh_cfg.get("port", 22))
-    ssh_user = ssh_cfg.get("user", "david")
-    ssh_pass = os.getenv("SSH_PASS", "Cabbyminnie5!")
+        # SSH configuration
+        ssh_host = ssh_cfg.get("host", "arknetglobal.com")
+        ssh_port = int(ssh_cfg.get("port", 22))
+        ssh_user = ssh_cfg.get("user", "david")
+        ssh_pass = os.getenv("SSH_PASS", "Cabbyminnie5!")
 
-    # Database configuration
-    db_user = os.getenv("DB_USER", "david")
-    db_pass = os.getenv("DB_PASS", "Ga25w123!")
-    db_host = db_cfg.get("host", "localhost")
-    db_port = int(db_cfg.get("port", 5432))
-    db_name = db_cfg.get("default_db", "arknettransit")
-    local_port = int(db_cfg.get("local_port", 6543))
+        # Database configuration
+        db_user = os.getenv("DB_USER", "david")
+        db_pass = os.getenv("DB_PASS", "Ga25w123!")
+        db_host = db_cfg.get("host", "localhost")
+        db_port = int(db_cfg.get("port", 5432))
+        db_name = db_cfg.get("default_db", "arknettransit")
+        local_port = int(db_cfg.get("local_port", 6543))
 
-    # SSH connection
-    ssh_client = paramiko.SSHClient()
-    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh_client.connect(ssh_host, port=ssh_port, username=ssh_user, password=ssh_pass)
-
-    # Tunnel
-    forwarder = Forwarder(ssh_client.get_transport(), local_port, db_host, db_port)
-    forwarder.start()
-
-    # Engine
-    DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_pass}@127.0.0.1:{local_port}/{db_name}"
-    engine = create_engine(DATABASE_URL, echo=False, future=True)
-    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-    return engine
-
-# Additional helper functions for migrations
+        # Create SSH tunnel using sshtunnel (with DSSKey patch applied)
+        tunnel = sshtunnel.SSHTunnelForwarder(
+            (ssh_host, ssh_port),
+            ssh_username=ssh_user,
+            ssh_password=ssh_pass,
+            remote_bind_address=(db_host, db_port),
+            local_bind_address=('127.0.0.1', local_port)
+        )
+        
+        # Start the tunnel
+        tunnel.start()        # Engine
+        DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_pass}@127.0.0.1:{local_port}/{db_name}"
+        engine = create_engine(DATABASE_URL, echo=False, future=True)
+        SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+        return engine
+        
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+        # Return None to indicate failure - calling code should handle this
+        return None# Additional helper functions for migrations
 def get_session():
     """Get a database session"""
     if not SessionLocal:

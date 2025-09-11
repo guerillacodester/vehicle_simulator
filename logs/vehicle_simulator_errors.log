@@ -69,3 +69,197 @@
 2025-09-11 20:24:36 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
 2025-09-11 20:24:36 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
 2025-09-11 20:24:36 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:25:49 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:25:49 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:25:49 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:25:49 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:29:52 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:29:52 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:30:00 | ERROR    | world.vehicle_simulator.providers.data_provider:344 | get_schedules() | Failed to get schedules: 'NoneType' object has no attribute 'db'
+2025-09-11 20:30:00 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'NoneType' object has no attribute 'db'
+2025-09-11 20:30:00 | ERROR    | world.vehicle_simulator.providers.data_provider:108 | _ensure_api_available() | Fleet Manager API not available: Connection lost
+2025-09-11 20:30:00 | ERROR    | world.vehicle_simulator.core.timetable_scheduler:146 | load_today_schedule() | Failed to load schedule: Fleet Manager API not available: Connection lost
+2025-09-11 20:30:00 | ERROR    | world.vehicle_simulator.core.depot_manager:330 | _setup_timetable_operations() | Failed to setup timetable operations: Fleet Manager API not available: Connection lost
+2025-09-11 20:30:00 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: Fleet Manager API not available: Connection lost
+2025-09-11 20:30:00 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: Fleet Manager API not available: Connection lost
+2025-09-11 20:31:30 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:31:30 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:31:37 | ERROR    | world.vehicle_simulator.providers.data_provider:344 | get_schedules() | Failed to get schedules: 'NoneType' object has no attribute 'db'
+2025-09-11 20:31:37 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'NoneType' object has no attribute 'db'
+2025-09-11 20:31:37 | ERROR    | world.vehicle_simulator.providers.data_provider:108 | _ensure_api_available() | Fleet Manager API not available: Connection lost
+2025-09-11 20:31:37 | ERROR    | world.vehicle_simulator.core.timetable_scheduler:146 | load_today_schedule() | Failed to load schedule: Fleet Manager API not available: Connection lost
+2025-09-11 20:31:37 | ERROR    | world.vehicle_simulator.core.depot_manager:330 | _setup_timetable_operations() | Failed to setup timetable operations: Fleet Manager API not available: Connection lost
+2025-09-11 20:31:37 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: Fleet Manager API not available: Connection lost
+2025-09-11 20:31:37 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: Fleet Manager API not available: Connection lost
+2025-09-11 20:32:31 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:32:31 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:32:38 | ERROR    | world.vehicle_simulator.providers.data_provider:344 | get_schedules() | Failed to get schedules: 'NoneType' object has no attribute 'db'
+2025-09-11 20:32:38 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'NoneType' object has no attribute 'db'
+2025-09-11 20:32:38 | ERROR    | world.vehicle_simulator.providers.data_provider:108 | _ensure_api_available() | Fleet Manager API not available: Connection lost
+2025-09-11 20:32:38 | ERROR    | world.vehicle_simulator.core.timetable_scheduler:146 | load_today_schedule() | Failed to load schedule: Fleet Manager API not available: Connection lost
+2025-09-11 20:32:38 | ERROR    | world.vehicle_simulator.core.depot_manager:330 | _setup_timetable_operations() | Failed to setup timetable operations: Fleet Manager API not available: Connection lost
+2025-09-11 20:32:38 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: Fleet Manager API not available: Connection lost
+2025-09-11 20:32:38 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: Fleet Manager API not available: Connection lost
+2025-09-11 20:34:05 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:34:05 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:34:05 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:34:05 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:35:54 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:35:54 | ERROR    | world.vehicle_simulator.providers.data_provider:71 | _initialize_fleet_manager() | Failed to initialize fleet manager: 'NoneType' object is not callable
+2025-09-11 20:36:01 | ERROR    | world.vehicle_simulator.providers.data_provider:344 | get_schedules() | Failed to get schedules: 'NoneType' object has no attribute 'db'
+2025-09-11 20:36:01 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'NoneType' object has no attribute 'db'
+2025-09-11 20:36:01 | ERROR    | world.vehicle_simulator.providers.data_provider:108 | _ensure_api_available() | Fleet Manager API not available: Connection lost
+2025-09-11 20:36:01 | ERROR    | world.vehicle_simulator.core.timetable_scheduler:146 | load_today_schedule() | Failed to load schedule: Fleet Manager API not available: Connection lost
+2025-09-11 20:36:01 | ERROR    | world.vehicle_simulator.core.depot_manager:330 | _setup_timetable_operations() | Failed to setup timetable operations: Fleet Manager API not available: Connection lost
+2025-09-11 20:36:01 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: Fleet Manager API not available: Connection lost
+2025-09-11 20:36:01 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: Fleet Manager API not available: Connection lost
+2025-09-11 20:39:55 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: 'Route' object has no attribute 'description'
+2025-09-11 20:39:55 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:39:55 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:39:55 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: (psycopg2.errors.UndefinedColumn) column routes.description does not exist
+LINE 1: ...short_name, routes.long_name AS routes_long_name, routes.des...
+                                                             ^
+
+[SQL: SELECT routes.route_id AS routes_route_id, routes.country_id AS routes_country_id, routes.short_name AS routes_short_name, routes.long_name AS routes_long_name, routes.description AS routes_description, routes.color AS routes_color, routes.parishes AS routes_parishes, routes.is_active AS routes_is_active, routes.valid_from AS routes_valid_from, routes.valid_to AS routes_valid_to, routes.created_at AS routes_created_at, routes.updated_at AS routes_updated_at 
+FROM routes]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.providers.data_provider:312 | get_timetables() | Failed to get timetables: (psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block
+
+[SQL: SELECT timetables.timetable_id AS timetables_timetable_id, timetables.vehicle_id AS timetables_vehicle_id, timetables.route_id AS timetables_route_id, timetables.departure_time AS timetables_departure_time, timetables.arrival_time AS timetables_arrival_time, timetables.notes AS timetables_notes, timetables.created_at AS timetables_created_at, timetables.updated_at AS timetables_updated_at 
+FROM timetables]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.providers.data_provider:344 | get_schedules() | Failed to get schedules: (psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block
+
+[SQL: SELECT vehicle_assignments.assignment_id AS vehicle_assignments_assignment_id, vehicle_assignments.vehicle_id AS vehicle_assignments_vehicle_id, vehicle_assignments.block_id AS vehicle_assignments_block_id, vehicle_assignments.assigned_at AS vehicle_assignments_assigned_at 
+FROM vehicle_assignments 
+WHERE CAST(vehicle_assignments.assigned_at AS DATE) = %(param_1)s]
+[parameters: {'param_1': datetime.date(2025, 9, 11)}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.providers.data_provider:370 | get_drivers() | Failed to get drivers: (psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block
+
+[SQL: SELECT drivers.driver_id AS drivers_driver_id, drivers.country_id AS drivers_country_id, drivers.name AS drivers_name, drivers.license_no AS drivers_license_no, drivers.home_depot_id AS drivers_home_depot_id, drivers.employment_status AS drivers_employment_status, drivers.created_at AS drivers_created_at, drivers.updated_at AS drivers_updated_at 
+FROM drivers]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.providers.data_provider:397 | get_services() | Failed to get services: (psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block
+
+[SQL: SELECT services.service_id AS services_service_id, services.country_id AS services_country_id, services.name AS services_name, services.mon AS services_mon, services.tue AS services_tue, services.wed AS services_wed, services.thu AS services_thu, services.fri AS services_fri, services.sat AS services_sat, services.sun AS services_sun, services.date_start AS services_date_start, services.date_end AS services_date_end, services.created_at AS services_created_at, services.updated_at AS services_updated_at 
+FROM services]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.providers.data_provider:421 | get_depots() | Failed to get depots: (psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block
+
+[SQL: SELECT depots.depot_id AS depots_depot_id, depots.country_id AS depots_country_id, depots.name AS depots_name, ST_AsEWKB(depots.location) AS depots_location, depots.capacity AS depots_capacity, depots.notes AS depots_notes, depots.created_at AS depots_created_at, depots.updated_at AS depots_updated_at 
+FROM depots]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:42:32 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:43:50 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:43:50 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:43:50 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:43:50 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:43:50 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:44:28 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:44:28 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:44:28 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:44:28 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:44:28 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:48:34 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:48:34 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:48:34 | ERROR    | world.vehicle_simulator.core.depot_manager:290 | _create_vehicle_components() | Failed to create components for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:48:34 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:48:34 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:48:34 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:50:02 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:50:02 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:50:02 | ERROR    | world.vehicle_simulator.core.depot_manager:305 | _create_vehicle_components() | Failed to create components for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: 'ConfigLoader' object has no attribute 'get'
+2025-09-11 20:50:02 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'ConfigLoader' object has no attribute 'get'
+2025-09-11 20:50:02 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'ConfigLoader' object has no attribute 'get'
+2025-09-11 20:50:02 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'ConfigLoader' object has no attribute 'get'
+2025-09-11 20:50:46 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:50:46 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:50:46 | ERROR    | world.vehicle_simulator.core.depot_manager:306 | _create_vehicle_components() | Failed to create components for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: WebSocketTransmitter.__init__() missing 2 required positional arguments: 'token' and 'device_id'
+2025-09-11 20:50:46 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: WebSocketTransmitter.__init__() missing 2 required positional arguments: 'token' and 'device_id'
+2025-09-11 20:50:46 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: WebSocketTransmitter.__init__() missing 2 required positional arguments: 'token' and 'device_id'
+2025-09-11 20:50:46 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: WebSocketTransmitter.__init__() missing 2 required positional arguments: 'token' and 'device_id'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device 21aaef05-f50e-481c-b89b-a0fec471da20
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device 3f7db440-a80e-4c2c-8556-b5930b46f2a1
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device c304895f-5d37-4821-9e62-babd6da9bb6c
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device f5ac8768-b526-4bf1-b8f4-33cac761499c
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device ac63b992-3c27-4c35-b83e-5fa15e88f5ce
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: 'Engine' object has no attribute '_running'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle 21aaef05-f50e-481c-b89b-a0fec471da20: 'Engine' object has no attribute '_running'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle 3f7db440-a80e-4c2c-8556-b5930b46f2a1: 'Engine' object has no attribute '_running'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle c304895f-5d37-4821-9e62-babd6da9bb6c: 'Engine' object has no attribute '_running'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle f5ac8768-b526-4bf1-b8f4-33cac761499c: 'Engine' object has no attribute '_running'
+2025-09-11 20:51:24 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle ac63b992-3c27-4c35-b83e-5fa15e88f5ce: 'Engine' object has no attribute '_running'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device 21aaef05-f50e-481c-b89b-a0fec471da20
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device 3f7db440-a80e-4c2c-8556-b5930b46f2a1
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device c304895f-5d37-4821-9e62-babd6da9bb6c
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device f5ac8768-b526-4bf1-b8f4-33cac761499c
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin:56 | initialize() | Navigator instance required for navigator plugin
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.plugins.manager:110 | load_plugin() | Plugin 'navigator_telemetry' initialization failed
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.vehicle.gps_device.device:87 | _setup_plugin() | Failed to load navigator_telemetry plugin for device ac63b992-3c27-4c35-b83e-5fa15e88f5ce
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: 'Engine' object has no attribute '_running'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle 21aaef05-f50e-481c-b89b-a0fec471da20: 'Engine' object has no attribute '_running'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle 3f7db440-a80e-4c2c-8556-b5930b46f2a1: 'Engine' object has no attribute '_running'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle c304895f-5d37-4821-9e62-babd6da9bb6c: 'Engine' object has no attribute '_running'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle f5ac8768-b526-4bf1-b8f4-33cac761499c: 'Engine' object has no attribute '_running'
+2025-09-11 20:52:11 | ERROR    | world.vehicle_simulator.core.depot_manager:488 | get_vehicle_status() | Failed to get status for vehicle ac63b992-3c27-4c35-b83e-5fa15e88f5ce: 'Engine' object has no attribute '_running'
+2025-09-11 20:53:40 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:53:40 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:53:40 | ERROR    | world.vehicle_simulator.core.depot_manager:319 | _create_vehicle_components() | Failed to create components for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: EnumType.__call__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:53:40 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: EnumType.__call__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:53:40 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: EnumType.__call__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:53:40 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: EnumType.__call__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 20:54:19 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:54:19 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:54:20 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:54:20 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:54:20 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:54:48 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:54:48 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:54:48 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:54:48 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:54:48 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
+2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
+2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'

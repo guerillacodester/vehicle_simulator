@@ -15,6 +15,8 @@ class Route(Base):
     country_id = Column(UUID(as_uuid=True), ForeignKey('countries.country_id'), nullable=False)
     short_name = Column(Text, nullable=False)
     long_name = Column(Text)
+    description = Column(Text)
+    color = Column(Text)
     parishes = Column(Text)
     is_active = Column(Boolean, nullable=False, default=True)
     valid_from = Column(Date, default=date.today)

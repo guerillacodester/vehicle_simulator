@@ -169,8 +169,8 @@ class FleetDataProvider:
                     'depot_id': vehicle.home_depot_id,
                     'model': None,  # Vehicle model doesn't have model field
                     'year': None,  # Vehicle model doesn't have year field
-                    'active': vehicle.status == 'active',
-                    'current_assignment': self._get_vehicle_current_assignment(vehicle.vehicle_id)
+                    'active': vehicle.status.value == 'available',  # Fix status comparison
+                    'current_assignment': self._get_vehicle_current_assignment(vehicle.vehicle_id) or {}  # Ensure not None
                 }
                 vehicles.append(vehicle_data)
             
