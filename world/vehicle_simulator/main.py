@@ -151,9 +151,26 @@ class VehicleSimulatorApp:
                 self.logger.info("   📡 GPS transmission enabled")
                 self.logger.info(f"   ⏱️ Tick time: {tick_time} seconds")
                 
-                # Create basic simulator with GPS enabled
+                # Load vehicle data first, then create simulator
                 from world.vehicle_simulator.simulators.simulator import VehicleSimulator
-                simulator = VehicleSimulator(tick_time=tick_time, enable_gps=True)
+                
+                # Try to get vehicle data from data provider
+                vehicle_data = []
+                if hasattr(self, 'data_provider') and self.data_provider.is_api_available():
+                    try:
+                        vehicles = self.data_provider.get_vehicles()
+                        vehicle_data = vehicles[:4]  # Limit to 4 vehicles for basic simulation
+                        self.logger.info(f"   📊 Using {len(vehicle_data)} vehicles from API")
+                    except Exception as e:
+                        self.logger.warning(f"Could not get vehicles from API: {e}")
+                
+                # NO FAKE DATA - fail if no real API data
+                if not vehicle_data:
+                    self.logger.error("❌ NO VEHICLE DATA AVAILABLE FROM API")
+                    self.logger.error("❌ Cannot run simulator without real vehicle data")
+                    raise Exception("No vehicle data available - API connection failed")
+                
+                simulator = VehicleSimulator(tick_time=tick_time, enable_gps=True, vehicle_data=vehicle_data)
                 simulator.start()
                 
                 # Store reference for cleanup

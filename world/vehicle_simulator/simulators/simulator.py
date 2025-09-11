@@ -37,7 +37,7 @@ class VehicleState:
     gps_device: Optional[GPSDevice] = None
 
 class VehicleSimulator:
-    def __init__(self, tick_time: float = 1.0, enable_gps: bool = True):
+    def __init__(self, tick_time: float = 1.0, enable_gps: bool = True, vehicle_data: List[Dict] = None):
         self.tick_time = tick_time
         self.enable_gps = enable_gps
         self.vehicles: Dict[str, VehicleState] = {}
@@ -46,8 +46,12 @@ class VehicleSimulator:
         # Load GPS server configuration
         self.gps_config = self._load_gps_config()
         
-        # Try to load from database, fallback to dummy data
-        self._load_vehicles()
+        # Load vehicles from provided data or fail
+        if vehicle_data:
+            self._load_provided_vehicles(vehicle_data)
+        else:
+            logger.error("❌ NO VEHICLE DATA PROVIDED TO SIMULATOR")
+            raise Exception("VehicleSimulator requires vehicle data to be provided")
         
         # Initialize GPS devices if enabled
         if self.enable_gps:
@@ -109,14 +113,28 @@ class VehicleSimulator:
             except Exception as e:
                 logger.warning(f"   ⚠️ {vehicle_id}: GPS device failed - {e}")
                 
-    def _load_vehicles(self):
-        """Load vehicles from database or create dummy data"""
-        try:
-            # Try database first
-            self._load_from_database()
-        except Exception as e:
-            logger.warning(f"Database unavailable ({e}), using dummy data")
-            self._load_dummy_data()
+    def _load_provided_vehicles(self, vehicle_data: List[Dict]):
+        """Load vehicles from provided data (no database connections)"""
+        logger.info(f"Loading {len(vehicle_data)} vehicles from provided data")
+        
+        for vehicle in vehicle_data:
+            vehicle_id = vehicle.get('id') or vehicle.get('license_plate', f"VEHICLE_{len(self.vehicles)}")
+            
+            # Create vehicle state from provided data
+            state = VehicleState(
+                vehicle_id=vehicle_id,
+                route_id=vehicle.get('route_id', 'UNKNOWN'),
+                lat=vehicle.get('lat', 13.28),  # Default Barbados coordinates
+                lng=vehicle.get('lon', -59.64),
+                speed=0.0,
+                heading=0.0,
+                status=vehicle.get('status', 'active')
+            )
+            
+            self.vehicles[vehicle_id] = state
+            logger.info(f"   🚌 {vehicle_id}: {state.status} on route {state.route_id}")
+        
+        logger.info(f"✅ Loaded {len(self.vehicles)} vehicles successfully")
             
     def _load_from_database(self):
         """Load vehicles from the database"""

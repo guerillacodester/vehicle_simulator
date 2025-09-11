@@ -110,3 +110,109 @@ def delete_vehicle(
     db.delete(vehicle)
     db.commit()
     return {"message": "Vehicle deleted successfully"}
+
+@router.put("/{vehicle_id}/assign-driver/{driver_id}")
+def assign_driver_to_vehicle(
+    vehicle_id: UUID,
+    driver_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Assign a driver to a vehicle"""
+    # Check if vehicle exists
+    vehicle = db.query(VehicleModel).filter(VehicleModel.vehicle_id == vehicle_id).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    
+    # Check if driver exists
+    from ...models.driver import Driver as DriverModel
+    driver = db.query(DriverModel).filter(DriverModel.driver_id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    
+    # Assign driver to vehicle
+    vehicle.assigned_driver_id = driver_id
+    db.commit()
+    db.refresh(vehicle)
+    
+    return {"message": "Driver assigned successfully", "vehicle_id": vehicle_id, "driver_id": driver_id}
+
+@router.delete("/{vehicle_id}/unassign-driver")
+def unassign_driver_from_vehicle(
+    vehicle_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Remove driver assignment from a vehicle"""
+    vehicle = db.query(VehicleModel).filter(VehicleModel.vehicle_id == vehicle_id).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    
+    vehicle.assigned_driver_id = None
+    db.commit()
+    db.refresh(vehicle)
+    
+    return {"message": "Driver unassigned successfully", "vehicle_id": vehicle_id}
+
+@router.get("/all/detailed", response_model=List[dict])
+def get_vehicles_detailed(
+    db: Session = Depends(get_db)
+):
+    """Get all vehicles with detailed information including assigned driver and route"""
+    from ...models.driver import Driver as DriverModel
+    from ...models.route import Route as RouteModel
+    from ...models.depot import Depot as DepotModel
+    
+    vehicles = db.query(VehicleModel).all()
+    detailed_vehicles = []
+    
+    for vehicle in vehicles:
+        # Get assigned driver details
+        driver_info = None
+        if vehicle.assigned_driver_id:
+            driver = db.query(DriverModel).filter(DriverModel.driver_id == vehicle.assigned_driver_id).first()
+            if driver:
+                driver_info = {
+                    "driver_id": str(driver.driver_id),
+                    "name": driver.name,
+                    "license_no": driver.license_no,
+                    "employment_status": driver.employment_status
+                }
+        
+        # Get route details
+        route_info = None
+        if vehicle.preferred_route_id:
+            route = db.query(RouteModel).filter(RouteModel.route_id == vehicle.preferred_route_id).first()
+            if route:
+                route_info = {
+                    "route_id": str(route.route_id),
+                    "short_name": route.short_name,
+                    "long_name": route.long_name
+                }
+        
+        # Get depot details
+        depot_info = None
+        if vehicle.home_depot_id:
+            depot = db.query(DepotModel).filter(DepotModel.depot_id == vehicle.home_depot_id).first()
+            if depot:
+                depot_info = {
+                    "depot_id": str(depot.depot_id),
+                    "name": depot.name
+                }
+        
+        vehicle_detail = {
+            "vehicle_id": str(vehicle.vehicle_id),
+            "reg_code": vehicle.reg_code,
+            "status": vehicle.status.value if hasattr(vehicle.status, 'value') else str(vehicle.status),
+            "capacity": vehicle.capacity,
+            "assigned_driver_id": str(vehicle.assigned_driver_id) if vehicle.assigned_driver_id else None,
+            "assigned_driver": driver_info,
+            "preferred_route_id": str(vehicle.preferred_route_id) if vehicle.preferred_route_id else None,
+            "assigned_route": route_info,
+            "home_depot_id": str(vehicle.home_depot_id) if vehicle.home_depot_id else None,
+            "depot": depot_info,
+            "created_at": vehicle.created_at,
+            "updated_at": vehicle.updated_at
+        }
+        
+        detailed_vehicles.append(vehicle_detail)
+    
+    return detailed_vehicles

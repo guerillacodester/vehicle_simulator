@@ -29,6 +29,7 @@ from world.fleet_manager.api.routers import (
     routes_router,
     shapes_router,
     route_shapes_router,
+    search_router,
 )
 
 # Initialize database
@@ -88,6 +89,7 @@ app.include_router(blocks_router, prefix="/api/v1")
 app.include_router(routes_router, prefix="/api/v1")
 app.include_router(shapes_router, prefix="/api/v1")
 app.include_router(route_shapes_router, prefix="/api/v1")
+app.include_router(search_router, prefix="/api/v1")
 
 # Socket.io event handlers
 @sio.event

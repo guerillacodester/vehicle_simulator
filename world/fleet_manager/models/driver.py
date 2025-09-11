@@ -23,6 +23,7 @@ class Driver(Base):
     # Relationships
     country = relationship("Country", back_populates="drivers")
     home_depot = relationship("Depot", back_populates="drivers")
+    assigned_vehicles = relationship("Vehicle", back_populates="assigned_driver", foreign_keys="Vehicle.assigned_driver_id")
     assignments = relationship("DriverAssignment", back_populates="driver")
     
     def __repr__(self):

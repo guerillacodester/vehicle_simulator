@@ -17,6 +17,7 @@ class Vehicle(Base):
     reg_code = Column(Text, nullable=False)
     home_depot_id = Column(UUID(as_uuid=True), ForeignKey('depots.depot_id'))
     preferred_route_id = Column(UUID(as_uuid=True), ForeignKey('routes.route_id'))
+    assigned_driver_id = Column(UUID(as_uuid=True), ForeignKey('drivers.driver_id'), nullable=True)  # Direct driver assignment
     status = Column(SQLEnum(VehicleStatus), nullable=False, default=VehicleStatus.available)
     capacity = Column(Integer, nullable=True, default=11)  # Passenger capacity (ZR van default)
     profile_id = Column(Text)
@@ -28,6 +29,7 @@ class Vehicle(Base):
     country = relationship("Country", back_populates="vehicles")
     home_depot = relationship("Depot", back_populates="vehicles")
     preferred_route = relationship("Route", back_populates="vehicles")
+    assigned_driver = relationship("Driver", back_populates="assigned_vehicles", foreign_keys=[assigned_driver_id])
     timetables = relationship("Timetable", back_populates="vehicle")
     assignments = relationship("VehicleAssignment", back_populates="vehicle")
     status_events = relationship("VehicleStatusEvent", back_populates="vehicle")

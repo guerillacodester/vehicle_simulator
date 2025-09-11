@@ -90,13 +90,10 @@ class EnhancedVehicleSimulator:
                 logger.warning(f"   ⚠️ {vehicle_id}: GPS device failed - {e}")
                 
     def _load_vehicles(self):
-        """Load vehicles from database or create dummy data"""
-        try:
-            # Try database first
-            self._load_from_database()
-        except Exception as e:
-            logger.warning(f"Database unavailable ({e}), using dummy data")
-            self._load_dummy_data()
+        """Simulator should not load vehicles - vehicles should be passed from main application"""
+        logger.error("❌ SIMULATOR CANNOT LOAD VEHICLES DIRECTLY")
+        logger.error("❌ Vehicles must be provided by the main application")
+        raise Exception("Simulator should not make database connections - vehicles must be provided")
             
     def _load_from_database(self):
         """Load vehicles from the database"""

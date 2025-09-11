@@ -12,6 +12,7 @@ from .blocks import router as blocks_router
 from .routes import router as routes_router
 from .shapes import router as shapes_router
 from .route_shapes import router as route_shapes_router
+from .search import router as search_router
 
 __all__ = [
     "countries_router",
@@ -25,4 +26,5 @@ __all__ = [
     "routes_router",
     "shapes_router",
     "route_shapes_router",
+    "search_router",
 ]

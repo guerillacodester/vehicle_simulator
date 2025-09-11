@@ -36,83 +36,11 @@ class FleetDataProvider:
         self._fleet_manager = None
         self._api_available = False
         
-        # Comprehensive data caches
-        self._route_coordinates_cache = {}  # Cache for route coordinates
-        self._vehicles_cache = None
-        self._routes_cache = None
-        self._drivers_cache = None
-        self._depots_cache = None
-        self._cache_loaded = False
-        
         # Start monitoring
         self.api_monitor.start_monitoring()
         
         logger.info(f"Fleet data provider initialized with Socket.IO monitoring for {server_url}")
         logger.info("Waiting for fleet manager API connection...")
-
-    def _preload_all_data(self):
-        """Pre-cache all data for faster subsequent access"""
-        if self._cache_loaded or not self._api_available:
-            return
-            
-        try:
-            import requests
-            import concurrent.futures
-            
-            logger.info("🚀 Pre-caching all fleet data for faster access...")
-            
-            # Define all API endpoints to cache
-            cache_tasks = [
-                ("vehicles", f"{self.server_url}/api/v1/vehicles"),
-                ("routes", f"{self.server_url}/api/v1/routes"),
-                ("drivers", f"{self.server_url}/api/v1/drivers"),
-                ("depots", f"{self.server_url}/api/v1/depots"),
-            ]
-            
-            def fetch_data(name, url):
-                try:
-                    response = requests.get(url, timeout=10)
-                    if response.status_code == 200:
-                        return name, response.json()
-                except:
-                    pass
-                return name, []
-            
-            # Fetch all basic data concurrently
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                future_to_endpoint = {executor.submit(fetch_data, name, url): name for name, url in cache_tasks}
-                
-                for future in concurrent.futures.as_completed(future_to_endpoint):
-                    name, data = future.result()
-                    if name == "vehicles":
-                        self._vehicles_cache = data
-                    elif name == "routes":
-                        self._routes_cache = data
-                    elif name == "drivers":
-                        self._drivers_cache = data
-                    elif name == "depots":
-                        self._depots_cache = data
-            
-            # Pre-cache route coordinates for all routes
-            if self._routes_cache:
-                route_tasks = []
-                for route in self._routes_cache:
-                    route_identifier = route.get('short_name')
-                    if route_identifier and route_identifier not in self._route_coordinates_cache:
-                        route_tasks.append(route_identifier)
-                
-                if route_tasks:
-                    # Cache route coordinates concurrently
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                        future_to_route = {executor.submit(self._load_route_coordinates_internal, route_id): route_id for route_id in route_tasks}
-                        for future in concurrent.futures.as_completed(future_to_route):
-                            pass  # Results are cached internally
-            
-            self._cache_loaded = True
-            logger.info("✅ All fleet data cached successfully")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to pre-cache data: {e}")
 
     def _on_api_status_change(self, status: APIConnectionStatus):
         """Handle API status changes with stabilization delay"""
@@ -135,11 +63,6 @@ class FleetDataProvider:
             return
             
         logger.info("✅ Fleet manager connection established via API")
-        
-        # Pre-cache all data in background
-        import threading
-        cache_thread = threading.Thread(target=self._preload_all_data, daemon=True)
-        cache_thread.start()
 
     def _cleanup_fleet_manager(self):
         """Clean up API connections"""
@@ -153,22 +76,7 @@ class FleetDataProvider:
     
     def is_api_available(self) -> bool:
         """Check if fleet manager API is currently available"""
-        # First check Socket.IO status (preferred)
-        if self._api_available:
-            return True
-            
-        # If Socket.IO says not available, do a quick direct HTTP check
-        # This prevents race conditions where HTTP API is ready but Socket.IO isn't connected yet
-        try:
-            import requests
-            response = requests.get(f"{self.server_url}/api/v1/vehicles", timeout=2)
-            if response.status_code == 200:
-                logger.debug("Direct HTTP API check successful (Socket.IO still connecting)")
-                return True
-        except:
-            pass
-            
-        return False
+        return self._api_available
     
     def get_api_status(self) -> Dict[str, Any]:
         """Get current API connection status"""
@@ -180,7 +88,7 @@ class FleetDataProvider:
         self.api_monitor.force_reconnect()
     
     def _ensure_api_available(self, retry_attempts: int = 3):
-        """Ensure API is available before making calls, with improved logic"""
+        """Ensure API is available before making calls, with retry logic"""
         for attempt in range(retry_attempts):
             if self.is_api_available():
                 return
@@ -188,17 +96,9 @@ class FleetDataProvider:
             if attempt < retry_attempts - 1:
                 logger.warning(f"API not available, retrying in 1 second... (attempt {attempt + 1}/{retry_attempts})")
                 time.sleep(1)
-                # Only force Socket.IO reconnection if direct HTTP also fails
-                try:
-                    import requests
-                    requests.get(f"{self.server_url}/api/v1/vehicles", timeout=2)
-                    # If direct HTTP works, don't worry about Socket.IO for now
-                    logger.debug("Direct HTTP works, continuing despite Socket.IO status")
-                    return
-                except:
-                    # Force Socket.IO reconnection only if HTTP also fails
-                    self.api_monitor.force_reconnect()
-                    time.sleep(1)
+                # Force reconnection attempt
+                self.api_monitor.force_reconnect()
+                time.sleep(1)  # Give it time to reconnect
             else:
                 status = self.api_monitor.get_status()
                 error_msg = f"Fleet Manager API not available after {retry_attempts} attempts: {status.error or 'Connection lost'}"
@@ -214,32 +114,22 @@ class FleetDataProvider:
         """
         self._ensure_api_available()
         
-        # Use cached data if available
-        if self._vehicles_cache is not None:
-            api_vehicles = self._vehicles_cache
-        else:
-            try:
-                import requests
-                
-                # Use API with retry logic for temporary connection issues
-                for attempt in range(3):
-                    try:
-                        response = requests.get(f"{self.server_url}/api/v1/vehicles", timeout=10)
-                        response.raise_for_status()
-                        api_vehicles = response.json()
-                        self._vehicles_cache = api_vehicles  # Cache the result
-                        break
-                    except requests.exceptions.RequestException as e:
-                        if attempt < 2:
-                            logger.warning(f"Vehicles API request failed, retrying... (attempt {attempt + 1}/3): {e}")
-                            time.sleep(1)
-                        else:
-                            raise
-            except Exception as e:
-                logger.error(f"Failed to get vehicles: {e}")
-                return []
-        
         try:
+            import requests
+            
+            # Use API with retry logic for temporary connection issues
+            for attempt in range(3):
+                try:
+                    response = requests.get(f"{self.server_url}/api/v1/vehicles", timeout=10)
+                    response.raise_for_status()
+                    api_vehicles = response.json()
+                    break
+                except requests.exceptions.RequestException as e:
+                    if attempt < 2:
+                        logger.warning(f"Vehicles API request failed, retrying... (attempt {attempt + 1}/3): {e}")
+                        time.sleep(1)
+                    else:
+                        raise
             
             vehicles = []
             for vehicle in api_vehicles:
@@ -260,9 +150,9 @@ class FleetDataProvider:
                     # Route assignment information
                     'preferred_route_id': vehicle.get('preferred_route_id'),  # Keep for internal use
                     'assigned_route': self._get_route_name(vehicle.get('preferred_route_id')),  # User-friendly route name
-                    # Driver assignment (from database relationship)
-                    'assigned_driver_id': vehicle.get('assigned_driver_id'),  # UUID from database
-                    'assigned_driver': self._get_driver_name(vehicle.get('assigned_driver_id'))
+                    # Driver assignment (simulate based on vehicle for demo)
+                    'assigned_driver': self._get_assigned_driver_for_vehicle(vehicle.get('vehicle_id')),
+                    'assigned_driver_id': None  # Would come from assignment system
                 }
                 vehicles.append(vehicle_data)
             
@@ -305,7 +195,7 @@ class FleetDataProvider:
             return f"Depot {depot_id[:8]}" if depot_id else "Unknown Depot"
     
     def _get_route_name(self, route_id: str) -> str:
-        """Get user-friendly route name from route_id - SIMPLIFIED to avoid cascade failures"""
+        """Get user-friendly route name from route_id"""
         if not route_id:
             return "No Route Assigned"
             
@@ -317,26 +207,14 @@ class FleetDataProvider:
             if route_id in self._route_cache:
                 return self._route_cache[route_id]
                 
-            # Get route info directly from routes API (avoid full route loading with coordinates/stops)
-            import requests
-            response = requests.get(f"{self.server_url}/api/v1/routes", timeout=10)
-            
-            if response.status_code == 200:
-                api_routes = response.json()
-                for route in api_routes:
-                    if route.get('route_id') == route_id:
-                        short_name = route.get('short_name', 'Unknown')
-                        long_name = route.get('long_name', '')
-                        
-                        # Create user-friendly display name
-                        if long_name and long_name != short_name:
-                            display_name = f"Route {short_name} ({long_name})"
-                        else:
-                            display_name = f"Route {short_name}"
-                        
-                        self._route_cache[route_id] = display_name
-                        return display_name
-                        
+            # Get route info
+            routes = self.get_routes()
+            for route_key, route_data in routes.items():
+                if route_data.get('id') == route_id:
+                    route_name = route_data.get('route_name', f'Route {route_key}')
+                    self._route_cache[route_id] = route_name
+                    return route_name
+                    
             # Fallback to shortened UUID
             short_id = route_id[:8] if route_id else 'Unknown'
             fallback_name = f"Route {short_id}"
@@ -369,41 +247,6 @@ class FleetDataProvider:
         except Exception as e:
             logger.warning(f"Failed to assign driver for vehicle {vehicle_id}: {e}")
             return "Driver Assignment Error"
-    
-    def _get_driver_name(self, driver_id: str) -> str:
-        """Get user-friendly driver name from driver_id"""
-        if not driver_id:
-            return "No Driver Assigned"
-            
-        try:
-            # Cache driver names to avoid repeated API calls
-            if not hasattr(self, '_driver_cache'):
-                self._driver_cache = {}
-                
-            if driver_id in self._driver_cache:
-                return self._driver_cache[driver_id]
-                
-            # Get driver info from API
-            import requests
-            response = requests.get(f"{self.server_url}/api/v1/drivers", timeout=10)
-            
-            if response.status_code == 200:
-                api_drivers = response.json()
-                for driver in api_drivers:
-                    if driver.get('driver_id') == driver_id:
-                        driver_name = driver.get('name', 'Unknown Driver')
-                        self._driver_cache[driver_id] = driver_name
-                        return driver_name
-                        
-            # Fallback to shortened UUID
-            short_id = driver_id[:8] if driver_id else 'Unknown'
-            fallback_name = f"Driver {short_id}"
-            self._driver_cache[driver_id] = fallback_name
-            return fallback_name
-            
-        except Exception as e:
-            logger.warning(f"Failed to get driver name for {driver_id}: {e}")
-            return f"Driver {driver_id[:8]}" if driver_id else "Unknown Driver"
     
     # ==================== DATA RETRIEVAL METHODS ====================
     
@@ -439,32 +282,22 @@ class FleetDataProvider:
         """Get all routes with coordinates and metadata via API"""
         self._ensure_api_available()
         
-        # Use cached data if available
-        if self._routes_cache is not None:
-            api_routes = self._routes_cache
-        else:
-            try:
-                import requests
-                
-                # Use API with retry logic for temporary connection issues
-                for attempt in range(3):
-                    try:
-                        response = requests.get(f"{self.server_url}/api/v1/routes", timeout=10)
-                        response.raise_for_status()
-                        api_routes = response.json()
-                        self._routes_cache = api_routes  # Cache the result
-                        break
-                    except requests.exceptions.RequestException as e:
-                        if attempt < 2:
-                            logger.warning(f"Routes API request failed, retrying... (attempt {attempt + 1}/3): {e}")
-                            time.sleep(1)
-                        else:
-                            raise
-            except Exception as e:
-                logger.error(f"Failed to get routes: {e}")
-                return {}
-        
         try:
+            import requests
+            
+            # Use API with retry logic for temporary connection issues
+            for attempt in range(3):
+                try:
+                    response = requests.get(f"{self.server_url}/api/v1/routes", timeout=10)
+                    response.raise_for_status()
+                    api_routes = response.json()
+                    break
+                except requests.exceptions.RequestException as e:
+                    if attempt < 2:
+                        logger.warning(f"Routes API request failed, retrying... (attempt {attempt + 1}/3): {e}")
+                        time.sleep(1)
+                    else:
+                        raise
             
             routes = {}
             for route in api_routes:
@@ -495,8 +328,11 @@ class FleetDataProvider:
             logger.error(f"❌ FAILED TO GET ROUTES: {e}")
             raise Exception(f"Route data unavailable: {e}")
     
-    def _load_route_coordinates_internal(self, route_identifier: str) -> List[Tuple[float, float]]:
-        """Internal method to load route coordinates (used by caching)"""
+    def get_route_coordinates(self, route_identifier: str) -> List[Tuple[float, float]]:
+        """Get route coordinates via API"""
+        self._ensure_api_available()
+        logger.info(f"🗺️  Getting coordinates for route {route_identifier}")
+        
         try:
             import requests
             
@@ -507,71 +343,56 @@ class FleetDataProvider:
             )
             
             if shapes_response.status_code != 200:
+                logger.error(f"❌ Failed to get route shapes metadata: HTTP {shapes_response.status_code}")
                 return []
             
             route_shapes = shapes_response.json()
             if not route_shapes:
+                logger.warning(f"⚠️  No shapes found for route {route_identifier}")
                 return []
             
-            # Step 2: Get actual geometry for each shape - use concurrent requests
-            import concurrent.futures
-            all_coordinates = []
+            logger.info(f"📊 Found {len(route_shapes)} shapes for route {route_identifier}")
             
-            def fetch_shape_geometry(shape_info):
+            # Step 2: Get actual geometry for each shape
+            all_coordinates = []
+            for shape_info in route_shapes:
                 shape_id = shape_info.get('shape_id')
                 if not shape_id:
-                    return []
+                    continue
                 
-                try:
-                    geometry_response = requests.get(
-                        f"{self.server_url}/api/v1/shapes/{shape_id}", 
-                        timeout=10
-                    )
+                geometry_response = requests.get(
+                    f"{self.server_url}/api/v1/shapes/{shape_id}", 
+                    timeout=10
+                )
+                
+                if geometry_response.status_code == 200:
+                    shape_data = geometry_response.json()
+                    geom = shape_data.get('geom')
                     
-                    if geometry_response.status_code == 200:
-                        shape_data = geometry_response.json()
-                        geom = shape_data.get('geom')
+                    if geom and geom.get('type') == 'LineString':
+                        coordinates = geom.get('coordinates', [])
+                        logger.info(f"📍 Shape {shape_id}: {len(coordinates)} coordinate points")
                         
-                        if geom and geom.get('type') == 'LineString':
-                            coordinates = geom.get('coordinates', [])
-                            # Convert from [longitude, latitude] to (latitude, longitude) tuples
-                            result = []
-                            for coord_pair in coordinates:
-                                if len(coord_pair) >= 2:
-                                    longitude, latitude = coord_pair[0], coord_pair[1]
-                                    result.append((float(latitude), float(longitude)))
-                            return result
-                except:
-                    pass  # Silent error handling
+                        # Convert from [longitude, latitude] to (latitude, longitude) tuples
+                        for coord_pair in coordinates:
+                            if len(coord_pair) >= 2:
+                                longitude, latitude = coord_pair[0], coord_pair[1]
+                                all_coordinates.append((float(latitude), float(longitude)))
+                    else:
+                        logger.warning(f"⚠️  Shape {shape_id} has unexpected geometry type: {geom.get('type', 'None')}")
+                else:
+                    logger.error(f"❌ Failed to get geometry for shape {shape_id}: HTTP {geometry_response.status_code}")
+            
+            if all_coordinates:
+                logger.info(f"✅ Retrieved {len(all_coordinates)} total coordinate points for route {route_identifier}")
+                return all_coordinates
+            else:
+                logger.warning(f"⚠️  No coordinate points found for route {route_identifier}")
                 return []
-            
-            # Use ThreadPoolExecutor to fetch shapes concurrently
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                future_to_shape = {executor.submit(fetch_shape_geometry, shape_info): shape_info for shape_info in route_shapes}
-                for future in concurrent.futures.as_completed(future_to_shape):
-                    coordinates = future.result()
-                    all_coordinates.extend(coordinates)
-            
-            # Cache the result and return
-            result = all_coordinates if all_coordinates else []
-            self._route_coordinates_cache[route_identifier] = result
-            return result
                 
         except Exception as e:
-            # Silent error handling - cache empty result
-            self._route_coordinates_cache[route_identifier] = []
+            logger.error(f"❌ Failed to get route coordinates for {route_identifier}: {e}")
             return []
-
-    def get_route_coordinates(self, route_identifier: str) -> List[Tuple[float, float]]:
-        """Get route coordinates via API with caching"""
-        self._ensure_api_available()
-        
-        # Check cache first
-        if route_identifier in self._route_coordinates_cache:
-            return self._route_coordinates_cache[route_identifier]
-        
-        # Load and cache if not in cache
-        return self._load_route_coordinates_internal(route_identifier)
     
     def _get_route_stops(self, route_id: str) -> List[Dict[str, Any]]:
         """Get stops for a specific route via API"""

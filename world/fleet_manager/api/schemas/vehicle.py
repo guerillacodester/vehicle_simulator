@@ -12,6 +12,7 @@ class VehicleBase(BaseModel):
     reg_code: str
     home_depot_id: Optional[UUID] = None
     preferred_route_id: Optional[UUID] = None
+    assigned_driver_id: Optional[UUID] = None
     status: VehicleStatusEnum = VehicleStatusEnum.available
     profile_id: Optional[str] = None
     notes: Optional[str] = None
@@ -24,6 +25,7 @@ class VehicleUpdate(BaseModel):
     reg_code: Optional[str] = None
     home_depot_id: Optional[UUID] = None
     preferred_route_id: Optional[UUID] = None
+    assigned_driver_id: Optional[UUID] = None
     status: Optional[VehicleStatusEnum] = None
     profile_id: Optional[str] = None
     notes: Optional[str] = None
