@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'world'))
 
 # Test imports - these should all work
 try:
-    from world.vehicle_simulator.core.vehicles_depot import VehiclesDepot
+    from world.vehicle_simulator.core.depot_manager import DepotManager
     from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
     from world.vehicle_simulator.vehicle.engine.engine_block import Engine
     from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
@@ -104,7 +104,7 @@ class SmokeTestSuite:
     def test_depot_initialization(self):
         """Test depot initialization without starting operations"""
         try:
-            self.depot = VehiclesDepot(tick_time=1.0)
+            self.depot = DepotManager(tick_time=1.0)
             
             # Check basic properties
             assert hasattr(self.depot, 'vehicles')

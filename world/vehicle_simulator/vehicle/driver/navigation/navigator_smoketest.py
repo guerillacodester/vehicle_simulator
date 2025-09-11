@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from world.vehicle_simulator.vehicle.engine.engine_block import Engine
 from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
 from world.vehicle_simulator.vehicle.engine.sim_speed_model import load_speed_model
-from world.vehicle_simulator.vehicle.driver.navigation.navigator import Navigator
+from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
 from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
 
 
@@ -96,9 +96,9 @@ def main():
                 mode=args.mode,
                 direction=args.direction
             )
-            print(f"[INFO] Navigator created for vehicle {vid}")
+            print(f"[INFO] VehicleDriver created for vehicle {vid}")
         except Exception as e:
-            print(f"[ERROR] Failed to create navigator for vehicle {vid}: {e}")
+            print(f"[ERROR] Failed to create vehicle driver for vehicle {vid}: {e}")
             continue
 
         engine.on()

@@ -10,7 +10,7 @@ import asyncio
 from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer  
 from world.vehicle_simulator.vehicle.engine.sim_speed_model import load_speed_model
 from world.vehicle_simulator.vehicle.engine.engine_block import Engine
-from world.vehicle_simulator.vehicle.driver.navigation.navigator import Navigator
+from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
 from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
 from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
 
@@ -31,8 +31,8 @@ def test_navigator_to_gps_flow():
     speed_model = load_speed_model('kinematic', speed=25.0)
     engine = Engine('TEST_VEHICLE', speed_model, buffer, tick_time=1.0)
     
-    # Create Navigator
-    navigator = Navigator(
+    # Create VehicleDriver
+    navigator = VehicleDriver(
         vehicle_id='TEST_VEHICLE',
         route_coordinates=test_route,
         engine_buffer=buffer,
@@ -40,7 +40,7 @@ def test_navigator_to_gps_flow():
         mode='geodesic'
     )
     
-    print(f"✅ Navigator created with {len(test_route)} route points")
+    print(f"✅ VehicleDriver created with {len(test_route)} route points")
     
     # Start engine and navigator
     print("🔥 Starting engine...")
@@ -97,12 +97,12 @@ def test_navigator_plugin_integration():
     try:
         from world.vehicle_simulator.vehicle.gps_device.plugins.navigator_plugin import NavigatorTelemetryPlugin
         
-        # Create Navigator with telemetry
+        # Create VehicleDriver with telemetry
         buffer = EngineBuffer(size=100)
         speed_model = load_speed_model('kinematic', speed=20.0)
         engine = Engine('TEST_VEHICLE', speed_model, buffer, tick_time=1.0)
         
-        navigator = Navigator(
+        navigator = VehicleDriver(
             vehicle_id='TEST_VEHICLE',
             route_coordinates=test_route,
             engine_buffer=buffer,
@@ -161,10 +161,10 @@ async def test_complete_gps_transmission():
     print("=" * 60)
     
     try:
-        from world.vehicle_simulator.vehicle.gps_device.radio_module.json_codec import JsonCodec
+        from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
         
         # Create WebSocket transmitter
-        codec = JsonCodec()
+        codec = PacketCodec()
         transmitter = WebSocketTransmitter(
             server_url="ws://localhost:5000",
             token="test_token",
@@ -178,12 +178,12 @@ async def test_complete_gps_transmission():
             (-59.6470, 13.2820)
         ]
         
-        # Create Navigator components
+        # Create VehicleDriver components
         buffer = EngineBuffer(size=100)
         speed_model = load_speed_model('kinematic', speed=15.0)
         engine = Engine('TEST_GPS', speed_model, buffer, tick_time=1.0)
         
-        navigator = Navigator(
+        navigator = VehicleDriver(
             vehicle_id='TEST_GPS',
             route_coordinates=test_route,
             engine_buffer=buffer,

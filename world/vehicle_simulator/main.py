@@ -23,7 +23,7 @@ from typing import Optional
 from world.vehicle_simulator.providers.data_provider import FleetDataProvider
 from world.vehicle_simulator.config.config_loader import ConfigLoader
 from world.vehicle_simulator.simulators.simulator import VehicleSimulator
-from world.vehicle_simulator.core.vehicles_depot import VehiclesDepot
+from world.vehicle_simulator.core.depot_manager import DepotManager
 from world.vehicle_simulator.core.standalone_manager import StandaloneFleetManager
 from world.vehicle_simulator.providers.config_provider import SelfContainedConfigProvider
 
@@ -99,8 +99,8 @@ class VehicleSimulatorApp:
                 enable_timetable = self.config['simulation'].get('enable_timetable', True)
                 print(f"   📅 Timetable operations: {'enabled' if enable_timetable else 'disabled'}")
             
-            # Create vehicles depot with new architecture
-            self.depot = VehiclesDepot(
+            # Create depot manager with new architecture
+            self.depot = DepotManager(
                 tick_time=tick_time,
                 enable_timetable=enable_timetable
             )

@@ -86,13 +86,13 @@ def create_navigator_with_route(
     
     This provides backward compatibility for code that was using the old Navigator interface.
     """
-    from world.vehicle_simulator.vehicle.driver.navigation.navigator import Navigator
+    from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
     
     # Load route coordinates
     coordinates = get_route_coordinates(route_id, route_file, direction)
     
-    # Create Navigator with coordinates
-    return Navigator(
+    # Create VehicleDriver with coordinates
+    return VehicleDriver(
         vehicle_id=vehicle_id,
         route_coordinates=coordinates,
         engine_buffer=engine_buffer,
