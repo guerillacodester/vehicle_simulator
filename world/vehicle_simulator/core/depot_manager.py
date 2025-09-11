@@ -166,9 +166,18 @@ class DepotManager:
             self.routes = self.fleet_data['routes']
             
         except Exception as e:
-            logger.error(f"❌ FAILED TO LOAD FLEET DATA: {e}")
-            logger.error("❌ Cannot continue without fleet data - stopping depot manager")
-            raise Exception(f"Fleet data unavailable: {e}")
+            logger.error(f"Failed to load fleet data: {e}")
+            # Create fallback empty structure
+            self.fleet_data = {
+                'vehicles': [],
+                'routes': {},
+                'schedules': [],
+                'timetables': [],
+                'drivers': [],
+                'services': [],
+                'depots': []
+            }
+            self.routes = {}
 
     def _create_vehicle_instances(self):
         """Create vehicle instances from database data"""
@@ -203,7 +212,7 @@ class DepotManager:
 
     def _create_vehicle_config(self, vehicle_data: Dict[str, Any]) -> Dict[str, Any]:
         """Convert database vehicle data to configuration format"""
-        assignment = vehicle_data.get('current_assignment') or {}
+        assignment = vehicle_data.get('current_assignment', {})
         
         config = {
             'active': vehicle_data.get('active', True),
@@ -264,16 +273,24 @@ class DepotManager:
             
             # Create WebSocket transmitter for GPS device
             from ..vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
-            ws_transmitter = WebSocketTransmitter(
+            transmitter = WebSocketTransmitter(
                 server_url=self.config.telemetry.websocket_url,
                 auth_token=self.config.telemetry.auth_token
             )
             
+            # Create plugin config for navigator telemetry
+            plugin_config = {
+                "plugin": "navigator_telemetry",
+                "update_interval": self.tick_time,
+                "device_id": vehicle_id,
+                "navigator": navigator
+            }
+            
             # Create GPSDevice with navigator_telemetry plugin
             gps_device = GPSDevice(
                 device_id=vehicle_id,
-                ws_transmitter=ws_transmitter,
-                plugin_config={'plugin': 'navigator_telemetry', 'navigator': navigator}
+                ws_transmitter=transmitter,
+                plugin_config=plugin_config
             )
             
             return {
