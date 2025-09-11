@@ -23,7 +23,7 @@ class RouteManager:
 
         coords: List[Tuple[float, float]] = []
 
-        for rs in route.shapes:
+        for rs in route.route_shapes:
             geom = wkb.loads(bytes(rs.shape.geom.data))  # Shapely geometry
             coords.extend(list(geom.coords))
 

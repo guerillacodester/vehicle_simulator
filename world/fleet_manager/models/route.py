@@ -1,7 +1,7 @@
 """
 Route model for fleet management
 """
-from sqlalchemy import Column, Text, DateTime, Boolean, Date, ForeignKey
+from sqlalchemy import Column, Text, String, DateTime, Boolean, Date, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from .base import Base
@@ -16,6 +16,8 @@ class Route(Base):
     short_name = Column(Text, nullable=False)
     long_name = Column(Text)
     parishes = Column(Text)
+    description = Column(Text, nullable=True)
+    color = Column(String(7), nullable=True)  # For hex color codes like #FF0000
     is_active = Column(Boolean, nullable=False, default=True)
     valid_from = Column(Date, default=date.today)
     valid_to = Column(Date)
