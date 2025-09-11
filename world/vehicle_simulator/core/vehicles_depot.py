@@ -18,7 +18,7 @@ from world.vehicle_simulator.vehicle.engine.engine_block import Engine
 from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
 from world.vehicle_simulator.vehicle.engine.sim_speed_model import load_speed_model
 from world.vehicle_simulator.vehicle.gps_device.rxtx_buffer import RxTxBuffer
-from world.vehicle_simulator.vehicle.driver.navigation.navigator import Navigator
+from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
 from world.vehicle_simulator.vehicle.vahicle_object import VehicleState
 
 # New architecture components
@@ -214,7 +214,7 @@ class VehiclesDepot:
         return config
 
     def _create_vehicle_components(self, vehicle_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Create Navigator, Engine, and GPSDevice for a vehicle"""
+        """Create VehicleDriver, Engine, and GPSDevice for a vehicle"""
         try:
             # Create components
             engine_buffer = EngineBuffer()
@@ -232,13 +232,13 @@ class VehiclesDepot:
             # Create Engine
             engine = Engine(vehicle_id, speed_model, engine_buffer, tick_time=self.tick_time)
             
-            # Create Navigator with route if assigned
+            # Create VehicleDriver with route if assigned
             navigator = None
             route_id = config.get('route')
             if route_id and route_id in self.routes:
                 route_coords = self.routes[route_id].get('coordinates', [])
                 if route_coords:
-                    navigator = Navigator(
+                    navigator = VehicleDriver(
                         vehicle_id=vehicle_id,
                         route_coordinates=route_coords,
                         engine_buffer=engine_buffer,
@@ -323,7 +323,7 @@ class VehiclesDepot:
                     print(f"[INFO] Vehicle {vehicle_id} inactive.")
                     continue
                 
-                print(f"[INFO] Navigator boarded for {vehicle_id}")
+                print(f"[INFO] VehicleDriver boarded for {vehicle_id}")
                 
                 # Create and start GPSDevice
                 gps_device = vehicle_handler['_gps']
@@ -335,13 +335,13 @@ class VehiclesDepot:
                 engine.on()
                 print(f"[INFO] Engine started for {vehicle_id}")
                 
-                # Start Navigator if available
+                # Start VehicleDriver if available
                 navigator = vehicle_handler['_navigator']
                 if navigator:
                     navigator.on()
-                    print(f"[INFO] Navigator for {vehicle_id} turned ON (mode=geodesic, direction=outbound)")
+                    print(f"[INFO] VehicleDriver for {vehicle_id} turned ON (mode=geodesic, direction=outbound)")
                 else:
-                    print(f"[INFO] No navigator available for {vehicle_id}")
+                    print(f"[INFO] No vehicle driver available for {vehicle_id}")
                 
             except Exception as e:
                 logger.error(f"Failed to start vehicle {vehicle_id}: {e}")
