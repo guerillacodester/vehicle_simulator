@@ -24,6 +24,8 @@ from world.vehicle_simulator.providers.data_provider import FleetDataProvider
 from world.vehicle_simulator.config.config_loader import ConfigLoader
 from world.vehicle_simulator.simulators.simulator import VehicleSimulator
 from world.vehicle_simulator.core.vehicles_depot import VehiclesDepot
+from world.vehicle_simulator.core.standalone_manager import StandaloneFleetManager
+from world.vehicle_simulator.providers.config_provider import SelfContainedConfigProvider
 
 # Setup logging
 logging.basicConfig(
@@ -54,6 +56,10 @@ class VehicleSimulatorApp:
         except Exception as e:
             logger.warning(f"Database connection failed: {e}")
             self.data_provider = None
+        
+        # Initialize config provider and fleet manager for legacy compatibility
+        self.config_provider = SelfContainedConfigProvider(self.config_file)
+        self.fleet_manager = StandaloneFleetManager(config_provider=self.config_provider)
         
         self.depot = None
         self._active_simulator = None  # Track active simulator for cleanup
@@ -117,7 +123,27 @@ class VehicleSimulatorApp:
             
         except Exception as e:
             logger.error(f"Failed to start depot simulator: {e}")
-            raise
+            # Fallback to basic simulator for GPS testing
+            logger.info("Falling back to basic vehicle simulator with GPS transmission...")
+            try:
+                print("🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...")
+                print("   📡 GPS transmission enabled")
+                print(f"   ⏱️ Tick time: {tick_time} seconds")
+                
+                # Create basic simulator with GPS enabled
+                from world.vehicle_simulator.simulators.simulator import VehicleSimulator
+                simulator = VehicleSimulator(tick_time=tick_time, enable_gps=True)
+                simulator.start()
+                
+                # Store reference for cleanup
+                self._active_simulator = simulator
+                
+                print("✅ Basic Vehicle Simulator started with GPS transmission")
+                return simulator
+                
+            except Exception as fallback_error:
+                logger.error(f"Fallback simulator also failed: {fallback_error}")
+                raise
     
     def list_available_routes(self):
         """List all available routes"""

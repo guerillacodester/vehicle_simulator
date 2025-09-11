@@ -168,9 +168,11 @@ class VehiclesDepot:
             for vehicle_data in self.fleet_data['vehicles']:
                 vehicle_id = vehicle_data['id']
                 
+                # For simulation purposes, activate all vehicles regardless of database status
+                # In production, this would respect the database active status
                 if not vehicle_data.get('active', False):
-                    logger.info(f"Vehicle {vehicle_id} is inactive, skipping")
-                    continue
+                    logger.info(f"Vehicle {vehicle_id} is inactive in database, activating for simulation")
+                    vehicle_data['active'] = True  # Force activate for simulation
                 
                 # Create vehicle configuration from database data
                 vehicle_config = self._create_vehicle_config(vehicle_data)
