@@ -263,3 +263,33 @@ FROM depots]
 2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: 'NoneType' object has no attribute 'get'
 2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: 'NoneType' object has no attribute 'get'
 2025-09-11 20:55:11 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: 'NoneType' object has no attribute 'get'
+2025-09-11 20:59:22 | ERROR    | world.vehicle_simulator.providers.data_provider:251 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 20:59:22 | ERROR    | world.vehicle_simulator.providers.data_provider:238 | get_routes() | Failed to get routes: Route '1' not found in database
+2025-09-11 21:07:33 | ERROR    | world.vehicle_simulator.providers.data_provider:185 | get_vehicles() | Failed to get vehicles from API: 404 Client Error: Not Found for url: http://localhost:8000/api/vehicles
+2025-09-11 21:07:35 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: 404 Client Error: Not Found for url: http://localhost:8000/api/routes
+2025-09-11 21:07:38 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: 404 Client Error: Not Found for url: http://localhost:8000/api/routes
+2025-09-11 21:07:40 | ERROR    | world.vehicle_simulator.providers.data_provider:185 | get_vehicles() | Failed to get vehicles from API: 404 Client Error: Not Found for url: http://localhost:8000/api/vehicles
+2025-09-11 21:07:42 | ERROR    | world.vehicle_simulator.providers.data_provider:185 | get_vehicles() | Failed to get vehicles from API: 404 Client Error: Not Found for url: http://localhost:8000/api/vehicles
+2025-09-11 21:07:44 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: 404 Client Error: Not Found for url: http://localhost:8000/api/routes
+2025-09-11 21:08:06 | ERROR    | world.vehicle_simulator.providers.data_provider:185 | get_vehicles() | Failed to get vehicles from API: 404 Client Error: Not Found for url: http://localhost:8000/api/vehicles
+2025-09-11 21:08:08 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: 404 Client Error: Not Found for url: http://localhost:8000/api/routes
+2025-09-11 21:08:10 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: 404 Client Error: Not Found for url: http://localhost:8000/api/routes
+2025-09-11 21:08:12 | ERROR    | world.vehicle_simulator.providers.data_provider:185 | get_vehicles() | Failed to get vehicles from API: 404 Client Error: Not Found for url: http://localhost:8000/api/vehicles
+2025-09-11 21:08:14 | ERROR    | world.vehicle_simulator.providers.data_provider:185 | get_vehicles() | Failed to get vehicles from API: 404 Client Error: Not Found for url: http://localhost:8000/api/vehicles
+2025-09-11 21:08:16 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: 404 Client Error: Not Found for url: http://localhost:8000/api/routes
+2025-09-11 21:09:13 | ERROR    | world.vehicle_simulator.providers.data_provider:263 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 21:09:13 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: Route '1' not found in database
+2025-09-11 21:09:13 | ERROR    | world.vehicle_simulator.core.depot_manager:290 | _create_vehicle_components() | Failed to create components for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 21:09:13 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 21:09:13 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 21:09:13 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: GPSDevice.__init__() got an unexpected keyword argument 'vehicle_id'
+2025-09-11 21:10:02 | ERROR    | world.vehicle_simulator.providers.data_provider:263 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 21:10:02 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: Route '1' not found in database
+2025-09-11 21:10:02 | ERROR    | world.vehicle_simulator.core.depot_manager:289 | _create_vehicle_components() | Failed to create components for vehicle 33ca6e1e-d1d5-4f8f-a91f-28a16e38da98: GPSDevice.__init__() got an unexpected keyword argument 'device_config'
+2025-09-11 21:10:02 | ERROR    | world.vehicle_simulator.core.depot_manager:210 | _create_vehicle_instances() | Failed to create vehicle instances: GPSDevice.__init__() got an unexpected keyword argument 'device_config'
+2025-09-11 21:10:02 | ERROR    | world.vehicle_simulator.core.depot_manager:114 | __init__() | Failed to initialize DepotManager: GPSDevice.__init__() got an unexpected keyword argument 'device_config'
+2025-09-11 21:10:02 | ERROR    | world.vehicle_simulator.main:146 | run_depot_simulator() | Failed to start depot simulator: GPSDevice.__init__() got an unexpected keyword argument 'device_config'
+2025-09-11 21:11:26 | ERROR    | world.vehicle_simulator.providers.data_provider:263 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 21:11:26 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: Route '1' not found in database
+2025-09-11 21:12:34 | ERROR    | world.vehicle_simulator.providers.data_provider:263 | get_route_coordinates() | Failed to get route coordinates for 1: 'Route' object has no attribute 'shapes'
+2025-09-11 21:12:34 | ERROR    | world.vehicle_simulator.providers.data_provider:250 | get_routes() | Failed to get routes from API: Route '1' not found in database

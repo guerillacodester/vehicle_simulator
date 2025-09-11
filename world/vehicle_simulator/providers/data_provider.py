@@ -149,35 +149,40 @@ class FleetDataProvider:
     def get_vehicles(self) -> List[Dict[str, Any]]:
         """
         Get all vehicles with their specifications and current assignments.
-        Replaces vehicles.json with live database data.
+        Uses Fleet Manager API instead of direct database access.
         """
         self._ensure_api_available()
         
         try:
-            from world.fleet_manager.models import Vehicle
+            import requests
             
+            # Make API request to Fleet Manager
+            response = requests.get(f"{self.server_url}/api/v1/vehicles", timeout=10)
+            response.raise_for_status()
+            
+            api_vehicles = response.json()
             vehicles = []
-            db_vehicles = self._fleet_manager.db.query(Vehicle).all()
             
-            for vehicle in db_vehicles:
+            for vehicle in api_vehicles:
                 vehicle_data = {
-                    'id': vehicle.vehicle_id,
-                    'license_plate': vehicle.reg_code,
-                    'capacity': vehicle.capacity,  # Now available from database
-                    'fuel_type': None,  # Vehicle model doesn't have fuel_type field
-                    'status': vehicle.status,
-                    'depot_id': vehicle.home_depot_id,
-                    'model': None,  # Vehicle model doesn't have model field
-                    'year': None,  # Vehicle model doesn't have year field
-                    'active': vehicle.status.value == 'available',  # Fix status comparison
-                    'current_assignment': self._get_vehicle_current_assignment(vehicle.vehicle_id) or {}  # Ensure not None
+                    'id': vehicle.get('vehicle_id'),
+                    'license_plate': vehicle.get('reg_code'),
+                    'capacity': vehicle.get('capacity', 11),  # Default ZR van capacity
+                    'fuel_type': None,  # Not in current API response
+                    'status': vehicle.get('status'),
+                    'depot_id': vehicle.get('home_depot_id'),
+                    'model': None,  # Not in current API response
+                    'year': None,  # Not in current API response
+                    'active': vehicle.get('status') == 'available',  # Convert to boolean
+                    'current_assignment': {}  # TODO: Get from assignments API when available
                 }
                 vehicles.append(vehicle_data)
             
+            logger.debug(f"Retrieved {len(vehicles)} vehicles from API")
             return vehicles
             
         except Exception as e:
-            logger.error(f"Failed to get vehicles: {e}")
+            logger.error(f"Failed to get vehicles from API: {e}")
             return []
     
     def _get_vehicle_current_assignment(self, vehicle_id: str) -> Optional[Dict[str, Any]]:
@@ -213,29 +218,36 @@ class FleetDataProvider:
     def get_routes(self) -> Dict[str, Dict[str, Any]]:
         """
         Get all routes with coordinates and metadata.
-        Replaces file_route_provider with database data.
+        Uses Fleet Manager API instead of direct database access.
         """
         try:
-            from world.fleet_manager.models import Route
+            import requests
+            
+            # Make API request to Fleet Manager
+            response = requests.get(f"{self.server_url}/api/v1/routes", timeout=10)
+            response.raise_for_status()
+            
+            api_routes = response.json()
             routes = {}
-            db_routes = self._fleet_manager.db.query(Route).all()
             
-            for route in db_routes:
+            for route in api_routes:
                 route_data = {
-                    'id': route.route_id,
-                    'short_name': route.short_name,
-                    'long_name': route.long_name,
-                    'description': route.description,
-                    'color': route.color,
-                    'coordinates': self.get_route_coordinates(route.short_name),
-                    'stops': self._get_route_stops(route.route_id)
+                    'id': route.get('route_id'),
+                    'short_name': route.get('short_name'),
+                    'long_name': route.get('long_name'),
+                    'description': route.get('description'),
+                    'color': route.get('color'),
+                    'coordinates': [],  # TODO: Get coordinates from API when route shapes API is available
+                    'stops': []  # TODO: Get from stops API when needed
                 }
-                routes[route.short_name] = route_data
+                if route.get('short_name'):
+                    routes[route['short_name']] = route_data
             
+            logger.debug(f"Retrieved {len(routes)} routes from API")
             return routes
             
         except Exception as e:
-            logger.error(f"Failed to get routes: {e}")
+            logger.error(f"Failed to get routes from API: {e}")
             return {}
     
     def get_route_coordinates(self, route_identifier: str) -> List[Tuple[float, float]]:

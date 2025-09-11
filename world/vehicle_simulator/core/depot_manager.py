@@ -273,7 +273,6 @@ class DepotManager:
             
             # Create GPSDevice with navigator_telemetry plugin
             gps_device = GPSDevice(
-                vehicle_id=vehicle_id,
                 device_config={'plugin': 'navigator_telemetry'},
                 navigator_instance=navigator
             )
