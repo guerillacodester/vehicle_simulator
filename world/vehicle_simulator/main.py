@@ -24,8 +24,6 @@ from world.vehicle_simulator.providers.data_provider import FleetDataProvider
 from world.vehicle_simulator.config.config_loader import ConfigLoader
 from world.vehicle_simulator.simulators.simulator import VehicleSimulator
 from world.vehicle_simulator.core.depot_manager import DepotManager
-from world.vehicle_simulator.core.standalone_manager import StandaloneFleetManager
-from world.vehicle_simulator.providers.config_provider import SelfContainedConfigProvider
 
 # Setup logging
 logging.basicConfig(
@@ -57,9 +55,7 @@ class VehicleSimulatorApp:
             logger.warning(f"Database connection failed: {e}")
             self.data_provider = None
         
-        # Initialize config provider and fleet manager for legacy compatibility
-        self.config_provider = SelfContainedConfigProvider(self.config_file)
-        self.fleet_manager = StandaloneFleetManager(config_provider=self.config_provider)
+        # Note: Legacy standalone manager removed - using depot manager only
         
         self.depot = None
         self._active_simulator = None  # Track active simulator for cleanup

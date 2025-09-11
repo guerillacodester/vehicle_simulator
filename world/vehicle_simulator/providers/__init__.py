@@ -1,15 +1,11 @@
 """
 Vehicle Simulator Provider Implementations
 ------------------------------------------
-Concrete implementations of provider interfaces.
+Core data provider for fleet management integration.
+Legacy file-based and standalone providers have been removed.
 """
 
-from world.vehicle_simulator.providers.file_route_provider import FileRouteProvider
-from world.vehicle_simulator.providers.config_provider import SelfContainedConfigProvider
+from world.vehicle_simulator.providers.data_provider import FleetDataProvider
+from world.vehicle_simulator.providers.api_monitor import SocketIOAPIMonitor
 
-try:
-    from world.vehicle_simulator.providers.database_route_provider import DatabaseRouteProvider
-    __all__ = ['FileRouteProvider', 'SelfContainedConfigProvider', 'DatabaseRouteProvider']
-except ImportError:
-    # Database provider not available (fleet_manager not installed)
-    __all__ = ['FileRouteProvider', 'SelfContainedConfigProvider']
+__all__ = ['FleetDataProvider', 'SocketIOAPIMonitor']

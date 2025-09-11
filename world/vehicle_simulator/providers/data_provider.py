@@ -38,10 +38,8 @@ class FleetDataProvider:
         # Start monitoring
         self.api_monitor.start_monitoring()
         
-        # Try initial connection
-        self._initialize_fleet_manager()
-        
         logger.info(f"Fleet data provider initialized with Socket.IO monitoring for {server_url}")
+        logger.info("Waiting for fleet manager API connection...")
 
     def _on_api_status_change(self, status: APIConnectionStatus):
         """Handle API status changes"""

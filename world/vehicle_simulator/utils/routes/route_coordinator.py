@@ -35,20 +35,22 @@ def get_route_coordinates(
     """
     coordinates = []
     
-    # Try database first if route_id provided
-    if route_id:
+    # Database route provider removed - use file-based routes only
+    if route_id and not route_file:
+        logger.warning(f"Database route provider removed - route_id '{route_id}' ignored, using file-based routes only")
+        # Try to find a matching route file
         try:
-            from world.vehicle_simulator.providers.database_route_provider import DatabaseRouteProvider
-            provider = DatabaseRouteProvider()
-            coordinates = provider.get_route_coordinates(route_id)
-            logger.info(f"Loaded route {route_id} from database ({len(coordinates)} coordinates)")
-        except Exception as e:
-            logger.warning(f"Failed to load route {route_id} from database: {e}")
-            # Fall back to file if available
-            if route_file:
-                logger.info(f"Falling back to file route: {route_file}")
+            from pathlib import Path
+            routes_dir = Path("../../data/routes")
+            potential_files = list(routes_dir.glob(f"*{route_id}*.geojson"))
+            if potential_files:
+                route_file = str(potential_files[0])
+                logger.info(f"Found matching route file: {route_file}")
             else:
-                raise ValueError(f"Route '{route_id}' not found in database and no file fallback provided")
+                raise ValueError(f"No matching route file found for route_id '{route_id}'")
+        except Exception as e:
+            logger.error(f"Could not find route file for {route_id}: {e}")
+            raise ValueError(f"Route '{route_id}' requires a route file - database provider removed")
     
     # Load from file if no database coordinates or if only file provided
     if not coordinates and route_file:
