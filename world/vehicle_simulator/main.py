@@ -14,7 +14,6 @@ current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 sys.path.insert(0, str(current_dir.parent.parent))  # For root level imports
 
-import logging
 import argparse
 import time
 from typing import Optional
@@ -25,16 +24,11 @@ from world.vehicle_simulator.config.config_loader import ConfigLoader
 from world.vehicle_simulator.simulators.simulator import VehicleSimulator
 from world.vehicle_simulator.core.depot_manager import DepotManager
 
-# Setup logging
-logging.basicConfig(
-    level=logging.WARNING,  # Reduced default level
-    format='%(message)s'     # Simplified format
+# New logging system
+from world.vehicle_simulator.utils.logging_system import (
+    get_logger, configure_logging, LogLevel, LogComponent, get_logging_system, LoggingMode
 )
-logger = logging.getLogger(__name__)
-
-# Only show INFO for main simulator messages
-logging.getLogger('world.vehicle_simulator.main').setLevel(logging.INFO)
-logging.getLogger('world.vehicle_simulator.simulators.simulator').setLevel(logging.INFO)
+from world.vehicle_simulator.config.logging_config import LoggingConfig
 
 
 class VehicleSimulatorApp:
@@ -43,6 +37,10 @@ class VehicleSimulatorApp:
     def __init__(self, config_file: Optional[str] = None):
         self.config_file = config_file or str(current_dir / "config" / "config.ini")
         
+        # Initialize logging system first
+        self._setup_logging()
+        self.logger = get_logger(LogComponent.MAIN)
+        
         # Initialize new architecture components
         self.config_loader = ConfigLoader(self.config_file)
         self.config = self.config_loader.get_all_config()
@@ -50,9 +48,9 @@ class VehicleSimulatorApp:
         # Initialize data provider for database access
         try:
             self.data_provider = FleetDataProvider()
-            logger.info("Database connection established")
+            self.logger.info("Database connection established")
         except Exception as e:
-            logger.warning(f"Database connection failed: {e}")
+            self.logger.warning(f"Database connection failed: {e}")
             self.data_provider = None
         
         # Note: Legacy standalone manager removed - using depot manager only
@@ -61,7 +59,31 @@ class VehicleSimulatorApp:
         self._active_simulator = None  # Track active simulator for cleanup
         
         # Use debug logging for internal initialization
-        logger.debug("Vehicle Simulator initialized with database-driven architecture")
+        self.logger.debug("Vehicle Simulator initialized with database-driven architecture")
+    
+    def _setup_logging(self):
+        """Setup the logging system based on configuration."""
+        try:
+            # Load logging configuration
+            logging_config = LoggingConfig()
+            
+            # Configure the logging system
+            configure_logging(
+                level=logging_config.get_log_level(),
+                verbose=logging_config.is_verbose(),
+                console=logging_config.is_console_enabled(),
+                file_logging=logging_config.is_file_enabled(),
+                structured=logging_config.is_structured_enabled(),
+                log_dir=logging_config.get_log_directory()
+            )
+            
+            # Log system initialization
+            get_logging_system().log_system_info()
+            
+        except Exception as e:
+            # Fallback to basic logging if configuration fails
+            configure_logging(level=LogLevel.INFO, verbose=False)
+            print(f"Warning: Failed to configure logging system, using defaults: {e}")
     
     def run_simulator(self):
         """Run the vehicle simulator"""
@@ -77,23 +99,23 @@ class VehicleSimulatorApp:
             return simulator
             
         except Exception as e:
-            logger.error(f"Failed to start simulator: {e}")
+            self.logger.error(f"Failed to start simulator: {e}")
             raise
     
     def run_depot_simulator(self, tick_time: float = 1.0):
         """Run the depot-based vehicle simulator with Navigator"""
         try:
-            print("🏭 Starting Database-Driven Depot Simulator...")
-            print("   �️ Using database for fleet data")
-            print("   📍 Navigator provides realistic route following")
-            print(f"   ⏱️ Tick time: {tick_time} seconds")
+            self.logger.info("Starting Database-Driven Depot Simulator...")
+            self.logger.info("   Using database for fleet data")
+            self.logger.info("   Navigator provides realistic route following")
+            self.logger.info(f"   Tick time: {tick_time} seconds")
             
             if not self.data_provider:
-                print("   ⚠️ Database unavailable - using fallback mode")
+                self.logger.warning("   Database unavailable - using fallback mode")
                 enable_timetable = False
             else:
                 enable_timetable = self.config['simulation'].get('enable_timetable', True)
-                print(f"   📅 Timetable operations: {'enabled' if enable_timetable else 'disabled'}")
+                self.logger.info(f"   Timetable operations: {'enabled' if enable_timetable else 'disabled'}")
             
             # Create depot manager with new architecture
             self.depot = DepotManager(
@@ -105,26 +127,29 @@ class VehicleSimulatorApp:
             # Store reference for cleanup
             self._active_simulator = self.depot
             
-            print("✅ Database-Driven Depot Simulator started successfully")
+            self.logger.info("✅ Database-Driven Depot Simulator started successfully")
             
             # Show initial detailed status
-            print("\n" + "=" * 60)
-            print("📊 INITIAL SYSTEM STATUS")
-            print("=" * 60)
+            self.logger.info("=" * 60)
+            self.logger.info("📊 INITIAL SYSTEM STATUS")
+            self.logger.info("=" * 60)
             if hasattr(self.depot, 'get_detailed_schedule_status'):
-                print(self.depot.get_detailed_schedule_status())
-            print("=" * 60)
+                status = self.depot.get_detailed_schedule_status()
+                for line in status.split('\n'):
+                    if line.strip():
+                        self.logger.info(line)
+            self.logger.info("=" * 60)
             
             return self.depot
             
         except Exception as e:
-            logger.error(f"Failed to start depot simulator: {e}")
+            self.logger.error(f"Failed to start depot simulator: {e}")
             # Fallback to basic simulator for GPS testing
-            logger.info("Falling back to basic vehicle simulator with GPS transmission...")
+            self.logger.info("Falling back to basic vehicle simulator with GPS transmission...")
             try:
-                print("🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...")
-                print("   📡 GPS transmission enabled")
-                print(f"   ⏱️ Tick time: {tick_time} seconds")
+                self.logger.info("🚌 Starting Basic Vehicle Simulator (GPS Fallback Mode)...")
+                self.logger.info("   📡 GPS transmission enabled")
+                self.logger.info(f"   ⏱️ Tick time: {tick_time} seconds")
                 
                 # Create basic simulator with GPS enabled
                 from world.vehicle_simulator.simulators.simulator import VehicleSimulator
@@ -134,17 +159,17 @@ class VehicleSimulatorApp:
                 # Store reference for cleanup
                 self._active_simulator = simulator
                 
-                print("✅ Basic Vehicle Simulator started with GPS transmission")
+                self.logger.info("✅ Basic Vehicle Simulator started with GPS transmission")
                 return simulator
                 
             except Exception as fallback_error:
-                logger.error(f"Fallback simulator also failed: {fallback_error}")
+                self.logger.error(f"Fallback simulator also failed: {fallback_error}")
                 raise
     
     def list_available_routes(self):
         """List all available routes"""
         routes = self.fleet_manager.list_available_routes()
-        logger.info(f"Available routes: {routes}")
+        self.logger.info(f"Available routes: {routes}")
         return routes
     
     def get_simulation_status(self):
@@ -164,7 +189,7 @@ class VehicleSimulatorApp:
     
     def stop(self):
         """Stop all simulation components"""
-        logger.info("Stopping Vehicle Simulator...")
+        self.logger.info("Stopping Vehicle Simulator...")
         
         if self.depot:
             self.depot.stop()
@@ -173,9 +198,9 @@ class VehicleSimulatorApp:
         if hasattr(self, '_active_simulator') and self._active_simulator:
             if hasattr(self._active_simulator, 'stop'):
                 self._active_simulator.stop()
-                logger.info("Active simulator stopped")
+                self.logger.info("Active simulator stopped")
         
-        logger.info("Vehicle Simulator stopped")
+        self.logger.info("Vehicle Simulator stopped")
 
 
 def create_parser():
@@ -223,7 +248,19 @@ Examples:
     parser.add_argument(
         '--debug',
         action='store_true',
-        help='Enable debug logging'
+        help='Enable debug logging with simplified status output'
+    )
+    
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Enable verbose logging with detailed output (implies --debug)'
+    )
+    
+    parser.add_argument(
+        '--fleet-status',
+        action='store_true',
+        help='Show detailed fleet status from Fleet Manager API and exit'
     )
     
     parser.add_argument(
@@ -247,39 +284,46 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
     
-    # Setup debug logging if requested
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Restore detailed format for debug mode
-        for handler in logging.getLogger().handlers:
-            handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    # Setup logging modes
+    if args.verbose:
+        # Verbose mode: enable all detailed output
+        get_logging_system().set_logging_mode(LoggingMode.VERBOSE)
+    elif args.debug:
+        # Debug mode: clean simplified status output
+        get_logging_system().set_logging_mode(LoggingMode.DEBUG)
     else:
-        # Quiet mode - only show essential messages
-        logging.getLogger('world.vehicle_simulator.core').setLevel(logging.WARNING)
-        logging.getLogger('world.vehicle_simulator.vehicle').setLevel(logging.WARNING)
-        logging.getLogger('world.vehicle_simulator.providers').setLevel(logging.WARNING)
+        # Normal mode: basic info only
+        get_logging_system().set_logging_mode(LoggingMode.NORMAL)
     
     try:
         # Initialize simulator app
         app = VehicleSimulatorApp(args.config)
         
         # Handle utility commands
+        main_logger = get_logger(LogComponent.MAIN)
         if args.list_routes:
             routes = app.list_available_routes()
             if routes:
-                print("\nAvailable Routes:")
+                main_logger.info("Available Routes:")
                 for route in routes:
                     info = app.fleet_manager.get_route_info(route)
-                    print(f"  - {route}: {info.get('name', 'No description') if info else 'No info'}")
+                    main_logger.info(f"  - {route}: {info.get('name', 'No description') if info else 'No info'}")
             else:
-                print("No routes available")
+                main_logger.info("No routes available")
             return
         
         if args.status:
             status = app.get_simulation_status()
-            print("\nVehicle Simulator Status:")
+            main_logger.info("Vehicle Simulator Status:")
             for key, value in status.items():
-                print(f"  {key}: {value}")
+                main_logger.info(f"  {key}: {value}")
+            return
+        
+        if args.fleet_status:
+            main_logger.info("Fleet Status feature requires Fleet Manager API to be running")
+            main_logger.info("Start the Fleet Manager API first:")
+            main_logger.info("  python world/fleet_manager/api/start_fleet_manager.py")
+            main_logger.info("Then access: http://localhost:8000/api/v1/fleet/detailed_status")
             return
         
         # Run depot simulator (basic mode deprecated)
@@ -292,13 +336,13 @@ def main():
                 tick_time = args.tick_time or 1.0
                 duration = args.duration
                 
-                print("=" * 60)
-                print("🚌 Vehicle Simulator - Timed Mode")
-                print("=" * 60)
-                print(f"⏱️  Update Interval: {tick_time} seconds")
-                print(f"⏰ Duration: {duration} seconds")
-                print(f"🚀 Mode: {args.mode}")
-                print("-" * 60)
+                main_logger.info("=" * 60)
+                main_logger.info("🚌 Vehicle Simulator - Timed Mode")
+                main_logger.info("=" * 60)
+                main_logger.info(f"⏱️  Update Interval: {tick_time} seconds")
+                main_logger.info(f"⏰ Duration: {duration} seconds")
+                main_logger.info(f"🚀 Mode: {args.mode}")
+                main_logger.info("-" * 60)
                 
                 start_time = time.time()
                 last_status_time = 0
@@ -312,32 +356,38 @@ def main():
                         # Show detailed status every 15 seconds
                         current_time = time.time() - start_time
                         if current_time - last_status_time >= 15:
-                            print(f"\n⏰ Time: {current_time:.1f}s")
+                            main_logger.info(f"⏰ Time: {current_time:.1f}s")
                             if hasattr(simulator, 'get_detailed_schedule_status'):
-                                print(simulator.get_detailed_schedule_status())
+                                status = simulator.get_detailed_schedule_status()
+                                for line in status.split('\n'):
+                                    if line.strip():
+                                        main_logger.info(line)
                             elif hasattr(simulator, 'get_status'):
-                                print(simulator.get_status())
+                                status = simulator.get_status()
+                                for line in status.split('\n'):
+                                    if line.strip():
+                                        main_logger.info(line)
                             else:
-                                print("Simulator running")
+                                main_logger.info("Simulator running")
                             last_status_time = current_time
                         
                         time.sleep(tick_time)
                         
                 except KeyboardInterrupt:
-                    print("\n🛑 Simulation interrupted by user")
+                    main_logger.info("🛑 Simulation interrupted by user")
                     
-                print("-" * 60)
-                print("✅ Timed Simulation Complete")
+                main_logger.info("-" * 60)
+                main_logger.info("✅ Timed Simulation Complete")
                 
             else:
                 # Continuous simulation mode
                 try:
-                    print(f"🚌 Vehicle Simulator running continuously ({args.mode} mode)")
-                    print("Press Ctrl+C to stop...")
+                    main_logger.info(f"🚌 Vehicle Simulator running continuously ({args.mode} mode)")
+                    main_logger.info("Press Ctrl+C to stop...")
                     while True:
                         time.sleep(1)
                 except KeyboardInterrupt:
-                    logger.info("Received interrupt signal")
+                    get_logger(LogComponent.MAIN).info("Received interrupt signal")
         
         # Clean shutdown
         app.stop()
@@ -346,12 +396,12 @@ def main():
         time.sleep(0.5)
         
     except Exception as e:
-        logger.error(f"Vehicle Simulator failed: {e}")
+        get_logger(LogComponent.MAIN).error(f"Vehicle Simulator failed: {e}")
         if 'app' in locals():
             app.stop()
         sys.exit(1)
     except KeyboardInterrupt:
-        logger.info("Received interrupt signal")
+        get_logger(LogComponent.MAIN).info("Received interrupt signal")
         if 'app' in locals():
             app.stop()
         sys.exit(0)
