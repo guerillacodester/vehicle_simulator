@@ -139,6 +139,27 @@ class Dispatcher(StateMachine, IDispatcher):
             logging.error(f"[{self.component_name}] Error fetching vehicle assignments: {str(e)}")
             return []
     
+    async def get_all_depot_vehicles(self) -> List[Dict[str, Any]]:
+        """Get ALL vehicles in depot regardless of status - for complete inventory tracking."""
+        if not self.api_connected or not self.session:
+            logging.error(f"[{self.component_name}] Cannot fetch depot vehicles - API not connected")
+            return []
+        
+        try:
+            # Get all vehicles from public API (includes all statuses)
+            async with self.session.get(f"{self.api_base_url}/api/v1/vehicles/public", timeout=10) as response:
+                if response.status == 200:
+                    vehicles_data = await response.json()
+                    logging.debug(f"[{self.component_name}] Fetched {len(vehicles_data)} total depot vehicles")
+                    return vehicles_data
+                else:
+                    logging.error(f"[{self.component_name}] Failed to fetch depot vehicles: HTTP {response.status}")
+                    return []
+                    
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Error fetching depot vehicles: {str(e)}")
+            return []
+    
     async def get_driver_assignments(self) -> List[DriverAssignment]:
         """Get driver assignments using PUBLIC API with human-readable data only - NO UUIDs."""
         if not self.api_connected or not self.session:

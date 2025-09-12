@@ -76,6 +76,11 @@ class IDispatcher(ABC):
         pass
     
     @abstractmethod
+    async def get_all_depot_vehicles(self) -> List[Dict[str, Any]]:
+        """Get ALL vehicles in depot regardless of status - for complete inventory."""
+        pass
+    
+    @abstractmethod
     async def get_driver_assignments(self) -> List[DriverAssignment]:
         """Get driver assignments from API."""
         pass

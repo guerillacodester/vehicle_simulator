@@ -67,7 +67,7 @@ def create_vehicle_public(
     # Look up UUIDs from business identifiers (internal use only)
     country_id = None
     if vehicle.country_code:
-        country = db.query(CountryModel).filter(CountryModel.code == vehicle.country_code).first()
+        country = db.query(CountryModel).filter(CountryModel.iso_code == vehicle.country_code).first()
         if country:
             country_id = country.country_id
         else:

@@ -2,11 +2,13 @@ import logging
 from typing import Dict, Any, Optional, List
 from .states import StateMachine, DepotState
 from .interfaces import IDepotManager, IDispatcher, VehicleAssignment, DriverAssignment
+from .route_queue_builder import RouteQueueBuilder
 
 class DepotManager(StateMachine, IDepotManager):
     def __init__(self, component_name: str = "DepotManager"):
         super().__init__(component_name, DepotState.CLOSED)
         self.dispatcher: Optional[IDispatcher] = None
+        self.route_queue_builder: RouteQueueBuilder = RouteQueueBuilder(f"{component_name}_RouteQueues")
         self.initialized = False
     
     def set_dispatcher(self, dispatcher: IDispatcher):
@@ -93,6 +95,13 @@ class DepotManager(StateMachine, IDepotManager):
                 return False
             
             logging.info(f"[{self.component_name}] Validation passed: {valid_vehicles} vehicles, {available_drivers} available drivers")
+            
+            # Build route queues for depot operations
+            await self._build_route_queues(vehicle_assignments, driver_assignments)
+            
+            # Get complete depot inventory (all vehicles regardless of status)
+            await self._report_depot_inventory()
+            
             return True
             
         except Exception as e:
@@ -153,6 +162,115 @@ class DepotManager(StateMachine, IDepotManager):
         except Exception as e:
             logging.error(f"[{self.component_name}] Route coordination error: {e}")
             return False
+    
+    async def _build_route_queues(self, vehicle_assignments: List[VehicleAssignment], driver_assignments: List[DriverAssignment]) -> bool:
+        """Build route queues for organizing vehicles by route assignments."""
+        try:
+            # Get route information from dispatcher for each unique route
+            route_info = []
+            if self.dispatcher:
+                # Extract unique route codes from vehicle assignments  
+                unique_route_codes = set()
+                for vehicle in vehicle_assignments:
+                    if vehicle.route_id:  # route_id contains route codes like "1A", "1"
+                        unique_route_codes.add(vehicle.route_id)
+                
+                # Fetch route info for each unique route code
+                for route_code in unique_route_codes:
+                    try:
+                        route_data = await self.dispatcher.get_route_info(route_code)
+                        if route_data:
+                            route_info.append(route_data)
+                    except Exception as e:
+                        logging.warning(f"[{self.component_name}] Failed to get route info for {route_code}: {e}")
+            
+            # Build the route queues
+            success = self.route_queue_builder.build_queues(
+                vehicle_assignments=vehicle_assignments,
+                driver_assignments=driver_assignments,
+                route_info=route_info
+            )
+            
+            if success:
+                # Log queue statistics
+                stats = self.route_queue_builder.get_summary_statistics()
+                logging.info(f"[{self.component_name}] Route queues built: {stats['routes_with_vehicles']} routes with vehicles, {stats['total_vehicles']} total vehicles")
+                
+                # Log route names with vehicles
+                route_names = self.route_queue_builder.get_route_names()
+                if route_names:
+                    logging.info(f"[{self.component_name}] Routes with vehicles: {', '.join(route_names)}")
+            else:
+                logging.error(f"[{self.component_name}] Failed to build route queues")
+            
+            return success
+            
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Route queue building error: {e}")
+            return False
+    
+    async def _report_depot_inventory(self) -> None:
+        """Report complete depot inventory including inactive vehicles."""
+        if not self.dispatcher:
+            return
+        
+        try:
+            # Get ALL vehicles in depot
+            all_vehicles = await self.dispatcher.get_all_depot_vehicles()
+            if not all_vehicles:
+                logging.warning(f"[{self.component_name}] No depot inventory data available")
+                return
+            
+            # Categorize vehicles by status
+            active_vehicles = []
+            inactive_vehicles = []
+            
+            for vehicle in all_vehicles:
+                status = vehicle.get('status', 'unknown')
+                reg_code = vehicle.get('reg_code', 'Unknown')
+                
+                if status in ['available', 'in_service']:
+                    active_vehicles.append((reg_code, status))
+                else:
+                    inactive_vehicles.append((reg_code, status))
+            
+            # Report depot inventory
+            total_count = len(all_vehicles)
+            active_count = len(active_vehicles)
+            inactive_count = len(inactive_vehicles)
+            
+            logging.info(f"[{self.component_name}] Complete Depot Inventory:")
+            logging.info(f"  • Total vehicles in depot: {total_count}")
+            logging.info(f"  • Active vehicles: {active_count} (operational)")
+            logging.info(f"  • Inactive vehicles: {inactive_count} (non-operational)")
+            
+            # List active vehicles
+            if active_vehicles:
+                active_list = ", ".join([f"{reg}({status})" for reg, status in active_vehicles])
+                logging.info(f"  • Active: {active_list}")
+            
+            # List inactive vehicles with reasons
+            if inactive_vehicles:
+                logging.info(f"  • Inactive vehicles (reasons):")
+                for reg_code, status in inactive_vehicles:
+                    reason = self._get_status_reason(status)
+                    logging.info(f"    - {reg_code}: {reason}")
+            
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Depot inventory reporting error: {e}")
+    
+    def _get_status_reason(self, status: str) -> str:
+        """Get human-readable reason for vehicle status."""
+        status_reasons = {
+            'maintenance': 'Under maintenance - not available for service',
+            'retired': 'Retired from service - end of operational life',
+            'out_of_service': 'Temporarily out of service',
+            'repair': 'Under repair - mechanical issues',
+            'inspection': 'Undergoing safety inspection',
+            'cleaning': 'Deep cleaning in progress',
+            'unknown': 'Status unknown - requires investigation'
+        }
+        return status_reasons.get(status, f'Status "{status}" - requires review')
     
     async def shutdown(self) -> bool:
         if self.dispatcher:
