@@ -8,7 +8,7 @@ from uuid import UUID
 
 from ..dependencies import get_db
 from ...models.driver import Driver as DriverModel
-from ..schemas.driver import Driver, DriverCreate, DriverUpdate, DriverPublic
+from ..schemas.driver import Driver, DriverCreate, DriverUpdate, DriverPublic, DriverPublicCreate, DriverPublicUpdate
 
 router = APIRouter(
     prefix="/drivers",
@@ -16,25 +16,25 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("/", response_model=Driver)
+@router.post("/private", response_model=Driver)
 def create_driver(
     driver: DriverCreate,
     db: Session = Depends(get_db)
 ):
-    """Create a new driver"""
+    """Create a new driver - PRIVATE API with full database access"""
     db_driver = DriverModel(**driver.dict())
     db.add(db_driver)
     db.commit()
     db.refresh(db_driver)
     return db_driver
 
-@router.get("/", response_model=List[Driver])
-def read_drivers(
+@router.get("/private", response_model=List[Driver])
+def read_drivers_private(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """Get all drivers with pagination"""
+    """Get all drivers with full data including UUIDs - PRIVATE API for admin use"""
     drivers = db.query(DriverModel).offset(skip).limit(limit).all()
     return drivers
 
@@ -52,6 +52,113 @@ def read_drivers_public(
         license_no=driver.license_no,
         employment_status=driver.employment_status
     ) for driver in drivers]
+
+@router.post("/public", response_model=DriverPublic)
+def create_driver_public(
+    driver: DriverPublicCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new driver using PUBLIC API with business identifiers only - NO UUIDs"""
+    from ...models.country import Country as CountryModel
+    
+    # Look up country UUID from business identifier (internal use only)
+    country_id = None
+    if driver.country_code:
+        country = db.query(CountryModel).filter(CountryModel.code == driver.country_code).first()
+        if country:
+            country_id = country.country_id
+        else:
+            raise HTTPException(status_code=400, detail=f"Country code '{driver.country_code}' not found")
+    
+    # Check if license number already exists
+    existing_driver = db.query(DriverModel).filter(DriverModel.license_no == driver.license_no).first()
+    if existing_driver:
+        raise HTTPException(status_code=400, detail=f"Driver with license {driver.license_no} already exists")
+    
+    # Create driver with internal UUID (hidden from response)
+    db_driver = DriverModel(
+        name=driver.name,
+        license_no=driver.license_no,
+        employment_status=driver.employment_status,
+        phone=driver.phone,
+        email=driver.email,
+        address=driver.address,
+        country_id=country_id
+    )
+    db.add(db_driver)
+    db.commit()
+    db.refresh(db_driver)
+    
+    # Return public schema (no UUIDs)
+    return DriverPublic(
+        name=db_driver.name,
+        license_no=db_driver.license_no,
+        employment_status=db_driver.employment_status
+    )
+
+@router.get("/public/{license_no}", response_model=DriverPublic)
+def read_driver_public(
+    license_no: str,
+    db: Session = Depends(get_db)
+):
+    """Get a specific driver by license number - PUBLIC API with NO UUIDs"""
+    driver = db.query(DriverModel).filter(DriverModel.license_no == license_no).first()
+    if driver is None:
+        raise HTTPException(status_code=404, detail=f"Driver with license {license_no} not found")
+    
+    return DriverPublic(
+        name=driver.name,
+        license_no=driver.license_no,
+        employment_status=driver.employment_status
+    )
+
+@router.put("/public/{license_no}", response_model=DriverPublic)
+def update_driver_public(
+    license_no: str,
+    driver_update: DriverPublicUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update a driver using PUBLIC API with business identifiers only - NO UUIDs"""
+    # Find driver by license number
+    db_driver = db.query(DriverModel).filter(DriverModel.license_no == license_no).first()
+    if db_driver is None:
+        raise HTTPException(status_code=404, detail=f"Driver with license {license_no} not found")
+    
+    # Update fields
+    if driver_update.name is not None:
+        db_driver.name = driver_update.name
+    if driver_update.employment_status is not None:
+        db_driver.employment_status = driver_update.employment_status
+    if driver_update.phone is not None:
+        db_driver.phone = driver_update.phone
+    if driver_update.email is not None:
+        db_driver.email = driver_update.email
+    if driver_update.address is not None:
+        db_driver.address = driver_update.address
+    
+    db.commit()
+    db.refresh(db_driver)
+    
+    # Return public schema (no UUIDs)
+    return DriverPublic(
+        name=db_driver.name,
+        license_no=db_driver.license_no,
+        employment_status=db_driver.employment_status
+    )
+
+@router.delete("/public/{license_no}")
+def delete_driver_public(
+    license_no: str,
+    db: Session = Depends(get_db)
+):
+    """Delete a driver using PUBLIC API with business identifier - NO UUIDs"""
+    db_driver = db.query(DriverModel).filter(DriverModel.license_no == license_no).first()
+    if db_driver is None:
+        raise HTTPException(status_code=404, detail=f"Driver with license {license_no} not found")
+    
+    db.delete(db_driver)
+    db.commit()
+    return {"message": f"Driver with license {license_no} deleted successfully"}
 
 @router.get("/{driver_id}", response_model=Driver)
 def read_driver(

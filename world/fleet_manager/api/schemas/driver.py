@@ -34,3 +34,22 @@ class DriverPublic(BaseModel):
     name: str
     license_no: str
     employment_status: str = "active"
+
+class DriverPublicCreate(BaseModel):
+    """Create driver using public API with business identifiers only"""
+    name: str
+    license_no: str
+    employment_status: str = "active"
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    # Business identifiers instead of UUIDs
+    country_code: Optional[str] = None      # e.g., "BB" for Barbados
+
+class DriverPublicUpdate(BaseModel):
+    """Update driver using public API with business identifiers only"""
+    name: Optional[str] = None
+    employment_status: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None

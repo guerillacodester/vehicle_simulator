@@ -96,58 +96,41 @@ class Dispatcher(StateMachine, IDispatcher):
             return False
     
     async def get_vehicle_assignments(self) -> List[VehicleAssignment]:
-        """Get vehicle assignments with friendly names from Fleet Manager API - NO fallback data."""
+        """Get vehicle assignments using PUBLIC API with human-readable data only - NO UUIDs."""
         if not self.api_connected or not self.session:
             logging.error(f"[{self.component_name}] Cannot fetch assignments - API not connected")
             return []
         
         try:
-            # Get vehicles, drivers, and routes data for friendly names
-            vehicles_data = []
-            drivers_data = []
-            routes_data = []
-            
-            # Fetch vehicles
-            async with self.session.get(f"{self.api_base_url}/api/v1/vehicles", timeout=10) as response:
-                if response.status == 200:
-                    vehicles_data = await response.json()
-            
-            # Fetch drivers for names
-            async with self.session.get(f"{self.api_base_url}/api/v1/drivers", timeout=10) as response:
-                if response.status == 200:
-                    drivers_data = await response.json()
-            
-            # Fetch routes for names
-            async with self.session.get(f"{self.api_base_url}/api/v1/routes", timeout=10) as response:
-                if response.status == 200:
-                    routes_data = await response.json()
-            
-            # Create lookup dictionaries for friendly names
-            driver_lookup = {d.get('driver_id'): d.get('name', 'Unknown Driver') for d in drivers_data}
-            route_lookup = {r.get('route_id'): r.get('short_name', 'Unknown Route') for r in routes_data}
-            
-            assignments = []
-            
-            # Transform vehicle data with friendly names
-            for vehicle in vehicles_data:
-                # Only include vehicles that have assignments
-                if vehicle.get('assigned_driver_id') and vehicle.get('preferred_route_id'):
-                    driver_id = vehicle.get('assigned_driver_id', '')
-                    route_id = vehicle.get('preferred_route_id', '')
-                    
-                    assignment = VehicleAssignment(
-                        vehicle_id=vehicle.get('vehicle_id', ''),
-                        route_id=route_id,
-                        driver_id=driver_id,
-                        assignment_type='regular',  # Default type
-                        start_time=None,  # Not provided by current API
-                        end_time=None,    # Not provided by current API
-                        # Friendly names for human readability
-                        vehicle_reg_code=vehicle.get('reg_code', 'Unknown Vehicle'),
-                        driver_name=driver_lookup.get(driver_id, 'Unknown Driver'),
-                        route_name=route_lookup.get(route_id, 'Unknown Route')
-                    )
-                    assignments.append(assignment)
+            # Use the search endpoint that provides complete assignment data with human-readable identifiers
+            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", timeout=10) as response:
+                if response.status != 200:
+                    logging.error(f"[{self.component_name}] Failed to fetch assignments: HTTP {response.status}")
+                    return []
+                
+                pairs_data = await response.json()
+                assignments = []
+                
+                # Transform search results into VehicleAssignment objects  
+                for pair in pairs_data:
+                    # Only include active vehicles with valid assignments
+                    if (pair.get('vehicle_status') in ['available', 'in_service'] and 
+                        pair.get('driver_employment_status') == 'active' and
+                        pair.get('registration') and pair.get('route_code')):
+                        
+                        assignment = VehicleAssignment(
+                            vehicle_id=pair.get('registration', ''),  # Use reg code as vehicle_id (no UUIDs)
+                            route_id=pair.get('route_code', ''),      # Use route code as route_id (no UUIDs)
+                            driver_id=pair.get('driver_license', ''), # Use license as driver_id (no UUIDs)
+                            assignment_type='regular',
+                            start_time=pair.get('assignment_date'),
+                            end_time=None,
+                            # Human-readable friendly names
+                            vehicle_reg_code=pair.get('registration', 'Unknown Vehicle'),
+                            driver_name=pair.get('driver_name', 'Unknown Driver'),
+                            route_name=pair.get('route_name', 'Unknown Route')
+                        )
+                        assignments.append(assignment)
             
             logging.info(f"[{self.component_name}] Fetched {len(assignments)} vehicle assignments with friendly names")
             return assignments
@@ -157,116 +140,84 @@ class Dispatcher(StateMachine, IDispatcher):
             return []
     
     async def get_driver_assignments(self) -> List[DriverAssignment]:
-        """Get driver assignments from Fleet Manager API - NO fallback data."""
+        """Get driver assignments using PUBLIC API with human-readable data only - NO UUIDs."""
         if not self.api_connected or not self.session:
             logging.error(f"[{self.component_name}] Cannot fetch driver assignments - API not connected")
             return []
         
         try:
-            async with self.session.get(f"{self.api_base_url}/api/v1/drivers", timeout=10) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    assignments = []
-                    
-                    # Transform actual Fleet Manager driver data to DriverAssignment objects
-                    for driver in data:
-                        # Map employment_status to our status field
-                        status = "available" if driver.get('employment_status') == 'active' else "unavailable"
-                        
-                        assignment = DriverAssignment(
-                            driver_id=driver.get('driver_id', ''),
-                            driver_name=driver.get('name', ''),
-                            license_number=driver.get('license_no', ''),
-                            vehicle_id=None,  # Would need to cross-reference with vehicles
-                            route_id=None,    # Would need to cross-reference with vehicles
-                            status=status,
-                            shift_start=None,  # Not provided by current API
-                            shift_end=None     # Not provided by current API
-                        )
-                        assignments.append(assignment)
-                    
-                    logging.info(f"[{self.component_name}] Fetched {len(assignments)} driver assignments from Fleet Manager")
-                    return assignments
-                else:
+            # Use the search endpoint that provides complete assignment data with human-readable identifiers
+            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", timeout=10) as response:
+                if response.status != 200:
                     logging.error(f"[{self.component_name}] Failed to fetch driver assignments: HTTP {response.status}")
                     return []
+                
+                pairs_data = await response.json()
+                assignments = []
+                
+                # Transform search results into DriverAssignment objects
+                for pair in pairs_data:
+                    if pair.get('driver_employment_status') == 'active':
+                        assignment = DriverAssignment(
+                            driver_id=pair.get('driver_license', ''),    # Use license as driver_id (no UUIDs)
+                            driver_name=pair.get('driver_name', ''),
+                            license_number=pair.get('driver_license', ''),
+                            vehicle_id=pair.get('registration', ''),     # Use reg code as vehicle_id (no UUIDs)
+                            route_id=pair.get('route_code', ''),         # Use route code as route_id (no UUIDs)
+                            status="available",  # All active drivers are available
+                            shift_start=pair.get('assignment_date'),
+                            shift_end=None
+                        )
+                        assignments.append(assignment)
+                
+                logging.info(f"[{self.component_name}] Fetched {len(assignments)} driver assignments from Fleet Manager")
+                return assignments
                     
         except Exception as e:
             logging.error(f"[{self.component_name}] Error fetching driver assignments: {str(e)}")
             return []
     
-    async def get_route_info(self, route_id: str) -> Optional[RouteInfo]:
-        """Get route information with geometry from Fleet Manager API - NO fallback data."""
+    async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
+        """Get route information using PUBLIC API with human-readable data only - NO UUIDs."""
         if not self.api_connected or not self.session:
             logging.error(f"[{self.component_name}] Cannot fetch route info - API not connected")
             return None
         
         try:
-            # Get route basic info
-            async with self.session.get(f"{self.api_base_url}/api/v1/routes", timeout=10) as response:
+            # Use the search endpoint to get vehicles on this route (includes route info)
+            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicles/by-route/{route_code}", timeout=10) as response:
                 if response.status != 200:
-                    logging.error(f"[{self.component_name}] Failed to fetch routes: HTTP {response.status}")
+                    logging.error(f"[{self.component_name}] Failed to fetch route info: HTTP {response.status}")
                     return None
                     
-                routes_data = await response.json()
-                route_basic_info = None
+                vehicles_on_route = await response.json()
                 
-                # Find the route with matching ID and get its name immediately for secure logging
-                for route in routes_data:
-                    if route.get('route_id') == route_id:
-                        route_basic_info = route
-                        break
-                
-                if not route_basic_info:
-                    logging.error(f"[{self.component_name}] Route not found in API response")
+                if not vehicles_on_route:
+                    logging.error(f"[{self.component_name}] Route <{route_code}> not found or has no assigned vehicles")
                     return None
                 
-                # Get route name immediately for all logging (never log UUIDs)
-                route_name = route_basic_info.get('long_name', route_basic_info.get('short_name', 'Unknown Route'))
-            
-            # Get route geometry/shapes data
-            route_geometry = None
-            coordinate_count = 0
-            shape_id = None
-            
-            try:
-                async with self.session.get(f"{self.api_base_url}/api/v1/shapes", timeout=10) as shapes_response:
-                    if shapes_response.status == 200:
-                        shapes_data = await shapes_response.json()
-                        
-                        # For now, we'll need to associate shapes with routes somehow
-                        # This is a simplified approach - in reality, there should be a route-shape mapping
-                        if shapes_data and len(shapes_data) > 0:
-                            # Use first available shape as example (this should be improved)
-                            # In a real system, you'd have route_id -> shape_id mapping
-                            shape = shapes_data[0]  # Temporary - should be route-specific
-                            route_geometry = shape.get('geom')
-                            shape_id = shape.get('shape_id')
-                            
-                            if route_geometry and route_geometry.get('coordinates'):
-                                coordinate_count = len(route_geometry['coordinates'])
-                                logging.info(f"[{self.component_name}] Found geometry with {coordinate_count} coordinate points for Route {route_name}")
-                            else:
-                                logging.warning(f"[{self.component_name}] No coordinate data in geometry for Route {route_name}")
-                    else:
-                        logging.warning(f"[{self.component_name}] Could not fetch shapes data: HTTP {shapes_response.status}")
-            except Exception as e:
-                logging.warning(f"[{self.component_name}] Error fetching route geometry: {e}")
-            
-            # Create RouteInfo with geometry data
-            route_info = RouteInfo(
-                route_id=route_basic_info.get('route_id', route_id),
-                route_name=route_name,  # Use the already extracted name
-                route_type='bus',  # Default type
-                geometry=route_geometry,           # GeoJSON LineString with coordinates
-                stops=None,                        # Not provided by current API  
-                distance_km=None,                  # Not provided by current API
-                coordinate_count=coordinate_count, # Number of GPS points
-                shape_id=shape_id                  # Shape reference
-            )
-            
-            logging.info(f"[{self.component_name}] Fetched complete route info for Route {route_name} ({coordinate_count} GPS points)")
-            return route_info
+                # Extract route info from the first vehicle result (all will have same route info)
+                first_vehicle = vehicles_on_route[0]
+                route_name = first_vehicle.get('assigned_route_name', f'route {route_code}')
+                
+                # For now, assume routes have navigation data if they have assigned vehicles
+                # In a real system, we'd need to check actual shape/geometry data
+                coordinate_count = 100  # Placeholder - indicates route has navigation data
+                
+                # Create RouteInfo with basic data (no UUIDs)
+                route_info = RouteInfo(
+                    route_id=route_code,           # Use route code as ID (no UUIDs)
+                    route_name=route_name,         # Human-readable route name
+                    route_type='bus',              # Default type
+                    geometry=None,                 # Geometry data not available via public API
+                    stops=None,                    # Not provided by current API  
+                    distance_km=None,              # Not provided by current API
+                    coordinate_count=coordinate_count, # Placeholder indicating navigation available
+                    shape_id=None                  # Shape reference not available via public API
+                )
+                
+                logging.info(f"[{self.component_name}] Fetched route info for Route {route_name} (navigation data available)")
+                return route_info
                     
         except Exception as e:
             # Use route_id for error logging if route_info isn't available

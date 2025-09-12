@@ -41,3 +41,25 @@ class VehiclePublic(BaseModel):
     status: VehicleStatusEnum = VehicleStatusEnum.available
     profile_id: Optional[str] = None
     notes: Optional[str] = None
+
+class VehiclePublicCreate(BaseModel):
+    """Create vehicle using public API with business identifiers only"""
+    reg_code: str
+    status: VehicleStatusEnum = VehicleStatusEnum.available
+    capacity: Optional[int] = None
+    profile_id: Optional[str] = None
+    notes: Optional[str] = None
+    # Business identifiers instead of UUIDs
+    country_code: Optional[str] = None      # e.g., "BB" for Barbados
+    depot_name: Optional[str] = None        # e.g., "Bridgetown"
+    preferred_route_code: Optional[str] = None  # e.g., "1A"
+
+class VehiclePublicUpdate(BaseModel):
+    """Update vehicle using public API with business identifiers only"""
+    status: Optional[VehicleStatusEnum] = None
+    capacity: Optional[int] = None
+    profile_id: Optional[str] = None
+    notes: Optional[str] = None
+    # Business identifiers instead of UUIDs
+    depot_name: Optional[str] = None
+    preferred_route_code: Optional[str] = None
