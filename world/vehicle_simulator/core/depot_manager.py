@@ -214,6 +214,10 @@ class DepotManager:
         """Convert database vehicle data to configuration format"""
         assignment = vehicle_data.get('current_assignment', {})
         
+        # Defensive check: ensure assignment is not None
+        if assignment is None:
+            assignment = {}
+        
         config = {
             'active': vehicle_data.get('active', True),
             'route': assignment.get('route_id', ''),
@@ -273,9 +277,23 @@ class DepotManager:
             
             # Create WebSocket transmitter for GPS device
             from ..vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
+            from ..vehicle.gps_device.radio_module.packet import PacketCodec
+            
+            # Get telemetry configuration with defaults
+            telemetry_config = self.config.get('telemetry', {})
+            websocket_url = telemetry_config.get('websocket_url', 'ws://localhost:8001')
+            auth_token = telemetry_config.get('auth_token', '')
+            
+            logger.debug(f"Creating WebSocket transmitter for {vehicle_id}: {websocket_url}")
+            
+            # Create PacketCodec (required by WebSocketTransmitter)
+            codec = PacketCodec()
+            
             transmitter = WebSocketTransmitter(
-                server_url=self.config.telemetry.websocket_url,
-                auth_token=self.config.telemetry.auth_token
+                server_url=websocket_url,
+                token=auth_token,
+                device_id=vehicle_id,
+                codec=codec
             )
             
             # Create plugin config for navigator telemetry
