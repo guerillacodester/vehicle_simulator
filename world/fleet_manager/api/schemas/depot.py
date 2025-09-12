@@ -26,3 +26,9 @@ class Depot(DepotBase, BaseSchema):
     depot_id: UUID
     created_at: datetime
     updated_at: datetime
+
+class DepotPublic(BaseModel):
+    """Public depot schema without UUIDs for enhanced security"""
+    name: str
+    capacity: Optional[int] = None
+    notes: Optional[str] = None

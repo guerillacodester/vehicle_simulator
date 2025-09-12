@@ -11,7 +11,7 @@ try:
 except ImportError:
     from world.fleet_manager.api.start_fleet_manager import get_db
 from ...models.route import Route as RouteModel
-from ..schemas.route import Route, RouteCreate, RouteUpdate
+from ..schemas.route import Route, RouteCreate, RouteUpdate, RoutePublic
 
 router = APIRouter(
     prefix="/routes",
@@ -40,6 +40,24 @@ def read_routes(
     """Get all routes with pagination"""
     routes = db.query(RouteModel).offset(skip).limit(limit).all()
     return routes
+
+@router.get("/public", response_model=List[RoutePublic])
+def read_routes_public(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """Get all routes without UUIDs for enhanced security"""
+    routes = db.query(RouteModel).offset(skip).limit(limit).all()
+    # Convert to public schema (excludes UUIDs)
+    return [RoutePublic(
+        short_name=route.short_name,
+        long_name=route.long_name,
+        parishes=route.parishes,
+        is_active=route.is_active,
+        valid_from=route.valid_from,
+        valid_to=route.valid_to
+    ) for route in routes]
 
 @router.get("/{route_id}", response_model=Route)
 def read_route(

@@ -22,3 +22,10 @@ class Shape(BaseSchema):
     class Config:
         # Allow extra fields and handle geometry conversion
         extra = "ignore"
+
+class ShapePublic(BaseModel):
+    """Public shape schema without UUIDs for enhanced security"""
+    geom: Optional[Dict[str, Any]] = Field(default=None, description="GeoJSON geometry object")
+    
+    class Config:
+        extra = "ignore"

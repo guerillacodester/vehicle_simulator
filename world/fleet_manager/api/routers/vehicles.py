@@ -8,7 +8,7 @@ from uuid import UUID
 
 from ..dependencies import get_db
 from ...models.vehicle import Vehicle as VehicleModel
-from ..schemas.vehicle import Vehicle, VehicleCreate, VehicleUpdate
+from ..schemas.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehiclePublic
 
 router = APIRouter(
     prefix="/vehicles",
@@ -37,6 +37,22 @@ def read_vehicles(
     """Get all vehicles with pagination"""
     vehicles = db.query(VehicleModel).offset(skip).limit(limit).all()
     return vehicles
+
+@router.get("/public", response_model=List[VehiclePublic])
+def read_vehicles_public(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """Get all vehicles without UUIDs for enhanced security"""
+    vehicles = db.query(VehicleModel).offset(skip).limit(limit).all()
+    # Convert to public schema (excludes UUIDs)
+    return [VehiclePublic(
+        reg_code=vehicle.reg_code,
+        status=vehicle.status,
+        profile_id=vehicle.profile_id,
+        notes=vehicle.notes
+    ) for vehicle in vehicles]
 
 @router.get("/{vehicle_id}", response_model=Vehicle)
 def read_vehicle(

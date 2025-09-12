@@ -32,3 +32,12 @@ class Route(RouteBase, BaseSchema):
     route_id: UUID
     created_at: datetime
     updated_at: datetime
+
+class RoutePublic(BaseModel):
+    """Public route schema without UUIDs for enhanced security"""
+    short_name: str
+    long_name: Optional[str] = None
+    parishes: Optional[str] = None
+    is_active: bool = True
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None

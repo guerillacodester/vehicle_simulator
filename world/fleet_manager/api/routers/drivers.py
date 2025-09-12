@@ -8,7 +8,7 @@ from uuid import UUID
 
 from ..dependencies import get_db
 from ...models.driver import Driver as DriverModel
-from ..schemas.driver import Driver, DriverCreate, DriverUpdate
+from ..schemas.driver import Driver, DriverCreate, DriverUpdate, DriverPublic
 
 router = APIRouter(
     prefix="/drivers",
@@ -37,6 +37,21 @@ def read_drivers(
     """Get all drivers with pagination"""
     drivers = db.query(DriverModel).offset(skip).limit(limit).all()
     return drivers
+
+@router.get("/public", response_model=List[DriverPublic])
+def read_drivers_public(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """Get all drivers without UUIDs for enhanced security"""
+    drivers = db.query(DriverModel).offset(skip).limit(limit).all()
+    # Convert to public schema (excludes UUIDs)
+    return [DriverPublic(
+        name=driver.name,
+        license_no=driver.license_no,
+        employment_status=driver.employment_status
+    ) for driver in drivers]
 
 @router.get("/{driver_id}", response_model=Driver)
 def read_driver(

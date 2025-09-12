@@ -13,7 +13,7 @@ try:
 except ImportError:
     from world.fleet_manager.api.start_fleet_manager import get_db
 from ...models.shape import Shape as ShapeModel
-from ..schemas.shape import Shape, ShapeCreate
+from ..schemas.shape import Shape, ShapeCreate, ShapePublic
 
 router = APIRouter(
     prefix="/shapes",
@@ -69,6 +69,31 @@ def read_shapes(
         geom_dict = json.loads(shape.geom_geojson) if shape.geom_geojson else None
         result.append({
             "shape_id": shape.shape_id,
+            "geom": geom_dict
+        })
+    
+    return result
+
+@router.get("/public", response_model=List[ShapePublic])
+def read_shapes_public(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """Get all shapes without UUIDs for enhanced security"""
+    from sqlalchemy import func
+    import json
+    
+    # Get shapes with geometry as GeoJSON
+    shapes = db.query(
+        func.ST_AsGeoJSON(ShapeModel.geom).label('geom_geojson')
+    ).offset(skip).limit(limit).all()
+    
+    # Convert to public response format (no UUIDs)
+    result = []
+    for shape in shapes:
+        geom_dict = json.loads(shape.geom_geojson) if shape.geom_geojson else None
+        result.append({
             "geom": geom_dict
         })
     

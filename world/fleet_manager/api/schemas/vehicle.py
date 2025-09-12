@@ -34,3 +34,10 @@ class Vehicle(VehicleBase, BaseSchema):
     vehicle_id: UUID
     created_at: datetime
     updated_at: datetime
+
+class VehiclePublic(BaseModel):
+    """Public vehicle schema without UUIDs for enhanced security"""
+    reg_code: str
+    status: VehicleStatusEnum = VehicleStatusEnum.available
+    profile_id: Optional[str] = None
+    notes: Optional[str] = None

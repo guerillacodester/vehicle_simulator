@@ -28,3 +28,9 @@ class Driver(DriverBase, BaseSchema):
     driver_id: UUID
     created_at: datetime
     updated_at: datetime
+
+class DriverPublic(BaseModel):
+    """Public driver schema without UUIDs for enhanced security"""
+    name: str
+    license_no: str
+    employment_status: str = "active"
