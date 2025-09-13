@@ -22,6 +22,7 @@ from typing import List, Tuple, Optional
 from . import math
 from .telemetry_buffer import TelemetryBuffer
 from ...base_person import BasePerson
+from ....core.states import DriverState
 
 
 class VehicleDriver(BasePerson):
@@ -50,8 +51,10 @@ class VehicleDriver(BasePerson):
         :param mode: "linear" (legacy) or "geodesic" (default)
         :param direction: "outbound" (default) or "inbound" (reverse route)
         """
-        # Initialize BasePerson with PersonState
+        # Initialize BasePerson with PersonState, then override with DriverState
         super().__init__(driver_id, "VehicleDriver", driver_name)
+        # Override initial state to use DriverState.DISEMBARKED
+        self.current_state = DriverState.DISEMBARKED
         
         if not route_coordinates:
             raise ValueError("VehicleDriver requires route coordinates")
@@ -96,6 +99,8 @@ class VehicleDriver(BasePerson):
     async def _start_implementation(self) -> bool:
         """Driver boards vehicle and starts vehicle components."""
         try:
+            # Set state to BOARDING while starting components
+            self.current_state = DriverState.BOARDING
             self.logger.info(f"Driver {self.person_name} boarding vehicle {self.vehicle_id}")
             
             # Start the navigation worker
@@ -136,6 +141,8 @@ class VehicleDriver(BasePerson):
                     self.logger.info(f"📍 Initial GPS position set: lat={lat:.6f}, lon={lon:.6f}")
                     self.logger.info("📡 Initial position packet transmitted to GPS server")
             
+            # Set state to ONBOARD after successful boarding
+            self.current_state = DriverState.ONBOARD
             self.logger.info(
                 f"Driver {self.person_name} successfully boarded {self.vehicle_id} "
                 f"(mode={self.mode}, direction={self.direction})"
@@ -149,6 +156,8 @@ class VehicleDriver(BasePerson):
     async def _stop_implementation(self) -> bool:
         """Driver disembarks vehicle and stops vehicle components."""
         try:
+            # Set state to DISEMBARKING while stopping components
+            self.current_state = DriverState.DISEMBARKING
             self.logger.info(f"Driver {self.person_name} disembarking from vehicle {self.vehicle_id}")
             
             # Turn off vehicle components if available
@@ -167,6 +176,8 @@ class VehicleDriver(BasePerson):
                 if self._thread.is_alive():
                     self.logger.warning(f"Navigation thread for {self.person_name} did not stop cleanly")
             
+            # Set state to DISEMBARKED after successful disembarking
+            self.current_state = DriverState.DISEMBARKED
             self.logger.info(f"Driver {self.person_name} successfully disembarked from {self.vehicle_id}")
             return True
             

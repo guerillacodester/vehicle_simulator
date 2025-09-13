@@ -246,12 +246,127 @@ async def run_status(api_url: str):
             pass  # Ignore cleanup errors in status mode
 
 
+class StatusOnlyFilter(logging.Filter):
+    """Filter to show only essential status information."""
+    def filter(self, record):
+        # Only show these specific essential status messages
+        essential_patterns = [
+            # Section headers
+            '═══ DEPOT INVENTORY ═══',
+            '═══ VEHICLE STATUS REPORT ═══',
+            # Depot status
+            'Depot initialization complete',
+            'Complete Depot Inventory:',
+            '• Total vehicles in depot:',
+            '• Active vehicles:',
+            '• Inactive vehicles',
+            '• Active:',
+            '- ZR',  # Vehicle identifiers
+            # Vehicle status sections
+            '� ACTIVE VEHICLES:',
+            '� INACTIVE VEHICLES:',
+            '� VEHICLE:',
+            '⏸️ VEHICLE:',
+            '� Driver:',
+            '� Engine:',
+            '� GPS:',
+            '� FLEET SUMMARY:',
+            '� Operational:',
+            '� Non-operational:',
+            '� Total drivers:',
+            'GPS-only mode',
+            'DISABLED',
+            'ERROR',
+            'NO DEVICE',
+            'NO ENGINE',
+            # Driver status
+            '👤 DRIVER STATUS:',
+            '� Active:',
+            '🔴 Idle:',
+            '📊 Total:',
+            '� VEHICLE-DRIVER ASSIGNMENTS:',
+            '🗺️ Distributing routes',
+            '📍',  # Starting coordinates display
+            'Starting driver:',
+            'boarding vehicle',
+            'is ONBOARD',
+            'is IDLE',
+            'started successfully',
+            'stopped successfully', 
+            'Driver present but IDLE:',
+            'Idle driver',
+            'Cannot connect to telemetry server',
+            # GPS device status
+            'GPSDevice for',
+            'started successfully',
+            'stopped successfully',
+            # Engine status
+            'starting engine',
+            'stopping engine',
+            # System status
+            'Shutting down',
+            'Shutdown complete'
+        ]
+        
+        # Always allow ERROR and WARNING messages
+        if record.levelno >= logging.WARNING:
+            return True
+            
+        # Check if message contains essential status patterns
+        message = record.getMessage()
+        return any(pattern in message for pattern in essential_patterns)
+
 async def main_async(argv=None):
     args = parse_args(argv)
+    
     if args.debug:
         logging.basicConfig(level=logging.DEBUG, format='%(asctime)s | %(levelname)s | %(message)s')
     else:
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
+        # Set up colored logging for clean status output
+        class ColoredFormatter(logging.Formatter):
+            """Custom formatter adding colors to log levels."""
+            
+            # ANSI color codes
+            COLORS = {
+                'DEBUG': '\033[36m',    # Cyan
+                'INFO': '\033[34m',     # Blue
+                'WARNING': '\033[33m',  # Yellow
+                'ERROR': '\033[31m',    # Red
+                'CRITICAL': '\033[35m', # Magenta
+                'RESET': '\033[0m'      # Reset
+            }
+            
+            def format(self, record):
+                log_color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
+                reset_color = self.COLORS['RESET']
+                
+                # Color the levelname
+                original_levelname = record.levelname
+                record.levelname = f"{log_color}{record.levelname}{reset_color}"
+                
+                # Format the message
+                formatted = super().format(record)
+                
+                # Restore original levelname
+                record.levelname = original_levelname
+                
+                return formatted
+        
+        # Create a custom handler with colored formatter
+        handler = logging.StreamHandler()
+        handler.setFormatter(ColoredFormatter('%(asctime)s | %(levelname)s | %(message)s'))
+        
+        # Configure root logger
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.INFO)
+        root_logger.handlers.clear()
+        root_logger.addHandler(handler)
+        
+        # Apply filter to root logger to show only essential status
+        root_logger = logging.getLogger()
+        status_filter = StatusOnlyFilter()
+        for handler in root_logger.handlers:
+            handler.addFilter(status_filter)
 
     # Status mode doesn't need full simulator initialization
     if args.mode == 'status':

@@ -1,7 +1,52 @@
 """Vehicle Simulator Core Module (Clean Architecture).
 
-This replaces the previous `clean_simulator` module; name aligned with
-user preference for clarity and conventional import path.
+This replaces the previous `clean_simulator` module; name aligne                logger.info("")
+                       # GPS status            # ═══ SECTION 2: INACTIVE VEHICLES ═══
+            if idle_drivers:
+                logger.info("")
+                logger.info("")
+                logger.info("┌─────────────────────────────────────────────────────────────")
+                logger.info("│ 🔴 INACTIVE VEHICLES - NON-OPERATIONAL FLEET")
+                logger.info("└─────────────────────────────────────────────────────────────")
+                
+                for i, driver in enumerate(idle_drivers, 1):
+                    driver_name = getattr(driver, 'driver_name', 'Unknown Driver')
+                    vehicle_id = getattr(driver, 'vehicle_id', 'Unknown Vehicle')
+                    driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'IDLE'
+                    
+                    logger.info("")
+                    logger.info(f"  ⏸️ VEHICLE #{i}: {vehicle_id}")
+                    logger.info(f"  ├─ 👨‍💼 Driver: {driver_name}")
+                    logger.info(f"  ├─ 📋 Status: 🚶 Waiting in depot - vehicle not operational")
+                    logger.info(f"  ├─ 🔧 Engine: 🔴 ❌ DISABLED (vehicle under maintenance/retired)")
+                    logger.info(f"  └─ 📡 GPS: 🔴 ❌ DISABLED (vehicle not operational)")cle
+                    if hasattr(driver, 'vehicle_gps') and driver.vehicle_gps:
+                        try:
+                            gps_state = getattr(driver.vehicle_gps, 'state', 'UNKNOWN')
+                            device_id = getattr(driver.vehicle_gps, 'device_id', None) or \
+                                       getattr(driver.vehicle_gps, 'component_id', None) or \
+                                       f"GPS-{driver.vehicle_id}"
+                            
+                            if gps_state == "ON":
+                                gps_detail = f"🟢 📡 ACTIVE - Transmitting location ({device_id})"
+                            elif gps_state == "OFF":
+                                gps_detail = f"🔴 📴 OFFLINE - No GPS signal ({device_id})"
+                            else:
+                                gps_detail = f"🟡 📡 UNKNOWN - GPS status unclear ({device_id})"
+                            logger.info(f"  └─ 📡 GPS: {gps_detail}")
+                        except Exception as e:
+                            logger.info(f"  └─ 📡 GPS: 🟡 ⚠️ ERROR - {str(e)}")
+                    else:
+                        logger.info(f"  └─ 📡 GPS: 🔴 ❌ NO DEVICE - GPS not installed")logger.info("┌─────────────────────────────────────────────────────────────")
+                logger.info("│ 🟢 ACTIVE VEHICLES - OPERATIONAL FLEET")
+                logger.info("└─────────────────────────────────────────────────────────────") with
+user preference for clarity and            #leet Summary
+            total_drivers = len(active_drivers) + len(idle_drivers)
+            logger.info("")
+            logger.info("📊 FLEET SUMMARY:")
+            logger.info(f"  🟢 Operational: {len(active_drivers)} vehicles")
+            logger.info(f"  🔴 Non-operational: {len(idle_drivers)} vehicles") 
+            logger.info(f"  📋 Total drivers: {total_drivers}")ntional import path.
 """
 from __future__ import annotations
 import asyncio
@@ -106,14 +151,103 @@ class CleanVehicleSimulator:
                     if idle_driver:
                         idle_drivers.append(idle_driver)
             
-            # Summary logging
-            total_drivers = len(active_drivers) + len(idle_drivers)
-            if active_drivers:
-                logger.info(f"🎯 Started {len(active_drivers)} active vehicle operations")
-            if idle_drivers:
-                logger.info(f"🚶 {len(idle_drivers)} drivers present but IDLE (vehicles not operational)")
+            # Organized Component Status Display
+            logger.info("")
+            logger.info("═══════════════════════════════════════════════════════════════")
+            logger.info("🚌 VEHICLE STATUS REPORT - OPERATIONAL OVERVIEW")
+            logger.info("═══════════════════════════════════════════════════════════════")
             
-            logger.info(f"📊 Driver Summary: {len(active_drivers)} active, {len(idle_drivers)} idle, {total_drivers} total")
+            # Active Vehicles - Complete Status Per Vehicle
+            if active_drivers:
+                logger.info("� ACTIVE VEHICLES:")
+                for i, driver in enumerate(active_drivers, 1):
+                    driver_name = getattr(driver, 'driver_name', 'Unknown Driver')
+                    vehicle_id = getattr(driver, 'vehicle_id', 'Unknown Vehicle')
+                    driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'UNKNOWN'
+                    
+                    logger.info("")
+                    logger.info(f"  🚌 VEHICLE #{i}: {vehicle_id}")
+                    logger.info(f"  ├─ �‍💼 Driver: {driver_name}")
+                    
+                    # Driver status with more detailed icons
+                    status_detail = ""
+                    if driver_state == "ONBOARD":
+                        status_detail = "🚌 ONBOARD - Currently driving vehicle"
+                    elif driver_state == "DISEMBARKED":
+                        status_detail = "⏸️ IDLE - Standing by in depot"
+                    elif driver_state == "IDLE":
+                        status_detail = "⏸️ IDLE - Standing by in vehicle"
+                    elif driver_state == "BOARDING":
+                        status_detail = "🚪 BOARDING - Getting on vehicle"
+                    elif driver_state == "DISEMBARKING":
+                        status_detail = "🚪 DISEMBARKING - Getting off vehicle"
+                    else:
+                        status_detail = f"❓ Status: {driver_state}"
+                    logger.info(f"  ├─ 📋 Status: {status_detail}")
+                    
+                    # Engine status for this vehicle
+                    if hasattr(driver, 'vehicle_engine') and driver.vehicle_engine:
+                        engine_state = getattr(driver.vehicle_engine, 'state', 'UNKNOWN')
+                        if engine_state == "ON":
+                            engine_detail = "� ⚡ RUNNING - Engine operational"
+                        elif engine_state == "OFF":
+                            engine_detail = "🔴 🛑 STOPPED - Engine shut down"
+                        else:
+                            engine_detail = "🟡 ❓ UNKNOWN - Engine status unclear"
+                        logger.info(f"  ├─ 🔧 Engine: {engine_detail}")
+                    else:
+                        logger.info(f"  ├─ 🔧 Engine: 🔴 ❌ NO ENGINE (GPS-only mode)")
+                    
+                    # GPS status for this vehicle
+                    if hasattr(driver, 'vehicle_gps') and driver.vehicle_gps:
+                        try:
+                            gps_state = getattr(driver.vehicle_gps, 'state', 'UNKNOWN')
+                            icon = "🟢" if gps_state == "ON" else "🔴" if gps_state == "OFF" else "🟡"
+                            device_id = getattr(driver.vehicle_gps, 'device_id', None) or \
+                                       getattr(driver.vehicle_gps, 'component_id', None) or \
+                                       f"GPS-{driver.vehicle_id}"
+                            logger.info(f"    � GPS: {icon} {gps_state} ({device_id})")
+                        except Exception as e:
+                            logger.info(f"    📡 GPS: 🟡 ERROR - {str(e)}")
+                    else:
+                        logger.info(f"    📡 GPS: 🔴 NO DEVICE")
+            
+            # Inactive Vehicles - Complete Status Per Vehicle  
+            if idle_drivers:
+                logger.info("")
+                logger.info("🔴 INACTIVE VEHICLES:")
+                for driver in idle_drivers:
+                    driver_name = getattr(driver, 'driver_name', 'Unknown Driver')
+                    vehicle_id = getattr(driver, 'vehicle_id', 'Unknown Vehicle')
+                    driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'IDLE'
+                    
+                    logger.info(f"")
+                    logger.info(f"  ⏸️ VEHICLE: {vehicle_id}")
+                    logger.info(f"    👤 Driver: {driver_name} ({driver_state}) - vehicle not operational")
+                    logger.info(f"    🔧 Engine: � DISABLED (vehicle under maintenance/retired)")
+                    logger.info(f"    � GPS: 🔴 DISABLED (vehicle not operational)")
+            
+            # Driver Status Section
+            logger.info("👤 DRIVER STATUS:")
+            total_drivers = len(active_drivers) + len(idle_drivers)
+            logger.info(f"  � Active: {len(active_drivers)} drivers operating vehicles")
+            logger.info(f"  🔴 Idle: {len(idle_drivers)} drivers (vehicles not operational)")
+            logger.info(f"  📊 Total: {total_drivers} drivers in depot")
+            
+            # Vehicle-Driver Assignment Details
+            logger.info("� VEHICLE-DRIVER ASSIGNMENTS:")
+            
+
+
+            
+            logger.info("")
+            
+            # Now distribute routes to operational vehicles (drivers onboard with GPS running)
+            if active_drivers:
+                logger.info(f"🗺️ Distributing routes to {len(active_drivers)} operational vehicles...")
+                await self.depot.distribute_routes_to_operational_vehicles(active_drivers)
+            else:
+                logger.info("🗺️ No active drivers found for route distribution")
             
             self.active_drivers = active_drivers
             self.idle_drivers = idle_drivers
@@ -175,7 +309,16 @@ class CleanVehicleSimulator:
             logger.info(f"🔧 Driver {driver_assignment.driver_name} boarding vehicle {vehicle_assignment.vehicle_id}")
             await driver.start()
             
-            logger.info(f"✅ Driver {driver_assignment.driver_name} started successfully")
+            # Check driver status after starting
+            driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'UNKNOWN'
+            if driver_state == "ONBOARD":
+                logger.info(f"✅ Driver {driver_assignment.driver_name} is ONBOARD vehicle {vehicle_assignment.vehicle_id}")
+            elif driver_state == "DISEMBARKED":
+                logger.info(f"⏸️ Driver {driver_assignment.driver_name} is IDLE (disembarked) in depot")
+            elif driver_state == "IDLE":
+                logger.info(f"⏸️ Driver {driver_assignment.driver_name} is IDLE in vehicle {vehicle_assignment.vehicle_id}")
+            else:
+                logger.info(f"📋 Driver {driver_assignment.driver_name} status: {driver_state}")
             return driver
             
         except Exception as e:

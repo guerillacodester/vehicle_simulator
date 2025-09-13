@@ -178,7 +178,11 @@ class GPSDevice(BaseComponent):
                     await asyncio.sleep(1.0)
 
         except Exception as e:
-            logger.error(f"Transmitter connection failed for {self.component_id}: {e}")
+            # More user-friendly error message for GPS server connection issues
+            if "refused" in str(e).lower() or "1225" in str(e):
+                logger.warning(f"📡 {self.component_id}: Cannot connect to telemetry server - GPS server appears to be offline")
+            else:
+                logger.error(f"📡 {self.component_id}: Connection error - {e}")
         
         finally:
             try:

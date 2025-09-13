@@ -78,7 +78,7 @@ class SimulationTelemetryPlugin(ITelemetryPlugin):
         """Start simulation data stream."""
         try:
             if self.vehicle_state is None:
-                logger.warning(f"No vehicle state available for simulation plugin {self.device_id}")
+                logger.debug(f"GPS device {self.device_id} starting without initial position data")
                 # Still return True to allow the plugin to start, it will just return None data
             
             self._connected = True
