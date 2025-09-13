@@ -6,13 +6,14 @@ EngineBuffer
 Thread-safe circular buffer for engine diagnostics.
 
 Each entry is a dict with:
-  {
-    "device_id": str,
-    "timestamp": float,       # epoch time
-    "cruise_speed": float,    # km/h
-    "distance": float,        # km traveled so far
-    "time": float             # seconds elapsed
-  }
+    {
+        "device_id": str,
+        "timestamp": float,        # epoch time
+        "cruise_speed": float,     # legacy alias (now m/s)
+        "cruise_speed_mps": float, # primary velocity in m/s
+        "distance": float,         # km traveled so far
+        "time": float              # seconds elapsed
+    }
 """
 
 import threading

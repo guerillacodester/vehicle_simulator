@@ -149,10 +149,7 @@ class SimulationTelemetryPlugin(ITelemetryPlugin):
                 "vehicle_reg": vehicle_reg,
                 "driver_id": driver_id,
                 "driver_name": {"first": driver_first, "last": driver_last},
-                "extras": {
-                    "source": "simulation",
-                    "plugin_version": self.plugin_version
-                }
+                "extras": self._build_extras(self.vehicle_state)
             }
             
         except Exception as e:
@@ -163,6 +160,24 @@ class SimulationTelemetryPlugin(ITelemetryPlugin):
         """Stop simulation data stream."""
         self._connected = False
         logger.info(f"Simulation data stream stopped for {self.device_id}")
+
+    def _build_extras(self, vehicle_state) -> Dict[str, Any]:
+        base = {
+            "source": "simulation",
+            "plugin_version": self.plugin_version
+        }
+        try:
+            if vehicle_state and hasattr(vehicle_state, 'accel'):
+                physics_block = {
+                    "accel": getattr(vehicle_state, 'accel', None),
+                    "phase": getattr(vehicle_state, 'motion_phase', None),
+                    "progress": getattr(vehicle_state, 'route_progress', None),
+                    "segment_index": getattr(vehicle_state, 'segment_index', None)
+                }
+                base["physics"] = physics_block
+        except Exception:
+            pass
+        return base
     
     def is_connected(self) -> bool:
         """Check if simulation is active."""

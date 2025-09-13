@@ -1,11 +1,18 @@
 """Physics Speed Model Adapter
 
-Adapts the PhysicsKernel to the existing Engine speed model interface.
-The Engine expects an object with an update() method returning:
-  {"velocity": <m/s>, "acceleration": <m/s^2>, ...}
+Internal canonical units:
+    - Kernel state velocity (v) is meters/second (m/s)
+    - Acceleration is meters/second^2
 
-We preserve backward compatibility by only filling required fields.
-Additional diagnostic fields (phase, heading, progress) are included for future use.
+We now standardize the simulation INTERNALLY on SI units (m/s) and only
+convert to km/h at the *telemetry emission* layer. The Engine previously
+assumed km/h and integrated distance using (v * dt)/3600. After the unit
+normalization patch, Engine integrates using m/s directly and stores
+cruise_speed_mps in the buffer.
+
+This adapter returns velocity in m/s under key `velocity_mps` (and for
+legacy compatibility still provides `velocity` == m/s). Downstream code
+should prefer `velocity_mps` when present.
 """
 from __future__ import annotations
 from typing import List, Tuple, Optional
@@ -27,11 +34,12 @@ class PhysicsSpeedModel:
         state = self.kernel.step()
         self._last = state
         return {
-            "velocity": state.v,            # required by Engine loop
-            "acceleration": state.a,
+            "velocity": state.v,          # legacy (interpreted as m/s now)
+            "velocity_mps": state.v,      # explicit unit key
+            "acceleration": state.a,      # m/s^2
             "phase": state.phase,
             "heading": state.heading,
-            "distance_along_route": state.s,
+            "distance_along_route": state.s,  # meters along route
             "progress": state.progress,
             "segment_index": state.segment_index,
         }

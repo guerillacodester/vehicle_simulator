@@ -238,6 +238,15 @@ class VehicleDriver(BasePerson):
                             heading = telemetry.get('bearing', 0.0)
                             # VehicleState uses update_position(lat, lon, speed, heading)
                             vs.update_position(lat, lon, speed, heading)
+                            # Propagate physics diagnostics if present
+                            physics = telemetry.get('physics')
+                            if physics:
+                                vs.update_physics(
+                                    accel=physics.get('accel'),
+                                    phase=physics.get('phase'),
+                                    progress=physics.get('progress'),
+                                    segment_index=physics.get('segment_index')
+                                )
                         except Exception as e:
                             self.logger.debug(f"VehicleState update failed: {e}")
 
@@ -295,16 +304,22 @@ class VehicleDriver(BasePerson):
         lat = lat1 + (lat2 - lat1) * fraction
         bearing = math.bearing(lat1, lon1, lat2, lon2)
 
+        speed_mps = entry.get("cruise_speed_mps", entry.get("cruise_speed", 0.0))
         telemetry = {
             "deviceId": self.component_id,  # Use driver's license as device ID
             "timestamp": entry.get("timestamp", time.time()),
             "lon": lon,
             "lat": lat,
             "bearing": bearing,
-            "speed": entry.get("cruise_speed", 0.0),
+            "speed": speed_mps * 3.6,  # Emit km/h externally
+            "speed_mps": speed_mps,     # Internal diagnostic (not packetized yet)
             "time": entry.get("time", 0.0),
             "distance": entry.get("distance", 0.0) * 1000.0,  # ✅ km → m
         }
+
+        # If physics diagnostics present, attach for downstream consumers
+        if "physics" in entry:
+            telemetry["physics"] = entry["physics"]
 
         self.last_position = (lon, lat)
         return telemetry
@@ -342,16 +357,21 @@ class VehicleDriver(BasePerson):
             route_latlon, distance_km
         )
 
+        speed_mps = entry.get("cruise_speed_mps", entry.get("cruise_speed", 0.0))
         telemetry = {
             "deviceId": self.component_id,  # Use driver's license as device ID
             "timestamp": entry.get("timestamp", time.time()),
             "lon": lon,
             "lat": lat,
             "bearing": bearing,
-            "speed": entry.get("cruise_speed", 0.0),
+            "speed": speed_mps * 3.6,  # km/h
+            "speed_mps": speed_mps,
             "time": entry.get("time", 0.0),
             "distance": entry.get("distance", 0.0) * 1000.0,  # ✅ km → m
         }
+
+        if "physics" in entry:
+            telemetry["physics"] = entry["physics"]
 
         self.last_position = (lon, lat)
         return telemetry

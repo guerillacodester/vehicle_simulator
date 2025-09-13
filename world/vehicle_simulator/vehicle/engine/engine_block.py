@@ -112,23 +112,34 @@ class Engine(BaseComponent):
         while not self._stop_event.is_set():
             result = self.model.update()
 
+            # Prefer explicit velocity_mps if provided (physics); fallback to legacy 'velocity'
             if isinstance(result, dict):
-                velocity = result.get("velocity", 0.0)
+                velocity_mps = result.get("velocity_mps", result.get("velocity", 0.0))
             else:
-                velocity = float(result)
+                velocity_mps = float(result)
 
-            # accumulate distance (km) and time (s)
-            self.total_distance += (velocity * self.tick_time) / 3600
+            # accumulate distance (km) and time (s) using m/s -> km: divide by 1000
+            self.total_distance += (velocity_mps * self.tick_time) / 1000.0
             self.total_time += self.tick_time
 
-            # write entry to buffer
+            # write entry to buffer (explicit m/s; keep legacy compatibility key cruise_speed for now but clarify units)
             entry: Dict[str, Any] = {
                 "device_id": self.component_id,
                 "timestamp": time.time(),
-                "cruise_speed": velocity,
-                "distance": self.total_distance,
+                "cruise_speed_mps": velocity_mps,
+                "cruise_speed": velocity_mps,  # legacy; now m/s
+                "distance": self.total_distance,  # km
                 "time": self.total_time,
             }
+            # If physics model provided extended diagnostics, include them under namespaced key
+            if isinstance(result, dict) and any(k in result for k in ("acceleration", "phase", "progress", "segment_index")):
+                physics_block = {
+                    "accel": result.get("acceleration"),
+                    "phase": result.get("phase"),
+                    "progress": result.get("progress"),
+                    "segment_index": result.get("segment_index"),
+                }
+                entry["physics"] = physics_block
             self.buffer.write(entry)
 
             time.sleep(self.tick_time)
