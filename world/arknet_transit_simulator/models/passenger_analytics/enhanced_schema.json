@@ -1,0 +1,523 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Enhanced Passenger Analytics Model Schema",
+  "description": "Comprehensive schema for route-based passenger modeling with distance analytics, group patterns, and real-world data extraction",
+  "required": ["model_info", "route_network", "locations", "distance_analytics", "group_patterns", "real_world_integration"],
+  "properties": {
+    "model_info": {
+      "type": "object",
+      "required": ["name", "version", "route_ids", "description"],
+      "properties": {
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "route_ids": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Routes covered by this model (e.g. ['1', '1A', '1B'])"
+        },
+        "description": {"type": "string"},
+        "coverage_area": {"type": "string", "description": "Geographic area covered"},
+        "data_sources": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Sources of real-world data used"
+        },
+        "last_calibrated": {"type": "string", "format": "date"},
+        "validation_period": {"type": "string"}
+      }
+    },
+    "route_network": {
+      "type": "object",
+      "description": "Complete route network definition with stops and distances",
+      "required": ["routes", "stops", "depot_locations"],
+      "properties": {
+        "routes": {
+          "type": "object",
+          "patternProperties": {
+            "^[0-9A-Z]+$": {
+              "type": "object",
+              "required": ["name", "direction", "stops_sequence", "total_distance_km", "average_speed_kmh"],
+              "properties": {
+                "name": {"type": "string"},
+                "direction": {"enum": ["inbound", "outbound", "circular"]},
+                "stops_sequence": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "Ordered list of stop IDs"
+                },
+                "total_distance_km": {"type": "number", "minimum": 0},
+                "average_speed_kmh": {"type": "number", "minimum": 1},
+                "operating_hours": {
+                  "type": "object",
+                  "properties": {
+                    "weekday": {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+                    "saturday": {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+                    "sunday": {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}}
+                  }
+                },
+                "frequency_minutes": {
+                  "type": "object",
+                  "properties": {
+                    "peak": {"type": "number", "minimum": 1},
+                    "off_peak": {"type": "number", "minimum": 1},
+                    "weekend": {"type": "number", "minimum": 1}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "stops": {
+          "type": "object",
+          "patternProperties": {
+            "^[A-Z0-9_]+$": {
+              "type": "object",
+              "required": ["name", "coordinates", "stop_type", "accessibility"],
+              "properties": {
+                "name": {"type": "string"},
+                "coordinates": {
+                  "type": "array",
+                  "items": {"type": "number"},
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "description": "[longitude, latitude]"
+                },
+                "stop_type": {"enum": ["terminal", "major_stop", "regular_stop", "flag_stop"]},
+                "accessibility": {"enum": ["full", "partial", "none"]},
+                "amenities": {
+                  "type": "array",
+                  "items": {"enum": ["shelter", "seating", "lighting", "real_time_info", "ticketing"]}
+                },
+                "nearby_landmarks": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "walking_catchment_radius_m": {"type": "number", "minimum": 50, "maximum": 1000}
+              }
+            }
+          }
+        },
+        "depot_locations": {
+          "type": "object",
+          "patternProperties": {
+            "^[A-Z0-9_]+$": {
+              "type": "object",
+              "required": ["name", "coordinates", "serves_routes", "capacity"],
+              "properties": {
+                "name": {"type": "string"},
+                "coordinates": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+                "serves_routes": {"type": "array", "items": {"type": "string"}},
+                "capacity": {"type": "integer", "minimum": 1},
+                "operating_hours": {"type": "object"},
+                "departure_patterns": {
+                  "type": "object",
+                  "description": "Patterns for vehicle departures from depot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "distance_analytics": {
+      "type": "object",
+      "description": "Distance-based passenger flow modeling",
+      "required": ["distance_decay_models", "stop_spacing_effects", "travel_time_sensitivity"],
+      "properties": {
+        "distance_decay_models": {
+          "type": "object",
+          "description": "How passenger demand decreases with distance",
+          "patternProperties": {
+            "^[A-Z0-9_]+$": {
+              "type": "object",
+              "required": ["stop_id", "decay_function", "parameters", "catchment_area"],
+              "properties": {
+                "stop_id": {"type": "string"},
+                "decay_function": {"enum": ["exponential", "linear", "power", "gaussian"]},
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "alpha": {"type": "number", "description": "Decay rate parameter"},
+                    "beta": {"type": "number", "description": "Distance sensitivity"},
+                    "threshold_distance_m": {"type": "number", "description": "Distance where demand drops significantly"}
+                  }
+                },
+                "catchment_area": {
+                  "type": "object",
+                  "properties": {
+                    "primary_radius_m": {"type": "number", "description": "High demand radius"},
+                    "secondary_radius_m": {"type": "number", "description": "Medium demand radius"},
+                    "tertiary_radius_m": {"type": "number", "description": "Low demand radius"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "stop_spacing_effects": {
+          "type": "object",
+          "description": "How distance between stops affects passenger behavior",
+          "properties": {
+            "close_stops_threshold_m": {"type": "number", "default": 200},
+            "medium_stops_threshold_m": {"type": "number", "default": 500},
+            "far_stops_threshold_m": {"type": "number", "default": 1000},
+            "spacing_multipliers": {
+              "type": "object",
+              "properties": {
+                "close_stops": {"type": "number", "description": "Demand multiplier for closely spaced stops"},
+                "medium_stops": {"type": "number"},
+                "far_stops": {"type": "number"}
+              }
+            }
+          }
+        },
+        "travel_time_sensitivity": {
+          "type": "object",
+          "description": "How travel time affects passenger choices",
+          "properties": {
+            "time_value_per_minute": {"type": "number", "description": "Passenger time valuation"},
+            "acceptable_travel_time_minutes": {
+              "type": "object",
+              "properties": {
+                "short_trip": {"type": "number", "maximum": 15},
+                "medium_trip": {"type": "number", "maximum": 45},
+                "long_trip": {"type": "number", "maximum": 120}
+              }
+            },
+            "time_reliability_factor": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    },
+    "group_patterns": {
+      "type": "object",
+      "description": "Modeling of passenger groups and pickup patterns",
+      "required": ["group_size_distributions", "group_behavior_models", "pickup_patterns"],
+      "properties": {
+        "group_size_distributions": {
+          "type": "object",
+          "description": "Distribution of passenger group sizes by context",
+          "patternProperties": {
+            "^[a-z_]+$": {
+              "type": "object",
+              "required": ["context", "distribution"],
+              "properties": {
+                "context": {"enum": ["peak_commute", "off_peak", "weekend", "school_hours", "event_periods"]},
+                "distribution": {
+                  "type": "object",
+                  "properties": {
+                    "solo": {"type": "number", "minimum": 0, "maximum": 1},
+                    "pair": {"type": "number", "minimum": 0, "maximum": 1},
+                    "small_group_3_4": {"type": "number", "minimum": 0, "maximum": 1},
+                    "large_group_5_plus": {"type": "number", "minimum": 0, "maximum": 1}
+                  }
+                },
+                "average_group_size": {"type": "number", "minimum": 1}
+              }
+            }
+          }
+        },
+        "group_behavior_models": {
+          "type": "object",
+          "description": "How groups behave differently from individuals",
+          "properties": {
+            "boarding_time_multipliers": {
+              "type": "object",
+              "properties": {
+                "solo": {"type": "number", "default": 1.0},
+                "pair": {"type": "number", "default": 1.8},
+                "small_group": {"type": "number", "default": 2.5},
+                "large_group": {"type": "number", "default": 3.5}
+              }
+            },
+            "destination_correlation": {
+              "type": "object",
+              "description": "Probability groups travel to same destination",
+              "properties": {
+                "family_groups": {"type": "number", "minimum": 0.7, "maximum": 1.0},
+                "friend_groups": {"type": "number", "minimum": 0.6, "maximum": 0.9},
+                "work_colleagues": {"type": "number", "minimum": 0.8, "maximum": 1.0},
+                "random_grouping": {"type": "number", "minimum": 0.1, "maximum": 0.4}
+              }
+            },
+            "waiting_behavior": {
+              "type": "object",
+              "properties": {
+                "group_patience_multiplier": {"type": "number", "description": "Groups wait longer"},
+                "group_arrival_variance": {"type": "number", "description": "Groups arrive less punctually"}
+              }
+            }
+          }
+        },
+        "pickup_patterns": {
+          "type": "object",
+          "description": "Patterns for how groups are picked up at stops",
+          "properties": {
+            "simultaneous_pickup_probability": {
+              "type": "object",
+              "description": "Probability multiple groups board together",
+              "patternProperties": {
+                "^[A-Z0-9_]+$": {
+                  "type": "object",
+                  "properties": {
+                    "stop_id": {"type": "string"},
+                    "peak_hours": {"type": "number", "minimum": 0, "maximum": 1},
+                    "off_peak_hours": {"type": "number", "minimum": 0, "maximum": 1}
+                  }
+                }
+              }
+            },
+            "queue_formation_models": {
+              "type": "object",
+              "properties": {
+                "orderly_queue_probability": {"type": "number"},
+                "cluster_boarding_probability": {"type": "number"},
+                "queue_discipline_factor": {"type": "number", "minimum": 0, "maximum": 1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "locations": {
+      "type": "object",
+      "description": "Enhanced location-specific passenger data",
+      "patternProperties": {
+        "^[A-Z0-9_]+$": {
+          "type": "object",
+          "required": ["stop_id", "stop_name", "passenger_rates", "distance_factors", "group_characteristics"],
+          "properties": {
+            "stop_id": {"type": "string"},
+            "stop_name": {"type": "string"},
+            "routes_served": {"type": "array", "items": {"type": "string"}},
+            "passenger_rates": {
+              "type": "object",
+              "properties": {
+                "boarding": {
+                  "type": "object",
+                  "properties": {
+                    "peak_hours": {
+                      "type": "object",
+                      "properties": {
+                        "rate_per_hour": {"type": "number", "minimum": 0},
+                        "variance": {"type": "number", "minimum": 0, "maximum": 1},
+                        "confidence_level": {"type": "number", "minimum": 0, "maximum": 1}
+                      }
+                    },
+                    "off_peak_hours": {
+                      "type": "object",
+                      "properties": {
+                        "rate_per_hour": {"type": "number", "minimum": 0},
+                        "variance": {"type": "number", "minimum": 0, "maximum": 1},
+                        "confidence_level": {"type": "number", "minimum": 0, "maximum": 1}
+                      }
+                    }
+                  }
+                },
+                "alighting": {
+                  "type": "object",
+                  "properties": {
+                    "peak_hours": {
+                      "type": "object",
+                      "properties": {
+                        "rate_per_hour": {"type": "number", "minimum": 0},
+                        "variance": {"type": "number", "minimum": 0, "maximum": 1},
+                        "confidence_level": {"type": "number", "minimum": 0, "maximum": 1}
+                      }
+                    },
+                    "off_peak_hours": {
+                      "type": "object",
+                      "properties": {
+                        "rate_per_hour": {"type": "number", "minimum": 0},
+                        "variance": {"type": "number", "minimum": 0, "maximum": 1},
+                        "confidence_level": {"type": "number", "minimum": 0, "maximum": 1}
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "distance_factors": {
+              "type": "object",
+              "description": "Distance-based demand modifiers for this stop",
+              "properties": {
+                "distance_to_previous_stop_m": {"type": "number"},
+                "distance_to_next_stop_m": {"type": "number"},
+                "distance_to_depot_km": {"type": "number"},
+                "walking_distance_to_attractions": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[a-z_]+$": {"type": "number"}
+                  }
+                },
+                "accessibility_score": {"type": "number", "minimum": 0, "maximum": 10}
+              }
+            },
+            "group_characteristics": {
+              "type": "object",
+              "description": "Group pickup patterns specific to this stop",
+              "properties": {
+                "typical_group_size": {"type": "number", "minimum": 1},
+                "group_frequency_peak": {"type": "number", "minimum": 0, "maximum": 1},
+                "group_frequency_off_peak": {"type": "number", "minimum": 0, "maximum": 1},
+                "dominant_group_types": {
+                  "type": "array",
+                  "items": {"enum": ["commuter_pairs", "family_groups", "student_groups", "leisure_groups", "shopping_groups"]}
+                }
+              }
+            },
+            "real_world_calibration": {
+              "type": "object",
+              "description": "Real-world data points for this location",
+              "properties": {
+                "observed_data_points": {"type": "integer"},
+                "data_collection_period": {"type": "string"},
+                "validation_accuracy": {"type": "number", "minimum": 0, "maximum": 1},
+                "data_sources": {"type": "array", "items": {"type": "string"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "real_world_integration": {
+      "type": "object",
+      "description": "Integration with real-world data sources and extraction methods",
+      "required": ["data_extraction_methods", "validation_procedures", "calibration_parameters"],
+      "properties": {
+        "data_extraction_methods": {
+          "type": "object",
+          "properties": {
+            "passenger_counting": {
+              "type": "object",
+              "properties": {
+                "manual_counts": {
+                  "type": "object",
+                  "properties": {
+                    "survey_periods": {"type": "array", "items": {"type": "string"}},
+                    "count_intervals_minutes": {"type": "integer"},
+                    "sample_size_requirements": {"type": "integer"}
+                  }
+                },
+                "automated_systems": {
+                  "type": "object",
+                  "properties": {
+                    "apc_systems": {"type": "boolean", "description": "Automatic Passenger Counting"},
+                    "mobile_data": {"type": "boolean", "description": "Mobile phone tracking data"},
+                    "ticketing_data": {"type": "boolean", "description": "Electronic fare collection data"}
+                  }
+                }
+              }
+            },
+            "route_characteristics": {
+              "type": "object",
+              "properties": {
+                "gps_tracking_requirements": {
+                  "type": "object",
+                  "properties": {
+                    "minimum_accuracy_m": {"type": "number"},
+                    "recording_interval_seconds": {"type": "integer"}
+                  }
+                },
+                "stop_timing_analysis": {
+                  "type": "object",
+                  "properties": {
+                    "dwell_time_measurement": {"type": "boolean"},
+                    "boarding_time_per_passenger": {"type": "boolean"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "validation_procedures": {
+          "type": "object",
+          "properties": {
+            "model_accuracy_targets": {
+              "type": "object",
+              "properties": {
+                "passenger_count_accuracy": {"type": "number", "minimum": 0.7, "maximum": 1.0},
+                "timing_accuracy_seconds": {"type": "number", "minimum": 30, "maximum": 300},
+                "route_completion_accuracy": {"type": "number", "minimum": 0.8, "maximum": 1.0}
+              }
+            },
+            "validation_frequency": {
+              "type": "object",
+              "properties": {
+                "daily_validation": {"type": "boolean"},
+                "weekly_calibration": {"type": "boolean"},
+                "monthly_full_review": {"type": "boolean"}
+              }
+            }
+          }
+        },
+        "calibration_parameters": {
+          "type": "object",
+          "properties": {
+            "auto_calibration": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "learning_rate": {"type": "number", "minimum": 0.01, "maximum": 0.3},
+                "adaptation_window_days": {"type": "integer", "minimum": 1, "maximum": 30}
+              }
+            },
+            "manual_adjustment_factors": {
+              "type": "object",
+              "properties": {
+                "seasonal_adjustments": {"type": "object"},
+                "special_event_factors": {"type": "object"},
+                "service_change_impacts": {"type": "object"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "time_patterns": {
+      "type": "object",
+      "description": "Enhanced time-based patterns",
+      "properties": {
+        "peak_hours": {"type": "array"},
+        "day_types": {"type": "object"},
+        "seasonal_patterns": {"type": "object"},
+        "special_events": {"type": "array"}
+      }
+    },
+    "demand_profiles": {
+      "type": "object",
+      "description": "Trip purpose and demand patterns",
+      "patternProperties": {
+        "^[a-z_]+$": {
+          "type": "object",
+          "properties": {
+            "percentage": {"type": "number", "minimum": 0, "maximum": 100},
+            "peak_preference": {"type": "boolean"},
+            "typical_trip_distance_km": {"type": "number"},
+            "group_tendency": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    },
+    "real_time_adjustments": {
+      "type": "object",
+      "description": "Real-time factor adjustments",
+      "properties": {
+        "weather_impact": {"type": "object"},
+        "service_disruptions": {"type": "object"},
+        "economic_factors": {"type": "object"},
+        "infrastructure_events": {"type": "object"}
+      }
+    },
+    "model_parameters": {
+      "type": "object",
+      "properties": {
+        "simulation_step_seconds": {"type": "integer", "minimum": 10, "maximum": 300},
+        "passenger_patience_seconds": {"type": "integer", "minimum": 60, "maximum": 1800},
+        "boarding_time_per_passenger_seconds": {"type": "number", "minimum": 1, "maximum": 10},
+        "maximum_vehicle_capacity": {"type": "integer", "minimum": 10, "maximum": 200}
+      }
+    }
+  }
+}

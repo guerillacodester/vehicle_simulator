@@ -1,0 +1,163 @@
+{
+  "model_info": {
+    "name": "extracted_model_20250913",
+    "version": "1.0.0",
+    "route_ids": [
+      "1",
+      "1A",
+      "1B"
+    ],
+    "description": "Model generated from real-world data extraction",
+    "data_sources": [
+      "Field surveys",
+      "Manual counts",
+      "Timing measurements"
+    ],
+    "last_calibrated": "2025-09-13",
+    "validation_period": "Based on survey data"
+  },
+  "locations": {
+    "MALL_JUNCTION": {
+      "stop_id": "MALL_JUNCTION",
+      "stop_name": "Stop MALL_JUNCTION",
+      "passenger_rates": {
+        "peak_hours": {
+          "rate_per_hour": 0,
+          "variance": 0,
+          "confidence_level": 0
+        },
+        "off_peak_hours": {
+          "boarding": {
+            "rate_per_hour": 32.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          },
+          "alighting": {
+            "rate_per_hour": 72.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          }
+        },
+        "total_observations": 1
+      },
+      "group_characteristics": {
+        "typical_group_size": 2.25,
+        "group_frequency_peak": 0.3,
+        "group_frequency_off_peak": 0.4
+      },
+      "real_world_calibration": {
+        "observed_data_points": 1,
+        "validation_accuracy": 0.8,
+        "data_sources": [
+          "Field surveys"
+        ]
+      }
+    },
+    "UNIVERSITY_MAIN": {
+      "stop_id": "UNIVERSITY_MAIN",
+      "stop_name": "Stop UNIVERSITY_MAIN",
+      "passenger_rates": {
+        "peak_hours": {
+          "boarding": {
+            "rate_per_hour": 88.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          },
+          "alighting": {
+            "rate_per_hour": 20.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          }
+        },
+        "off_peak_hours": {
+          "rate_per_hour": 0,
+          "variance": 0,
+          "confidence_level": 0
+        },
+        "total_observations": 1
+      },
+      "group_characteristics": {
+        "typical_group_size": 2.3333333333333335,
+        "group_frequency_peak": 0.3,
+        "group_frequency_off_peak": 0.4
+      },
+      "real_world_calibration": {
+        "observed_data_points": 1,
+        "validation_accuracy": 0.8,
+        "data_sources": [
+          "Field surveys"
+        ]
+      }
+    },
+    "BRIDGETOWN_TERMINAL": {
+      "stop_id": "BRIDGETOWN_TERMINAL",
+      "stop_name": "Stop BRIDGETOWN_TERMINAL",
+      "passenger_rates": {
+        "peak_hours": {
+          "boarding": {
+            "rate_per_hour": 60.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          },
+          "alighting": {
+            "rate_per_hour": 32.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          }
+        },
+        "off_peak_hours": {
+          "rate_per_hour": 0,
+          "variance": 0,
+          "confidence_level": 0
+        },
+        "total_observations": 1
+      },
+      "group_characteristics": {
+        "typical_group_size": 1.6153846153846154,
+        "group_frequency_peak": 0.3,
+        "group_frequency_off_peak": 0.4
+      },
+      "real_world_calibration": {
+        "observed_data_points": 1,
+        "validation_accuracy": 0.8,
+        "data_sources": [
+          "Field surveys"
+        ]
+      }
+    }
+  },
+  "distance_analytics": {
+    "distance_decay_models": {
+      "UNIVERSITY_MAIN": {
+        "stop_id": "UNIVERSITY_MAIN",
+        "decay_function": "exponential",
+        "alpha": 0.15,
+        "beta": 0.005,
+        "threshold_distance_m": 320,
+        "primary_radius_m": 140.0,
+        "secondary_radius_m": 240.0,
+        "tertiary_radius_m": 320
+      },
+      "BRIDGETOWN_TERMINAL": {
+        "stop_id": "BRIDGETOWN_TERMINAL",
+        "decay_function": "exponential",
+        "alpha": 0.15,
+        "beta": 0.004545454545454545,
+        "threshold_distance_m": 450,
+        "primary_radius_m": 154.0,
+        "secondary_radius_m": 264.0,
+        "tertiary_radius_m": 450
+      }
+    },
+    "stop_spacing_effects": {
+      "close_stops_threshold_m": 300,
+      "medium_stops_threshold_m": 800,
+      "far_stops_threshold_m": 1500,
+      "spacing_multipliers": {
+        "close_stops": 0.85,
+        "medium_stops": 1.0,
+        "far_stops": 1.15
+      }
+    }
+  }
+}

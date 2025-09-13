@@ -1,0 +1,177 @@
+{
+  "survey_metadata": {
+    "survey_date": "2025-09-13",
+    "surveyor_name": "",
+    "route_ids": [
+      "1",
+      "1A",
+      "1B"
+    ],
+    "survey_period_start": "",
+    "survey_period_end": "",
+    "weather_condition": "",
+    "special_circumstances": ""
+  },
+  "data_collection_instructions": {
+    "passenger_counting": {
+      "count_interval_minutes": 15,
+      "observation_points": [
+        "Count passengers boarding",
+        "Count passengers alighting",
+        "Note group sizes (1, 2, 3-4, 5+)",
+        "Estimate wait times for boarding passengers",
+        "Time how long boarding takes per passenger"
+      ]
+    },
+    "timing_measurements": {
+      "record_for_each_stop": [
+        "Vehicle arrival time",
+        "Door opening time",
+        "Last passenger board/alight time",
+        "Door closing time",
+        "Departure time"
+      ]
+    },
+    "passenger_surveys": {
+      "ask_boarding_passengers": [
+        "Where are you traveling to?",
+        "What is the purpose of this trip?",
+        "How long did you wait for this bus?",
+        "Are you traveling alone or in a group?"
+      ]
+    }
+  },
+  "stops_to_survey": [
+    {
+      "stop_id": "BRIDGETOWN_TERMINAL",
+      "stop_name": "Stop BRIDGETOWN_TERMINAL",
+      "survey_periods": [
+        {
+          "start_time": "07:00",
+          "end_time": "09:00",
+          "period_type": "morning_peak"
+        },
+        {
+          "start_time": "12:00",
+          "end_time": "14:00",
+          "period_type": "midday"
+        },
+        {
+          "start_time": "16:00",
+          "end_time": "18:00",
+          "period_type": "evening_peak"
+        }
+      ],
+      "data_to_collect": {
+        "passenger_counts": [],
+        "group_observations": [],
+        "timing_data": [],
+        "walking_distances": [],
+        "nearby_attractions": []
+      }
+    },
+    {
+      "stop_id": "UNIVERSITY_MAIN",
+      "stop_name": "Stop UNIVERSITY_MAIN",
+      "survey_periods": [
+        {
+          "start_time": "07:00",
+          "end_time": "09:00",
+          "period_type": "morning_peak"
+        },
+        {
+          "start_time": "12:00",
+          "end_time": "14:00",
+          "period_type": "midday"
+        },
+        {
+          "start_time": "16:00",
+          "end_time": "18:00",
+          "period_type": "evening_peak"
+        }
+      ],
+      "data_to_collect": {
+        "passenger_counts": [],
+        "group_observations": [],
+        "timing_data": [],
+        "walking_distances": [],
+        "nearby_attractions": []
+      }
+    },
+    {
+      "stop_id": "MALL_JUNCTION",
+      "stop_name": "Stop MALL_JUNCTION",
+      "survey_periods": [
+        {
+          "start_time": "07:00",
+          "end_time": "09:00",
+          "period_type": "morning_peak"
+        },
+        {
+          "start_time": "12:00",
+          "end_time": "14:00",
+          "period_type": "midday"
+        },
+        {
+          "start_time": "16:00",
+          "end_time": "18:00",
+          "period_type": "evening_peak"
+        }
+      ],
+      "data_to_collect": {
+        "passenger_counts": [],
+        "group_observations": [],
+        "timing_data": [],
+        "walking_distances": [],
+        "nearby_attractions": []
+      }
+    },
+    {
+      "stop_id": "SOUTH_COAST_TERMINAL",
+      "stop_name": "Stop SOUTH_COAST_TERMINAL",
+      "survey_periods": [
+        {
+          "start_time": "07:00",
+          "end_time": "09:00",
+          "period_type": "morning_peak"
+        },
+        {
+          "start_time": "12:00",
+          "end_time": "14:00",
+          "period_type": "midday"
+        },
+        {
+          "start_time": "16:00",
+          "end_time": "18:00",
+          "period_type": "evening_peak"
+        }
+      ],
+      "data_to_collect": {
+        "passenger_counts": [],
+        "group_observations": [],
+        "timing_data": [],
+        "walking_distances": [],
+        "nearby_attractions": []
+      }
+    }
+  ],
+  "trip_purpose_codes": {
+    "commute_work": 0,
+    "commute_school": 1,
+    "shopping": 2,
+    "medical": 3,
+    "leisure": 4,
+    "visiting": 5,
+    "business": 6,
+    "tourism": 7,
+    "other": 8
+  },
+  "weather_condition_codes": {
+    "pleasant_weather": 0,
+    "light_rain": 1,
+    "heavy_rain": 2,
+    "extreme_heat": 3,
+    "cloudy": 4,
+    "windy": 5
+  }
+}

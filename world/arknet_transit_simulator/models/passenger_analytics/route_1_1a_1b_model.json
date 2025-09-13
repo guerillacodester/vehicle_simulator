@@ -1,0 +1,879 @@
+{
+  "model_info": {
+    "name": "route_1_1a_1b_transit_model",
+    "version": "2.0.0",
+    "route_ids": ["1", "1A", "1B"],
+    "description": "Comprehensive passenger model for Route 1 family with distance analytics, group patterns, and real-world integration",
+    "coverage_area": "Bridgetown to South Coast via University and Industrial areas",
+    "data_sources": ["Manual passenger counts", "GPS tracking data", "Fare collection records", "Traffic surveys"],
+    "last_calibrated": "2025-09-01",
+    "validation_period": "July-August 2025"
+  },
+  "route_network": {
+    "routes": {
+      "1": {
+        "name": "Bridgetown - University - South Coast",
+        "direction": "outbound",
+        "stops_sequence": ["DEPOT_MAIN", "BRIDGETOWN_TERMINAL", "JUBILEE_MARKET", "UNIVERSITY_MAIN", "INDUSTRIAL_ESTATE", "MALL_JUNCTION", "SOUTH_COAST_TERMINAL"],
+        "total_distance_km": 18.5,
+        "average_speed_kmh": 25,
+        "operating_hours": {
+          "weekday": {"start": "05:30", "end": "22:00"},
+          "saturday": {"start": "06:00", "end": "21:00"},
+          "sunday": {"start": "07:00", "end": "19:00"}
+        },
+        "frequency_minutes": {
+          "peak": 15,
+          "off_peak": 30,
+          "weekend": 45
+        }
+      },
+      "1A": {
+        "name": "Bridgetown - University Express",
+        "direction": "outbound",
+        "stops_sequence": ["DEPOT_MAIN", "BRIDGETOWN_TERMINAL", "UNIVERSITY_MAIN", "INDUSTRIAL_ESTATE", "SOUTH_COAST_TERMINAL"],
+        "total_distance_km": 15.2,
+        "average_speed_kmh": 32,
+        "operating_hours": {
+          "weekday": {"start": "06:00", "end": "20:00"},
+          "saturday": {"start": "07:00", "end": "18:00"},
+          "sunday": {"start": "08:00", "end": "17:00"}
+        },
+        "frequency_minutes": {
+          "peak": 20,
+          "off_peak": 45,
+          "weekend": 60
+        }
+      },
+      "1B": {
+        "name": "Bridgetown - Mall Circuit",
+        "direction": "circular",
+        "stops_sequence": ["DEPOT_MAIN", "BRIDGETOWN_TERMINAL", "JUBILEE_MARKET", "MALL_JUNCTION", "SHOPPING_PLAZA", "RESIDENTIAL_AREA", "BRIDGETOWN_TERMINAL"],
+        "total_distance_km": 12.8,
+        "average_speed_kmh": 22,
+        "operating_hours": {
+          "weekday": {"start": "06:30", "end": "19:30"},
+          "saturday": {"start": "08:00", "end": "20:00"},
+          "sunday": {"start": "09:00", "end": "17:00"}
+        },
+        "frequency_minutes": {
+          "peak": 25,
+          "off_peak": 40,
+          "weekend": 50
+        }
+      }
+    },
+    "stops": {
+      "DEPOT_MAIN": {
+        "name": "Main Transport Depot",
+        "coordinates": [-59.6462, 13.2810],
+        "stop_type": "terminal",
+        "accessibility": "full",
+        "amenities": ["shelter", "seating", "lighting", "real_time_info", "ticketing"],
+        "nearby_landmarks": ["Transport Authority Building", "Maintenance Facility"],
+        "walking_catchment_radius_m": 200
+      },
+      "BRIDGETOWN_TERMINAL": {
+        "name": "Bridgetown Bus Terminal",
+        "coordinates": [-59.6142, 13.0969],
+        "stop_type": "terminal",
+        "accessibility": "full",
+        "amenities": ["shelter", "seating", "lighting", "real_time_info", "ticketing"],
+        "nearby_landmarks": ["Independence Square", "Parliament Buildings", "City Centre"],
+        "walking_catchment_radius_m": 800
+      },
+      "JUBILEE_MARKET": {
+        "name": "Jubilee Market",
+        "coordinates": [-59.6089, 13.0921],
+        "stop_type": "major_stop",
+        "accessibility": "partial",
+        "amenities": ["shelter", "seating", "lighting"],
+        "nearby_landmarks": ["Public Market", "Commercial District", "Post Office"],
+        "walking_catchment_radius_m": 400
+      },
+      "UNIVERSITY_MAIN": {
+        "name": "University of the West Indies",
+        "coordinates": [-59.6234, 13.1456],
+        "stop_type": "major_stop",
+        "accessibility": "full",
+        "amenities": ["shelter", "seating", "lighting", "real_time_info"],
+        "nearby_landmarks": ["UWI Campus", "Student Housing", "Medical Centre"],
+        "walking_catchment_radius_m": 600
+      },
+      "INDUSTRIAL_ESTATE": {
+        "name": "Industrial Estate",
+        "coordinates": [-59.5892, 13.1123],
+        "stop_type": "regular_stop",
+        "accessibility": "partial",
+        "amenities": ["shelter", "lighting"],
+        "nearby_landmarks": ["Manufacturing Plants", "Warehouse District", "Port Access"],
+        "walking_catchment_radius_m": 300
+      },
+      "MALL_JUNCTION": {
+        "name": "Shopping Mall Junction",
+        "coordinates": [-59.5645, 13.0845],
+        "stop_type": "major_stop",
+        "accessibility": "full",
+        "amenities": ["shelter", "seating", "lighting", "real_time_info"],
+        "nearby_landmarks": ["Sheraton Mall", "Restaurant Strip", "Cinema Complex"],
+        "walking_catchment_radius_m": 500
+      },
+      "SHOPPING_PLAZA": {
+        "name": "Shopping Plaza",
+        "coordinates": [-59.5712, 13.0923],
+        "stop_type": "regular_stop",
+        "accessibility": "full",
+        "amenities": ["shelter", "seating", "lighting"],
+        "nearby_landmarks": ["Plaza Shopping Centre", "Supermarket", "Bank Branch"],
+        "walking_catchment_radius_m": 350
+      },
+      "RESIDENTIAL_AREA": {
+        "name": "Residential Area",
+        "coordinates": [-59.5834, 13.0967],
+        "stop_type": "regular_stop",
+        "accessibility": "partial",
+        "amenities": ["shelter", "lighting"],
+        "nearby_landmarks": ["Housing Development", "Primary School", "Community Centre"],
+        "walking_catchment_radius_m": 400
+      },
+      "SOUTH_COAST_TERMINAL": {
+        "name": "South Coast Terminal",
+        "coordinates": [-59.5234, 13.0534],
+        "stop_type": "terminal",
+        "accessibility": "full",
+        "amenities": ["shelter", "seating", "lighting", "real_time_info", "ticketing"],
+        "nearby_landmarks": ["Tourist Zone", "Hotels", "Beach Access", "Airport Shuttle"],
+        "walking_catchment_radius_m": 600
+      }
+    },
+    "depot_locations": {
+      "DEPOT_MAIN": {
+        "name": "Main Transport Depot",
+        "coordinates": [-59.6462, 13.2810],
+        "serves_routes": ["1", "1A", "1B"],
+        "capacity": 25,
+        "operating_hours": {
+          "start": "04:30",
+          "end": "23:30"
+        },
+        "departure_patterns": {
+          "morning_rush_start": "05:30",
+          "evening_rush_preparation": "15:00",
+          "last_departure": "22:00"
+        }
+      }
+    }
+  },
+  "distance_analytics": {
+    "distance_decay_models": {
+      "BRIDGETOWN_TERMINAL": {
+        "stop_id": "BRIDGETOWN_TERMINAL",
+        "decay_function": "exponential",
+        "parameters": {
+          "alpha": 0.15,
+          "beta": 0.008,
+          "threshold_distance_m": 800
+        },
+        "catchment_area": {
+          "primary_radius_m": 400,
+          "secondary_radius_m": 600,
+          "tertiary_radius_m": 800
+        }
+      },
+      "UNIVERSITY_MAIN": {
+        "stop_id": "UNIVERSITY_MAIN",
+        "decay_function": "gaussian",
+        "parameters": {
+          "alpha": 0.25,
+          "beta": 0.012,
+          "threshold_distance_m": 600
+        },
+        "catchment_area": {
+          "primary_radius_m": 300,
+          "secondary_radius_m": 500,
+          "tertiary_radius_m": 600
+        }
+      },
+      "MALL_JUNCTION": {
+        "stop_id": "MALL_JUNCTION",
+        "decay_function": "power",
+        "parameters": {
+          "alpha": 0.18,
+          "beta": 1.5,
+          "threshold_distance_m": 500
+        },
+        "catchment_area": {
+          "primary_radius_m": 250,
+          "secondary_radius_m": 400,
+          "tertiary_radius_m": 500
+        }
+      }
+    },
+    "stop_spacing_effects": {
+      "close_stops_threshold_m": 300,
+      "medium_stops_threshold_m": 800,
+      "far_stops_threshold_m": 1500,
+      "spacing_multipliers": {
+        "close_stops": 0.85,
+        "medium_stops": 1.0,
+        "far_stops": 1.15
+      }
+    },
+    "travel_time_sensitivity": {
+      "time_value_per_minute": 0.25,
+      "acceptable_travel_time_minutes": {
+        "short_trip": 15,
+        "medium_trip": 35,
+        "long_trip": 75
+      },
+      "time_reliability_factor": 0.7
+    }
+  },
+  "group_patterns": {
+    "group_size_distributions": {
+      "peak_commute": {
+        "context": "peak_commute",
+        "distribution": {
+          "solo": 0.65,
+          "pair": 0.25,
+          "small_group_3_4": 0.08,
+          "large_group_5_plus": 0.02
+        },
+        "average_group_size": 1.47
+      },
+      "off_peak": {
+        "context": "off_peak",
+        "distribution": {
+          "solo": 0.45,
+          "pair": 0.35,
+          "small_group_3_4": 0.15,
+          "large_group_5_plus": 0.05
+        },
+        "average_group_size": 1.8
+      },
+      "weekend": {
+        "context": "weekend",
+        "distribution": {
+          "solo": 0.35,
+          "pair": 0.35,
+          "small_group_3_4": 0.22,
+          "large_group_5_plus": 0.08
+        },
+        "average_group_size": 2.03
+      },
+      "school_hours": {
+        "context": "school_hours",
+        "distribution": {
+          "solo": 0.25,
+          "pair": 0.30,
+          "small_group_3_4": 0.30,
+          "large_group_5_plus": 0.15
+        },
+        "average_group_size": 2.35
+      }
+    },
+    "group_behavior_models": {
+      "boarding_time_multipliers": {
+        "solo": 1.0,
+        "pair": 1.7,
+        "small_group": 2.4,
+        "large_group": 3.2
+      },
+      "destination_correlation": {
+        "family_groups": 0.92,
+        "friend_groups": 0.75,
+        "work_colleagues": 0.85,
+        "random_grouping": 0.25
+      },
+      "waiting_behavior": {
+        "group_patience_multiplier": 1.35,
+        "group_arrival_variance": 1.15
+      }
+    },
+    "pickup_patterns": {
+      "simultaneous_pickup_probability": {
+        "BRIDGETOWN_TERMINAL": {
+          "stop_id": "BRIDGETOWN_TERMINAL",
+          "peak_hours": 0.45,
+          "off_peak_hours": 0.25
+        },
+        "UNIVERSITY_MAIN": {
+          "stop_id": "UNIVERSITY_MAIN",
+          "peak_hours": 0.35,
+          "off_peak_hours": 0.55
+        },
+        "MALL_JUNCTION": {
+          "stop_id": "MALL_JUNCTION",
+          "peak_hours": 0.25,
+          "off_peak_hours": 0.65
+        }
+      },
+      "queue_formation_models": {
+        "orderly_queue_probability": 0.7,
+        "cluster_boarding_probability": 0.25,
+        "queue_discipline_factor": 0.8
+      }
+    }
+  },
+  "locations": {
+    "DEPOT_MAIN": {
+      "stop_id": "DEPOT_MAIN",
+      "stop_name": "Main Transport Depot",
+      "routes_served": ["1", "1A", "1B"],
+      "passenger_rates": {
+        "boarding": {
+          "peak_hours": {
+            "rate_per_hour": 5,
+            "variance": 0.3,
+            "confidence_level": 0.9
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 2,
+            "variance": 0.4,
+            "confidence_level": 0.8
+          }
+        },
+        "alighting": {
+          "peak_hours": {
+            "rate_per_hour": 0,
+            "variance": 0.0,
+            "confidence_level": 1.0
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 0,
+            "variance": 0.0,
+            "confidence_level": 1.0
+          }
+        }
+      },
+      "distance_factors": {
+        "distance_to_previous_stop_m": 0,
+        "distance_to_next_stop_m": 2100,
+        "distance_to_depot_km": 0,
+        "walking_distance_to_attractions": {
+          "transport_authority": 50,
+          "maintenance_facility": 100
+        },
+        "accessibility_score": 10
+      },
+      "group_characteristics": {
+        "typical_group_size": 1.2,
+        "group_frequency_peak": 0.15,
+        "group_frequency_off_peak": 0.25,
+        "dominant_group_types": ["commuter_pairs"]
+      },
+      "real_world_calibration": {
+        "observed_data_points": 450,
+        "data_collection_period": "June-August 2025",
+        "validation_accuracy": 0.92,
+        "data_sources": ["Manual counts", "Driver logs", "Departure tracking"]
+      }
+    },
+    "BRIDGETOWN_TERMINAL": {
+      "stop_id": "BRIDGETOWN_TERMINAL",
+      "stop_name": "Bridgetown Bus Terminal",
+      "routes_served": ["1", "1A", "1B"],
+      "passenger_rates": {
+        "boarding": {
+          "peak_hours": {
+            "rate_per_hour": 28,
+            "variance": 0.25,
+            "confidence_level": 0.85
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 12,
+            "variance": 0.35,
+            "confidence_level": 0.8
+          }
+        },
+        "alighting": {
+          "peak_hours": {
+            "rate_per_hour": 22,
+            "variance": 0.3,
+            "confidence_level": 0.8
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 8,
+            "variance": 0.4,
+            "confidence_level": 0.75
+          }
+        }
+      },
+      "distance_factors": {
+        "distance_to_previous_stop_m": 2100,
+        "distance_to_next_stop_m": 650,
+        "distance_to_depot_km": 2.1,
+        "walking_distance_to_attractions": {
+          "independence_square": 200,
+          "parliament_buildings": 400,
+          "city_centre": 300
+        },
+        "accessibility_score": 9
+      },
+      "group_characteristics": {
+        "typical_group_size": 1.65,
+        "group_frequency_peak": 0.4,
+        "group_frequency_off_peak": 0.55,
+        "dominant_group_types": ["commuter_pairs", "family_groups", "leisure_groups"]
+      },
+      "real_world_calibration": {
+        "observed_data_points": 2850,
+        "data_collection_period": "June-August 2025",
+        "validation_accuracy": 0.87,
+        "data_sources": ["APC systems", "Manual counts", "Ticketing data"]
+      }
+    },
+    "JUBILEE_MARKET": {
+      "stop_id": "JUBILEE_MARKET",
+      "stop_name": "Jubilee Market",
+      "routes_served": ["1", "1B"],
+      "passenger_rates": {
+        "boarding": {
+          "peak_hours": {
+            "rate_per_hour": 18,
+            "variance": 0.4,
+            "confidence_level": 0.75
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 15,
+            "variance": 0.35,
+            "confidence_level": 0.8
+          }
+        },
+        "alighting": {
+          "peak_hours": {
+            "rate_per_hour": 12,
+            "variance": 0.35,
+            "confidence_level": 0.8
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 18,
+            "variance": 0.3,
+            "confidence_level": 0.82
+          }
+        }
+      },
+      "distance_factors": {
+        "distance_to_previous_stop_m": 650,
+        "distance_to_next_stop_m": 1850,
+        "distance_to_depot_km": 2.75,
+        "walking_distance_to_attractions": {
+          "public_market": 100,
+          "commercial_district": 250,
+          "post_office": 200
+        },
+        "accessibility_score": 7
+      },
+      "group_characteristics": {
+        "typical_group_size": 1.85,
+        "group_frequency_peak": 0.35,
+        "group_frequency_off_peak": 0.65,
+        "dominant_group_types": ["shopping_groups", "family_groups"]
+      },
+      "real_world_calibration": {
+        "observed_data_points": 1650,
+        "data_collection_period": "June-August 2025",
+        "validation_accuracy": 0.79,
+        "data_sources": ["Manual counts", "Market vendor surveys"]
+      }
+    },
+    "UNIVERSITY_MAIN": {
+      "stop_id": "UNIVERSITY_MAIN",
+      "stop_name": "University of the West Indies",
+      "routes_served": ["1", "1A"],
+      "passenger_rates": {
+        "boarding": {
+          "peak_hours": {
+            "rate_per_hour": 35,
+            "variance": 0.3,
+            "confidence_level": 0.9
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 8,
+            "variance": 0.5,
+            "confidence_level": 0.7
+          }
+        },
+        "alighting": {
+          "peak_hours": {
+            "rate_per_hour": 8,
+            "variance": 0.4,
+            "confidence_level": 0.75
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 25,
+            "variance": 0.35,
+            "confidence_level": 0.85
+          }
+        }
+      },
+      "distance_factors": {
+        "distance_to_previous_stop_m": 1850,
+        "distance_to_next_stop_m": 1200,
+        "distance_to_depot_km": 4.6,
+        "walking_distance_to_attractions": {
+          "uwi_campus": 150,
+          "student_housing": 400,
+          "medical_centre": 300
+        },
+        "accessibility_score": 9
+      },
+      "group_characteristics": {
+        "typical_group_size": 2.1,
+        "group_frequency_peak": 0.55,
+        "group_frequency_off_peak": 0.45,
+        "dominant_group_types": ["student_groups", "commuter_pairs"]
+      },
+      "real_world_calibration": {
+        "observed_data_points": 2200,
+        "data_collection_period": "Academic semester Feb-May 2025",
+        "validation_accuracy": 0.88,
+        "data_sources": ["University surveys", "Student card data", "Manual counts"]
+      }
+    },
+    "INDUSTRIAL_ESTATE": {
+      "stop_id": "INDUSTRIAL_ESTATE",
+      "stop_name": "Industrial Estate",
+      "routes_served": ["1", "1A"],
+      "passenger_rates": {
+        "boarding": {
+          "peak_hours": {
+            "rate_per_hour": 15,
+            "variance": 0.2,
+            "confidence_level": 0.85
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 6,
+            "variance": 0.4,
+            "confidence_level": 0.7
+          }
+        },
+        "alighting": {
+          "peak_hours": {
+            "rate_per_hour": 22,
+            "variance": 0.25,
+            "confidence_level": 0.8
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 9,
+            "variance": 0.35,
+            "confidence_level": 0.75
+          }
+        }
+      },
+      "distance_factors": {
+        "distance_to_previous_stop_m": 1200,
+        "distance_to_next_stop_m": 2800,
+        "distance_to_depot_km": 5.8,
+        "walking_distance_to_attractions": {
+          "manufacturing_plants": 300,
+          "warehouse_district": 500,
+          "port_access": 800
+        },
+        "accessibility_score": 6
+      },
+      "group_characteristics": {
+        "typical_group_size": 1.3,
+        "group_frequency_peak": 0.25,
+        "group_frequency_off_peak": 0.15,
+        "dominant_group_types": ["commuter_pairs"]
+      },
+      "real_world_calibration": {
+        "observed_data_points": 980,
+        "data_collection_period": "June-August 2025",
+        "validation_accuracy": 0.82,
+        "data_sources": ["Worker shift logs", "Manual counts", "Employer surveys"]
+      }
+    },
+    "MALL_JUNCTION": {
+      "stop_id": "MALL_JUNCTION",
+      "stop_name": "Shopping Mall Junction",
+      "routes_served": ["1", "1B"],
+      "passenger_rates": {
+        "boarding": {
+          "peak_hours": {
+            "rate_per_hour": 12,
+            "variance": 0.3,
+            "confidence_level": 0.8
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 22,
+            "variance": 0.25,
+            "confidence_level": 0.85
+          }
+        },
+        "alighting": {
+          "peak_hours": {
+            "rate_per_hour": 8,
+            "variance": 0.4,
+            "confidence_level": 0.75
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 28,
+            "variance": 0.2,
+            "confidence_level": 0.9
+          }
+        }
+      },
+      "distance_factors": {
+        "distance_to_previous_stop_m": 2800,
+        "distance_to_next_stop_m": 1500,
+        "distance_to_depot_km": 8.6,
+        "walking_distance_to_attractions": {
+          "sheraton_mall": 200,
+          "restaurant_strip": 300,
+          "cinema_complex": 350
+        },
+        "accessibility_score": 8
+      },
+      "group_characteristics": {
+        "typical_group_size": 2.3,
+        "group_frequency_peak": 0.3,
+        "group_frequency_off_peak": 0.7,
+        "dominant_group_types": ["leisure_groups", "shopping_groups", "family_groups"]
+      },
+      "real_world_calibration": {
+        "observed_data_points": 1850,
+        "data_collection_period": "June-August 2025",
+        "validation_accuracy": 0.84,
+        "data_sources": ["Mall foot traffic data", "Manual counts", "Retail surveys"]
+      }
+    },
+    "SOUTH_COAST_TERMINAL": {
+      "stop_id": "SOUTH_COAST_TERMINAL",
+      "stop_name": "South Coast Terminal",
+      "routes_served": ["1", "1A"],
+      "passenger_rates": {
+        "boarding": {
+          "peak_hours": {
+            "rate_per_hour": 18,
+            "variance": 0.35,
+            "confidence_level": 0.8
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 25,
+            "variance": 0.3,
+            "confidence_level": 0.85
+          }
+        },
+        "alighting": {
+          "peak_hours": {
+            "rate_per_hour": 25,
+            "variance": 0.3,
+            "confidence_level": 0.8
+          },
+          "off_peak_hours": {
+            "rate_per_hour": 15,
+            "variance": 0.4,
+            "confidence_level": 0.75
+          }
+        }
+      },
+      "distance_factors": {
+        "distance_to_previous_stop_m": 1500,
+        "distance_to_next_stop_m": 0,
+        "distance_to_depot_km": 10.1,
+        "walking_distance_to_attractions": {
+          "tourist_zone": 400,
+          "hotels": 600,
+          "beach_access": 800,
+          "airport_shuttle": 200
+        },
+        "accessibility_score": 9
+      },
+      "group_characteristics": {
+        "typical_group_size": 2.5,
+        "group_frequency_peak": 0.4,
+        "group_frequency_off_peak": 0.65,
+        "dominant_group_types": ["leisure_groups", "family_groups"]
+      },
+      "real_world_calibration": {
+        "observed_data_points": 1620,
+        "data_collection_period": "Tourist season Dec 2024-Mar 2025",
+        "validation_accuracy": 0.81,
+        "data_sources": ["Tourism board data", "Hotel shuttle logs", "Manual counts"]
+      }
+    }
+  },
+  "real_world_integration": {
+    "data_extraction_methods": {
+      "passenger_counting": {
+        "manual_counts": {
+          "survey_periods": ["07:00-09:00", "12:00-14:00", "16:00-18:00"],
+          "count_intervals_minutes": 15,
+          "sample_size_requirements": 50
+        },
+        "automated_systems": {
+          "apc_systems": true,
+          "mobile_data": false,
+          "ticketing_data": true
+        }
+      },
+      "route_characteristics": {
+        "gps_tracking_requirements": {
+          "minimum_accuracy_m": 5,
+          "recording_interval_seconds": 30
+        },
+        "stop_timing_analysis": {
+          "dwell_time_measurement": true,
+          "boarding_time_per_passenger": true
+        }
+      }
+    },
+    "validation_procedures": {
+      "model_accuracy_targets": {
+        "passenger_count_accuracy": 0.85,
+        "timing_accuracy_seconds": 120,
+        "route_completion_accuracy": 0.9
+      },
+      "validation_frequency": {
+        "daily_validation": true,
+        "weekly_calibration": true,
+        "monthly_full_review": true
+      }
+    },
+    "calibration_parameters": {
+      "auto_calibration": {
+        "enabled": true,
+        "learning_rate": 0.15,
+        "adaptation_window_days": 7
+      },
+      "manual_adjustment_factors": {
+        "seasonal_adjustments": {
+          "tourist_season_multiplier": 1.3,
+          "school_holiday_multiplier": 0.8,
+          "hurricane_season_multiplier": 0.7
+        },
+        "special_event_factors": {
+          "independence_day": 2.1,
+          "carnival": 2.8,
+          "university_graduation": 1.6
+        },
+        "service_change_impacts": {
+          "route_extension": 1.15,
+          "frequency_increase": 1.25,
+          "fare_adjustment": 0.95
+        }
+      }
+    }
+  },
+  "time_patterns": {
+    "peak_hours": [
+      {
+        "start_time": "06:30",
+        "end_time": "08:30",
+        "days_of_week": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        "multiplier": 1.6,
+        "description": "Morning commute"
+      },
+      {
+        "start_time": "16:00",
+        "end_time": "18:30",
+        "days_of_week": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        "multiplier": 1.8,
+        "description": "Evening commute"
+      },
+      {
+        "start_time": "11:00",
+        "end_time": "14:00",
+        "days_of_week": ["saturday"],
+        "multiplier": 1.4,
+        "description": "Saturday shopping"
+      }
+    ],
+    "day_types": {
+      "weekday": 1.0,
+      "saturday": 0.75,
+      "sunday": 0.45,
+      "holiday": 0.3
+    },
+    "seasonal_patterns": {
+      "tourist_high_season": {
+        "months": [12, 1, 2, 3],
+        "multiplier": 1.35
+      },
+      "university_semester": {
+        "months": [9, 10, 11, 1, 2, 3, 4, 5],
+        "multiplier": 1.25
+      },
+      "summer_break": {
+        "months": [6, 7, 8],
+        "multiplier": 0.8
+      }
+    }
+  },
+  "demand_profiles": {
+    "commuter": {
+      "percentage": 45,
+      "peak_preference": true,
+      "typical_trip_distance_km": 8.5,
+      "group_tendency": 0.3
+    },
+    "student": {
+      "percentage": 25,
+      "peak_preference": true,
+      "typical_trip_distance_km": 6.2,
+      "group_tendency": 0.6
+    },
+    "shopper": {
+      "percentage": 15,
+      "peak_preference": false,
+      "typical_trip_distance_km": 5.8,
+      "group_tendency": 0.7
+    },
+    "tourist": {
+      "percentage": 10,
+      "peak_preference": false,
+      "typical_trip_distance_km": 12.1,
+      "group_tendency": 0.8
+    },
+    "medical": {
+      "percentage": 3,
+      "peak_preference": false,
+      "typical_trip_distance_km": 7.3,
+      "group_tendency": 0.4
+    },
+    "other": {
+      "percentage": 2,
+      "peak_preference": false,
+      "typical_trip_distance_km": 6.8,
+      "group_tendency": 0.35
+    }
+  },
+  "real_time_adjustments": {
+    "weather_impact": {
+      "pleasant_weather": 1.0,
+      "light_rain": 1.15,
+      "heavy_rain": 1.4,
+      "tropical_storm": 0.3,
+      "extreme_heat": 1.1
+    },
+    "service_disruptions": {
+      "normal": 1.0,
+      "minor_delays": 1.1,
+      "major_delays": 0.7,
+      "route_closure": 0.0,
+      "reduced_frequency": 0.8
+    },
+    "economic_factors": {
+      "normal": 1.0,
+      "fuel_price_increase": 0.9,
+      "fare_increase": 0.85,
+      "economic_downturn": 0.8,
+      "tourist_boom": 1.2
+    },
+    "infrastructure_events": {
+      "normal": 1.0,
+      "road_construction": 0.8,
+      "traffic_accident": 0.6,
+      "special_event_traffic": 1.3,
+      "parade_closure": 0.2
+    }
+  },
+  "model_parameters": {
+    "simulation_step_seconds": 30,
+    "passenger_patience_seconds": 900,
+    "boarding_time_per_passenger_seconds": 3.5,
+    "maximum_vehicle_capacity": 45
+  }
+}

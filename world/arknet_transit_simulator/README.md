@@ -46,13 +46,13 @@ import asyncio
 from world.arknet_transit_simulator.simulator import CleanVehicleSimulator
 
 async def main():
-	sim = CleanVehicleSimulator(api_url="http://localhost:8000")
-	if not await sim.initialize():
-		raise SystemExit("Init failed")
-	assignments = await sim.get_vehicle_assignments()
-	for a in assignments:
-		print(a.vehicle_reg_code, a.driver_name, a.route_name)
-	await sim.shutdown()
+ sim = CleanVehicleSimulator(api_url="http://localhost:8000")
+ if not await sim.initialize():
+  raise SystemExit("Init failed")
+ assignments = await sim.get_vehicle_assignments()
+ for a in assignments:
+  print(a.vehicle_reg_code, a.driver_name, a.route_name)
+ await sim.shutdown()
 
 asyncio.run(main())
 ```
@@ -86,4 +86,3 @@ Future Extensions (Not Implemented Here)
 * Web dashboard / streaming updates
 
 This README describes the clean, security-tightened runtime. Legacy files were removed.
-

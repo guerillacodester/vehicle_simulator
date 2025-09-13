@@ -16,6 +16,30 @@ import math
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from collections import defaultdict
 
+# PASSENGER RATE & CAPACITY CONFIGURATION
+PASSENGER_CONFIG = {
+    'max_total_passengers': 50,  # System-wide passenger limit
+    'vehicle_capacity': 24,      # Seats per vehicle
+    'simulation_hours': 2.0,     # Hours of operation to simulate
+    
+    # Passenger arrival rates (passengers per hour)
+    'depot_arrival_rates': {
+        'peak_hours': (8, 15),      # Peak: 8-15 passengers/hour at depot
+        'off_peak_hours': (3, 8),   # Off-peak: 3-8 passengers/hour at depot
+    },
+    'route_arrival_rates': {
+        'peak_hours': (5, 12),      # Peak: 5-12 passengers/hour per stop
+        'off_peak_hours': (2, 6),   # Off-peak: 2-6 passengers/hour per stop
+    },
+    
+    # Time periods (0.0-1.0 representing portion of simulation that's peak)
+    'peak_period_ratio': 0.6,    # 60% of time is peak hours
+    
+    # Service patterns
+    'inbound_return_rate': 0.4,  # Portion of outbound passengers that return
+    'depot_fill_threshold': 0.8, # Fill 80% of seats before departure (configurable)
+}
+
 
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Calculate distance between two points in meters."""
@@ -25,6 +49,65 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
     c = 2 * math.asin(math.sqrt(a))
     return 6371000 * c  # Earth radius in meters
+
+
+def calculate_passenger_arrival_rates(route_info, depot_count=1):
+    """
+    Calculate passenger arrival rates and timing for a route.
+    
+    Returns:
+        dict: Contains rates, timing, and capacity planning info
+    """
+    config = PASSENGER_CONFIG
+    simulation_hours = config['simulation_hours']
+    peak_ratio = config['peak_period_ratio']
+    
+    # Time distribution
+    peak_hours = simulation_hours * peak_ratio
+    off_peak_hours = simulation_hours * (1 - peak_ratio)
+    
+    # Depot passenger rates
+    depot_peak_rate = random.uniform(*config['depot_arrival_rates']['peak_hours'])
+    depot_off_peak_rate = random.uniform(*config['depot_arrival_rates']['off_peak_hours'])
+    
+    # Route stop passenger rates  
+    route_peak_rate = random.uniform(*config['route_arrival_rates']['peak_hours'])
+    route_off_peak_rate = random.uniform(*config['route_arrival_rates']['off_peak_hours'])
+    
+    # Calculate expected passengers over simulation period
+    depot_passengers_expected = (depot_peak_rate * peak_hours + 
+                               depot_off_peak_rate * off_peak_hours) * depot_count
+    
+    # Estimate route stops (simplified - could be calculated from actual route data)
+    est_route_stops = random.randint(4, 8)
+    route_passengers_expected = (route_peak_rate * peak_hours + 
+                               route_off_peak_rate * off_peak_hours) * est_route_stops
+    
+    # Calculate seat fill timing at depot
+    vehicle_capacity = config['vehicle_capacity']
+    fill_threshold = config['depot_fill_threshold']
+    seats_to_fill = int(vehicle_capacity * fill_threshold)
+    
+    # Average time to fill seats (using peak rate as most optimistic)
+    avg_fill_time_peak = seats_to_fill / max(depot_peak_rate, 1) * 60  # minutes
+    avg_fill_time_off_peak = seats_to_fill / max(depot_off_peak_rate, 1) * 60  # minutes
+    
+    return {
+        'depot_rate_peak': depot_peak_rate,
+        'depot_rate_off_peak': depot_off_peak_rate,
+        'route_rate_peak': route_peak_rate,
+        'route_rate_off_peak': route_off_peak_rate,
+        'depot_passengers_expected': int(depot_passengers_expected),
+        'route_passengers_expected': int(route_passengers_expected),
+        'total_passengers_expected': int(depot_passengers_expected + route_passengers_expected),
+        'vehicle_capacity': vehicle_capacity,
+        'seats_to_fill': seats_to_fill,
+        'fill_time_peak_minutes': avg_fill_time_peak,
+        'fill_time_off_peak_minutes': avg_fill_time_off_peak,
+        'simulation_hours': simulation_hours,
+        'peak_hours': peak_hours,
+        'off_peak_hours': off_peak_hours,
+    }
 
 
 def cluster_passengers_by_proximity(passengers, walking_distance_meters=150):
@@ -202,19 +285,24 @@ def create_route_passengers(routes, vehicles, depots):
         print(f"\n📍 Route {route_code} ({route_name})")
         print(f"   Vehicles: {', '.join(assigned_vehicles)}")
         
+        # Calculate passenger rates and capacity planning for this route
+        rate_info = calculate_passenger_arrival_rates({'route_id': route_code, 'route_name': route_name}, len(depots))
+        
+        print(f"   📊 Passenger Rate Analysis:")
+        print(f"      • Depot Rate: {rate_info['depot_rate_peak']:.1f}/{rate_info['depot_rate_off_peak']:.1f} passengers/hour (peak/off-peak)")
+        print(f"      • Route Rate: {rate_info['route_rate_peak']:.1f}/{rate_info['route_rate_off_peak']:.1f} passengers/hour per stop")
+        print(f"      • Expected Passengers: {rate_info['total_passengers_expected']} over {rate_info['simulation_hours']}h")
+        print(f"      • Seat Fill Time: {rate_info['fill_time_peak_minutes']:.1f}min (peak) / {rate_info['fill_time_off_peak_minutes']:.1f}min (off-peak)")
+        print(f"      • Vehicle Capacity: {rate_info['vehicle_capacity']} seats, fill to {rate_info['seats_to_fill']} before departure")
+        
         passengers = []
         
-        # Generate depot passengers for this route
+        # Generate depot passengers for this route based on expected count
         for depot in depots:
             depot_name = depot.get('name', 'Unknown')
             
-            # Generate 15-35 passengers per depot per route (much more generous)
-            # This means each depot generates passengers for each route separately
-            base_passengers = random.randint(15, 35)
-            
-            # Add peak hour bonus (simulate rush hour traffic)
-            peak_bonus = random.randint(5, 15)  # Extra passengers during peak times
-            num_depot_passengers = base_passengers + peak_bonus
+            # Use rate-based passenger generation
+            num_depot_passengers = max(1, rate_info['depot_passengers_expected'] // len(depots))
             
             for i in range(num_depot_passengers):
                 # Random destination along the route
@@ -282,7 +370,8 @@ def create_route_passengers(routes, vehicles, depots):
             return min(base_probability, 5.0)  # Cap at 5x base probability
         
         hotspots = calculate_demand_hotspots(coordinates)
-        total_route_passengers = random.randint(50, 100)  # Realistic passenger count
+        # Use rate-based passenger generation
+        total_route_passengers = max(1, rate_info['route_passengers_expected'])
         
         # Generate passengers based on real-world pickup patterns
         pickup_probabilities = []
@@ -361,22 +450,126 @@ def create_route_passengers(routes, vehicles, depots):
             }
             passengers.append(passenger)
         
-        # Cluster passengers within walking distance
-        print(f"   🔄 Clustering passengers within 150m walking distance...")
-        passenger_groups = cluster_passengers_by_proximity(passengers, walking_distance_meters=150)
+        # Generate INBOUND passengers (return trips and reverse flows)
+        print(f"   🔄 Generating inbound passenger flows...")
+        inbound_passengers = []
+        
+        # 1. Depot return passengers (from route stops back to depot)
+        for depot in depots:
+            depot_name = depot.get('name', 'Unknown')
+            
+            # Calculate return passengers based on depot passenger rate and outbound count
+            outbound_depot_count = len([p for p in passengers if p['type'] == 'depot_pickup'])
+            num_return_passengers = int(outbound_depot_count * PASSENGER_CONFIG['inbound_return_rate'])
+            
+            for i in range(num_return_passengers):
+                # Pick random route location as origin
+                origin_coord = random.choice(coordinates)
+                
+                passenger = {
+                    'id': f"RETURN_{depot_name.replace(' ', '_')}_{i+1:02d}",
+                    'type': 'depot_return',
+                    'origin': f"Route Stop",
+                    'origin_lat': origin_coord[1],  # [lon, lat] format
+                    'origin_lon': origin_coord[0],
+                    'dest_lat': depot.get('latitude'),  # Return to depot
+                    'dest_lon': depot.get('longitude'),
+                    'wait_time': random.randint(8, 20),  # Slightly longer waits for returns
+                    'vehicle': random.choice(assigned_vehicles) if assigned_vehicles else 'N/A',
+                    'direction': 'inbound'
+                }
+                inbound_passengers.append(passenger)
+        
+        # 2. Inbound route passengers (reverse direction travel)
+        outbound_route_count = len([p for p in passengers if p['type'] == 'route_pickup'])
+        total_inbound_route_passengers = int(outbound_route_count * PASSENGER_CONFIG['inbound_route_rate'])
+        
+        # Use same hotspot logic but for reverse direction preference
+        for passenger_num in range(total_inbound_route_passengers):
+            # Weighted selection for pickup locations
+            pickup_idx = random.choices(range(len(coordinates)), weights=pickup_probabilities)[0]
+            pickup_coord = coordinates[pickup_idx]
+            
+            # Inbound destination selection (prefer earlier stops in route)
+            def get_inbound_destination_idx(pickup_idx, coordinates):
+                """Select destination with inbound preference (toward route start)."""
+                route_length = len(coordinates)
+                
+                # 70% prefer earlier stops (inbound direction), 30% still go forward
+                if random.random() < 0.7:  # Inbound preference
+                    # Go toward beginning of route
+                    max_backward = min(pickup_idx, random.randint(15, 40))
+                    min_distance = min(5, max_backward)  # Ensure min_distance doesn't exceed max_backward
+                    if max_backward > min_distance:
+                        dest_idx = max(0, pickup_idx - random.randint(min_distance, max_backward))
+                    else:
+                        dest_idx = max(0, pickup_idx - min_distance)
+                else:  # Some still go forward
+                    max_forward = min(route_length - pickup_idx - 1, 30)
+                    if max_forward > 5:
+                        dest_idx = min(route_length - 1, pickup_idx + random.randint(5, max_forward))
+                    else:
+                        dest_idx = min(route_length - 1, pickup_idx + max(1, max_forward))
+                
+                return dest_idx
+            
+            dest_idx = get_inbound_destination_idx(pickup_idx, coordinates)
+            dest_coord = coordinates[dest_idx]
+            
+            # Calculate stop zone
+            stop_zone = pickup_idx // 12
+            
+            # Inbound wait times (slightly longer as service is less frequent)
+            hotspot_type = 'remote'
+            for hotspot in hotspots:
+                if abs(pickup_idx - hotspot['center']) <= hotspot['radius']:
+                    hotspot_type = hotspot['type']
+                    break
+            
+            wait_time_base = {
+                'major_hub': random.randint(2, 10),
+                'downtown': random.randint(5, 15),
+                'commercial': random.randint(5, 15),
+                'residential': random.randint(8, 18)
+            }.get(hotspot_type, random.randint(10, 30))
+            
+            passenger = {
+                'id': f"INBOUND_{route_code}_{pickup_idx:03d}_{passenger_num+1:02d}",
+                'type': 'inbound_pickup',
+                'origin': f"Stop {stop_zone + 1}",
+                'origin_lat': pickup_coord[1],
+                'origin_lon': pickup_coord[0],
+                'dest_lat': dest_coord[1],
+                'dest_lon': dest_coord[0],
+                'wait_time': wait_time_base,
+                'vehicle': random.choice(assigned_vehicles) if assigned_vehicles else 'N/A',
+                'pickup_type': hotspot_type,
+                'direction': 'inbound'
+            }
+            inbound_passengers.append(passenger)
+        
+        # Combine outbound and inbound passengers
+        all_passengers = passengers + inbound_passengers
+        
+        # Cluster all passengers within walking distance
+        print(f"   🔄 Clustering all passengers within 150m walking distance...")
+        passenger_groups = cluster_passengers_by_proximity(all_passengers, walking_distance_meters=150)
         
         route_passengers[route_code] = {
             'route_name': route_name,
             'vehicles': assigned_vehicles,
-            'passengers': passengers,  # Keep original for reference
-            'passenger_groups': passenger_groups  # New clustered groups
+            'passengers': all_passengers,  # All passengers (outbound + inbound)
+            'outbound_passengers': passengers,  # Just outbound
+            'inbound_passengers': inbound_passengers,  # Just inbound
+            'passenger_groups': passenger_groups,  # New clustered groups
+            'rate_info': rate_info  # Store rate analysis
         }
         
-        print(f"   Passengers: {len(passengers)} total")
-        print(f"   - Depot pickups: {len([p for p in passengers if p['type'] == 'depot_pickup'])}")
-        print(f"   - Route pickups: {len([p for p in passengers if p['type'] == 'route_pickup'])}")
+        print(f"   Passengers: {len(all_passengers)} total")
+        print(f"   - Outbound: {len(passengers)} ({len([p for p in passengers if p['type'] == 'depot_pickup'])} depot, {len([p for p in passengers if p['type'] == 'route_pickup'])} route)")
+        print(f"   - Inbound: {len(inbound_passengers)} ({len([p for p in inbound_passengers if p['type'] == 'depot_return'])} returns, {len([p for p in inbound_passengers if p['type'] == 'inbound_pickup'])} route)")
         print(f"   🔗 Clustered into: {len(passenger_groups)} groups")
-        print(f"   📊 Average group size: {len(passengers)/len(passenger_groups):.1f} passengers/group")
+        print(f"   📊 Average group size: {len(all_passengers)/len(passenger_groups):.1f} passengers/group")
     
     return route_passengers
 
@@ -492,6 +685,61 @@ def display_route_summary_table(route_passengers):
     print(f"   Average Passengers per Vehicle: {total_passengers/total_vehicles:.1f}")
 
 
+def display_passenger_rate_analysis(route_passengers):
+    """Display passenger arrival rates and capacity planning analysis."""
+    print(f"\n🕐 PASSENGER RATE & CAPACITY ANALYSIS")
+    print("=" * 120)
+    
+    rate_data = []
+    
+    for route_code, data in route_passengers.items():
+        route_name = data['route_name']
+        vehicles = data['vehicles']
+        rate_info = data.get('rate_info', {})
+        
+        if not rate_info:
+            continue
+            
+        # Calculate vehicle utilization
+        total_passengers = len(data.get('passengers', []))
+        vehicle_capacity = rate_info.get('vehicle_capacity', 24)
+        total_capacity = len(vehicles) * vehicle_capacity
+        utilization = (total_passengers / total_capacity * 100) if total_capacity > 0 else 0
+        
+        # Departure frequency calculation (simplified)
+        fill_time_avg = (rate_info.get('fill_time_peak_minutes', 0) + rate_info.get('fill_time_off_peak_minutes', 0)) / 2
+        departures_per_hour = 60 / max(fill_time_avg, 1) if fill_time_avg > 0 else 0
+        
+        rate_data.append([
+            route_code,
+            route_name[:15],  # Truncate long names
+            len(vehicles),
+            f"{rate_info.get('depot_rate_peak', 0):.1f}/{rate_info.get('depot_rate_off_peak', 0):.1f}",
+            f"{rate_info.get('route_rate_peak', 0):.1f}/{rate_info.get('route_rate_off_peak', 0):.1f}",
+            rate_info.get('total_passengers_expected', 0),
+            total_passengers,
+            f"{rate_info.get('fill_time_peak_minutes', 0):.1f}/{rate_info.get('fill_time_off_peak_minutes', 0):.1f}",
+            f"{departures_per_hour:.1f}",
+            f"{utilization:.1f}%",
+            f"{rate_info.get('seats_to_fill', 0)}/{vehicle_capacity}"
+        ])
+    
+    headers = [
+        'Route', 'Name', 'Vehicles', 'Depot Rate\n(pk/off)', 'Route Rate\n(pk/off)', 
+        'Expected\nPass.', 'Actual\nPass.', 'Fill Time\n(pk/off min)', 
+        'Departures\n/hour', 'Capacity\nUtil.', 'Fill\nSeats'
+    ]
+    
+    print(tabulate(rate_data, headers=headers, tablefmt='grid'))
+    
+    print(f"\n📋 RATE ANALYSIS LEGEND:")
+    print(f"   • Depot/Route Rate: Passengers per hour during peak/off-peak periods")
+    print(f"   • Fill Time: Minutes to fill {PASSENGER_CONFIG['depot_fill_threshold']*100:.0f}% of vehicle seats at depot")
+    print(f"   • Departures/hour: Theoretical departure frequency based on seat filling")
+    print(f"   • Capacity Util.: Percentage of total route capacity being used")
+    print(f"   • Fill Seats: Target seats to fill before departure / total vehicle capacity")
+
+
 def display_passenger_coordinates(route_passengers):
     """Display detailed GPS coordinates for passenger groups."""
     print(f"\n🗺️  DETAILED PASSENGER GROUP GPS COORDINATES")
@@ -544,6 +792,13 @@ def display_vehicle_assignments(route_passengers):
             vehicle_passengers = [p for p in passengers if p['vehicle'] == vehicle]
             vehicle_groups = [g for g in passenger_groups if g['vehicle'] == vehicle]
             
+            # Count different passenger types
+            outbound_count = len([p for p in vehicle_passengers if p.get('direction', 'outbound') == 'outbound'])
+            inbound_count = len([p for p in vehicle_passengers if p.get('direction', 'outbound') == 'inbound'])
+            depot_pickup_count = len([p for p in vehicle_passengers if p['type'] == 'depot_pickup'])
+            route_pickup_count = len([p for p in vehicle_passengers if p['type'] in ['route_pickup', 'inbound_pickup']])
+            depot_return_count = len([p for p in vehicle_passengers if p['type'] == 'depot_return'])
+            
             vehicle_data.append([
                 vehicle,
                 route_code,
@@ -551,14 +806,14 @@ def display_vehicle_assignments(route_passengers):
                 len(vehicle_passengers),
                 len(vehicle_groups),
                 f"{len(vehicle_passengers)/len(vehicle_groups):.1f}" if vehicle_groups else "0.0",
-                len([p for p in vehicle_passengers if p['type'] == 'depot_pickup']),
-                len([p for p in vehicle_passengers if p['type'] == 'route_pickup']),
+                f"{outbound_count}⬇️{inbound_count}⬆️",  # Show directional flow
+                f"{depot_pickup_count + depot_return_count}🏢{route_pickup_count}🚏",  # Show pickup types
                 f"{sum(p['wait_time'] for p in vehicle_passengers) / len(vehicle_passengers):.1f}" if vehicle_passengers else "0.0"
             ])
     
     headers = [
         "Vehicle ID", "Route", "Route Name", "Total Pass.", "Groups", "Avg Group Size",
-        "Depot Pass.", "Route Pass.", "Avg Wait (min)"
+        "Direction Flow", "Pickup Types", "Avg Wait (min)"
     ]
     
     print(tabulate(vehicle_data, headers=headers, tablefmt="grid"))
@@ -580,10 +835,18 @@ def display_passenger_boarding_disembarking(route_passengers):
         
         passenger_data = []
         for i, passenger in enumerate(passengers):
+            # Determine direction and type display
+            direction = passenger.get('direction', 'outbound')
+            type_display = passenger['type'][:10]
+            if direction == 'inbound':
+                type_display = f"🔄{type_display}"
+            else:
+                type_display = f"➡️{type_display}"
+            
             passenger_data.append([
                 f"{i+1:3d}",
                 passenger['id'][:20],
-                passenger['type'][:10],
+                type_display,
                 passenger['origin'][:15],
                 f"{passenger['origin_lat']:.6f}",
                 f"{passenger['origin_lon']:.6f}",
@@ -597,7 +860,7 @@ def display_passenger_boarding_disembarking(route_passengers):
             passenger_data.append([
                 "",  # No number for disembarking row
                 "",  # No ID repeat
-                passenger['type'][:10],
+                type_display,
                 "→ DESTINATION",
                 f"{passenger['dest_lat']:.6f}",
                 f"{passenger['dest_lon']:.6f}",
@@ -618,15 +881,21 @@ def display_passenger_boarding_disembarking(route_passengers):
         
         print(tabulate(passenger_data, headers=headers, tablefmt='grid', stralign="left"))
         
-        # Show statistics for this route
-        depot_count = len([p for p in passengers if p['type'] == 'depot_pickup'])
-        route_count = len([p for p in passengers if p['type'] == 'route_pickup'])
+        # Show statistics for this route (now includes inbound/outbound)
+        outbound_passengers = data.get('outbound_passengers', [])
+        inbound_passengers = data.get('inbound_passengers', [])
+        
+        depot_pickup_count = len([p for p in outbound_passengers if p['type'] == 'depot_pickup'])
+        route_pickup_count = len([p for p in outbound_passengers if p['type'] == 'route_pickup'])
+        depot_return_count = len([p for p in inbound_passengers if p['type'] == 'depot_return'])
+        inbound_route_count = len([p for p in inbound_passengers if p['type'] == 'inbound_pickup'])
+        
         avg_distance = sum(haversine_distance(p['origin_lat'], p['origin_lon'], p['dest_lat'], p['dest_lon']) for p in passengers) / len(passengers)
         
         print(f"\n📊 Route {route_code} Movement Summary:")
         print(f"   • Total Passengers: {len(passengers)}")
-        print(f"   • Depot Pickups: {depot_count}")
-        print(f"   • Route Pickups: {route_count}")
+        print(f"   • Outbound: {len(outbound_passengers)} (Depot: {depot_pickup_count}, Route: {route_pickup_count})")
+        print(f"   • Inbound: {len(inbound_passengers)} (Returns: {depot_return_count}, Route: {inbound_route_count})")
         print(f"   • Average Trip Distance: {avg_distance:.0f}m")
         
         total_passengers_shown += len(passengers)
@@ -636,6 +905,49 @@ def display_passenger_boarding_disembarking(route_passengers):
     print(f"   • Total Boarding Events: {total_passengers_shown}")
     print(f"   • Total Disembarking Events: {total_passengers_shown}")
     print(f"   • Each passenger creates 2 location events (boarding + disembarking)")
+
+
+def enforce_passenger_limit(route_passengers):
+    """Enforce system-wide passenger limit by proportionally reducing passengers."""
+    total_passengers = 0
+    for route_data in route_passengers.values():
+        outbound = route_data.get('outbound_passengers', [])
+        inbound = route_data.get('inbound_passengers', [])
+        total_passengers += len(outbound) + len(inbound)
+    
+    max_passengers = PASSENGER_CONFIG['max_total_passengers']
+    
+    if total_passengers <= max_passengers:
+        print(f"✅ Total passengers ({total_passengers}) within limit ({max_passengers})")
+        return route_passengers
+    
+    print(f"⚠️ Total passengers ({total_passengers}) exceeds limit ({max_passengers})")
+    print(f"   Proportionally reducing passenger counts...")
+    
+    # Calculate reduction ratio
+    reduction_ratio = max_passengers / total_passengers
+    
+    # Reduce passengers for each route proportionally
+    for route_id, route_data in route_passengers.items():
+        outbound = route_data.get('outbound_passengers', [])
+        inbound = route_data.get('inbound_passengers', [])
+        
+        # Calculate new counts
+        new_outbound_count = max(1, int(len(outbound) * reduction_ratio))
+        new_inbound_count = max(0, int(len(inbound) * reduction_ratio))
+        
+        # Randomly sample passengers to keep
+        if len(outbound) > new_outbound_count:
+            route_data['outbound_passengers'] = random.sample(outbound, new_outbound_count)
+        if len(inbound) > new_inbound_count:
+            route_data['inbound_passengers'] = random.sample(inbound, new_inbound_count)
+    
+    # Verify new total
+    new_total = sum(len(route_data.get('outbound_passengers', [])) + len(route_data.get('inbound_passengers', [])) 
+                   for route_data in route_passengers.values())
+    print(f"   ✅ Reduced to {new_total} passengers")
+    
+    return route_passengers
 
 
 if __name__ == "__main__":
@@ -661,7 +973,11 @@ if __name__ == "__main__":
     # Create passengers organized by route
     route_passengers = create_route_passengers(routes, vehicles, depots)
     
+    # Enforce passenger limit
+    route_passengers = enforce_passenger_limit(route_passengers)
+    
     # Display results
+    display_passenger_rate_analysis(route_passengers)
     display_route_passenger_table(route_passengers)
     display_passenger_coordinates(route_passengers) 
     display_passenger_boarding_disembarking(route_passengers)

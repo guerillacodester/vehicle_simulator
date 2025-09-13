@@ -89,7 +89,7 @@ See `example_usage.py` for complete examples.
 
 ## Architecture
 
-```
+```text
 Data Source → TelemetryInjector → GPS Device RxTx Buffer → WebSocket Server
 ```
 
