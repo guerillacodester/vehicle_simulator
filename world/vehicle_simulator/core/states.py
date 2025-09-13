@@ -30,6 +30,7 @@ class DriverState(Enum):
     """States for driver components."""
     DISEMBARKED = "DISEMBARKED"  # Driver not on vehicle
     BOARDING = "BOARDING"        # Driver getting on vehicle
+    WAITING = "WAITING"          # Driver on vehicle, engine off, waiting for start trigger
     ONBOARD = "ONBOARD"         # Driver is on vehicle and driving
     DISEMBARKING = "DISEMBARKING" # Driver getting off vehicle
     BREAK = "BREAK"             # Driver on break

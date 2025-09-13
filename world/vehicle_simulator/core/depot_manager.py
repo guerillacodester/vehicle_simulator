@@ -361,9 +361,9 @@ class DepotManager(StateMachine, IDepotManager):
             operational_routes = []
             
             for driver in active_drivers:
-                # Only include drivers that are ONBOARD and have GPS running
+                # Only include drivers that are ONBOARD or WAITING and have GPS running
                 if (hasattr(driver, 'current_state') and 
-                    driver.current_state.value == 'ONBOARD' and
+                    driver.current_state.value in ['ONBOARD', 'WAITING'] and
                     hasattr(driver, 'vehicle_gps') and 
                     driver.vehicle_gps and
                     hasattr(driver.vehicle_gps, 'current_state')):

@@ -389,19 +389,19 @@ async def test_depot_vehicle_simulation():
             print(f"   ❌ No drivers created")
             return False
         
-        # Phase 5: Drivers board vehicles and activate GPS
+        # Phase 5: Drivers board vehicles and activate GPS (WAITING state - engine OFF)
         print(f"\n🚪 Phase 5: Drivers boarding vehicles...")
         boarding_success = []
         
         for driver_id, driver in depot_drivers.items():
-            success = await driver.arrive()  # Driver boards vehicle
+            success = await driver.arrive()  # Driver boards vehicle (WAITING state)
             boarding_success.append(success)
             
             if success:
                 route_name = driver.route_name
                 vehicle_reg = driver.vehicle_reg
-                print(f"   ✅ {driver.person_name} boarded {vehicle_reg} for Route {route_name}")
-                print(f"   📡 GPS device {driver.gps_device.component_id} activated")
+                print(f"   ✅ {driver.person_name} boarded {vehicle_reg} for Route {route_name} - WAITING")
+                print(f"   📡 GPS device {driver.gps_device.component_id} activated (engine still OFF)")
             else:
                 print(f"   ❌ {driver.person_name} boarding failed")
         
@@ -414,23 +414,23 @@ async def test_depot_vehicle_simulation():
         print(f"   📡 Check telemetry server at localhost:5000 for GPS data!")
         print(f"   💡 Note: Routes have no geometry data - vehicles simulate at depot positions")
         
-        # Parked phase - engines OFF  
-        print(f"\n🚫 Engines OFF - vehicles parked at depot")
+        # Parked phase - drivers WAITING (boarded but engines OFF)  
+        print(f"\n⏸️  Drivers WAITING - boarded but engines OFF (real operations workflow)")
         await asyncio.sleep(3)
         
-        # Moving phase - engines ON (even without route geometry, engine simulation runs)
-        print(f"\n✅ Starting engines - simulating vehicle movement")
+        # Moving phase - engines ON (transitions drivers from WAITING to ONBOARD)
+        print(f"\n✅ Starting engines - drivers transitioning to ONBOARD")
         for driver_id, driver in depot_drivers.items():
-            await driver.start_engine()
+            await driver.start_engine()  # WAITING → ONBOARD
         
         print(f"   🚗 Engines running for 8 seconds - GPS shows engine telemetry")
         print(f"   📍 Without route geometry, vehicles remain at depot coordinates")
         await asyncio.sleep(8)
         
-        # Stopped phase - engines OFF
-        print(f"\n🛑 Stopping engines - vehicles back to stationary")
+        # Stopped phase - engines OFF (drivers return to WAITING state)
+        print(f"\n🛑 Stopping engines - drivers returning to WAITING state")
         for driver_id, driver in depot_drivers.items():
-            await driver.stop_engine()
+            await driver.stop_engine()  # ONBOARD → WAITING
         
         print(f"   ⏸️  Engines stopped for 3 seconds - GPS shows static positions")
         await asyncio.sleep(3)

@@ -97,7 +97,7 @@ class VehicleDriver(BasePerson):
         self._thread: Optional[threading.Thread] = None
 
     async def _start_implementation(self) -> bool:
-        """Driver boards vehicle and starts vehicle components."""
+        """Driver boards vehicle and starts GPS device, but NOT the engine (real operations workflow)."""
         try:
             # Set state to BOARDING while starting components
             self.current_state = DriverState.BOARDING
@@ -109,10 +109,8 @@ class VehicleDriver(BasePerson):
                 self._thread = threading.Thread(target=self._worker, daemon=True)
                 self._thread.start()
             
-            # Turn on vehicle components if available
-            if self.vehicle_engine:
-                self.logger.info(f"Driver {self.person_name} starting engine for {self.vehicle_id}")
-                await self.vehicle_engine.start()
+            # NOTE: In real operations, driver does NOT automatically start engine when boarding
+            # Engine will be started later via start_engine() when triggered
             
             if self.vehicle_gps:
                 self.logger.info(f"Driver {self.person_name} starting GPS device for {self.vehicle_id}")
@@ -141,10 +139,10 @@ class VehicleDriver(BasePerson):
                     self.logger.info(f"📍 Initial GPS position set: lat={lat:.6f}, lon={lon:.6f}")
                     self.logger.info("📡 Initial position packet transmitted to GPS server")
             
-            # Set state to ONBOARD after successful boarding
-            self.current_state = DriverState.ONBOARD
+            # Set state to WAITING after successful boarding (engine off, waiting for start trigger)
+            self.current_state = DriverState.WAITING
             self.logger.info(
-                f"Driver {self.person_name} successfully boarded {self.vehicle_id} "
+                f"Driver {self.person_name} successfully boarded {self.vehicle_id} - WAITING for engine start "
                 f"(mode={self.mode}, direction={self.direction})"
             )
             return True
@@ -183,6 +181,68 @@ class VehicleDriver(BasePerson):
             
         except Exception as e:
             self.logger.error(f"Driver {self.person_name} failed to disembark from vehicle {self.vehicle_id}: {e}")
+            return False
+    
+    async def start_engine(self) -> bool:
+        """Start the vehicle engine - transitions driver from WAITING to ONBOARD state."""
+        try:
+            if self.current_state != DriverState.WAITING:
+                self.logger.warning(
+                    f"Driver {self.person_name} cannot start engine - not in WAITING state "
+                    f"(current state: {self.current_state.value})"
+                )
+                return False
+            
+            if self.vehicle_engine:
+                self.logger.info(f"Driver {self.person_name} starting engine for {self.vehicle_id}")
+                engine_started = await self.vehicle_engine.start()
+                if engine_started:
+                    # Transition from WAITING to ONBOARD
+                    self.current_state = DriverState.ONBOARD
+                    self.logger.info(
+                        f"✅ Driver {self.person_name} started engine - now ONBOARD and ready to drive"
+                    )
+                    return True
+                else:
+                    self.logger.error(f"Failed to start engine for {self.vehicle_id}")
+                    return False
+            else:
+                self.logger.warning(f"No engine available for vehicle {self.vehicle_id}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Engine start failed for driver {self.person_name}: {e}")
+            return False
+    
+    async def stop_engine(self) -> bool:
+        """Stop the vehicle engine - transitions driver from ONBOARD to WAITING state."""
+        try:
+            if self.current_state != DriverState.ONBOARD:
+                self.logger.warning(
+                    f"Driver {self.person_name} cannot stop engine - not ONBOARD "
+                    f"(current state: {self.current_state.value})"
+                )
+                return False
+            
+            if self.vehicle_engine:
+                self.logger.info(f"Driver {self.person_name} stopping engine for {self.vehicle_id}")
+                engine_stopped = await self.vehicle_engine.stop()
+                if engine_stopped:
+                    # Transition from ONBOARD to WAITING
+                    self.current_state = DriverState.WAITING
+                    self.logger.info(
+                        f"🛑 Driver {self.person_name} stopped engine - now WAITING"
+                    )
+                    return True
+                else:
+                    self.logger.error(f"Failed to stop engine for {self.vehicle_id}")
+                    return False
+            else:
+                self.logger.warning(f"No engine available for vehicle {self.vehicle_id}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Engine stop failed for driver {self.person_name}: {e}")
             return False
     
     def set_vehicle_components(self, engine=None, gps_device=None):

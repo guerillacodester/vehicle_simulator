@@ -204,6 +204,8 @@ class CleanVehicleSimulator:
                     status_detail = ""
                     if driver_state == "ONBOARD":
                         status_detail = "🚌 ONBOARD - Currently driving vehicle"
+                    elif driver_state == "WAITING":
+                        status_detail = "⏸️ WAITING - Boarded, engine off, waiting for start trigger"
                     elif driver_state == "DISEMBARKED":
                         status_detail = "⏸️ IDLE - Standing by in depot"
                     elif driver_state == "IDLE":
