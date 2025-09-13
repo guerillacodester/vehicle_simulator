@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Tuple, Optional
 import math
+import os
 
 # ---------------------------- Data Classes ---------------------------- #
 @dataclass(frozen=True)
@@ -46,9 +47,9 @@ class PhysicsKernel:
         self,
         route_coords: List[Tuple[float, float]],  # (lon, lat) sequence
         dt: float = 0.5,
-        a_max: float = 1.2,     # m/s^2 acceleration
-        d_max: float = 1.8,     # m/s^2 braking (positive number)
-        v_max: float = 25/3.6,  # global cap (m/s)
+        a_max: float = None,    # m/s^2 acceleration (None = use env var or default)
+        d_max: float = None,    # m/s^2 braking (None = use env var or default)
+        v_max: float = None,    # global cap m/s (None = use env var or default)
         enable_curvature: bool = False,
         a_lat_max: float = 1.5  # lateral accel cap for curvature (m/s^2)
     ):
@@ -56,9 +57,12 @@ class PhysicsKernel:
             raise ValueError("Route requires at least two coordinates")
         self._coords = route_coords
         self.dt = dt
-        self.a_max = a_max
-        self.d_max = d_max
-        self.v_max = v_max
+        
+        # Physics parameters with environment variable overrides
+        self.a_max = a_max if a_max is not None else float(os.getenv("PHYSICS_A_MAX", "1.2"))
+        self.d_max = d_max if d_max is not None else float(os.getenv("PHYSICS_D_MAX", "1.8"))
+        self.v_max = v_max if v_max is not None else float(os.getenv("PHYSICS_V_MAX", str(25/3.6)))
+        
         self.enable_curvature = enable_curvature
         self.a_lat_max = a_lat_max
 
@@ -112,17 +116,32 @@ class PhysicsKernel:
         if self._force_stop:
             v_cap = 0.0
 
-        # Decide acceleration direction
-        if self._v < v_cap - 0.01:
-            a_cmd = self.a_max
-        elif self._v > v_cap + 0.01:
-            a_cmd = -self.d_max
-        else:
+        # Proportional control with deadband and predictive clamping
+        v_error = v_cap - self._v
+        
+        # Deadband: if close enough, coast
+        if abs(v_error) < 0.1:  # 0.1 m/s ≈ 0.36 km/h deadband
             a_cmd = 0.0
+        else:
+            # Proportional response with time constant
+            tau = 2.0  # seconds for smooth response
+            a_cmd = v_error / tau
+            
+            # Clamp to physical limits
+            a_cmd = max(-self.d_max, min(self.a_max, a_cmd))
+            
+            # Predictive overshoot prevention
+            v_predicted = self._v + a_cmd * dt
+            if a_cmd > 0 and v_predicted > v_cap:
+                # Reduce acceleration to exactly reach target
+                a_cmd = (v_cap - self._v) / dt
+            elif a_cmd < 0 and v_predicted < 0:
+                # Prevent negative velocity
+                a_cmd = -self._v / dt if dt > 0 else 0.0
 
         # Integrate
         v_next = self._v + a_cmd * dt
-        # Clamp overshoot when braking to zero
+        # Safety clamp (should be unnecessary with predictive control)
         if v_next < 0:
             v_next = 0.0
             a_cmd = -self._v / dt if dt > 0 else 0.0
