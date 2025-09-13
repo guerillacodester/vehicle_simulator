@@ -200,7 +200,7 @@ async def test_driver_boarding_gps():
                     
                     # Create assignment data dict
                     assignment_data = {
-                        'driver_id': f"DRIVER_{assignment.driver_name.replace(' ', '_').upper()}",
+                        'driver_id': assignment.driver_id,  # Use actual driver license from Fleet Manager
                         'driver_name': assignment.driver_name,
                         'vehicle_id': assignment.vehicle_id,
                         'route_id': assignment.route_id,
