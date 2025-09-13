@@ -113,9 +113,9 @@ class Dispatcher(StateMachine, IDispatcher):
                 
                 # Transform search results into VehicleAssignment objects  
                 for pair in pairs_data:
-                    # Only include active vehicles with valid assignments
-                    if (pair.get('vehicle_status') in ['available', 'in_service'] and 
-                        pair.get('driver_employment_status') == 'active' and
+                    # Include ALL assignments from Fleet Manager - respect exact driver/vehicle pairings
+                    # regardless of vehicle status (maintenance, retired, etc.)
+                    if (pair.get('driver_employment_status') == 'active' and
                         pair.get('registration') and pair.get('route_code')):
                         
                         assignment = VehicleAssignment(
