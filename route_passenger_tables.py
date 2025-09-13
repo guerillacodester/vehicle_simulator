@@ -564,6 +564,80 @@ def display_vehicle_assignments(route_passengers):
     print(tabulate(vehicle_data, headers=headers, tablefmt="grid"))
 
 
+def display_passenger_boarding_disembarking(route_passengers):
+    """Display detailed boarding and disembarking positions for each individual passenger."""
+    print(f"\n🚶 PASSENGER BOARDING & DISEMBARKING POSITIONS")
+    print("=" * 120)
+    
+    total_passengers_shown = 0
+    
+    for route_code, data in route_passengers.items():
+        route_name = data['route_name']
+        passengers = data['passengers']
+        
+        print(f"\n📍 ROUTE {route_code} ({route_name}) - Individual Passenger Movements")
+        print("-" * 120)
+        
+        passenger_data = []
+        for i, passenger in enumerate(passengers):
+            passenger_data.append([
+                f"{i+1:3d}",
+                passenger['id'][:20],
+                passenger['type'][:10],
+                passenger['origin'][:15],
+                f"{passenger['origin_lat']:.6f}",
+                f"{passenger['origin_lon']:.6f}",
+                "BOARDING",
+                passenger['vehicle'][:8],
+                f"{passenger['wait_time']:2d}min",
+                ""  # Destination info will be on next row
+            ])
+            
+            # Add disembarking row
+            passenger_data.append([
+                "",  # No number for disembarking row
+                "",  # No ID repeat
+                passenger['type'][:10],
+                "→ DESTINATION",
+                f"{passenger['dest_lat']:.6f}",
+                f"{passenger['dest_lon']:.6f}",
+                "DISEMBARKING",
+                passenger['vehicle'][:8],
+                "",  # No wait time for disembarking
+                f"Distance: {haversine_distance(passenger['origin_lat'], passenger['origin_lon'], passenger['dest_lat'], passenger['dest_lon']):.0f}m"
+            ])
+            
+            # Add separator row every 5 passengers for readability
+            if (i + 1) % 5 == 0 and i < len(passengers) - 1:
+                passenger_data.append(["---"] * 10)
+        
+        headers = [
+            '#', 'Passenger ID', 'Type', 'Location', 'Latitude', 'Longitude', 
+            'Action', 'Vehicle', 'Wait', 'Notes'
+        ]
+        
+        print(tabulate(passenger_data, headers=headers, tablefmt='grid', stralign="left"))
+        
+        # Show statistics for this route
+        depot_count = len([p for p in passengers if p['type'] == 'depot_pickup'])
+        route_count = len([p for p in passengers if p['type'] == 'route_pickup'])
+        avg_distance = sum(haversine_distance(p['origin_lat'], p['origin_lon'], p['dest_lat'], p['dest_lon']) for p in passengers) / len(passengers)
+        
+        print(f"\n📊 Route {route_code} Movement Summary:")
+        print(f"   • Total Passengers: {len(passengers)}")
+        print(f"   • Depot Pickups: {depot_count}")
+        print(f"   • Route Pickups: {route_count}")
+        print(f"   • Average Trip Distance: {avg_distance:.0f}m")
+        
+        total_passengers_shown += len(passengers)
+    
+    print(f"\n🎯 BOARDING/DISEMBARKING SUMMARY:")
+    print(f"   • Total Individual Passengers Tracked: {total_passengers_shown}")
+    print(f"   • Total Boarding Events: {total_passengers_shown}")
+    print(f"   • Total Disembarking Events: {total_passengers_shown}")
+    print(f"   • Each passenger creates 2 location events (boarding + disembarking)")
+
+
 if __name__ == "__main__":
     print("🚌 ROUTE-CENTRIC PASSENGER DISTRIBUTION")
     print("=" * 60)
@@ -589,7 +663,8 @@ if __name__ == "__main__":
     
     # Display results
     display_route_passenger_table(route_passengers)
-    display_passenger_coordinates(route_passengers)
+    display_passenger_coordinates(route_passengers) 
+    display_passenger_boarding_disembarking(route_passengers)
     display_route_summary_table(route_passengers)
     display_vehicle_assignments(route_passengers)
     
