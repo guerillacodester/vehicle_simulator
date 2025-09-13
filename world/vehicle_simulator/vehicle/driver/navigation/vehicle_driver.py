@@ -31,6 +31,7 @@ class VehicleDriver(BasePerson):
         driver_name: str,
         vehicle_id: str,
         route_coordinates: List[Tuple[float, float]],
+        route_name: str = "",
         engine_buffer=None,
         tick_time: float = 0.1,
         mode: str = "geodesic",
@@ -43,6 +44,7 @@ class VehicleDriver(BasePerson):
         :param driver_name: Driver's human-readable name
         :param vehicle_id: vehicle ID string that driver will operate
         :param route_coordinates: List of (longitude, latitude) coordinate pairs
+        :param route_name: Route identifier (e.g., "1A")
         :param engine_buffer: EngineBuffer instance for this vehicle
         :param tick_time: worker loop sleep time (s)
         :param mode: "linear" (legacy) or "geodesic" (default)
@@ -55,6 +57,7 @@ class VehicleDriver(BasePerson):
             raise ValueError("VehicleDriver requires route coordinates")
         
         self.vehicle_id = vehicle_id
+        self.route_name = route_name
         self.engine_buffer = engine_buffer
         self.telemetry_buffer = TelemetryBuffer()
         self.tick_time = tick_time
@@ -109,6 +112,29 @@ class VehicleDriver(BasePerson):
             if self.vehicle_gps:
                 self.logger.info(f"Driver {self.person_name} starting GPS device for {self.vehicle_id}")
                 await self.vehicle_gps.start()
+                
+                # Set initial position and transmit first GPS packet
+                if self.route:
+                    initial_coord = self.route[0]  # [longitude, latitude]
+                    lat, lon = initial_coord[1], initial_coord[0]
+                    
+                    # Create production VehicleState with initial position
+                    from ..vehicle_state import VehicleState
+                    initial_state = VehicleState(
+                        driver_id=self.component_id,
+                        driver_name=self.person_name,
+                        vehicle_id=self.vehicle_id,
+                        route_name=self.route_name
+                    )
+                    
+                    # Set the initial position (first coordinate of route)
+                    initial_state.set_position(lat, lon)
+                    
+                    # Set vehicle state in GPS plugin
+                    self.vehicle_gps.set_vehicle_state(initial_state)
+                    
+                    self.logger.info(f"📍 Initial GPS position set: lat={lat:.6f}, lon={lon:.6f}")
+                    self.logger.info("📡 Initial position packet transmitted to GPS server")
             
             self.logger.info(
                 f"Driver {self.person_name} successfully boarded {self.vehicle_id} "
