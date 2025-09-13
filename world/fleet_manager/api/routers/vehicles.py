@@ -10,7 +10,7 @@ from datetime import datetime
 from ..dependencies import get_db
 from ...models.vehicle import Vehicle as VehicleModel
 from ..schemas.vehicle import (
-    Vehicle, VehicleCreate, VehicleUpdate, 
+ 
     VehiclePublic, VehiclePublicCreate, VehiclePublicUpdate,
     VehiclePerformance, VehiclePerformanceUpdate, PerformanceProfile
 )
@@ -21,27 +21,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("/private", response_model=Vehicle)
-def create_vehicle(
-    vehicle: VehicleCreate,
-    db: Session = Depends(get_db)
-):
-    """Create a new vehicle - PRIVATE API with full database access"""
-    db_vehicle = VehicleModel(**vehicle.dict())
-    db.add(db_vehicle)
-    db.commit()
-    db.refresh(db_vehicle)
-    return db_vehicle
 
-@router.get("/private", response_model=List[Vehicle])
-def read_vehicles_private(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """Get all vehicles with full data including UUIDs - PRIVATE API for admin use"""
-    vehicles = db.query(VehicleModel).offset(skip).limit(limit).all()
-    return vehicles
 
 @router.get("/public", response_model=List[VehiclePublic])
 def read_vehicles_public(
@@ -208,34 +188,7 @@ def delete_vehicle_public(
     db.commit()
     return {"message": f"Vehicle {reg_code} deleted successfully"}
 
-@router.get("/private/{vehicle_id}", response_model=Vehicle)
-def read_vehicle_private(
-    vehicle_id: UUID,
-    db: Session = Depends(get_db)
-):
-    """Get a specific vehicle by UUID - PRIVATE API for admin use"""
-    vehicle = db.query(VehicleModel).filter(VehicleModel.vehicle_id == vehicle_id).first()
-    if vehicle is None:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
-    return vehicle
 
-@router.get("/private/depot/{depot_id}", response_model=List[Vehicle])
-def read_vehicles_by_depot_private(
-    depot_id: UUID,
-    db: Session = Depends(get_db)
-):
-    """Get all vehicles for a specific depot - PRIVATE API with UUIDs"""
-    vehicles = db.query(VehicleModel).filter(VehicleModel.depot_id == depot_id).all()
-    return vehicles
-
-@router.get("/private/status/{status}", response_model=List[Vehicle])
-def read_vehicles_by_status_private(
-    status: str,
-    db: Session = Depends(get_db)
-):
-    """Get all vehicles with a specific status"""
-    vehicles = db.query(VehicleModel).filter(VehicleModel.status == status).all()
-    return vehicles
 
 @router.get("/license/{license_plate}", response_model=Vehicle)
 def read_vehicle_by_license(

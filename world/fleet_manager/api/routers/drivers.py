@@ -8,7 +8,7 @@ from uuid import UUID
 
 from ..dependencies import get_db
 from ...models.driver import Driver as DriverModel
-from ..schemas.driver import Driver, DriverCreate, DriverUpdate, DriverPublic, DriverPublicCreate, DriverPublicUpdate
+from ..schemas.driver import DriverPublic, DriverPublicCreate, DriverPublicUpdate
 
 router = APIRouter(
     prefix="/drivers",
@@ -16,27 +16,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("/private", response_model=Driver)
-def create_driver(
-    driver: DriverCreate,
-    db: Session = Depends(get_db)
-):
-    """Create a new driver - PRIVATE API with full database access"""
-    db_driver = DriverModel(**driver.dict())
-    db.add(db_driver)
-    db.commit()
-    db.refresh(db_driver)
-    return db_driver
 
-@router.get("/private", response_model=List[Driver])
-def read_drivers_private(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """Get all drivers with full data including UUIDs - PRIVATE API for admin use"""
-    drivers = db.query(DriverModel).offset(skip).limit(limit).all()
-    return drivers
 
 @router.get("/public", response_model=List[DriverPublic])
 def read_drivers_public(

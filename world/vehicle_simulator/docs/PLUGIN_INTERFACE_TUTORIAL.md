@@ -192,7 +192,7 @@ else:
 ### **Step 3: Use in Vehicle Simulator**
 
 ```python
-from world.vehicle_simulator.simulators.simulator import VehicleSimulator
+from world.vehicle_simulator.simulator import CleanVehicleSimulator
 from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
 from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
 from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec

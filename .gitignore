@@ -1,9 +1,8 @@
 __pycache__/
 geodesy/__pycache__/
-geodesy/__pycache__/
-speed_models/__pycache__/
-speed_models/__pycache__/
-speed_models/__pycache__/
+models/__pycache__/
+models/speed_models/__pycache__/
+models/people_models/__pycache__/
 simulation/__pycache__/
 routes/__pycache__
 interpolation/__pycache__/

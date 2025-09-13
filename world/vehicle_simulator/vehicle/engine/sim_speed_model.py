@@ -6,8 +6,8 @@ PHYSICS_MODEL_NAME = "physics"
 
 def load_speed_model(name: str, **kwargs):
     """
-    Load a speed model from world.vehicle_simulator.speed_models by name.
-    Example: name="fixed" -> world.vehicle_simulator.speed_models.fixed_speed.FixedSpeed
+    Load a speed model from world.vehicle_simulator.models.speed_models by name.
+    Example: name="fixed" -> world.vehicle_simulator.models.speed_models.fixed_speed.FixedSpeed
     """
     # Special-case physics kernel adapter (lives in vehicle.physics)
     if name == PHYSICS_MODEL_NAME:
@@ -20,11 +20,11 @@ def load_speed_model(name: str, **kwargs):
         except (ImportError, AttributeError) as e:
             raise RuntimeError(f"Failed to load physics speed model: {e}")
 
-    module_name = f"world.vehicle_simulator.speed_models.{name}_speed"
+    module_name = f"world.vehicle_simulator.models.speed_models.{name}_speed"
     class_name = "".join([part.capitalize() for part in name.split("_")]) + "Speed"
 
     try:
-        module = importlib.import_module(module_name)   # ❌ no package="vehicle_simulator"
+        module = importlib.import_module(module_name)
         cls = getattr(module, class_name)
 
         # 🚨 Ignore keys that belong to vehicles, not models

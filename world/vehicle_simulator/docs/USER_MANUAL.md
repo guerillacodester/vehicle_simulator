@@ -91,10 +91,10 @@ world/vehicle_simulator/
 │   ├── config_provider.py      # Configuration management
 │   ├── database_route_provider.py  # Database route access
 │   └── file_route_provider.py  # File-based route access
-├── simulators/
-│   └── simulator.py            # Main vehicle simulation engine
-├── speed_models/
-│   └── basic_speed_model.py    # Vehicle speed behavior
+├── models/
+│   ├── people.py               # People simulator with passenger generation
+│   ├── people_models/          # Plugin models for passenger distribution
+│   └── speed_models/           # Vehicle physics and speed models
 ├── utils/
 │   └── telemetry_utils.py      # Telemetry helper functions
 ├── vehicle/
@@ -1007,7 +1007,7 @@ INFO - Telemetry injection started: VehicleTelemetrySource
 #### Implement Custom Speed Models
 
 ```python
-# In speed_models/custom_speed_model.py
+# In models/speed_models/custom_speed_model.py
 class CustomSpeedModel:
     def __init__(self, max_speed=60.0, acceleration=2.0):
         self.max_speed = max_speed
