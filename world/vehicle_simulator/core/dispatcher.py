@@ -199,50 +199,67 @@ class Dispatcher(StateMachine, IDispatcher):
             return []
     
     async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
-        """Get route information using PUBLIC API with human-readable data only - NO UUIDs."""
+        """Get route information and geometry directly by route number from Fleet Manager PUBLIC API."""
         if not self.api_connected or not self.session:
-            logging.error(f"[{self.component_name}] Cannot fetch route info - API not connected")
+            logging.error(f"[{self.component_name}] Cannot fetch route info - Fleet Manager API not connected")
             return None
         
         try:
-            # Use the search endpoint to get vehicles on this route (includes route info)
-            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicles/by-route/{route_code}", timeout=10) as response:
-                if response.status != 200:
-                    logging.error(f"[{self.component_name}] Failed to fetch route info: HTTP {response.status}")
+            # Step 1: Get route details by route code from Fleet Manager PUBLIC API
+            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}", timeout=10) as route_response:
+                if route_response.status != 200:
+                    logging.error(f"[{self.component_name}] Route {route_code} not found in Fleet Manager: HTTP {route_response.status}")
                     return None
                     
-                vehicles_on_route = await response.json()
+                route_data = await route_response.json()
+                route_name = route_data.get('long_name', f'Route {route_code}')
                 
-                if not vehicles_on_route:
-                    logging.error(f"[{self.component_name}] Route <{route_code}> not found or has no assigned vehicles")
+                logging.info(f"[{self.component_name}] Found route: {route_name} (code: {route_code})")
+                
+            # Step 2: Get route geometry by route code from Fleet Manager PUBLIC API
+            geometry = None
+            coordinate_count = 0
+            
+            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}/geometry", timeout=10) as geo_response:
+                if geo_response.status != 200:
+                    logging.error(f"[{self.component_name}] Failed to fetch geometry for route {route_code}: HTTP {geo_response.status}")
+                    return None
+                    
+                route_geometry_data = await geo_response.json()
+                geometry = route_geometry_data.get('geometry')
+                
+                if geometry and geometry.get('coordinates'):
+                    coordinate_count = len(geometry['coordinates'])
+                    logging.info(f"[{self.component_name}] ✅ Route {route_name} has {coordinate_count} GPS coordinates from Fleet Manager API")
+                    
+                    # Log first and last coordinates as verification
+                    coords = geometry['coordinates']
+                    if coords:
+                        first_coord = coords[0]
+                        last_coord = coords[-1]
+                        logging.info(f"[{self.component_name}] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
+                else:
+                    logging.error(f"[{self.component_name}] ❌ Route {route_code} geometry is null from Fleet Manager API")
+                    logging.error(f"[{self.component_name}] ❌ Fleet Manager route geometry endpoint is broken - API should return GPS coordinates from route_shapes→shapes join")
                     return None
                 
-                # Extract route info from the first vehicle result (all will have same route info)
-                first_vehicle = vehicles_on_route[0]
-                route_name = first_vehicle.get('assigned_route_name', f'route {route_code}')
-                
-                # For now, assume routes have navigation data if they have assigned vehicles
-                # In a real system, we'd need to check actual shape/geometry data
-                coordinate_count = 100  # Placeholder - indicates route has navigation data
-                
-                # Create RouteInfo with basic data (no UUIDs)
-                route_info = RouteInfo(
-                    route_id=route_code,           # Use route code as ID (no UUIDs)
-                    route_name=route_name,         # Human-readable route name
-                    route_type='bus',              # Default type
-                    geometry=None,                 # Geometry data not available via public API
-                    stops=None,                    # Not provided by current API  
-                    distance_km=None,              # Not provided by current API
-                    coordinate_count=coordinate_count, # Placeholder indicating navigation available
-                    shape_id=None                  # Shape reference not available via public API
-                )
-                
-                logging.info(f"[{self.component_name}] Fetched route info for Route {route_name} (navigation data available)")
-                return route_info
+            # Create RouteInfo with complete data from Fleet Manager API
+            route_info = RouteInfo(
+                route_id=route_code,              # Route code (1A, 1B, etc.)
+                route_name=route_name,            # Human-readable route name from Fleet Manager
+                route_type='bus',                 # Bus route type
+                geometry=geometry,                # Complete GPS geometry from Fleet Manager API
+                stops=None,                       # Stops not needed for basic vehicle movement
+                distance_km=None,                 # Distance not needed for basic vehicle movement
+                coordinate_count=coordinate_count, # Number of GPS coordinates
+                shape_id=None                     # Shape ID not needed when we have direct geometry
+            )
+            
+            logging.info(f"[{self.component_name}] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates")
+            return route_info
                     
         except Exception as e:
-            # Use route_id for error logging if route_info isn't available
-            logging.error(f"[{self.component_name}] Error fetching route info for route: {str(e)}")
+            logging.error(f"[{self.component_name}] Error fetching route info for {route_code}: {str(e)}")
             return None
     
     async def send_routes_to_drivers(self, driver_routes: List[Dict[str, str]]) -> bool:

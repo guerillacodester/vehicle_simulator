@@ -6,6 +6,11 @@ Maps engine-produced cumulative distance onto a route polyline and produces
 interpolated GPS positions that lie on that polyline. Results are written to
 a TelemetryBuffer (separate from RxTx/GPS buffers).
 
+VehicleDriver manages the boarding process and controls vehicle components:
+- Boards vehicle (DriverState: DISEMBARKED → BOARDING → ONBOARD)
+- Turns on Engine and GPS Device when boarding
+- Turns off components when disembarking
+
 VehicleDriver is a pure data consumer - it accepts route coordinates directly
 and does not load from files or databases on its own.
 """
@@ -16,11 +21,14 @@ from typing import List, Tuple, Optional
 
 from . import math
 from .telemetry_buffer import TelemetryBuffer
+from ...base_person import BasePerson
 
 
-class VehicleDriver:
+class VehicleDriver(BasePerson):
     def __init__(
         self,
+        driver_id: str,
+        driver_name: str,
         vehicle_id: str,
         route_coordinates: List[Tuple[float, float]],
         engine_buffer=None,
@@ -31,13 +39,18 @@ class VehicleDriver:
         """
         VehicleDriver that accepts route coordinates directly.
         
-        :param vehicle_id: vehicle ID string
+        :param driver_id: Driver ID string (e.g., "DRV001")
+        :param driver_name: Driver's human-readable name
+        :param vehicle_id: vehicle ID string that driver will operate
         :param route_coordinates: List of (longitude, latitude) coordinate pairs
         :param engine_buffer: EngineBuffer instance for this vehicle
         :param tick_time: worker loop sleep time (s)
         :param mode: "linear" (legacy) or "geodesic" (default)
         :param direction: "outbound" (default) or "inbound" (reverse route)
         """
+        # Initialize BasePerson with PersonState
+        super().__init__(driver_id, "VehicleDriver", driver_name)
+        
         if not route_coordinates:
             raise ValueError("VehicleDriver requires route coordinates")
         
@@ -47,6 +60,10 @@ class VehicleDriver:
         self.tick_time = tick_time
         self.mode = mode
         self.direction = direction
+        
+        # References to vehicle components (to be set when boarding)
+        self.vehicle_engine = None
+        self.vehicle_gps = None
 
         # Set route coordinates (reverse if inbound direction)
         if direction == "inbound":
@@ -73,21 +90,96 @@ class VehicleDriver:
         self._running = False
         self._thread: Optional[threading.Thread] = None
 
-    def on(self):
-        if not self._running:
-            self._running = True
-            self._thread = threading.Thread(target=self._worker, daemon=True)
-            self._thread.start()
-            print(
-                f"[INFO] VehicleDriver for {self.vehicle_id} turned ON "
+    async def _start_implementation(self) -> bool:
+        """Driver boards vehicle and starts vehicle components."""
+        try:
+            self.logger.info(f"Driver {self.person_name} boarding vehicle {self.vehicle_id}")
+            
+            # Start the navigation worker
+            if not self._running:
+                self._running = True
+                self._thread = threading.Thread(target=self._worker, daemon=True)
+                self._thread.start()
+            
+            # Turn on vehicle components if available
+            if self.vehicle_engine:
+                self.logger.info(f"Driver {self.person_name} starting engine for {self.vehicle_id}")
+                await self.vehicle_engine.start()
+            
+            if self.vehicle_gps:
+                self.logger.info(f"Driver {self.person_name} starting GPS device for {self.vehicle_id}")
+                await self.vehicle_gps.start()
+            
+            self.logger.info(
+                f"Driver {self.person_name} successfully boarded {self.vehicle_id} "
                 f"(mode={self.mode}, direction={self.direction})"
             )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Driver {self.person_name} failed to board vehicle {self.vehicle_id}: {e}")
+            return False
+
+    async def _stop_implementation(self) -> bool:
+        """Driver disembarks vehicle and stops vehicle components."""
+        try:
+            self.logger.info(f"Driver {self.person_name} disembarking from vehicle {self.vehicle_id}")
+            
+            # Turn off vehicle components if available
+            if self.vehicle_gps:
+                self.logger.info(f"Driver {self.person_name} stopping GPS device for {self.vehicle_id}")
+                await self.vehicle_gps.stop()
+            
+            if self.vehicle_engine:
+                self.logger.info(f"Driver {self.person_name} stopping engine for {self.vehicle_id}")
+                await self.vehicle_engine.stop()
+            
+            # Stop the navigation worker
+            self._running = False
+            if self._thread:
+                self._thread.join(timeout=2)
+                if self._thread.is_alive():
+                    self.logger.warning(f"Navigation thread for {self.person_name} did not stop cleanly")
+            
+            self.logger.info(f"Driver {self.person_name} successfully disembarked from {self.vehicle_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Driver {self.person_name} failed to disembark from vehicle {self.vehicle_id}: {e}")
+            return False
+    
+    def set_vehicle_components(self, engine=None, gps_device=None):
+        """Set references to vehicle components that the driver will control."""
+        self.vehicle_engine = engine
+        self.vehicle_gps = gps_device
+        self.logger.info(f"Driver {self.person_name} assigned to control vehicle {self.vehicle_id} components")
+    
+    # Legacy compatibility methods
+    def on(self):
+        """Legacy method - driver boards vehicle (sync version)."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                task = loop.create_task(self.start())
+                return True
+            else:
+                return loop.run_until_complete(self.start())
+        except RuntimeError:
+            return asyncio.run(self.start())
 
     def off(self):
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=2)
-        print(f"[INFO] VehicleDriver for {self.vehicle_id} turned OFF")
+        """Legacy method - driver disembarks vehicle (sync version)."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                task = loop.create_task(self.stop())
+                return True
+            else:
+                return loop.run_until_complete(self.stop())
+        except RuntimeError:
+            return asyncio.run(self.stop())
 
     def _worker(self):
         while self._running:
@@ -98,6 +190,27 @@ class VehicleDriver:
 
     # Linear interpolation
     def _step_linear(self) -> Optional[dict]:
+        # Handle case where engine is OFF (no engine buffer)
+        if self.engine_buffer is None:
+            # Engine is off - return static position at route start with speed=0
+            if not self.route:
+                return None
+            
+            # Get first coordinate from route (vehicle parked at route start)
+            lon, lat = self.route[0]
+            
+            return {
+                "deviceId": self.component_id,
+                "timestamp": time.time(),
+                "lon": lon,
+                "lat": lat,
+                "bearing": 0.0,  # Stationary
+                "speed": 0.0,    # Engine off, no movement
+                "time": 0.0,     # No engine time
+                "distance": 0.0  # No distance traveled
+            }
+        
+        # Engine is running - read from engine buffer
         entry = self.engine_buffer.read()
         if not entry:
             return None
@@ -127,7 +240,7 @@ class VehicleDriver:
         bearing = math.bearing(lat1, lon1, lat2, lon2)
 
         telemetry = {
-            "deviceId": self.vehicle_id,
+            "deviceId": self.component_id,  # Use driver's license as device ID
             "timestamp": entry.get("timestamp", time.time()),
             "lon": lon,
             "lat": lat,
@@ -142,6 +255,27 @@ class VehicleDriver:
 
     # Geodesic interpolation
     def _step_geodesic(self) -> Optional[dict]:
+        # Handle case where engine is OFF (no engine buffer)
+        if self.engine_buffer is None:
+            # Engine is off - return static position at route start with speed=0
+            if not self.route:
+                return None
+            
+            # Get first coordinate from route (vehicle parked at route start)
+            lon, lat = self.route[0]
+            
+            return {
+                "deviceId": self.component_id,
+                "timestamp": time.time(),
+                "lon": lon,
+                "lat": lat,
+                "bearing": 0.0,  # Stationary
+                "speed": 0.0,    # Engine off, no movement
+                "time": 0.0,     # No engine time
+                "distance": 0.0  # No distance traveled
+            }
+        
+        # Engine is running - read from engine buffer
         entry = self.engine_buffer.read()
         if not entry:
             return None
@@ -153,7 +287,7 @@ class VehicleDriver:
         )
 
         telemetry = {
-            "deviceId": self.vehicle_id,
+            "deviceId": self.component_id,  # Use driver's license as device ID
             "timestamp": entry.get("timestamp", time.time()),
             "lon": lon,
             "lat": lat,

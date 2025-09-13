@@ -171,14 +171,30 @@ def read_route_with_geometry_public(
         raise HTTPException(status_code=404, detail=f"Route {route_code} not found")
     
     # Find route shape for the specified variant
-    route_shape = db.query(RouteShapeModel).join(ShapeModel).filter(
-        RouteShapeModel.route_id == route.route_id,
-        RouteShapeModel.variant_code == variant
-    ).first()
-    
+    # Handle null variant codes properly - if variant is "default", look for null variant_code or is_default=True
+    if variant == "default":
+        route_shape = db.query(RouteShapeModel).join(ShapeModel).filter(
+            RouteShapeModel.route_id == route.route_id,
+            RouteShapeModel.is_default == True
+        ).first()
+    else:
+        route_shape = db.query(RouteShapeModel).join(ShapeModel).filter(
+            RouteShapeModel.route_id == route.route_id,
+            RouteShapeModel.variant_code == variant
+        ).first()
+
     geometry = None
     coordinate_count = 0
-    
+
+    # Debug logging
+    print(f"DEBUG: Route {route_code} found, route_id: {route.route_id}")
+    print(f"DEBUG: Looking for variant: {variant}")
+    print(f"DEBUG: Found route_shape: {route_shape is not None}")
+    if route_shape:
+        print(f"DEBUG: Route shape has shape: {route_shape.shape is not None}")
+        if route_shape.shape:
+            print(f"DEBUG: Shape geom exists: {route_shape.shape.geom is not None}")
+
     if route_shape and route_shape.shape:
         try:
             # Convert PostGIS geometry to GeoJSON
@@ -188,10 +204,12 @@ def read_route_with_geometry_public(
                 "coordinates": list(shapely_geom.coords)
             }
             coordinate_count = len(shapely_geom.coords)
+            print(f"DEBUG: Successfully converted geometry, {coordinate_count} coordinates")
         except Exception as e:
             # If geometry conversion fails, return route without geometry
+            print(f"DEBUG: Geometry conversion failed: {e}")
             pass
-    
+
     return RoutePublicWithGeometry(
         short_name=route.short_name,
         long_name=route.long_name,

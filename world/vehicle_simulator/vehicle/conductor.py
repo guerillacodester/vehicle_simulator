@@ -10,6 +10,8 @@ Key Responsibilities:
 - Manage passenger boarding
 - Signal driver when vehicle is full
 - Handle passenger loading/unloading
+
+The Conductor is a person component that uses PersonState management.
 """
 
 import logging
@@ -17,10 +19,12 @@ import threading
 import time
 from typing import Dict, Any, Optional, Callable
 
+from .base_person import BasePerson
+
 logger = logging.getLogger(__name__)
 
 
-class Conductor:
+class Conductor(BasePerson):
     """
     Vehicle Conductor for passenger management
     
@@ -31,7 +35,10 @@ class Conductor:
     4. Passenger capacity management
     """
     
-    def __init__(self, vehicle_id: str, capacity: int = 40, tick_time: float = 1.0):
+    def __init__(self, conductor_id: str, conductor_name: str, vehicle_id: str, capacity: int = 40, tick_time: float = 1.0):
+        # Initialize BasePerson with PersonState
+        super().__init__(conductor_id, "Conductor", conductor_name)
+        
         self.vehicle_id = vehicle_id
         self.capacity = capacity
         self.tick_time = tick_time
@@ -49,7 +56,45 @@ class Conductor:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         
-        logger.info(f"Conductor initialized for vehicle {vehicle_id} (capacity: {capacity})")
+        self.logger.info(f"Conductor {conductor_name} initialized for vehicle {vehicle_id} (capacity: {capacity})")
+    
+    async def _start_implementation(self) -> bool:
+        """Conductor arrives and starts passenger management duties."""
+        try:
+            self.logger.info(f"Conductor {self.person_name} starting duties for vehicle {self.vehicle_id}")
+            
+            # Start conductor worker if needed
+            if not self._running:
+                self._running = True
+                # Could start a background thread for passenger management here if needed
+                
+            self.logger.info(f"Conductor {self.person_name} ready for passenger management")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Conductor {self.person_name} failed to start duties: {e}")
+            return False
+
+    async def _stop_implementation(self) -> bool:
+        """Conductor finishes duties and leaves."""
+        try:
+            self.logger.info(f"Conductor {self.person_name} finishing duties for vehicle {self.vehicle_id}")
+            
+            # Stop any background worker
+            self._running = False
+            if self._thread:
+                self._thread.join(timeout=2)
+                
+            # Reset passenger state when conductor leaves
+            if not self.is_empty():
+                self.logger.warning(f"Conductor {self.person_name} leaving with {self.passengers_on_board} passengers still on board")
+            
+            self.logger.info(f"Conductor {self.person_name} duties completed")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Conductor {self.person_name} failed to finish duties: {e}")
+            return False
     
     def set_departure_callback(self, callback: Callable):
         """Set callback to notify driver when vehicle is full"""
@@ -155,8 +200,8 @@ class Conductor:
         """Check if boarding is active"""
         return self.boarding_active
         
-    def get_status(self) -> Dict[str, Any]:
-        """Get conductor status"""
+    def get_passenger_status(self) -> Dict[str, Any]:
+        """Get conductor's passenger management status"""
         return {
             'vehicle_id': self.vehicle_id,
             'passengers': self.passengers_on_board,

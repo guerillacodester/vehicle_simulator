@@ -74,6 +74,19 @@ class EngineBuffer:
             if self.count == 0:
                 return None
             return self.buffer[self.start]
+    
+    def read_latest(self) -> Optional[Dict[str, Any]]:
+        """
+        Read the most recent entry without removing it.
+
+        :return: newest entry dict, or None if empty
+        """
+        with self.lock:
+            if self.count == 0:
+                return None
+            # Most recent entry is at (start + count - 1) % size
+            latest_idx = (self.start + self.count - 1) % self.size
+            return self.buffer[latest_idx]
 
     def __len__(self) -> int:
         """Return number of entries currently in buffer."""

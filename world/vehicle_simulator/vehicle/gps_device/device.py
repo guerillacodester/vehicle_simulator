@@ -10,12 +10,14 @@ from .rxtx_buffer import RxTxBuffer
 from .radio_module.transmitter import WebSocketTransmitter
 from .radio_module.packet import TelemetryPacket, PacketCodec, make_packet
 from .plugins.manager import PluginManager
+from ..base_component import BaseComponent
+from ...core.states import DeviceState
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-class GPSDevice:
+class GPSDevice(BaseComponent):
     """
     Plugin-based GPS device with agnostic data sources.
     
@@ -45,7 +47,9 @@ class GPSDevice:
             ws_transmitter: WebSocket transmitter for sending data
             plugin_config: Configuration for telemetry plugin
         """
-        self.device_id = device_id
+        # Initialize BaseComponent with DeviceState
+        super().__init__(device_id, "GPSDevice", DeviceState.OFF)
+        
         self.transmitter = ws_transmitter
         
         # Buffer for data exchange
@@ -62,9 +66,9 @@ class GPSDevice:
         # Set up plugin if config provided
         if plugin_config:
             if not self._setup_plugin(plugin_config):
-                logger.warning(f"Failed to setup plugin for device {device_id}")
+                self.logger.warning(f"Failed to setup plugin for device {self.component_id}")
         
-        logger.info(f"GPSDevice {device_id} initialized")
+        self.logger.info(f"GPSDevice {self.component_id} initialized")
     
     def _setup_plugin(self, plugin_config: Dict[str, Any]) -> bool:
         """
@@ -81,21 +85,21 @@ class GPSDevice:
             
             # Load plugin based on type
             if self.plugin_manager.load_plugin(plugin_type, plugin_config):
-                logger.info(f"Loaded {plugin_type} plugin for device {self.device_id}")
+                logger.info(f"Loaded {plugin_type} plugin for device {self.component_id}")
                 return True
             else:
-                logger.error(f"Failed to load {plugin_type} plugin for device {self.device_id}")
+                logger.error(f"Failed to load {plugin_type} plugin for device {self.component_id}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error setting up plugin for device {self.device_id}: {e}")
+            logger.error(f"Error setting up plugin for device {self.component_id}: {e}")
             return False
 
     # -------------------- Data Collection Worker --------------------
     
     def _data_worker(self):
         """Worker thread that collects data from plugin and writes to buffer."""
-        logger.info(f"GPS device {self.device_id} data worker started")
+        logger.info(f"GPS device {self.component_id} data worker started")
         
         while not self._stop.is_set():
             try:
@@ -115,10 +119,10 @@ class GPSDevice:
                 time.sleep(interval)
                 
             except Exception as e:
-                logger.error(f"Error in data worker for {self.device_id}: {e}")
+                logger.error(f"Error in data worker for {self.component_id}: {e}")
                 time.sleep(1.0)  # Wait longer on error
         
-        logger.info(f"GPS device {self.device_id} data worker stopped")
+        logger.info(f"GPS device {self.component_id} data worker stopped")
 
     # -------------------- Transmitter Worker --------------------
     
@@ -131,7 +135,7 @@ class GPSDevice:
         try:
             # Connect the existing transmitter
             await self.transmitter.connect()
-            logger.info(f"GPS device {self.device_id} transmitter connected")
+            logger.info(f"GPS device {self.component_id} transmitter connected")
 
             # Continuously read from buffer and send
             while not self._stop.is_set():
@@ -149,15 +153,15 @@ class GPSDevice:
                         if isinstance(data, dict):
                             # Create packet from dictionary data
                             packet = make_packet(
-                                device_id=data.get("device_id", self.device_id),
+                                device_id=data.get("device_id", self.component_id),
                                 lat=float(data.get("lat", 0.0)),
                                 lon=float(data.get("lon", 0.0)),
                                 speed=float(data.get("speed", 0.0)),
                                 heading=float(data.get("heading", 0.0)),
                                 route=str(data.get("route", "0")),
-                                vehicle_reg=data.get("vehicle_reg", self.device_id),
-                                driver_id=data.get("driver_id", f"sim-{self.device_id}"),
-                                driver_name=data.get("driver_name", {"first": "Sim", "last": self.device_id}),
+                                vehicle_reg=data.get("vehicle_reg", self.component_id),
+                                driver_id=data.get("driver_id", f"sim-{self.component_id}"),
+                                driver_name=data.get("driver_name", {"first": "Sim", "last": self.component_id}),
                                 ts=data.get("timestamp")
                             )
                             # Send packet via transmitter
@@ -170,32 +174,32 @@ class GPSDevice:
                     # Normal timeout, continue loop
                     continue
                 except Exception as e:
-                    logger.error(f"Error in transmitter for {self.device_id}: {e}")
+                    logger.error(f"Error in transmitter for {self.component_id}: {e}")
                     await asyncio.sleep(1.0)
 
         except Exception as e:
-            logger.error(f"Transmitter connection failed for {self.device_id}: {e}")
+            logger.error(f"Transmitter connection failed for {self.component_id}: {e}")
         
         finally:
             try:
                 await self.transmitter.close()
-                logger.info(f"GPS device {self.device_id} transmitter disconnected")
+                logger.info(f"GPS device {self.component_id} transmitter disconnected")
             except Exception as e:
-                logger.error(f"Error disconnecting transmitter for {self.device_id}: {e}")
+                logger.error(f"Error disconnecting transmitter for {self.component_id}: {e}")
 
     # -------------------- Lifecycle --------------------
 
-    def on(self):
+    async def _start_implementation(self) -> bool:
         """Turn on device (start plugin, data worker, and transmitter)."""
         if (self.transmitter_thread and self.transmitter_thread.is_alive()) or \
            (self.data_thread and self.data_thread.is_alive()):
-            return
+            return True  # already running
         
         try:
             # Start plugin data stream
             if not self.plugin_manager.start_data_stream():
-                logger.error(f"Failed to start plugin data stream for {self.device_id}")
-                return
+                self.logger.error(f"Failed to start plugin data stream for {self.component_id}")
+                return False
             
             self._stop.clear()
             
@@ -207,51 +211,90 @@ class GPSDevice:
             self.transmitter_thread = threading.Thread(target=self._transmitter_worker, daemon=True)
             self.transmitter_thread.start()
             
-            logger.info(f"GPSDevice for {self.device_id} turned ON")
+            self.logger.info(f"GPSDevice for {self.component_id} started successfully")
+            return True
             
         except Exception as e:
-            logger.error(f"Failed to start GPS device {self.device_id}: {e}")
+            self.logger.error(f"Failed to start GPS device {self.component_id}: {e}")
+            return False
+
+    async def _stop_implementation(self) -> bool:
+        """Turn off device (stop workers, plugin, and close transmitter)."""
+        try:
+            # Signal stop
+            self._stop.set()
+
+            # Stop plugin data stream
+            try:
+                self.plugin_manager.unload_current_plugin()
+            except Exception as e:
+                self.logger.warning(f"Error stopping plugin: {e}")
+
+            # Ask transmitter to close to unblock any pending I/O in the event loop
+            try:
+                if self.transmitter and hasattr(self.transmitter, "request_close"):
+                    self.transmitter.request_close()
+            except Exception:
+                pass
+
+            # Stop data worker thread
+            if self.data_thread:
+                self.data_thread.join(timeout=2.0)
+                if self.data_thread.is_alive():
+                    self.logger.warning(f"Data worker for {self.component_id} did not stop in 2s")
+
+            # Stop transmitter thread  
+            if self.transmitter_thread:
+                self.transmitter_thread.join(timeout=5.0)
+                if self.transmitter_thread.is_alive():
+                    self.logger.warning(f"Transmitter for {self.component_id} did not stop in 5s; forcing close")
+                    try:
+                        if self.transmitter and hasattr(self.transmitter, "force_close"):
+                            self.transmitter.force_close()
+                    except Exception:
+                        pass
+                    self.transmitter_thread.join(timeout=2.0)
+                
+                self.transmitter_thread = None
+                self.data_thread = None
+
+            self.logger.info(f"GPSDevice for {self.component_id} stopped successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error stopping GPS device {self.component_id}: {e}")
+            return False
+    
+    # Keep backward compatibility with existing on/off methods
+    def on(self):
+        """Turn on device (legacy sync method)."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context, create a task
+                task = loop.create_task(self.start())
+                return True  # Return immediately, don't wait
+            else:
+                return loop.run_until_complete(self.start())
+        except RuntimeError:
+            # No event loop running, create one
+            return asyncio.run(self.start())
 
     def off(self):
-        """Turn off device (stop workers, plugin, and close transmitter)."""
-        # Signal stop
-        self._stop.set()
-
-        # Stop plugin data stream
+        """Turn off device (legacy sync method)."""
+        import asyncio
         try:
-            self.plugin_manager.unload_current_plugin()
-        except Exception as e:
-            logger.warning(f"Error stopping plugin: {e}")
-
-        # Ask transmitter to close to unblock any pending I/O in the event loop
-        try:
-            if self.transmitter and hasattr(self.transmitter, "request_close"):
-                self.transmitter.request_close()
-        except Exception:
-            pass
-
-        # Stop data worker thread
-        if self.data_thread:
-            self.data_thread.join(timeout=2.0)
-            if self.data_thread.is_alive():
-                logger.warning(f"Data worker for {self.device_id} did not stop in 2s")
-
-        # Stop transmitter thread  
-        if self.transmitter_thread:
-            self.transmitter_thread.join(timeout=5.0)
-            if self.transmitter_thread.is_alive():
-                logger.warning(f"Transmitter for {self.device_id} did not stop in 5s; forcing close")
-                try:
-                    if self.transmitter and hasattr(self.transmitter, "force_close"):
-                        self.transmitter.force_close()
-                except Exception:
-                    pass
-                self.transmitter_thread.join(timeout=2.0)
-            
-            self.transmitter_thread = None
-            self.data_thread = None
-
-        logger.info(f"GPSDevice for {self.device_id} turned OFF")
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context, create a task
+                task = loop.create_task(self.stop())
+                return True  # Return immediately, don't wait
+            else:
+                return loop.run_until_complete(self.stop())
+        except RuntimeError:
+            # No event loop running, create one
+            return asyncio.run(self.stop())
     
     # -------------------- Plugin Management --------------------
     
@@ -279,7 +322,7 @@ class GPSDevice:
             return False
             
         except Exception as e:
-            logger.error(f"Plugin switch failed for {self.device_id}: {e}")
+            logger.error(f"Plugin switch failed for {self.component_id}: {e}")
             return False
     
     def get_plugin_info(self) -> Optional[Dict[str, Any]]:

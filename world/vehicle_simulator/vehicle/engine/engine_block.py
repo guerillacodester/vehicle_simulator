@@ -3,12 +3,13 @@
 Engine Block
 ------------
 
-Threaded engine simulation loop.
+Threaded engine simulation loop with state management.
 
 - Loads a speed model via sim_speed_model.load_speed_model
 - Runs in a background thread
 - Each tick, updates speed, distance, and time
 - Writes diagnostics into EngineBuffer
+- Uses DeviceState for proper lifecycle management
 """
 
 import threading
@@ -16,9 +17,11 @@ import time
 from typing import Any, Dict
 
 from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
+from world.vehicle_simulator.vehicle.base_component import BaseComponent
+from world.vehicle_simulator.core.states import DeviceState
 
 
-class Engine:
+class Engine(BaseComponent):
     def __init__(self, vehicle_id: str, model: Any, buffer: EngineBuffer, tick_time: float = 0.1):
         """
         :param vehicle_id: Vehicle ID string (e.g., "ZR1101")
@@ -26,7 +29,9 @@ class Engine:
         :param buffer: EngineBuffer instance for diagnostics
         :param tick_time: Tick duration in seconds
         """
-        self.vehicle_id = vehicle_id
+        # Initialize BaseComponent with DeviceState
+        super().__init__(vehicle_id, "Engine", DeviceState.OFF)
+        
         self.model = model
         self.buffer = buffer
         self.tick_time = tick_time
@@ -38,21 +43,69 @@ class Engine:
         self.total_distance = 0.0  # km
         self.total_time = 0.0      # s
 
-    def on(self):
+    async def _start_implementation(self) -> bool:
         """Start the engine simulation thread."""
-        if self._thread and self._thread.is_alive():
-            return  # already running
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run_loop, daemon=True)
-        self._thread.start()
-        # print(f"[INFO] Engine for {self.vehicle_id} turned ON")
+        try:
+            if self._thread and self._thread.is_alive():
+                return True  # already running
+            
+            self._stop_event.clear()
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+            self.logger.info(f"Engine for {self.component_id} started successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to start engine for {self.component_id}: {e}")
+            return False
+
+    async def _stop_implementation(self) -> bool:
+        """Stop the engine simulation thread."""
+        try:
+            self._stop_event.set()
+            if self._thread:
+                self._thread.join(timeout=2.0)
+                if self._thread.is_alive():
+                    self.logger.warning(f"Engine thread for {self.component_id} did not stop cleanly")
+                    return False
+            
+            self.logger.info(f"Engine for {self.component_id} stopped successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error stopping engine for {self.component_id}: {e}")
+            return False
+    
+    # Keep backward compatibility with existing on/off methods
+    def on(self):
+        """Start the engine simulation thread (legacy sync method)."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context, create a task
+                task = loop.create_task(self.start())
+                return True  # Return immediately, don't wait
+            else:
+                return loop.run_until_complete(self.start())
+        except RuntimeError:
+            # No event loop running, create one
+            return asyncio.run(self.start())
 
     def off(self):
-        """Stop the engine simulation thread."""
-        self._stop_event.set()
-        if self._thread:
-            self._thread.join()
-        # print(f"[INFO] Engine for {self.vehicle_id} turned OFF")
+        """Stop the engine simulation thread (legacy sync method)."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context, create a task
+                task = loop.create_task(self.stop())
+                return True  # Return immediately, don't wait
+            else:
+                return loop.run_until_complete(self.stop())
+        except RuntimeError:
+            # No event loop running, create one
+            return asyncio.run(self.stop())
 
     def _run_loop(self):
         """Main loop: run until stopped."""
@@ -70,7 +123,7 @@ class Engine:
 
             # write entry to buffer
             entry: Dict[str, Any] = {
-                "device_id": self.vehicle_id,
+                "device_id": self.component_id,
                 "timestamp": time.time(),
                 "cruise_speed": velocity,
                 "distance": self.total_distance,

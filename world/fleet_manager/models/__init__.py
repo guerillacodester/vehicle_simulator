@@ -10,6 +10,7 @@ from .country import Country
 from .depot import Depot
 from .route import Route
 from .vehicle import Vehicle
+from .gps_device import GPSDevice
 from .service import Service
 from .shape import Shape
 from .route_shape import RouteShape
@@ -35,6 +36,7 @@ __all__ = [
     'Depot',
     'Route',
     'Vehicle',
+    'GPSDevice',
     'Service',
     'Shape',
     'RouteShape',
