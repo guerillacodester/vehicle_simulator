@@ -1,7 +1,7 @@
 """
 Vehicle schemas for Fleet Management API
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -16,6 +16,13 @@ class VehicleBase(BaseModel):
     status: VehicleStatusEnum = VehicleStatusEnum.available
     profile_id: Optional[str] = None
     notes: Optional[str] = None
+    
+    # Performance characteristics
+    max_speed_kmh: float = Field(default=25.0, ge=5.0, le=100.0, description="Maximum speed in km/h")
+    acceleration_mps2: float = Field(default=1.2, ge=0.1, le=5.0, description="Acceleration in m/s²")
+    braking_mps2: float = Field(default=1.8, ge=0.1, le=10.0, description="Braking deceleration in m/s²")
+    eco_mode: bool = Field(default=False, description="Eco-friendly driving mode")
+    performance_profile: Optional[str] = Field(default=None, description="Performance profile: standard, eco, performance, express")
 
 class VehicleCreate(VehicleBase):
     pass
@@ -29,6 +36,13 @@ class VehicleUpdate(BaseModel):
     status: Optional[VehicleStatusEnum] = None
     profile_id: Optional[str] = None
     notes: Optional[str] = None
+    
+    # Performance characteristics
+    max_speed_kmh: Optional[float] = Field(None, ge=5.0, le=100.0, description="Maximum speed in km/h")
+    acceleration_mps2: Optional[float] = Field(None, ge=0.1, le=5.0, description="Acceleration in m/s²")
+    braking_mps2: Optional[float] = Field(None, ge=0.1, le=10.0, description="Braking deceleration in m/s²")
+    eco_mode: Optional[bool] = Field(None, description="Eco-friendly driving mode")
+    performance_profile: Optional[str] = Field(None, description="Performance profile: standard, eco, performance, express")
 
 class Vehicle(VehicleBase, BaseSchema):
     vehicle_id: UUID
@@ -41,6 +55,13 @@ class VehiclePublic(BaseModel):
     status: VehicleStatusEnum = VehicleStatusEnum.available
     profile_id: Optional[str] = None
     notes: Optional[str] = None
+    
+    # Performance characteristics
+    max_speed_kmh: float = Field(default=25.0, ge=5.0, le=100.0, description="Maximum speed in km/h")
+    acceleration_mps2: float = Field(default=1.2, ge=0.1, le=5.0, description="Acceleration in m/s²")
+    braking_mps2: float = Field(default=1.8, ge=0.1, le=10.0, description="Braking deceleration in m/s²")
+    eco_mode: bool = Field(default=False, description="Eco-friendly driving mode")
+    performance_profile: Optional[str] = Field(default=None, description="Performance profile: standard, eco, performance, express")
 
 class VehiclePublicCreate(BaseModel):
     """Create vehicle using public API with business identifiers only"""
@@ -63,3 +84,29 @@ class VehiclePublicUpdate(BaseModel):
     # Business identifiers instead of UUIDs
     depot_name: Optional[str] = None
     preferred_route_code: Optional[str] = None
+
+# Performance-specific schemas
+class VehiclePerformance(BaseModel):
+    """Vehicle performance characteristics"""
+    max_speed_kmh: float = Field(ge=5.0, le=100.0, description="Maximum speed in km/h")
+    acceleration_mps2: float = Field(ge=0.1, le=5.0, description="Acceleration in m/s²")
+    braking_mps2: float = Field(ge=0.1, le=10.0, description="Braking deceleration in m/s²")
+    eco_mode: bool = Field(description="Eco-friendly driving mode")
+    performance_profile: Optional[str] = Field(description="Performance profile: standard, eco, performance, express")
+
+class VehiclePerformanceUpdate(BaseModel):
+    """Update vehicle performance characteristics"""
+    max_speed_kmh: Optional[float] = Field(None, ge=5.0, le=100.0, description="Maximum speed in km/h")
+    acceleration_mps2: Optional[float] = Field(None, ge=0.1, le=5.0, description="Acceleration in m/s²")
+    braking_mps2: Optional[float] = Field(None, ge=0.1, le=10.0, description="Braking deceleration in m/s²")
+    eco_mode: Optional[bool] = Field(None, description="Eco-friendly driving mode")
+    performance_profile: Optional[str] = Field(None, description="Performance profile: standard, eco, performance, express")
+
+class PerformanceProfile(BaseModel):
+    """Pre-defined performance profile"""
+    name: str = Field(description="Profile name: standard, eco, performance, express")
+    max_speed_kmh: float = Field(ge=5.0, le=100.0, description="Maximum speed in km/h")
+    acceleration_mps2: float = Field(ge=0.1, le=5.0, description="Acceleration in m/s²")
+    braking_mps2: float = Field(ge=0.1, le=10.0, description="Braking deceleration in m/s²")
+    eco_mode: bool = Field(description="Eco-friendly driving mode")
+    description: str = Field(description="Profile description")

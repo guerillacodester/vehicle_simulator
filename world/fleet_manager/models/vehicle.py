@@ -1,7 +1,7 @@
 """
 Vehicle model for fleet management
 """
-from sqlalchemy import Column, Text, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, Text, DateTime, ForeignKey, Integer, Float, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from .base import Base, VehicleStatus
@@ -23,6 +23,14 @@ class Vehicle(Base):
     capacity = Column(Integer, nullable=True, default=11)  # Passenger capacity (ZR van default)
     profile_id = Column(Text)
     notes = Column(Text)
+    
+    # Performance characteristics
+    max_speed_kmh = Column(Float, nullable=False, default=25.0)  # Maximum speed in km/h
+    acceleration_mps2 = Column(Float, nullable=False, default=1.2)  # Acceleration in m/s²
+    braking_mps2 = Column(Float, nullable=False, default=1.8)  # Braking deceleration in m/s²
+    eco_mode = Column(Boolean, nullable=False, default=False)  # Eco-friendly driving mode
+    performance_profile = Column(Text, nullable=True)  # "standard", "eco", "performance", "express"
+    
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     

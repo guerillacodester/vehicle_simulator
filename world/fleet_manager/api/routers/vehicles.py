@@ -5,10 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
+from datetime import datetime
 
 from ..dependencies import get_db
 from ...models.vehicle import Vehicle as VehicleModel
-from ..schemas.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehiclePublic, VehiclePublicCreate, VehiclePublicUpdate
+from ..schemas.vehicle import (
+    Vehicle, VehicleCreate, VehicleUpdate, 
+    VehiclePublic, VehiclePublicCreate, VehiclePublicUpdate,
+    VehiclePerformance, VehiclePerformanceUpdate, PerformanceProfile
+)
 
 router = APIRouter(
     prefix="/vehicles",
@@ -51,7 +56,12 @@ def read_vehicles_public(
         reg_code=vehicle.reg_code,
         status=vehicle.status,
         profile_id=vehicle.profile_id,
-        notes=vehicle.notes
+        notes=vehicle.notes,
+        max_speed_kmh=vehicle.max_speed_kmh,
+        acceleration_mps2=vehicle.acceleration_mps2,
+        braking_mps2=vehicle.braking_mps2,
+        eco_mode=vehicle.eco_mode,
+        performance_profile=vehicle.performance_profile
     ) for vehicle in vehicles]
 
 @router.post("/public", response_model=VehiclePublic)
@@ -376,3 +386,138 @@ def get_vehicles_detailed(
         detailed_vehicles.append(vehicle_detail)
     
     return detailed_vehicles
+
+
+# Performance Management Endpoints
+
+@router.get("/public/{reg_code}/performance", response_model=VehiclePerformance)
+def get_vehicle_performance_public(
+    reg_code: str,
+    db: Session = Depends(get_db)
+):
+    """Get vehicle performance characteristics by registration code"""
+    vehicle = db.query(VehicleModel).filter(VehicleModel.reg_code == reg_code).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail=f"Vehicle with registration '{reg_code}' not found")
+    
+    return VehiclePerformance(
+        max_speed_kmh=vehicle.max_speed_kmh,
+        acceleration_mps2=vehicle.acceleration_mps2,
+        braking_mps2=vehicle.braking_mps2,
+        eco_mode=vehicle.eco_mode,
+        performance_profile=vehicle.performance_profile
+    )
+
+
+@router.put("/public/{reg_code}/performance", response_model=VehiclePerformance)
+def update_vehicle_performance_public(
+    reg_code: str,
+    performance: VehiclePerformanceUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update vehicle performance characteristics by registration code"""
+    vehicle = db.query(VehicleModel).filter(VehicleModel.reg_code == reg_code).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail=f"Vehicle with registration '{reg_code}' not found")
+    
+    # Update performance fields if provided
+    update_data = performance.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(vehicle, field, value)
+    
+    # Update timestamp
+    vehicle.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(vehicle)
+    
+    return VehiclePerformance(
+        max_speed_kmh=vehicle.max_speed_kmh,
+        acceleration_mps2=vehicle.acceleration_mps2,
+        braking_mps2=vehicle.braking_mps2,
+        eco_mode=vehicle.eco_mode,
+        performance_profile=vehicle.performance_profile
+    )
+
+
+@router.get("/public/performance-profiles", response_model=List[PerformanceProfile])
+def get_available_performance_profiles():
+    """Get list of available performance profiles"""
+    profiles = [
+        PerformanceProfile(
+            name="standard",
+            max_speed_kmh=25.0,
+            acceleration_mps2=1.2,
+            braking_mps2=1.8,
+            eco_mode=False,
+            description="Standard city bus performance"
+        ),
+        PerformanceProfile(
+            name="eco",
+            max_speed_kmh=20.0,
+            acceleration_mps2=0.8,
+            braking_mps2=1.5,
+            eco_mode=True,
+            description="Eco-friendly, fuel-efficient driving"
+        ),
+        PerformanceProfile(
+            name="performance",
+            max_speed_kmh=35.0,
+            acceleration_mps2=1.8,
+            braking_mps2=2.2,
+            eco_mode=False,
+            description="High-performance characteristics"
+        ),
+        PerformanceProfile(
+            name="express",
+            max_speed_kmh=50.0,
+            acceleration_mps2=2.0,
+            braking_mps2=2.5,
+            eco_mode=False,
+            description="Express route high-speed performance"
+        )
+    ]
+    return profiles
+
+
+@router.put("/public/{reg_code}/performance/apply-profile", response_model=VehiclePerformance)
+def apply_performance_profile_public(
+    reg_code: str,
+    profile_name: str,
+    db: Session = Depends(get_db)
+):
+    """Apply a pre-defined performance profile to a vehicle"""
+    vehicle = db.query(VehicleModel).filter(VehicleModel.reg_code == reg_code).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail=f"Vehicle with registration '{reg_code}' not found")
+    
+    # Get available profiles
+    profiles = {
+        "standard": {"max_speed_kmh": 25.0, "acceleration_mps2": 1.2, "braking_mps2": 1.8, "eco_mode": False},
+        "eco": {"max_speed_kmh": 20.0, "acceleration_mps2": 0.8, "braking_mps2": 1.5, "eco_mode": True},
+        "performance": {"max_speed_kmh": 35.0, "acceleration_mps2": 1.8, "braking_mps2": 2.2, "eco_mode": False},
+        "express": {"max_speed_kmh": 50.0, "acceleration_mps2": 2.0, "braking_mps2": 2.5, "eco_mode": False}
+    }
+    
+    if profile_name not in profiles:
+        raise HTTPException(status_code=400, detail=f"Profile '{profile_name}' not found. Available: {list(profiles.keys())}")
+    
+    # Apply profile settings
+    profile_data = profiles[profile_name]
+    vehicle.max_speed_kmh = profile_data["max_speed_kmh"]
+    vehicle.acceleration_mps2 = profile_data["acceleration_mps2"]
+    vehicle.braking_mps2 = profile_data["braking_mps2"]
+    vehicle.eco_mode = profile_data["eco_mode"]
+    vehicle.performance_profile = profile_name
+    vehicle.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(vehicle)
+    
+    return VehiclePerformance(
+        max_speed_kmh=vehicle.max_speed_kmh,
+        acceleration_mps2=vehicle.acceleration_mps2,
+        braking_mps2=vehicle.braking_mps2,
+        eco_mode=vehicle.eco_mode,
+        performance_profile=vehicle.performance_profile
+    )
