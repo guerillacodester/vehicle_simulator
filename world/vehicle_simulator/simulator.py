@@ -19,6 +19,8 @@ class CleanVehicleSimulator:
         self.dispatcher = None
         self.depot = None
         self._running = False
+        self.active_drivers = []
+        self.idle_drivers = []
 
     async def initialize(self) -> bool:
         try:
@@ -77,23 +79,46 @@ class CleanVehicleSimulator:
                 logger.warning("No vehicle or driver assignments available")
                 return
             
-            # Start drivers for available assignments
+            # Process drivers based on vehicle availability status
             active_drivers = []
+            idle_drivers = []
+            
             for i in range(min(len(vehicle_assignments), len(driver_assignments))):
                 vehicle_assignment = vehicle_assignments[i]
                 driver_assignment = driver_assignments[i]
                 
-                logger.info(f"👤 Starting driver: {driver_assignment.driver_name} → {vehicle_assignment.vehicle_id} → {vehicle_assignment.route_id}")
+                # Check vehicle status to determine driver state
+                vehicle_status = getattr(vehicle_assignment, 'vehicle_status', 'available')
                 
-                # Create and start vehicle driver
-                driver = await self._create_and_start_driver(vehicle_assignment, driver_assignment)
-                if driver:
-                    active_drivers.append(driver)
+                if vehicle_status in ['available', 'in_service']:
+                    # Vehicle is operational - driver boards and starts GPS
+                    logger.info(f"👤 Starting driver: {driver_assignment.driver_name} → {vehicle_assignment.vehicle_id} ({vehicle_status}) → {vehicle_assignment.route_id}")
+                    
+                    driver = await self._create_and_start_driver(vehicle_assignment, driver_assignment)
+                    if driver:
+                        active_drivers.append(driver)
+                else:
+                    # Vehicle is not available (maintenance/retired) - driver stays IDLE
+                    logger.info(f"🚶 Driver present but IDLE: {driver_assignment.driver_name} → {vehicle_assignment.vehicle_id} ({vehicle_status}) - vehicle not operational")
+                    
+                    # Create idle driver (present in depot but not boarding vehicle)
+                    idle_driver = await self._create_idle_driver(driver_assignment, vehicle_assignment)
+                    if idle_driver:
+                        idle_drivers.append(idle_driver)
             
+            # Summary logging
+            total_drivers = len(active_drivers) + len(idle_drivers)
             if active_drivers:
-                logger.info(f"🎯 Started {len(active_drivers)} vehicle operations")
-                self.active_drivers = active_drivers
-            else:
+                logger.info(f"🎯 Started {len(active_drivers)} active vehicle operations")
+            if idle_drivers:
+                logger.info(f"🚶 {len(idle_drivers)} drivers present but IDLE (vehicles not operational)")
+            
+            logger.info(f"📊 Driver Summary: {len(active_drivers)} active, {len(idle_drivers)} idle, {total_drivers} total")
+            
+            self.active_drivers = active_drivers
+            self.idle_drivers = idle_drivers
+            
+            if not active_drivers and not idle_drivers:
                 logger.warning("No drivers started successfully")
                 
         except Exception as e:
@@ -159,6 +184,32 @@ class CleanVehicleSimulator:
             traceback.print_exc()
             return None
 
+    async def _create_idle_driver(self, driver_assignment, vehicle_assignment):
+        """Create an idle driver who is present in depot but cannot board non-operational vehicle."""
+        try:
+            from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
+            
+            # Create driver instance with minimal parameters (no route coordinates since not boarding)
+            # Use empty coordinates since the driver won't actually navigate
+            empty_coordinates = [(0.0, 0.0)]  # Placeholder coordinates
+            
+            driver = VehicleDriver(
+                driver_id=driver_assignment.driver_id,
+                driver_name=driver_assignment.driver_name,
+                vehicle_id=vehicle_assignment.vehicle_id,
+                route_coordinates=empty_coordinates,
+                route_name=vehicle_assignment.route_id
+            )
+            
+            logger.info(f"🚶 Idle driver {driver_assignment.driver_name} present in depot (assigned to non-operational {vehicle_assignment.vehicle_id})")
+            return driver
+            
+        except Exception as e:
+            logger.error(f"Error creating idle driver {driver_assignment.driver_name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     async def shutdown(self) -> None:
         if self._running:
             self._running = False
@@ -173,6 +224,16 @@ class CleanVehicleSimulator:
                     except Exception as e:
                         logger.warning(f"Error stopping driver: {e}")
                 self.active_drivers = []
+            
+            # Stop idle drivers (just transition them to OFFSITE)
+            if hasattr(self, 'idle_drivers') and self.idle_drivers:
+                logger.info(f"🚶 Dismissing {len(self.idle_drivers)} idle drivers...")
+                for driver in self.idle_drivers:
+                    try:
+                        await driver.stop()
+                    except Exception as e:
+                        logger.warning(f"Error stopping idle driver: {e}")
+                self.idle_drivers = []
             
             if self.depot:
                 await self.depot.shutdown()

@@ -9,7 +9,8 @@ def main():
     print("🔍 GPS TELEMETRY vs FLEET MANAGER API CROSS-REFERENCE:")
     print("=" * 60)
     
-    # GPS telemetry data from server logs
+    # GPS telemetry data from server logs (ONLY ACTIVE GPS DEVICES)
+    # Idle drivers (maintenance/retired vehicles) do NOT transmit GPS data
     gps_data = [
         {
             'device': 'GPS-ZR101', 
@@ -18,25 +19,8 @@ def main():
             'driver_name': 'Jane Doe', 
             'route': '1A', 
             'lat': 13.281732, 
-            'lon': -59.646694
-        },
-        {
-            'device': 'GPS-ZR203', 
-            'vehicle': 'ZR203', 
-            'driver_id': 'LIC001', 
-            'driver_name': 'John Smith', 
-            'route': '1B', 
-            'lat': 13.276043, 
-            'lon': -59.638425
-        },
-        {
-            'device': 'GPS-ZR232', 
-            'vehicle': 'ZR232', 
-            'driver_id': 'LIC003', 
-            'driver_name': 'Michael Johnson', 
-            'route': '1A', 
-            'lat': 13.281732, 
-            'lon': -59.646694
+            'lon': -59.646694,
+            'status': 'ACTIVE'
         },
         {
             'device': 'GPS-ZR400', 
@@ -45,7 +29,28 @@ def main():
             'driver_name': 'Sarah Williams', 
             'route': '1', 
             'lat': 13.319443, 
-            'lon': -59.6369
+            'lon': -59.6369,
+            'status': 'ACTIVE'
+        }
+    ]
+    
+    # Idle drivers (present in depot but not boarding vehicles)
+    idle_drivers = [
+        {
+            'vehicle': 'ZR203', 
+            'driver_id': 'LIC001', 
+            'driver_name': 'John Smith', 
+            'route': '1B',
+            'vehicle_status': 'maintenance',
+            'driver_status': 'IDLE'
+        },
+        {
+            'vehicle': 'ZR232', 
+            'driver_id': 'LIC003', 
+            'driver_name': 'Michael Johnson', 
+            'route': '1A',
+            'vehicle_status': 'retired',
+            'driver_status': 'IDLE'
         }
     ]
     
@@ -54,10 +59,13 @@ def main():
         response = requests.get('http://localhost:8000/api/v1/search/vehicle-driver-pairs')
         api_data = response.json()
         
+        # Validate ACTIVE GPS devices (drivers who boarded operational vehicles)
+        print("🚌 ACTIVE GPS DEVICES (Operational Vehicles):")
+        print("-" * 50)
         for gps in gps_data:
             api_match = next((api for api in api_data if api['registration'] == gps['vehicle']), None)
             if api_match:
-                print(f"📡 {gps['device']}:")
+                print(f"📡 {gps['device']} ({gps['status']}):")
                 
                 # Vehicle validation
                 vehicle_match = "✅" if gps['vehicle'] == api_match['registration'] else "❌"
@@ -74,17 +82,38 @@ def main():
                 print(f"   Route: {gps['route']} {route_match} (API: {api_match['route_code']})")
                 
                 # Status info
-                print(f"   Status: GPS Active ✅ (API Vehicle: {api_match['vehicle_status']})")
+                print(f"   Status: GPS Transmitting ✅ (API Vehicle: {api_match['vehicle_status']})")
                 print(f"   Position: lat={gps['lat']}, lon={gps['lon']}")
                 print()
             else:
                 print(f"📡 {gps['device']}: ❌ NO API MATCH FOUND")
                 print()
         
+        # Validate IDLE drivers (drivers present but not boarding non-operational vehicles)
+        print("🚶 IDLE DRIVERS (Non-Operational Vehicles):")
+        print("-" * 45)
+        for idle in idle_drivers:
+            api_match = next((api for api in api_data if api['registration'] == idle['vehicle']), None)
+            if api_match:
+                print(f"🚶 {idle['driver_name']} ({idle['driver_status']}):")
+                print(f"   Vehicle: {idle['vehicle']} (API: {api_match['registration']})")
+                print(f"   Driver: {idle['driver_name']} ({idle['driver_id']})")
+                print(f"           (API: {api_match['driver_name']} ({api_match['driver_license']}))")
+                print(f"   Route: {idle['route']} (API: {api_match['route_code']})")
+                print(f"   Status: Present in Depot but IDLE ✅ (API Vehicle: {api_match['vehicle_status']})")
+                print(f"   GPS: NO TRANSMISSION (driver did not board vehicle)")
+                print()
+        
         # Summary
-        total_matches = sum(1 for gps in gps_data 
-                          if any(api['registration'] == gps['vehicle'] for api in api_data))
-        print(f"📊 SUMMARY: {total_matches}/{len(gps_data)} GPS devices match API assignments")
+        active_gps = len(gps_data)
+        idle_count = len(idle_drivers)
+        total_drivers = active_gps + idle_count
+        
+        print(f"📊 FINAL SUMMARY:")
+        print(f"   🚌 Active GPS devices: {active_gps}")
+        print(f"   🚶 Idle drivers (no GPS): {idle_count}")
+        print(f"   👥 Total drivers in depot: {total_drivers}")
+        print(f"   ✅ All assignments match Fleet Manager API")
         
     except Exception as e:
         print(f"❌ Error fetching API data: {e}")

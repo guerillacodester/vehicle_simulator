@@ -128,7 +128,8 @@ class Dispatcher(StateMachine, IDispatcher):
                             # Human-readable friendly names
                             vehicle_reg_code=pair.get('registration', 'Unknown Vehicle'),
                             driver_name=pair.get('driver_name', 'Unknown Driver'),
-                            route_name=pair.get('route_name', 'Unknown Route')
+                            route_name=pair.get('route_name', 'Unknown Route'),
+                            vehicle_status=pair.get('vehicle_status', 'unknown')  # Include vehicle operational status
                         )
                         assignments.append(assignment)
             

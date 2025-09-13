@@ -22,6 +22,7 @@ class VehicleAssignment:
     vehicle_reg_code: Optional[str] = None    # License plate (e.g., "ZR101")
     driver_name: Optional[str] = None         # Driver name (e.g., "John Smith")
     route_name: Optional[str] = None          # Route name (e.g., "1A")
+    vehicle_status: Optional[str] = None      # Vehicle operational status (available, maintenance, retired)
 
 
 @dataclass
