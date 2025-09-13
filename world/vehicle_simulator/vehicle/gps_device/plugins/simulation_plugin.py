@@ -114,6 +114,29 @@ class SimulationTelemetryPlugin(ITelemetryPlugin):
                 heading = self.vehicle_state.get('heading', 0.0)
                 route_id = self.vehicle_state.get('route_id', 'SIM_ROUTE')
             
+            # Get driver information from vehicle state
+            if hasattr(self.vehicle_state, 'driver_id'):
+                driver_id = getattr(self.vehicle_state, 'driver_id', f"drv-{self.device_id}")
+                driver_name_full = getattr(self.vehicle_state, 'driver_name', f"Sim {self.device_id}")
+                # Check both vehicle_reg and vehicle_id for compatibility
+                vehicle_reg = getattr(self.vehicle_state, 'vehicle_reg', 
+                                    getattr(self.vehicle_state, 'vehicle_id', self.device_id))
+            else:
+                driver_id = self.vehicle_state.get('driver_id', f"drv-{self.device_id}")
+                driver_name_full = self.vehicle_state.get('driver_name', f"Sim {self.device_id}")
+                # Check both vehicle_reg and vehicle_id for compatibility
+                vehicle_reg = self.vehicle_state.get('vehicle_reg', 
+                                                   self.vehicle_state.get('vehicle_id', self.device_id))
+            
+            # Parse driver name into first/last
+            if isinstance(driver_name_full, str):
+                name_parts = driver_name_full.split()
+                driver_first = name_parts[0] if name_parts else "Sim"
+                driver_last = name_parts[-1] if len(name_parts) > 1 else self.device_id
+            else:
+                driver_first = "Sim"
+                driver_last = self.device_id
+            
             # Return standardized telemetry format
             return {
                 "lat": float(lat),
@@ -123,9 +146,9 @@ class SimulationTelemetryPlugin(ITelemetryPlugin):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "device_id": self.device_id,
                 "route": str(route_id),
-                "vehicle_reg": self.device_id,
-                "driver_id": f"drv-{self.device_id}",
-                "driver_name": {"first": "Sim", "last": self.device_id},
+                "vehicle_reg": vehicle_reg,
+                "driver_id": driver_id,
+                "driver_name": {"first": driver_first, "last": driver_last},
                 "extras": {
                     "source": "simulation",
                     "plugin_version": self.plugin_version
