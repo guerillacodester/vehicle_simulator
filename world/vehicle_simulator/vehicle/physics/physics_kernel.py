@@ -112,6 +112,12 @@ class PhysicsKernel:
         # Determine effective cap
         v_cap = self._target_speed if self._target_speed is not None else self.v_max
         v_cap = min(v_cap, self.v_max)
+        
+        # Apply curvature-based speed limiting
+        if self.enable_curvature:
+            current_seg = self._find_segment(self._s)
+            v_curve_limit = self._get_curvature_speed_limit(current_seg)
+            v_cap = min(v_cap, v_curve_limit)
 
         if self._force_stop:
             v_cap = 0.0
@@ -194,6 +200,62 @@ class PhysicsKernel:
         )
 
     # ---------------------------- Internal Helpers ---------------------------- #
+    def _calculate_curvature_radius(self, seg_index: int) -> float:
+        """
+        Calculate radius of curvature at a segment using three-point method.
+        Returns radius in meters. Larger radius = gentler curve.
+        """
+        # Need at least 3 points for curvature calculation
+        if seg_index == 0 or seg_index >= len(self._coords) - 1:
+            return float('inf')  # Assume straight at route ends
+        
+        # Get three consecutive points
+        p1 = self._coords[seg_index - 1]  # Previous point
+        p2 = self._coords[seg_index]      # Current point  
+        p3 = self._coords[seg_index + 1]  # Next point
+        
+        # Calculate distances between points
+        a = self._haversine_m(p1, p2)  # Distance p1 to p2
+        b = self._haversine_m(p2, p3)  # Distance p2 to p3
+        c = self._haversine_m(p1, p3)  # Distance p1 to p3
+        
+        # Avoid degenerate cases
+        if a < 1e-6 or b < 1e-6 or c < 1e-6:
+            return float('inf')
+        
+        # Calculate area of triangle using Heron's formula
+        s = (a + b + c) / 2
+        area_squared = s * (s - a) * (s - b) * (s - c)
+        
+        if area_squared <= 0:
+            return float('inf')  # Straight line or degenerate triangle
+        
+        area = math.sqrt(area_squared)
+        
+        # Radius of curvature: R = (abc) / (4 * Area)
+        radius = (a * b * c) / (4 * area)
+        return radius
+    
+    def _get_curvature_speed_limit(self, seg_index: int) -> float:
+        """
+        Calculate maximum safe speed for a road segment based on curvature.
+        Uses v_max = sqrt(a_lateral_max * radius)
+        """
+        if not self.enable_curvature:
+            return self.v_max
+        
+        radius = self._calculate_curvature_radius(seg_index)
+        
+        # For very large radius (straight road), use max speed
+        if radius > 1000:  # > 1km radius is essentially straight
+            return self.v_max
+        
+        # Calculate max safe speed: v = sqrt(a_lat * R)
+        v_curve_max = math.sqrt(self.a_lat_max * radius)
+        
+        # Don't exceed vehicle's max speed
+        return min(v_curve_max, self.v_max)
+
     def _find_segment(self, s: float) -> int:
         # linear scan (fast enough for modest route lengths); can binary search later
         for i in range(len(self._cum_lengths)-1):

@@ -36,13 +36,16 @@ class PhysicsSpeedModel:
             performance = VehiclePerformanceService.get_performance_by_reg_code(vehicle_reg_code)
             print(f"Loaded performance for {vehicle_reg_code}: {performance.max_speed_kmh} km/h, "
                   f"{performance.acceleration_mps2} m/s² accel, {performance.braking_mps2} m/s² brake")
+            print(f"🌀 Curvature-aware speed limiting enabled with 1.5 m/s² lateral acceleration limit")
             
             self.kernel = PhysicsKernel(
                 route_coords=route_coords,
                 dt=dt,
                 v_max=performance.max_speed_mps,
                 a_max=performance.acceleration_mps2,
-                d_max=performance.braking_mps2
+                d_max=performance.braking_mps2,
+                enable_curvature=True,  # Enable realistic curve speed limiting
+                a_lat_max=1.5  # 1.5 m/s² lateral acceleration limit for safety
             )
             self.performance = performance
             
