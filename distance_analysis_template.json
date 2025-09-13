@@ -83,11 +83,11 @@
       }
     },
     {
-      "stop_id": "MALL_JUNCTION",
-      "stop_name": "Shopping Mall Junction",
+      "stop_id": "DEPOT_MAIN",
+      "stop_name": "Main Bus Depot",
       "coordinates": [
-        -59.5645,
-        13.0845
+        -59.6462136,
+        13.2809774
       ],
       "distance_analysis": {
         "primary_catchment_radius_m": 400,

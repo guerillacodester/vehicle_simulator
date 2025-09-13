@@ -99,8 +99,8 @@
       }
     },
     {
-      "stop_id": "MALL_JUNCTION",
-      "stop_name": "Stop MALL_JUNCTION",
+      "stop_id": "DEPOT_MAIN",
+      "stop_name": "Stop DEPOT_MAIN",
       "survey_periods": [
         {
           "start_time": "07:00",

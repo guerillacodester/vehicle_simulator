@@ -1,4 +1,4 @@
 stop_id,stop_name,survey_time,boarding_count,alighting_count,average_group_size,average_wait_time_s,average_boarding_time_s,dominant_trip_purpose,weather_condition,notes
 BRIDGETOWN_TERMINAL,Bridgetown Bus Terminal,2025-09-13T08:00:00,15,8,1.6153846153846154,157.30769230769232,4.923076923076923,commute_work,pleasant_weather,"Busy terminal, orderly queuing observed"
 UNIVERSITY_MAIN,University of the West Indies,2025-09-13T08:30:00,22,5,2.3333333333333335,103.33333333333333,6.4,commute_school,pleasant_weather,"Student groups common, longer boarding times due to group coordination"
-MALL_JUNCTION,Shopping Mall Junction,2025-09-13T12:00:00,8,18,2.25,245.0,6.875,shopping,pleasant_weather,"More alighting than boarding in afternoon, family groups common"
+DEPOT_MAIN,Main Bus Depot,2025-09-13T09:00:00,25,5,1.5714285714285714,113.0952380952381,4.428571428571429,commute_work,pleasant_weather,"Main departure point - high boarding, mostly work commute and connecting passengers"

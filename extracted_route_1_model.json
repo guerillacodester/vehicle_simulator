@@ -17,31 +17,67 @@
     "validation_period": "Based on survey data"
   },
   "locations": {
-    "MALL_JUNCTION": {
-      "stop_id": "MALL_JUNCTION",
-      "stop_name": "Stop MALL_JUNCTION",
+    "BRIDGETOWN_TERMINAL": {
+      "stop_id": "BRIDGETOWN_TERMINAL",
+      "stop_name": "Stop BRIDGETOWN_TERMINAL",
       "passenger_rates": {
         "peak_hours": {
-          "rate_per_hour": 0,
-          "variance": 0,
-          "confidence_level": 0
-        },
-        "off_peak_hours": {
           "boarding": {
-            "rate_per_hour": 32.0,
+            "rate_per_hour": 60.0,
             "variance": 0.0,
             "confidence_level": 0.1
           },
           "alighting": {
-            "rate_per_hour": 72.0,
+            "rate_per_hour": 32.0,
             "variance": 0.0,
             "confidence_level": 0.1
           }
         },
+        "off_peak_hours": {
+          "rate_per_hour": 0,
+          "variance": 0,
+          "confidence_level": 0
+        },
         "total_observations": 1
       },
       "group_characteristics": {
-        "typical_group_size": 2.25,
+        "typical_group_size": 1.6153846153846154,
+        "group_frequency_peak": 0.3,
+        "group_frequency_off_peak": 0.4
+      },
+      "real_world_calibration": {
+        "observed_data_points": 1,
+        "validation_accuracy": 0.8,
+        "data_sources": [
+          "Field surveys"
+        ]
+      }
+    },
+    "DEPOT_MAIN": {
+      "stop_id": "DEPOT_MAIN",
+      "stop_name": "Stop DEPOT_MAIN",
+      "passenger_rates": {
+        "peak_hours": {
+          "boarding": {
+            "rate_per_hour": 100.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          },
+          "alighting": {
+            "rate_per_hour": 20.0,
+            "variance": 0.0,
+            "confidence_level": 0.1
+          }
+        },
+        "off_peak_hours": {
+          "rate_per_hour": 0,
+          "variance": 0,
+          "confidence_level": 0
+        },
+        "total_observations": 1
+      },
+      "group_characteristics": {
+        "typical_group_size": 1.5714285714285714,
         "group_frequency_peak": 0.3,
         "group_frequency_off_peak": 0.4
       },
@@ -88,56 +124,10 @@
           "Field surveys"
         ]
       }
-    },
-    "BRIDGETOWN_TERMINAL": {
-      "stop_id": "BRIDGETOWN_TERMINAL",
-      "stop_name": "Stop BRIDGETOWN_TERMINAL",
-      "passenger_rates": {
-        "peak_hours": {
-          "boarding": {
-            "rate_per_hour": 60.0,
-            "variance": 0.0,
-            "confidence_level": 0.1
-          },
-          "alighting": {
-            "rate_per_hour": 32.0,
-            "variance": 0.0,
-            "confidence_level": 0.1
-          }
-        },
-        "off_peak_hours": {
-          "rate_per_hour": 0,
-          "variance": 0,
-          "confidence_level": 0
-        },
-        "total_observations": 1
-      },
-      "group_characteristics": {
-        "typical_group_size": 1.6153846153846154,
-        "group_frequency_peak": 0.3,
-        "group_frequency_off_peak": 0.4
-      },
-      "real_world_calibration": {
-        "observed_data_points": 1,
-        "validation_accuracy": 0.8,
-        "data_sources": [
-          "Field surveys"
-        ]
-      }
     }
   },
   "distance_analytics": {
     "distance_decay_models": {
-      "UNIVERSITY_MAIN": {
-        "stop_id": "UNIVERSITY_MAIN",
-        "decay_function": "exponential",
-        "alpha": 0.15,
-        "beta": 0.005,
-        "threshold_distance_m": 320,
-        "primary_radius_m": 140.0,
-        "secondary_radius_m": 240.0,
-        "tertiary_radius_m": 320
-      },
       "BRIDGETOWN_TERMINAL": {
         "stop_id": "BRIDGETOWN_TERMINAL",
         "decay_function": "exponential",
@@ -147,6 +137,16 @@
         "primary_radius_m": 154.0,
         "secondary_radius_m": 264.0,
         "tertiary_radius_m": 450
+      },
+      "UNIVERSITY_MAIN": {
+        "stop_id": "UNIVERSITY_MAIN",
+        "decay_function": "exponential",
+        "alpha": 0.15,
+        "beta": 0.005,
+        "threshold_distance_m": 320,
+        "primary_radius_m": 140.0,
+        "secondary_radius_m": 240.0,
+        "tertiary_radius_m": 320
       }
     },
     "stop_spacing_effects": {
