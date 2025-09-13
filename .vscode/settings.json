@@ -2,6 +2,7 @@
     "python.analysis.extraPaths": [
         "./common",
         "./vehicle_depot/vehicle",
-        "./world/vehicle"
+        "./world/vehicle",
+        "./passenger_modeler/plugins"
     ]
 }
