@@ -265,11 +265,19 @@ class StatusOnlyFilter(logging.Filter):
             # Vehicle status sections
             '� ACTIVE VEHICLES:',
             '� INACTIVE VEHICLES:',
+            '🚌 VEHICLE #',  # Detailed vehicle status headers
             '� VEHICLE:',
             '⏸️ VEHICLE:',
+            '├─ �‍💼 Driver:',
+            '├─ 📋 Status:',
+            '├─ 🔧 Engine:',
             '� Driver:',
             '� Engine:',
             '� GPS:',
+            'ONBOARD - Currently driving',
+            'RUNNING - Engine operational',
+            'STOPPED - Engine shut down',
+            'UNKNOWN - Engine status unclear',
             '� FLEET SUMMARY:',
             '� Operational:',
             '� Non-operational:',
@@ -303,6 +311,8 @@ class StatusOnlyFilter(logging.Filter):
             # Engine status
             'starting engine',
             'stopping engine',
+            '🔧 Engine created for',
+            'ready for telemetry testing',
             # System status
             'Shutting down',
             'Shutdown complete'

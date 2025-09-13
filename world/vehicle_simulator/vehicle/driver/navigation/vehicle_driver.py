@@ -222,7 +222,26 @@ class VehicleDriver(BasePerson):
         while self._running:
             telemetry = self.step()
             if telemetry:
+                # Write to internal telemetry buffer
                 self.telemetry_buffer.write(telemetry)
+
+                # Propagate to GPS plugin's VehicleState so outbound packets move
+                if self.vehicle_gps and hasattr(self.vehicle_gps, 'plugin_manager'):
+                    plugin = getattr(self.vehicle_gps.plugin_manager, 'active_plugin', None)
+                    # Only update if simulation plugin with vehicle_state object exists
+                    if plugin and hasattr(plugin, 'vehicle_state') and plugin.vehicle_state:
+                        vs = plugin.vehicle_state
+                        try:
+                            lat = telemetry.get('lat')
+                            lon = telemetry.get('lon')
+                            speed = telemetry.get('speed', 0.0)
+                            heading = telemetry.get('bearing', 0.0)
+                            # VehicleState uses update_position(lat, lon, speed, heading)
+                            vs.update_position(lat, lon, speed, heading)
+                        except Exception as e:
+                            self.logger.debug(f"VehicleState update failed: {e}")
+
+                # (Diagnostics removed after validation of movement)
             time.sleep(self.tick_time)
 
     # Linear interpolation
