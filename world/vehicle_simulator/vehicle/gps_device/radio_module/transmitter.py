@@ -45,6 +45,16 @@ class WebSocketTransmitter(Transmitter):
     async def send(self, pkt: TelemetryPacket):
         if self._ws is None:
             raise RuntimeError("Transmitter not connected")
+        
+        # Hook for passenger integration (ultra-lightweight)
+        try:
+            from ....models.passenger_integration import hook_telemetry_packet
+            hook_telemetry_packet(pkt)
+        except ImportError:
+            pass  # Passenger integration not available
+        except Exception:
+            pass  # Fail silently to avoid disrupting telemetry
+        
         try:
             await self._ws.send(self.codec.encode_text(pkt))
         except Exception:

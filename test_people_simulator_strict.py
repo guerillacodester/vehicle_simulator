@@ -13,7 +13,7 @@ import os
 # Add the project root to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'world'))
 
-from vehicle_simulator.models.people import PeopleSimulator, PoissonDistributionModel, PeopleSimulatorConfig
+from world.vehicle_simulator.models.people import PeopleSimulator, PoissonDistributionModel, PeopleSimulatorConfig
 
 # Configure logging
 logging.basicConfig(
@@ -42,19 +42,23 @@ async def test_strict_people_simulator():
     try:
         logger.info("Attempting to generate passengers with strict mode...")
         
-        # Generate passengers
-        passengers = await people_simulator.generate_passengers(
+        # Generate passengers using the distribution model directly
+        from datetime import datetime
+        current_time = datetime.now().replace(hour=8, minute=30)  # Peak morning time
+        passengers = await distribution_model.generate_passengers(
             available_routes=available_routes,
-            total_population=20,  # Small test population
-            current_time="08:30"  # Peak morning time
+            current_time=current_time,
+            simulation_duration=60  # 1 minute simulation
         )
         
         logger.info(f"Successfully generated {len(passengers)} passengers!")
         
         # Display some passenger details
         for i, passenger in enumerate(passengers[:5]):  # Show first 5
-            logger.info(f"Passenger {i+1}: {passenger.origin} -> {passenger.destination} "
-                       f"(Route: {passenger.preferred_route})")
+            pickup = f"({passenger.journey.pickup_lat:.4f}, {passenger.journey.pickup_lon:.4f})"
+            destination = f"({passenger.journey.destination_lat:.4f}, {passenger.journey.destination_lon:.4f})"
+            logger.info(f"Passenger {i+1}: {pickup} -> {destination} "
+                       f"(Route: {passenger.journey.route_id}, Distance: {passenger.journey.journey_distance_km:.2f}km)")
         
         return True
         

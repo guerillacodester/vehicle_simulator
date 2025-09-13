@@ -61,12 +61,12 @@ class FleetDataProvider:
             
             logger.info("🚀 Pre-caching all fleet data for faster access...")
             
-            # Define all API endpoints to cache
+            # Define all API endpoints to cache (using public endpoints)
             cache_tasks = [
-                ("vehicles", f"{self.server_url}/api/v1/vehicles"),
-                ("routes", f"{self.server_url}/api/v1/routes"),
-                ("drivers", f"{self.server_url}/api/v1/drivers"),
-                ("depots", f"{self.server_url}/api/v1/depots"),
+                ("vehicles", f"{self.server_url}/api/v1/vehicles/public"),
+                ("routes", f"{self.server_url}/api/v1/routes/public"),
+                ("drivers", f"{self.server_url}/api/v1/drivers/public"),
+                ("depots", f"{self.server_url}/api/v1/depots/public"),
             ]
             
             def fetch_data(name, url):
@@ -161,7 +161,7 @@ class FleetDataProvider:
         # This prevents race conditions where HTTP API is ready but Socket.IO isn't connected yet
         try:
             import requests
-            response = requests.get(f"{self.server_url}/api/v1/vehicles", timeout=2)
+            response = requests.get(f"{self.server_url}/api/v1/vehicles/public", timeout=2)
             if response.status_code == 200:
                 logger.debug("Direct HTTP API check successful (Socket.IO still connecting)")
                 return True
@@ -191,7 +191,7 @@ class FleetDataProvider:
                 # Only force Socket.IO reconnection if direct HTTP also fails
                 try:
                     import requests
-                    requests.get(f"{self.server_url}/api/v1/vehicles", timeout=2)
+                    requests.get(f"{self.server_url}/api/v1/vehicles/public", timeout=2)
                     # If direct HTTP works, don't worry about Socket.IO for now
                     logger.debug("Direct HTTP works, continuing despite Socket.IO status")
                     return
@@ -224,7 +224,7 @@ class FleetDataProvider:
                 # Use API with retry logic for temporary connection issues
                 for attempt in range(3):
                     try:
-                        response = requests.get(f"{self.server_url}/api/v1/vehicles", timeout=10)
+                        response = requests.get(f"{self.server_url}/api/v1/vehicles/public", timeout=10)
                         response.raise_for_status()
                         api_vehicles = response.json()
                         self._vehicles_cache = api_vehicles  # Cache the result
@@ -319,7 +319,7 @@ class FleetDataProvider:
                 
             # Get route info directly from routes API (avoid full route loading with coordinates/stops)
             import requests
-            response = requests.get(f"{self.server_url}/api/v1/routes", timeout=10)
+            response = requests.get(f"{self.server_url}/api/v1/routes/public", timeout=10)
             
             if response.status_code == 200:
                 api_routes = response.json()
@@ -385,7 +385,7 @@ class FleetDataProvider:
                 
             # Get driver info from API
             import requests
-            response = requests.get(f"{self.server_url}/api/v1/drivers", timeout=10)
+            response = requests.get(f"{self.server_url}/api/v1/drivers/public", timeout=10)
             
             if response.status_code == 200:
                 api_drivers = response.json()
@@ -449,7 +449,7 @@ class FleetDataProvider:
                 # Use API with retry logic for temporary connection issues
                 for attempt in range(3):
                     try:
-                        response = requests.get(f"{self.server_url}/api/v1/routes", timeout=10)
+                        response = requests.get(f"{self.server_url}/api/v1/routes/public", timeout=10)
                         response.raise_for_status()
                         api_routes = response.json()
                         self._routes_cache = api_routes  # Cache the result
@@ -641,7 +641,7 @@ class FleetDataProvider:
             # Use retry logic to prevent race conditions
             for attempt in range(3):
                 try:
-                    response = requests.get(f"{self.server_url}/api/v1/drivers", timeout=10)
+                    response = requests.get(f"{self.server_url}/api/v1/drivers/public", timeout=10)
                     response.raise_for_status()
                     api_drivers = response.json()
                     break

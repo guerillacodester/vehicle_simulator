@@ -10,7 +10,7 @@ from datetime import datetime
 from ..dependencies import get_db
 from ...models.vehicle import Vehicle as VehicleModel
 from ..schemas.vehicle import (
- 
+    Vehicle, VehicleCreate, VehicleUpdate,
     VehiclePublic, VehiclePublicCreate, VehiclePublicUpdate,
     VehiclePerformance, VehiclePerformanceUpdate, PerformanceProfile
 )

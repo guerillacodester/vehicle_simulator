@@ -8,7 +8,7 @@ from uuid import UUID
 
 from ..dependencies import get_db
 from ...models.driver import Driver as DriverModel
-from ..schemas.driver import DriverPublic, DriverPublicCreate, DriverPublicUpdate
+from ..schemas.driver import Driver, DriverCreate, DriverUpdate, DriverPublic, DriverPublicCreate, DriverPublicUpdate
 
 router = APIRouter(
     prefix="/drivers",

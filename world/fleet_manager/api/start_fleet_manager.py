@@ -110,21 +110,28 @@ async def ping(sid, data):
 
 @app.get("/")
 async def root():
-    """API root endpoint"""
+    """API root endpoint - Only public endpoints available"""
     return {
         "message": "Fleet Management API",
         "version": "1.0.0",
         "docs": "/docs",
         "redoc": "/redoc",
-        "endpoints": {
-            "countries": "/api/v1/countries",
-            "depots": "/api/v1/depots", 
-            "vehicles": "/api/v1/vehicles",
-            "drivers": "/api/v1/drivers",
-            "stops": "/api/v1/stops",
-            "trips": "/api/v1/trips",
-            "services": "/api/v1/services",
-            "blocks": "/api/v1/blocks"
+        "note": "Only public endpoints are available - all private endpoints have been removed",
+        "public_endpoints": {
+            "routes": "/api/v1/routes/public/",
+            "route_geometry": "/api/v1/routes/public/{route_code}/geometry",
+            "vehicles": "/api/v1/vehicles/public/",
+            "vehicle_performance": "/api/v1/vehicles/public/{reg_code}/performance",
+            "drivers": "/api/v1/drivers/public/",
+            "shapes": "/api/v1/shapes/public/"
+        },
+        "deprecated": {
+            "countries": "removed - was /api/v1/countries",
+            "depots": "removed - was /api/v1/depots", 
+            "stops": "removed - was /api/v1/stops",
+            "trips": "removed - was /api/v1/trips",
+            "services": "removed - was /api/v1/services",
+            "blocks": "removed - was /api/v1/blocks"
         }
     }
 

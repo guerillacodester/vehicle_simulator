@@ -38,6 +38,45 @@ def read_depots(
     depots = db.query(DepotModel).offset(skip).limit(limit).all()
     return depots
 
+@router.get("/public", response_model=List[dict])
+def read_depots_public(
+    db: Session = Depends(get_db)
+):
+    """Get all depots with public information only (no UUIDs)"""
+    depots = db.query(DepotModel).all()
+    
+    public_depots = []
+    for depot in depots:
+        # Extract coordinates from PostGIS geometry if available
+        latitude = None
+        longitude = None
+        
+        if depot.location:
+            try:
+                # Convert PostGIS geometry to lat/lon
+                from sqlalchemy import text
+                result = db.execute(
+                    text("SELECT ST_Y(:geom) as lat, ST_X(:geom) as lon"),
+                    {"geom": depot.location}
+                ).first()
+                if result:
+                    latitude = float(result.lat)
+                    longitude = float(result.lon)
+            except Exception:
+                pass
+        
+        public_depot = {
+            "name": depot.name,
+            "capacity": depot.capacity,
+            "latitude": latitude,
+            "longitude": longitude,
+            "notes": depot.notes,
+            "country": depot.country.name if depot.country else None
+        }
+        public_depots.append(public_depot)
+    
+    return public_depots
+
 @router.get("/{depot_id}", response_model=Depot)
 def read_depot(
     depot_id: UUID,
