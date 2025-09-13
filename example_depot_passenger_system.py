@@ -8,7 +8,7 @@ import asyncio
 import logging
 from datetime import datetime
 
-from world.vehicle_simulator.models.depot_passenger_coordinator import setup_depot_passenger_system
+from world.arknet_transit_simulator.models.depot_passenger_coordinator import setup_depot_passenger_system
 
 
 async def example_depot_passenger_simulation():

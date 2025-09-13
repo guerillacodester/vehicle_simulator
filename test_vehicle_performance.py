@@ -15,7 +15,7 @@ def test_vehicle_performance_service():
     print("🔧 Testing Vehicle Performance Service...")
     
     try:
-        from world.vehicle_simulator.services.vehicle_performance import VehiclePerformanceService, VehiclePerformanceCharacteristics
+        from world.arknet_transit_simulator.services.vehicle_performance import VehiclePerformanceService, VehiclePerformanceCharacteristics
         
         print(f"✅ Service import successful")
         print(f"📊 Database available: {VehiclePerformanceService.is_database_available()}")
@@ -44,7 +44,7 @@ def test_physics_model_creation():
     print(f"\n🧪 Testing Physics Model Creation...")
     
     try:
-        from world.vehicle_simulator.vehicle.physics.physics_speed_model import PhysicsSpeedModel
+        from world.arknet_transit_simulator.vehicle.physics.physics_speed_model import PhysicsSpeedModel
         
         # Test route coordinates (simple straight line)
         test_coords = [

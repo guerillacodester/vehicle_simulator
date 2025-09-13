@@ -13,7 +13,7 @@ import os
 # Add the project root to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'world'))
 
-from world.vehicle_simulator.models.people import PeopleSimulator, PoissonDistributionModel, PeopleSimulatorConfig
+from world.arknet_transit_simulator.models.people import PeopleSimulator, PoissonDistributionModel, PeopleSimulatorConfig
 
 # Configure logging
 logging.basicConfig(

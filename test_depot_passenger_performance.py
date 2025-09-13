@@ -12,8 +12,8 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 
-from world.vehicle_simulator.models.depot_passenger_coordinator import setup_depot_passenger_system
-from world.vehicle_simulator.models.people import PeopleSimulatorConfig
+from world.arknet_transit_simulator.models.depot_passenger_coordinator import setup_depot_passenger_system
+from world.arknet_transit_simulator.models.people import PeopleSimulatorConfig
 
 
 class PerformanceValidator:

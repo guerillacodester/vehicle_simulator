@@ -39,11 +39,11 @@ import requests
 from datetime import datetime, timezone
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from world.vehicle_simulator.core.depot_manager import DepotManager
-from world.vehicle_simulator.core.dispatcher import Dispatcher
-from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
-from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
-from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
+from world.arknet_transit_simulator.core.depot_manager import DepotManager
+from world.arknet_transit_simulator.core.dispatcher import Dispatcher
+from world.arknet_transit_simulator.vehicle.gps_device.device import GPSDevice
+from world.arknet_transit_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
+from world.arknet_transit_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
 
 
 class ComprehensiveDepotTest:

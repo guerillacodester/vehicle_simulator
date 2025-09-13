@@ -1,4 +1,4 @@
-Clean Vehicle Simulator
+ArkNet Transit Simulator
 =======================
 
 Minimal runtime: Depot Manager + Dispatcher only. No legacy GPS engine, telemetry server, or simulation threads.
@@ -17,25 +17,25 @@ Quick Start
 Display current assignments:
 
 ```bash
-python -m world.vehicle_simulator --mode display
+python -m world.arknet_transit_simulator --mode display
 ```
 
 Run depot orchestration for 60 seconds:
 
 ```bash
-python -m world.vehicle_simulator --mode depot --duration 60
+python -m world.arknet_transit_simulator --mode depot --duration 60
 ```
 
 Enable debug logging:
 
 ```bash
-python -m world.vehicle_simulator --mode display --debug
+python -m world.arknet_transit_simulator --mode display --debug
 ```
 
 Custom API base URL:
 
 ```bash
-python -m world.vehicle_simulator --mode display --api-url http://127.0.0.1:8000
+python -m world.arknet_transit_simulator --mode display --api-url http://127.0.0.1:8000
 ```
 
 Programmatic Usage
@@ -43,7 +43,7 @@ Programmatic Usage
 
 ```python
 import asyncio
-from world.vehicle_simulator.simulator import CleanVehicleSimulator
+from world.arknet_transit_simulator.simulator import CleanVehicleSimulator
 
 async def main():
 	sim = CleanVehicleSimulator(api_url="http://localhost:8000")
@@ -60,7 +60,7 @@ asyncio.run(main())
 Entry Points
 ------------
 
-* Module: `python -m world.vehicle_simulator`
+* Module: `python -m world.arknet_transit_simulator`
 * Script: `./simulator` (wrapper launching the module)
 
 Modes

@@ -9,9 +9,9 @@ import logging
 from datetime import datetime
 from tabulate import tabulate
 
-from world.vehicle_simulator.models.depot_passenger_manager import DepotPassengerManager
-from world.vehicle_simulator.models.people import PeopleSimulatorConfig
-from world.vehicle_simulator.models.people_models.poisson import PoissonDistributionModel
+from world.arknet_transit_simulator.models.depot_passenger_manager import DepotPassengerManager
+from world.arknet_transit_simulator.models.people import PeopleSimulatorConfig
+from world.arknet_transit_simulator.models.people_models.poisson import PoissonDistributionModel
 
 
 async def demonstrate_passenger_tables():

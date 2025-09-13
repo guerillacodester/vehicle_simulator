@@ -8,8 +8,8 @@ and distance integration accuracy.
 
 import unittest
 import time
-from world.vehicle_simulator.vehicle.physics.physics_kernel import PhysicsKernel, PhysicsState
-from world.vehicle_simulator.vehicle.physics.physics_speed_model import PhysicsSpeedModel
+from world.arknet_transit_simulator.vehicle.physics.physics_kernel import PhysicsKernel, PhysicsState
+from world.arknet_transit_simulator.vehicle.physics.physics_speed_model import PhysicsSpeedModel
 
 
 class TestPhysicsRamp(unittest.TestCase):

@@ -12,7 +12,7 @@ Tests the people simulator with proper depot-centric generation:
 import asyncio
 import logging
 from datetime import datetime
-from world.vehicle_simulator.models.people import (
+from world.arknet_transit_simulator.models.people import (
     PoissonDistributionModel, 
     PeopleSimulator
 )

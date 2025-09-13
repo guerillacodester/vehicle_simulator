@@ -10,7 +10,7 @@ with realistic distribution patterns including peak times and passenger flow.
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from world.vehicle_simulator.models.people import (
+from world.arknet_transit_simulator.models.people import (
     PoissonDistributionModel, 
     PeopleSimulator, 
     create_poisson_people_simulator

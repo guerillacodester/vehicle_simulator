@@ -100,8 +100,8 @@ class CleanVehicleSimulator:
 
     async def initialize(self) -> bool:
         try:
-            from world.vehicle_simulator.core.depot_manager import DepotManager
-            from world.vehicle_simulator.core.dispatcher import Dispatcher
+            from world.arknet_transit_simulator.core.depot_manager import DepotManager
+            from world.arknet_transit_simulator.core.dispatcher import Dispatcher
 
             logger.info("Initializing clean simulator (depot + dispatcher)...")
             self.dispatcher = Dispatcher("FleetDispatcher", self.api_url)
@@ -315,10 +315,10 @@ class CleanVehicleSimulator:
         """Create and start a vehicle driver with GPS device."""
         logger.info(f"🔧 _create_and_start_driver called for {vehicle_assignment.vehicle_id} with driver {driver_assignment.driver_name}")
         try:
-            from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
-            from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
-            from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
-            from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
+            from world.arknet_transit_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
+            from world.arknet_transit_simulator.vehicle.gps_device.device import GPSDevice
+            from world.arknet_transit_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
+            from world.arknet_transit_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
             
             # Get route information
             route_info = await self.dispatcher.get_route_info(vehicle_assignment.route_id)
@@ -351,9 +351,9 @@ class CleanVehicleSimulator:
             logger.info(f"🚗 Checking if vehicle needs engine creation: vehicle_id='{vehicle_assignment.vehicle_id}'")
             if vehicle_assignment.vehicle_id == "ZR400":
                 logger.info(f"✅ Creating engine for ZR400")
-                from world.vehicle_simulator.vehicle.engine.engine_block import Engine
-                from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
-                from world.vehicle_simulator.vehicle.engine import sim_speed_model
+                from world.arknet_transit_simulator.vehicle.engine.engine_block import Engine
+                from world.arknet_transit_simulator.vehicle.engine.engine_buffer import EngineBuffer
+                from world.arknet_transit_simulator.vehicle.engine import sim_speed_model
                 import os
                 
                 # Create engine buffer
@@ -370,7 +370,7 @@ class CleanVehicleSimulator:
                     coords = route_info.geometry.get('coordinates', [])
                     
                     # Get vehicle performance from database to set appropriate target speed
-                    from world.vehicle_simulator.services.vehicle_performance import VehiclePerformanceService
+                    from world.arknet_transit_simulator.services.vehicle_performance import VehiclePerformanceService
                     try:
                         logger.info(f"🔍 Looking up performance characteristics for {vehicle_id}")
                         performance = VehiclePerformanceService.get_performance_by_reg_code(vehicle_id)
@@ -444,7 +444,7 @@ class CleanVehicleSimulator:
     async def _create_idle_driver(self, driver_assignment, vehicle_assignment):
         """Create an idle driver who is present in depot but cannot board non-operational vehicle."""
         try:
-            from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
+            from world.arknet_transit_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
             
             # Create driver instance with minimal parameters (no route coordinates since not boarding)
             # Use empty coordinates since the driver won't actually navigate

@@ -20,13 +20,13 @@ import time
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from world.vehicle_simulator.simulator import CleanVehicleSimulator
-from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
-from world.vehicle_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
-from world.vehicle_simulator.core.states import DeviceState, PersonState
-from world.vehicle_simulator.vehicle.base_person import BasePerson
-from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
-from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
+from world.arknet_transit_simulator.simulator import CleanVehicleSimulator
+from world.arknet_transit_simulator.vehicle.gps_device.device import GPSDevice
+from world.arknet_transit_simulator.vehicle.gps_device.radio_module.transmitter import WebSocketTransmitter
+from world.arknet_transit_simulator.core.states import DeviceState, PersonState
+from world.arknet_transit_simulator.vehicle.base_person import BasePerson
+from world.arknet_transit_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
+from world.arknet_transit_simulator.vehicle.engine.engine_buffer import EngineBuffer
 
 
 class DepotVehicleDriver(BasePerson):
@@ -338,7 +338,7 @@ async def test_depot_vehicle_simulation():
                 device_id = f"GPS-{assignment.vehicle_id}"
                 
                 # Import required components
-                from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
+                from world.arknet_transit_simulator.vehicle.gps_device.radio_module.packet import PacketCodec
                 
                 # Create WebSocket transmitter with proper parameters
                 transmitter = WebSocketTransmitter(

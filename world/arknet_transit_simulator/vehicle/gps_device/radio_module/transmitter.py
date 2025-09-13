@@ -5,7 +5,7 @@ from typing import Optional
 import websockets
 
 from .packet import TelemetryPacket, PacketCodec
-from world.vehicle_simulator.utils.common.ws_utils import to_ws_url
+from world.arknet_transit_simulator.utils.common.ws_utils import to_ws_url
 
 
 class Transmitter:

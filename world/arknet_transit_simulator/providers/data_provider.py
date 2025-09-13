@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, time as time_type
 from sqlalchemy import Date
 
-from world.vehicle_simulator.providers.api_monitor import SocketIOAPIMonitor, APIConnectionStatus
+from world.arknet_transit_simulator.providers.api_monitor import SocketIOAPIMonitor, APIConnectionStatus
 
 logger = logging.getLogger(__name__)
 

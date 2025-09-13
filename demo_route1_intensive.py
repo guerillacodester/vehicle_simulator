@@ -10,7 +10,7 @@ the distribution model effectively.
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from world.vehicle_simulator.models.people import (
+from world.arknet_transit_simulator.models.people import (
     PoissonDistributionModel, 
     PeopleSimulator
 )

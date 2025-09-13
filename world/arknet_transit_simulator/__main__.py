@@ -1,9 +1,9 @@
 """Package entrypoint for clean vehicle simulator.
 
 Usage examples:
-  python -m world.vehicle_simulator --mode display
-  python -m world.vehicle_simulator --mode depot --duration 60
-  python -m world.vehicle_simulator --mode status
+  python -m world.arknet_transit_simulator --mode display
+  python -m world.arknet_transit_simulator --mode depot --duration 60
+  python -m world.arknet_transit_simulator --mode status
 """
 from __future__ import annotations
 import argparse
@@ -17,7 +17,7 @@ log = logging.getLogger("vehicle_simulator.entry")
 
 
 def parse_args(argv=None):
-    p = argparse.ArgumentParser(prog="python -m world.vehicle_simulator",
+    p = argparse.ArgumentParser(prog="python -m world.arknet_transit_simulator",
                                 description="Clean Vehicle Simulator (depot + dispatcher only)")
     p.add_argument('--mode', choices=['display', 'depot', 'status'], default='display', help='Mode to run')
     p.add_argument('--duration', type=float, default=None, help='Duration in seconds (depot mode)')

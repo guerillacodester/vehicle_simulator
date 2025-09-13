@@ -16,9 +16,9 @@ import threading
 import time
 from typing import Any, Dict
 
-from world.vehicle_simulator.vehicle.engine.engine_buffer import EngineBuffer
-from world.vehicle_simulator.vehicle.base_component import BaseComponent
-from world.vehicle_simulator.core.states import DeviceState
+from world.arknet_transit_simulator.vehicle.engine.engine_buffer import EngineBuffer
+from world.arknet_transit_simulator.vehicle.base_component import BaseComponent
+from world.arknet_transit_simulator.core.states import DeviceState
 
 
 class Engine(BaseComponent):

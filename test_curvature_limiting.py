@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from world.vehicle_simulator.vehicle.physics.physics_kernel import PhysicsKernel
+from world.arknet_transit_simulator.vehicle.physics.physics_kernel import PhysicsKernel
 import math
 
 def test_curvature_calculations():

@@ -55,7 +55,7 @@ def get_route_coordinates(
     # Load from file if no database coordinates or if only file provided
     if not coordinates and route_file:
         try:
-            from world.vehicle_simulator.utils.routes.route_loader import load_route_coordinates
+            from world.arknet_transit_simulator.utils.routes.route_loader import load_route_coordinates
             coordinates = load_route_coordinates(route_file)
             logger.info(f"Loaded route from file {route_file} ({len(coordinates)} coordinates)")
         except Exception as e:
@@ -88,7 +88,7 @@ def create_navigator_with_route(
     
     This provides backward compatibility for code that was using the old Navigator interface.
     """
-    from world.vehicle_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
+    from world.arknet_transit_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
     
     # Load route coordinates
     coordinates = get_route_coordinates(route_id, route_file, direction)

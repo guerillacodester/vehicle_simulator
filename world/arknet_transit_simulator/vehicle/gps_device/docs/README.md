@@ -7,8 +7,8 @@ This interface allows you to connect any data source to the GPS device RxTx buff
 ### Basic Usage
 
 ```python
-from world.vehicle_simulator.vehicle.gps_device.device import GPSDevice
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import (
+from world.arknet_transit_simulator.vehicle.gps_device.device import GPSDevice
+from world.arknet_transit_simulator.vehicle.gps_device.telemetry_interface import (
     TelemetryInjector, SimulatedTelemetrySource
 )
 
@@ -38,8 +38,8 @@ gps_device.off()
 Implement the `ITelemetryDataSource` interface:
 
 ```python
-from world.vehicle_simulator.vehicle.gps_device.telemetry_interface import ITelemetryDataSource
-from world.vehicle_simulator.vehicle.gps_device.radio_module.packet import make_packet
+from world.arknet_transit_simulator.vehicle.gps_device.telemetry_interface import ITelemetryDataSource
+from world.arknet_transit_simulator.vehicle.gps_device.radio_module.packet import make_packet
 
 class MyDataSource(ITelemetryDataSource):
     def __init__(self, device_id):
@@ -89,7 +89,7 @@ See `example_usage.py` for complete examples.
 
 ## Architecture
 
-```
+```text
 Data Source → TelemetryInjector → GPS Device RxTx Buffer → WebSocket Server
 ```
 

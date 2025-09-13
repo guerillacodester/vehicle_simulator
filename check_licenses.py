@@ -6,8 +6,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from world.vehicle_simulator.core.depot_manager import DepotManager
-from world.vehicle_simulator.core.dispatcher import Dispatcher
+from world.arknet_transit_simulator.core.depot_manager import DepotManager
+from world.arknet_transit_simulator.core.dispatcher import Dispatcher
 
 async def check_licenses():
     depot_manager = DepotManager('TestDepot')

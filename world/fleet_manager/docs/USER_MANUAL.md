@@ -98,7 +98,7 @@ world/fleet_manager/
 2. **Install Dependencies**
 
    ```bash
-   cd e:\projects\arknettransit\vehicle_simulator
+   cd e:\projects\arknettransit\arknet_transit_simulator
    pip install -r requirements.txt
    ```
 

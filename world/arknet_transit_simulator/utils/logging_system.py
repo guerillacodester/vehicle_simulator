@@ -105,7 +105,7 @@ class VehicleSimulatorLogger:
     def _setup_root_logger(self):
         """Configure the root logger for vehicle simulator."""
         # Get root logger for our namespace
-        self.root_logger = logging.getLogger('world.vehicle_simulator')
+        self.root_logger = logging.getLogger('world.arknet_transit_simulator')
         self.root_logger.setLevel(logging.DEBUG)  # Capture everything, filter at handler level
         
         # Clear any existing handlers
@@ -317,7 +317,7 @@ class VehicleSimulatorLogger:
             Configured logger for the component
         """
         component_name = component.value
-        logger_name = f"world.vehicle_simulator.{component_name}"
+        logger_name = f"world.arknet_transit_simulator.{component_name}"
         
         if logger_name not in self._component_loggers:
             logger = logging.getLogger(logger_name)

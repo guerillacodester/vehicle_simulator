@@ -10,8 +10,8 @@ import os
 from typing import Dict, Any, Optional
 from enum import Enum
 
-from world.vehicle_simulator.config.config_loader import ConfigLoader
-from world.vehicle_simulator.utils.logging_system import LogLevel
+from world.arknet_transit_simulator.config.config_loader import ConfigLoader
+from world.arknet_transit_simulator.utils.logging_system import LogLevel
 
 
 class LoggingConfig:

@@ -14,7 +14,7 @@ current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 sys.path.insert(0, str(current_dir.parent.parent))
 
-from world.vehicle_simulator.utils.logging_system import (
+from world.arknet_transit_simulator.utils.logging_system import (
     get_logger, configure_logging, LogLevel, LogComponent, get_logging_system
 )
 

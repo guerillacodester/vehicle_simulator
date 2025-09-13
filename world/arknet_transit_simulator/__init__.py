@@ -15,10 +15,10 @@ __version__ = "1.0.0"
 __author__ = "Vehicle Simulator Team"
 
 # Core imports - import only when needed to avoid circular dependencies
-# from world.vehicle_simulator.main import VehicleSimulatorApp
-# from world.vehicle_simulator.core.standalone_manager import StandaloneFleetManager
-# from world.vehicle_simulator.providers.file_route_provider import FileRouteProvider
-# from world.vehicle_simulator.providers.config_provider import SelfContainedConfigProvider
+# from world.arknet_transit_simulator.main import VehicleSimulatorApp
+# from world.arknet_transit_simulator.core.standalone_manager import StandaloneFleetManager
+# from world.arknet_transit_simulator.providers.file_route_provider import FileRouteProvider
+# from world.arknet_transit_simulator.providers.config_provider import SelfContainedConfigProvider
 
 __all__ = [
     'VehicleSimulatorApp',
