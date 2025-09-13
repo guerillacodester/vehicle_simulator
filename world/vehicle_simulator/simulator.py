@@ -188,11 +188,23 @@ class CleanVehicleSimulator:
             
             # Engine creation for ALL active drivers (uniform fixed speed for now)
             engine = None
+            import os
             try:
-                speed_model = load_speed_model("fixed", speed=25.0)
+                vehicle_id = vehicle_assignment.vehicle_id
+                use_physics = os.getenv("PHYSICS_KERNEL", "0") == "1" and vehicle_id == "ZR400"
+                if use_physics:
+                    # Provide route coordinates directly to physics adapter
+                    coords = route_info.geometry.get('coordinates', [])
+                    speed_model = load_speed_model("physics", route_coords=coords, target_speed_mps=25.0/3.6, dt=0.5)
+                    logger.info(f"🧪 Physics kernel enabled for pilot vehicle {vehicle_id}")
+                else:
+                    speed_model = load_speed_model("fixed", speed=25.0)
                 engine_buffer = EngineBuffer()
                 engine = Engine(vehicle_id=vehicle_assignment.vehicle_id, model=speed_model, buffer=engine_buffer, tick_time=0.5)
-                logger.info(f"🔧 Engine created for driver {driver_assignment.driver_name} on vehicle {vehicle_assignment.vehicle_id} (25 km/h fixed)")
+                if use_physics:
+                    logger.info(f"🔧 Engine (physics) created for driver {driver_assignment.driver_name} on vehicle {vehicle_assignment.vehicle_id}")
+                else:
+                    logger.info(f"🔧 Engine created for driver {driver_assignment.driver_name} on vehicle {vehicle_assignment.vehicle_id} (25 km/h fixed)")
             except Exception as e:
                 logger.warning(f"Failed to create engine for {driver_assignment.driver_name}: {e}")
             
