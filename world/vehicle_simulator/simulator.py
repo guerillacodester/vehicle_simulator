@@ -3,7 +3,7 @@
 Rebuilt to remove corruption and provide a clean, deterministic orchestrator:
  - Initialize depot + dispatcher
  - Create drivers (active vs idle based on vehicle status)
- - Selectively create an Engine ONLY for Jane Doe (telemetry test vehicle)
+ - Create an Engine for ALL active drivers (was previously Jane-only)
  - Always create a GPS device
  - Provide a single consolidated status report (no duplicate/garbled blocks)
  - Use DeviceState / DriverState enums via .current_state
@@ -19,13 +19,15 @@ logger = logging.getLogger(__name__)
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: str = "http://localhost:8000") -> None:
+    def __init__(self, api_url: str = "http://localhost:8000", *, status_interim: bool = False) -> None:
         self.api_url = api_url
         self.dispatcher = None
         self.depot = None
         self._running = False
         self.active_drivers = []
         self.idle_drivers = []
+        # When True, prints status after each idle-driver addition (verbose). Default False for cleaner output.
+        self.status_interim = status_interim
 
     async def initialize(self) -> bool:
         try:
@@ -109,8 +111,10 @@ class CleanVehicleSimulator:
                     # Create idle driver (present in depot but not boarding vehicle)
                     idle_driver = await self._create_idle_driver(driver_assignment, vehicle_assignment)
                     if idle_driver:
-                        # Consolidated Status Display
-                        self._report_status(active_drivers, idle_drivers)
+                        idle_drivers.append(idle_driver)
+                        if self.status_interim:
+                            # Optional verbose interim status
+                            self._report_status(active_drivers, idle_drivers)
 
             
             logger.info("")
@@ -127,6 +131,9 @@ class CleanVehicleSimulator:
             
             if not active_drivers and not idle_drivers:
                 logger.warning("No drivers started successfully")
+            else:
+                # Final consolidated status after all drivers (active + idle) established
+                self._report_status(self.active_drivers, self.idle_drivers)
                 
         except Exception as e:
             logger.error(f"Error starting vehicle operations: {e}")
@@ -179,16 +186,15 @@ class CleanVehicleSimulator:
                 route_name=vehicle_assignment.route_id
             )
             
-            # Selective engine creation (Jane Doe only) for controlled telemetry test
+            # Engine creation for ALL active drivers (uniform fixed speed for now)
             engine = None
-            if driver_assignment.driver_name.lower() == "jane doe":
-                try:
-                    speed_model = load_speed_model("fixed", speed=25.0)
-                    engine_buffer = EngineBuffer()
-                    engine = Engine(vehicle_id=vehicle_assignment.vehicle_id, model=speed_model, buffer=engine_buffer, tick_time=0.5)
-                    logger.info(f"🔧 Engine created for Jane Doe on vehicle {vehicle_assignment.vehicle_id} (25 km/h fixed)")
-                except Exception as e:
-                    logger.warning(f"Failed to create engine for Jane Doe: {e}")
+            try:
+                speed_model = load_speed_model("fixed", speed=25.0)
+                engine_buffer = EngineBuffer()
+                engine = Engine(vehicle_id=vehicle_assignment.vehicle_id, model=speed_model, buffer=engine_buffer, tick_time=0.5)
+                logger.info(f"🔧 Engine created for driver {driver_assignment.driver_name} on vehicle {vehicle_assignment.vehicle_id} (25 km/h fixed)")
+            except Exception as e:
+                logger.warning(f"Failed to create engine for {driver_assignment.driver_name}: {e}")
             
             # Set components for this driver (engine may be None)
             driver.engine_buffer = engine.buffer if engine else None
