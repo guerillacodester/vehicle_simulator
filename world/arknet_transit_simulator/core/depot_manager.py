@@ -3,16 +3,19 @@ from typing import Dict, Any, Optional, List
 from .states import StateMachine, DepotState
 from .interfaces import IDepotManager, IDispatcher, VehicleAssignment, DriverAssignment
 from .route_queue_builder import RouteQueueBuilder
+from .passenger_service_factory import PassengerServiceFactory
 
 class DepotManager(StateMachine, IDepotManager):
     def __init__(self, component_name: str = "DepotManager"):
         super().__init__(component_name, DepotState.CLOSED)
         self.dispatcher: Optional[IDispatcher] = None
         self.route_queue_builder: RouteQueueBuilder = RouteQueueBuilder(f"{component_name}_RouteQueues")
+        self.passenger_service_factory: PassengerServiceFactory = PassengerServiceFactory(f"{component_name}_PassengerService")
         self.initialized = False
     
     def set_dispatcher(self, dispatcher: IDispatcher):
         self.dispatcher = dispatcher
+        self.passenger_service_factory.set_dispatcher(dispatcher)
     
     async def initialize(self) -> bool:
         """Initialize depot with vehicle data validation - NO fallback allowed."""
@@ -274,6 +277,9 @@ class DepotManager(StateMachine, IDepotManager):
         return status_reasons.get(status, f'Status "{status}" - requires review')
     
     async def shutdown(self) -> bool:
+        # Stop passenger service first
+        await self.passenger_service_factory.stop_passenger_service()
+        
         if self.dispatcher:
             await self.dispatcher.shutdown()
         
@@ -399,9 +405,51 @@ class DepotManager(StateMachine, IDepotManager):
                 logging.info(f"[{self.component_name}] Successfully distributed routes to {len(operational_routes)} operational vehicles")
             else:
                 logging.info(f"[{self.component_name}] Route distribution completed with API limitations (expected in development)")
-                
+            
+            # Start passenger service after routes are distributed
+            await self._start_passenger_service_after_routes(operational_routes)
+            
             return True  # Always return True - API failures are expected during development
             
         except Exception as e:
             logging.warning(f"[{self.component_name}] Route distribution error (non-critical): {e}")
             return True  # Always return True - route distribution failures shouldn't stop operations
+    
+    async def _start_passenger_service_after_routes(self, operational_routes: List[Dict[str, str]]) -> bool:
+        """Start passenger service after routes have been distributed to vehicles."""
+        try:
+            if not operational_routes:
+                logging.info(f"[{self.component_name}] No operational routes - passenger service not started")
+                return False
+            
+            # Extract unique route IDs from operational routes
+            route_ids = list(set(route['route_id'] for route in operational_routes if route.get('route_id')))
+            
+            if not route_ids:
+                logging.warning(f"[{self.component_name}] No valid route IDs found in operational routes")
+                return False
+            
+            logging.info(f"[{self.component_name}] Starting passenger service for {len(route_ids)} active routes: {', '.join(route_ids)}")
+            
+            # Create and start passenger service through factory
+            success = await self.passenger_service_factory.create_passenger_service(route_ids)
+            
+            if success:
+                # Get service status for logging
+                status = await self.passenger_service_factory.get_service_status()
+                logging.info(f"[{self.component_name}] 🚀 Passenger service started successfully!")
+                logging.info(f"[{self.component_name}] Service status: {status['passengers']} passengers across {status['routes']} routes")
+                
+                # Get route buffer statistics
+                if self.dispatcher:
+                    buffer_stats = await self.dispatcher.get_route_buffer_stats()
+                    logging.info(f"[{self.component_name}] Route buffer: {buffer_stats['total_routes']} routes with {buffer_stats['total_gps_points']} GPS points indexed")
+                
+                return True
+            else:
+                logging.error(f"[{self.component_name}] Failed to start passenger service")
+                return False
+                
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Error starting passenger service: {str(e)}")
+            return False

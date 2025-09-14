@@ -1,8 +1,121 @@
 import logging
 import aiohttp
-from typing import Dict, Any, Optional, List
+import asyncio
+import math
+from typing import Dict, Any, Optional, List, Tuple
 from .states import StateMachine, PersonState
 from .interfaces import IDispatcher, VehicleAssignment, DriverAssignment, RouteInfo
+
+class RouteBuffer:
+    """Thread-safe, searchable route buffer for GPS-based route queries."""
+    
+    def __init__(self):
+        self._routes: Dict[str, RouteInfo] = {}
+        self._lock = asyncio.Lock()
+        self._gps_index: Dict[Tuple[float, float], List[str]] = {}  # GPS coordinate -> route_ids
+        self._initialized = False
+    
+    async def add_route(self, route_info: RouteInfo) -> bool:
+        """Add route with GPS indexing for proximity searches."""
+        async with self._lock:
+            try:
+                self._routes[route_info.route_id] = route_info
+                
+                # Index GPS coordinates for proximity searches
+                if route_info.geometry and route_info.geometry.get('coordinates'):
+                    coords = route_info.geometry['coordinates']
+                    for coord in coords:
+                        if len(coord) >= 2:
+                            # Round to reasonable precision for indexing
+                            lat_key = round(coord[1], 4)  # ~11m precision
+                            lon_key = round(coord[0], 4)  # ~11m precision
+                            coord_key = (lat_key, lon_key)
+                            
+                            if coord_key not in self._gps_index:
+                                self._gps_index[coord_key] = []
+                            if route_info.route_id not in self._gps_index[coord_key]:
+                                self._gps_index[coord_key].append(route_info.route_id)
+                
+                logging.debug(f"RouteBuffer: Added route {route_info.route_id} with {route_info.coordinate_count} GPS points")
+                return True
+                
+            except Exception as e:
+                logging.error(f"RouteBuffer: Failed to add route {route_info.route_id}: {e}")
+                return False
+    
+    async def get_route_by_id(self, route_id: str) -> Optional[RouteInfo]:
+        """Get complete route information by route ID."""
+        async with self._lock:
+            return self._routes.get(route_id)
+    
+    async def get_routes_by_gps(self, lat: float, lon: float, walking_distance_km: float = 0.5) -> List[RouteInfo]:
+        """Get all routes within walking distance of GPS coordinates."""
+        async with self._lock:
+            nearby_routes = set()
+            
+            # Calculate search radius in coordinate degrees (approximate)
+            lat_radius = walking_distance_km / 111.0  # ~111km per degree latitude
+            lon_radius = walking_distance_km / (111.0 * math.cos(math.radians(lat)))  # Adjust for longitude
+            
+            # Search GPS index within radius
+            for coord_key, route_ids in self._gps_index.items():
+                key_lat, key_lon = coord_key
+                
+                # Quick distance check using coordinate differences
+                lat_diff = abs(lat - key_lat)
+                lon_diff = abs(lon - key_lon)
+                
+                if lat_diff <= lat_radius and lon_diff <= lon_radius:
+                    # More precise distance calculation
+                    distance_km = self._calculate_distance(lat, lon, key_lat, key_lon)
+                    if distance_km <= walking_distance_km:
+                        nearby_routes.update(route_ids)
+            
+            # Return RouteInfo objects for nearby routes
+            result = []
+            for route_id in nearby_routes:
+                if route_id in self._routes:
+                    result.append(self._routes[route_id])
+            
+            return result
+    
+    def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate distance between two GPS coordinates using Haversine formula."""
+        R = 6371  # Earth's radius in kilometers
+        
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+        
+        a = (math.sin(delta_lat / 2) * math.sin(delta_lat / 2) +
+             math.cos(lat1_rad) * math.cos(lat2_rad) *
+             math.sin(delta_lon / 2) * math.sin(delta_lon / 2))
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        
+        return R * c
+    
+    async def get_all_routes(self) -> List[RouteInfo]:
+        """Get all routes in buffer."""
+        async with self._lock:
+            return list(self._routes.values())
+    
+    async def clear(self) -> None:
+        """Clear all routes from buffer."""
+        async with self._lock:
+            self._routes.clear()
+            self._gps_index.clear()
+            self._initialized = False
+    
+    async def get_stats(self) -> Dict[str, Any]:
+        """Get buffer statistics."""
+        async with self._lock:
+            return {
+                'total_routes': len(self._routes),
+                'total_gps_points': len(self._gps_index),
+                'routes': list(self._routes.keys()),
+                'initialized': self._initialized
+            }
 
 class Dispatcher(StateMachine, IDispatcher):
     def __init__(self, component_name: str = "Dispatcher", api_base_url: str = "http://localhost:8000"):
@@ -11,6 +124,7 @@ class Dispatcher(StateMachine, IDispatcher):
         self.api_base_url = api_base_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.api_connected = False
+        self.route_buffer = RouteBuffer()
     
     async def initialize(self) -> bool:
         """Initialize dispatcher with API connection - NO fallback allowed."""
@@ -334,3 +448,59 @@ class Dispatcher(StateMachine, IDispatcher):
         except Exception as e:
             logging.error(f"[{self.component_name}] Error preparing routes with GPS data: {str(e)}")
             return False
+    
+    async def populate_route_buffer(self, route_ids: List[str]) -> bool:
+        """Populate route buffer with complete route data for passenger service queries."""
+        if not self.api_connected or not self.session:
+            logging.error(f"[{self.component_name}] Cannot populate route buffer - API not connected")
+            return False
+        
+        try:
+            await self.route_buffer.clear()
+            populated_count = 0
+            
+            for route_id in route_ids:
+                route_info = await self.get_route_info(route_id)
+                if route_info:
+                    success = await self.route_buffer.add_route(route_info)
+                    if success:
+                        populated_count += 1
+                    else:
+                        logging.warning(f"[{self.component_name}] Failed to buffer route {route_id}")
+                else:
+                    logging.warning(f"[{self.component_name}] No route info available for {route_id}")
+            
+            stats = await self.route_buffer.get_stats()
+            logging.info(f"[{self.component_name}] Route buffer populated: {populated_count}/{len(route_ids)} routes, {stats['total_gps_points']} GPS index points")
+            
+            return populated_count > 0
+            
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Error populating route buffer: {str(e)}")
+            return False
+    
+    async def query_route_by_id(self, route_id: str) -> Optional[RouteInfo]:
+        """Query route buffer for complete route geometry by route ID."""
+        try:
+            return await self.route_buffer.get_route_by_id(route_id)
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Error querying route {route_id}: {str(e)}")
+            return None
+    
+    async def query_routes_by_gps(self, lat: float, lon: float, walking_distance_km: float = 0.5) -> List[RouteInfo]:
+        """Query route buffer for all routes within walking distance of GPS coordinates."""
+        try:
+            routes = await self.route_buffer.get_routes_by_gps(lat, lon, walking_distance_km)
+            logging.debug(f"[{self.component_name}] Found {len(routes)} routes within {walking_distance_km}km of ({lat:.6f}, {lon:.6f})")
+            return routes
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Error querying routes by GPS ({lat}, {lon}): {str(e)}")
+            return []
+    
+    async def get_route_buffer_stats(self) -> Dict[str, Any]:
+        """Get route buffer statistics for monitoring."""
+        try:
+            return await self.route_buffer.get_stats()
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Error getting route buffer stats: {str(e)}")
+            return {'error': str(e)}

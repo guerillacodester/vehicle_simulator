@@ -48,16 +48,20 @@ class DynamicPassengerService:
     and thread-safe event handling optimized for 512MB Rock S0 deployment.
     """
     
-    def __init__(self, route_ids: List[str], max_memory_mb: int = 10):
+    def __init__(self, route_ids: List[str], max_memory_mb: int = 10, dispatcher=None, walking_distance_km: float = 0.5):
         """
-        Initialize passenger service for specific routes.
+        Initialize passenger service for specific routes with dispatcher integration.
         
         Args:
             route_ids: List of active route IDs to generate passengers for
             max_memory_mb: Maximum memory limit for service operations
+            dispatcher: Dispatcher with route buffer for GPS-based route queries
+            walking_distance_km: Walking distance for GPS-based route discovery
         """
         self.route_ids = set(route_ids)
         self.max_memory_mb = max_memory_mb
+        self.dispatcher = dispatcher  # NEW: Dispatcher integration
+        self.walking_distance_km = walking_distance_km  # NEW: GPS proximity
         self.logger = logging.getLogger(f"{__class__.__name__}")
         
         # Service state
@@ -382,8 +386,8 @@ class DynamicPassengerService:
     
     async def _spawn_passengers_batch(self) -> int:
         """
-        Spawn a batch of passengers (placeholder implementation).
-        Will be enhanced in later tasks with statistical models.
+        Spawn a batch of passengers using dispatcher route buffer for GPS-aware placement.
+        Enhanced with route geometry queries for realistic passenger placement.
         
         Returns:
             int: Number of passengers spawned
@@ -397,27 +401,86 @@ class DynamicPassengerService:
             if max_spawn <= 0:
                 return 0
             
-            # Placeholder: Simple passenger creation (will be enhanced)
             spawned = 0
             for _ in range(max_spawn):
                 passenger_id = f"PASS_{int(time.time()*1000)}_{spawned}"
                 
-                # Basic passenger data (will be enhanced with proper Passenger objects)
-                passenger_data = {
-                    'id': passenger_id,
-                    'spawn_time': datetime.now(),
-                    'route_id': list(self.route_ids)[spawned % len(self.route_ids)],
-                    'status': 'waiting'
-                }
+                # Use dispatcher route buffer for realistic passenger placement
+                passenger_data = await self._create_passenger_with_route_data(passenger_id)
                 
-                self.active_passengers[passenger_id] = passenger_data
-                spawned += 1
+                if passenger_data:
+                    self.active_passengers[passenger_id] = passenger_data
+                    spawned += 1
+                    
+                    # Log passenger creation with GPS coordinates
+                    route_id = passenger_data.get('route_id', 'unknown')
+                    pickup_coords = passenger_data.get('pickup_coords', [0, 0])
+                    dest_coords = passenger_data.get('destination_coords', [0, 0])
+                    self.logger.debug(f"Spawned passenger {passenger_id} on route {route_id}: "
+                                    f"pickup ({pickup_coords[1]:.6f}, {pickup_coords[0]:.6f}) → "
+                                    f"destination ({dest_coords[1]:.6f}, {dest_coords[0]:.6f})")
             
             return spawned
             
         except Exception as e:
             self.logger.error(f"Error spawning passengers: {e}")
             return 0
+    
+    async def _create_passenger_with_route_data(self, passenger_id: str) -> Optional[Dict[str, Any]]:
+        """Create passenger with realistic GPS coordinates from route geometry."""
+        try:
+            if not self.dispatcher:
+                # Fallback to basic passenger data if no dispatcher
+                return {
+                    'id': passenger_id,
+                    'spawn_time': datetime.now(),
+                    'route_id': list(self.route_ids)[0] if self.route_ids else 'unknown',
+                    'status': 'waiting'
+                }
+            
+            # Get a random route from active routes
+            import random
+            route_id = random.choice(list(self.route_ids))
+            
+            # Query dispatcher for route geometry
+            route_info = await self.dispatcher.query_route_by_id(route_id)
+            
+            if route_info and route_info.geometry and route_info.geometry.get('coordinates'):
+                coords = route_info.geometry['coordinates']
+                
+                if len(coords) >= 2:
+                    # Select pickup and destination points along route
+                    pickup_idx = random.randint(0, len(coords) - 2)
+                    # Destination should be different from pickup
+                    dest_idx = random.randint(pickup_idx + 1, len(coords) - 1)
+                    
+                    pickup_coord = coords[pickup_idx]
+                    dest_coord = coords[dest_idx]
+                    
+                    return {
+                        'id': passenger_id,
+                        'spawn_time': datetime.now(),
+                        'route_id': route_id,
+                        'route_name': route_info.route_name,
+                        'pickup_coords': pickup_coord,  # [lon, lat]
+                        'destination_coords': dest_coord,  # [lon, lat]
+                        'status': 'waiting',
+                        'using_route_geometry': True
+                    }
+            
+            # Fallback if no geometry available
+            self.logger.warning(f"No route geometry available for route {route_id}")
+            return {
+                'id': passenger_id,
+                'spawn_time': datetime.now(),
+                'route_id': route_id,
+                'status': 'waiting',
+                'using_route_geometry': False
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error creating passenger with route data: {str(e)}")
+            return None
     
     async def _cleanup_timed_out_passengers(self) -> int:
         """
