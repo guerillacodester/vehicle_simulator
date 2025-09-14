@@ -12,7 +12,7 @@
 
 ### 🧪 Testing Framework
 
-- **Integration Test Suite**: `test_integration.py` 
+- **Integration Test Suite**: `test_integration.py`
 - **5/5 Tests Passing**: All components validated
 - **Real Route Data**: Uses coordinates from `route_1_final_processed.geojson`
 - **Barbados Transit Coordinates**: (13.28, -59.64) region
