@@ -17,6 +17,8 @@ Features:
 import asyncio
 import logging
 import time
+import math
+import configparser
 from typing import Dict, List, Optional, Set, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -24,6 +26,22 @@ from collections import deque
 import threading
 import weakref
 import gc
+
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the great circle distance between two points on Earth in meters."""
+    R = 6371000  # Earth's radius in meters
+    
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lon = math.radians(lon2 - lon1)
+    
+    a = (math.sin(delta_lat / 2) ** 2 + 
+         math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R * c
 
 
 @dataclass
@@ -84,19 +102,51 @@ class DynamicPassengerService:
         self.stats = ServiceStats(start_time=datetime.now())
         self._last_memory_check = time.time()
         
-        # Configuration (will be loaded from config.ini in later tasks)
-        self.config = {
-            'spawn_rate_per_minute': 5.0,
-            'passenger_timeout_minutes': 15.0,
-            'cleanup_interval_seconds': 30.0,
-            'memory_check_interval_seconds': 60.0,
-            'max_spawn_per_batch': 3
-        }
+        # Load configuration from config.ini
+        self.config = self._load_config()
         
         self.logger.info(
             f"DynamicPassengerService initialized for {len(self.route_ids)} routes: {list(self.route_ids)[:3]}..."
             f" (memory limit: {max_memory_mb}MB, max passengers: {self.max_passengers})"
         )
+
+    def _load_config(self) -> Dict[str, Any]:
+        """Load configuration from config.ini file."""
+        config = configparser.ConfigParser()
+        config_path = 'world/arknet_transit_simulator/config/config.ini'
+        
+        # Default configuration
+        default_config = {
+            'spawn_rate_per_minute': 5.0,
+            'passenger_timeout_minutes': 15.0,
+            'cleanup_interval_seconds': 30.0,
+            'memory_check_interval_seconds': 60.0,
+            'max_spawn_per_batch': 3,
+            'destination_distance_meters': 350.0
+        }
+        
+        try:
+            config.read(config_path)
+            
+            # Load passenger_service section
+            if config.has_section('passenger_service'):
+                passenger_section = config['passenger_service']
+                
+                return {
+                    'spawn_rate_per_minute': passenger_section.getfloat('spawn_interval_seconds', 10.0) / 60.0 * 6.0,  # Convert to per minute
+                    'passenger_timeout_minutes': passenger_section.getfloat('passenger_timeout_minutes', 15.0),
+                    'cleanup_interval_seconds': passenger_section.getfloat('cleanup_interval_seconds', 30.0),
+                    'memory_check_interval_seconds': 60.0,  # Fixed value
+                    'max_spawn_per_batch': passenger_section.getint('max_concurrent_spawns', 3),
+                    'destination_distance_meters': passenger_section.getfloat('destination_distance_meters', 350.0)
+                }
+            else:
+                self.logger.warning(f"No [passenger_service] section found in {config_path}, using defaults")
+                return default_config
+                
+        except Exception as e:
+            self.logger.warning(f"Error loading config from {config_path}: {e}, using defaults")
+            return default_config
     
     async def start_service(self) -> bool:
         """
@@ -449,13 +499,29 @@ class DynamicPassengerService:
                 coords = route_info.geometry['coordinates']
                 
                 if len(coords) >= 2:
-                    # Select pickup and destination points along route
-                    pickup_idx = random.randint(0, len(coords) - 2)
-                    # Destination should be different from pickup
-                    dest_idx = random.randint(pickup_idx + 1, len(coords) - 1)
+                    # Select pickup and destination points along route with minimum distance
+                    min_distance_m = self.config['destination_distance_meters']
+                    max_attempts = 20  # Limit attempts to avoid infinite loops
                     
-                    pickup_coord = coords[pickup_idx]
-                    dest_coord = coords[dest_idx]
+                    for attempt in range(max_attempts):
+                        pickup_idx = random.randint(0, len(coords) - 2)
+                        dest_idx = random.randint(pickup_idx + 1, len(coords) - 1)
+                        
+                        pickup_coord = coords[pickup_idx]
+                        dest_coord = coords[dest_idx]
+                        
+                        # Check if distance meets minimum requirement
+                        pickup_lat, pickup_lon = pickup_coord[1], pickup_coord[0]  # [lon, lat] -> lat, lon
+                        dest_lat, dest_lon = dest_coord[1], dest_coord[0]
+                        
+                        trip_distance = haversine_distance(pickup_lat, pickup_lon, dest_lat, dest_lon)
+                        
+                        if trip_distance >= min_distance_m:
+                            break
+                    else:
+                        # If we couldn't find a valid pair, use the last attempt
+                        self.logger.debug(f"Could not find pickup/destination pair with {min_distance_m}m minimum distance for route {route_id}")
+                        pass
                     
                     return {
                         'id': passenger_id,
