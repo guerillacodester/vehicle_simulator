@@ -37,14 +37,42 @@ class PassengerServiceFactory:
             # Get passenger service configuration
             config = self._load_passenger_config()
             
-            # Verify route buffer is populated
+            # Safety Check: Verify route buffer for assigned routes only
             stats = await self.dispatcher.get_route_buffer_stats()
             if stats.get('total_routes', 0) == 0:
-                logging.warning(f"[{self.component_name}] Route buffer is empty, populating with {len(route_ids)} routes")
+                logging.info(f"[{self.component_name}] 🛡️ SAFETY: Route buffer empty - populating only with vehicle-assigned routes")
+                logging.info(f"[{self.component_name}] This ensures passengers spawn only for operational routes: {route_ids}")
                 success = await self.dispatcher.populate_route_buffer(route_ids)
                 if not success:
-                    logging.error(f"[{self.component_name}] Failed to populate route buffer")
+                    logging.error(f"[{self.component_name}] ❌ Failed to populate route buffer - no passengers will spawn")
                     return False
+                else:
+                    # Verify population was successful
+                    new_stats = await self.dispatcher.get_route_buffer_stats()
+                    logging.info(f"[{self.component_name}] ✅ Route buffer populated: {new_stats['total_routes']} routes, {new_stats['total_gps_points']} GPS points")
+            else:
+                logging.info(f"[{self.component_name}] ✅ Route buffer already populated: {stats['total_routes']} routes, {stats['total_gps_points']} GPS points")
+            
+            # Additional Safety: Validate that all requested routes are available in buffer
+            # Re-fetch stats after potential population
+            final_stats = await self.dispatcher.get_route_buffer_stats()
+            available_routes = final_stats.get('routes', [])
+            missing_routes = [route_id for route_id in route_ids if route_id not in available_routes]
+            if missing_routes:
+                logging.warning(f"[{self.component_name}] ⚠️ SAFETY: Some routes missing from buffer: {missing_routes}")
+                logging.info(f"[{self.component_name}] Available routes in buffer: {available_routes}")
+                logging.info(f"[{self.component_name}] Passengers will only spawn for available routes: {[r for r in route_ids if r in available_routes]}")
+            else:
+                logging.info(f"[{self.component_name}] ✅ All assigned routes ({len(route_ids)}) validated in buffer")
+            
+            # Final safety validation
+            safety_report = await self.validate_route_safety(route_ids)
+            if not safety_report['safe_to_spawn']:
+                logging.error(f"[{self.component_name}] 🚨 SAFETY VIOLATION: Cannot spawn passengers")
+                logging.error(f"[{self.component_name}] Missing routes: {safety_report['missing_routes']}")
+                return False
+            
+            logging.info(f"[{self.component_name}] 🛡️ SAFETY VALIDATED: {safety_report['routes_in_buffer']}/{safety_report['total_requested_routes']} routes ready")
             
             # Create passenger buffer with configuration
             passenger_buffer = PassengerBuffer(
@@ -150,6 +178,43 @@ class PassengerServiceFactory:
         except Exception as e:
             logging.error(f"[{self.component_name}] Error getting service status: {str(e)}")
             return {'error': str(e)}
+
+    async def validate_route_safety(self, route_ids: List[str]) -> Dict[str, Any]:
+        """Validate that passenger service is only using routes with assigned vehicles."""
+        try:
+            safety_report = {
+                'total_requested_routes': len(route_ids),
+                'routes_in_buffer': 0,
+                'missing_routes': [],
+                'safe_to_spawn': False,
+                'gps_points_available': 0
+            }
+            
+            if not self.dispatcher:
+                safety_report['error'] = 'No dispatcher available'
+                return safety_report
+            
+            # Check route buffer status
+            buffer_stats = await self.dispatcher.get_route_buffer_stats()
+            available_routes = buffer_stats.get('routes', [])
+            
+            safety_report['routes_in_buffer'] = len(available_routes)
+            safety_report['missing_routes'] = [r for r in route_ids if r not in available_routes]
+            
+            # Log safety status with clear indicators
+            if len(safety_report['missing_routes']) == 0:
+                logging.info(f"✅ SAFETY: All driver routes available in buffer: {route_ids}")
+            else:
+                logging.warning(f"⚠️ SAFETY: Some routes missing from buffer: {safety_report['missing_routes']}")
+                logging.info(f"🛡️ SAFETY: Available routes in buffer: {available_routes}")
+                logging.info(f"🛡️ SAFETY: Requested routes: {route_ids}")
+            safety_report['gps_points_available'] = buffer_stats.get('total_gps_points', 0)
+            safety_report['safe_to_spawn'] = len(safety_report['missing_routes']) == 0
+            
+            return safety_report
+            
+        except Exception as e:
+            return {'error': str(e), 'safe_to_spawn': False}
 
     async def query_passengers_near_gps(self, lat: float, lon: float, radius_km: float = None) -> List[Dict[str, Any]]:
         """Query passengers near GPS coordinates using dispatcher route buffer."""
