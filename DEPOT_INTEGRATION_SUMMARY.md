@@ -3,6 +3,7 @@
 ## 🎯 Architecture Implementation Summary
 
 ### Core Systems Implemented
+
 1. **DynamicPassengerService** - AsyncIO passenger management with memory bounds
 2. **PassengerEvent System** - Priority-based event processing with thread-safe buffers  
 3. **SelfAwarePassenger** - GPS-aware passengers with conductor communication
@@ -15,7 +16,7 @@
 
 **Flow**: Depot Manager → Route Assignment → Dispatcher Route Buffer → Passenger Service
 
-```
+```text
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
 │   Depot Manager │───▶│    Dispatcher    │───▶│ Passenger Service   │
 │                 │    │                  │    │                     │
@@ -27,6 +28,7 @@
 ```
 
 ## 🧪 Testing Framework
+
 - **Integration Test Suite**: `test_integration.py` (Foundation components)
 - **Depot Integration Test**: `test_depot_integration.py` (New architecture)
 - **All Tests Passing**: Complete validation of depot-level integration
@@ -34,6 +36,7 @@
 - **Barbados Transit Coordinates**: (13.28, -59.64) region with 387 GPS points
 
 ## 📍 GPS-Aware Passenger Placement
+
 ```python
 # Passengers now use real route geometry
 Sample Passenger: PASS_1757868145994_0
@@ -43,6 +46,7 @@ Sample Passenger: PASS_1757868145994_0
 ```
 
 ## 🚀 System Status
+
 - **Memory Efficiency**: 1MB limit for 512MB Radxa Rock S0
 - **Real GPS Data**: Integrated with Barbados transit system
 - **Driver Communication**: Stop/start signals implemented
@@ -51,6 +55,7 @@ Sample Passenger: PASS_1757868145994_0
 - **Walking Distance**: 0.5km configurable proximity searches
 
 ## 📂 Key Files Created/Enhanced
+
 - `world/arknet_transit_simulator/core/dispatcher.py` (Enhanced with RouteBuffer)
 - `world/arknet_transit_simulator/core/depot_manager.py` (PassengerServiceFactory integration)
 - `world/arknet_transit_simulator/core/passenger_service_factory.py` (New depot-level factory)
@@ -59,6 +64,7 @@ Sample Passenger: PASS_1757868145994_0
 - `test_depot_integration.py` (Comprehensive depot architecture tests)
 
 ## ⚙️ Configuration Parameters
+
 ```ini
 [passenger_service]
 max_passengers_per_route = 50
@@ -69,7 +75,9 @@ max_concurrent_spawns = 3
 ```
 
 ## ✅ Completed Tasks
+
 All 12 foundation and integration tasks completed:
+
 - ✅ Core passenger service with asyncio architecture
 - ✅ Event system with priority handling
 - ✅ Enhanced passenger model with GPS tracking
@@ -85,7 +93,9 @@ All 12 foundation and integration tasks completed:
 **Status**: 🎉 Depot-level passenger service architecture fully implemented and tested!
 
 ## 🔄 Next Phase Ready
+
 The enhanced passenger and conductor system is now fully integrated at the depot level with:
+
 - GPS-aware passenger spawning using real route coordinates
 - Thread-safe route buffer for proximity-based queries  
 - Depot manager coordination of all passenger services
