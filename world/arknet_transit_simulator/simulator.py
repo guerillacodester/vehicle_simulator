@@ -30,7 +30,7 @@ This replaces the previous `clean_simulator` module; name aligne                
                 logger.info("└─────────────────────────────────────────────────────────────")
                 
                 for i, driver in enumerate(idle_drivers, 1):
-                    driver_name = getattr(driver, 'driver_name', 'Unknown Driver')
+                    driver_name = getattr(driver, 'person_name', 'Unknown Driver')
                     vehicle_id = getattr(driver, 'vehicle_id', 'Unknown Vehicle')
                     driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'IDLE'
                     
@@ -192,7 +192,7 @@ class CleanVehicleSimulator:
             if active_drivers:
                 logger.info("� ACTIVE VEHICLES:")
                 for i, driver in enumerate(active_drivers, 1):
-                    driver_name = getattr(driver, 'driver_name', 'Unknown Driver')
+                    driver_name = getattr(driver, 'person_name', 'Unknown Driver')
                     vehicle_id = getattr(driver, 'vehicle_id', 'Unknown Vehicle')
                     driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'UNKNOWN'
                     
@@ -268,7 +268,7 @@ class CleanVehicleSimulator:
                 logger.info("")
                 logger.info("🔴 INACTIVE VEHICLES:")
                 for driver in idle_drivers:
-                    driver_name = getattr(driver, 'driver_name', 'Unknown Driver')
+                    driver_name = getattr(driver, 'person_name', 'Unknown Driver')
                     vehicle_id = getattr(driver, 'vehicle_id', 'Unknown Vehicle')
                     driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'IDLE'
                     
