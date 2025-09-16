@@ -270,38 +270,348 @@ async def get_simulator_output(lines: int = Query(50, ge=1, le=1000)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Placeholder endpoints for future implementation
+# Comprehensive Status Endpoints
+
+@app.get("/depot/status")
+async def get_depot_status():
+    """Get comprehensive depot status including depot manager and all components"""
+    try:
+        # TODO: Connect to actual simulator components
+        return {
+            "depot_name": "ArkNet Transit Depot", 
+            "depot_state": "closed",
+            "initialized": False,
+            "message": "Depot status - requires active simulator connection",
+            "components": {
+                "depot_manager": {"status": "offline", "component_type": "DepotManager"},
+                "dispatcher": {"status": "offline", "component_type": "Dispatcher"},
+                "route_queue_builder": {"status": "offline", "component_type": "RouteQueueBuilder"},
+                "passenger_service": {"status": "offline", "component_type": "PassengerServiceFactory"}
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/depot/manager")
+async def get_depot_manager_status():
+    """Get detailed depot manager status and system overview"""
+    try:
+        return {
+            "manager_name": "DepotManager",
+            "current_state": "closed",
+            "initialized": False,
+            "system_operational": False,
+            "message": "Depot manager status - requires active simulator connection",
+            "capabilities": [
+                "Vehicle assignment validation",
+                "Driver assignment coordination", 
+                "Route distribution management",
+                "Passenger service factory coordination",
+                "Depot inventory reporting"
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/dispatcher/status")
+async def get_dispatcher_status():
+    """Get dispatcher component status and API connectivity"""
+    try:
+        return {
+            "component_name": "Dispatcher",
+            "current_state": "offline",
+            "api_base_url": "http://localhost:8000",
+            "api_connected": False,
+            "message": "Dispatcher status - requires active simulator connection",
+            "responsibilities": [
+                "Fleet management API connectivity",
+                "Vehicle assignment retrieval", 
+                "Driver assignment coordination",
+                "Route information distribution",
+                "Real-time data synchronization"
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/vehicles")
 async def get_all_vehicles():
-    """Get status of all vehicles (placeholder)"""
-    return {
-        "message": "Vehicle status endpoint - to be implemented",
-        "vehicles": []
-    }
+    """Get comprehensive status of all vehicles"""
+    try:
+        return {
+            "message": "Vehicle status - requires active simulator connection",
+            "total_vehicles": 0,
+            "active_vehicles": 0,
+            "idle_vehicles": 0,
+            "maintenance_vehicles": 0,
+            "vehicles": [
+                # Example structure for when connected to simulator
+                # {
+                #     "vehicle_id": "BUS_001",
+                #     "driver_name": "John Smith",
+                #     "driver_status": "ONBOARD",
+                #     "route_id": "Route_1",
+                #     "route_name": "City Center Loop",
+                #     "engine_status": "ON",
+                #     "gps_status": "ON", 
+                #     "gps_position": {"lat": 13.1939, "lon": -59.5432},
+                #     "passengers_on_board": 12,
+                #     "conductor_present": True,
+                #     "last_update": "2025-09-16T19:45:30"
+                # }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/passengers/stats")
-async def get_passenger_stats():
-    """Get passenger service statistics (placeholder)"""
-    return {
-        "message": "Passenger stats endpoint - to be implemented",
-        "stats": PassengerStats()
-    }
-
-@app.get("/routes")
-async def get_all_routes():
-    """Get information about all routes (placeholder)"""
-    return {
-        "message": "Routes endpoint - to be implemented",
-        "routes": []
-    }
+@app.get("/vehicles/{vehicle_id}")
+async def get_vehicle_status(vehicle_id: str):
+    """Get detailed status for a specific vehicle"""
+    try:
+        return {
+            "vehicle_id": vehicle_id,
+            "message": f"Vehicle {vehicle_id} status - requires active simulator connection",
+            "details": {
+                "driver_info": None,
+                "engine_info": None,
+                "gps_info": None,
+                "conductor_info": None,
+                "passenger_info": None,
+                "route_info": None
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/drivers")
 async def get_all_drivers():
-    """Get status of all drivers (placeholder)"""
-    return {
-        "message": "Drivers endpoint - to be implemented", 
-        "drivers": []
-    }
+    """Get comprehensive status of all drivers"""
+    try:
+        return {
+            "message": "Driver status - requires active simulator connection",
+            "total_drivers": 0,
+            "active_drivers": 0,
+            "idle_drivers": 0,
+            "onboard_drivers": 0,
+            "drivers": [
+                # Example structure for when connected to simulator
+                # {
+                #     "driver_id": "DRV_001",
+                #     "driver_name": "John Smith",
+                #     "current_state": "ONBOARD",
+                #     "vehicle_id": "BUS_001",
+                #     "route_name": "City Center Loop",
+                #     "gps_position": {"lat": 13.1939, "lon": -59.5432},
+                #     "engine_status": "ON",
+                #     "gps_device_status": "ON",
+                #     "last_update": "2025-09-16T19:45:30"
+                # }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/drivers/{driver_id}")
+async def get_driver_status(driver_id: str):
+    """Get detailed status for a specific driver"""
+    try:
+        return {
+            "driver_id": driver_id,
+            "message": f"Driver {driver_id} status - requires active simulator connection",
+            "details": {
+                "personal_info": None,
+                "vehicle_assignment": None,
+                "route_assignment": None,
+                "current_position": None,
+                "component_status": None
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/conductors")
+async def get_all_conductors():
+    """Get comprehensive status of all conductors"""
+    try:
+        return {
+            "message": "Conductor status - requires active simulator connection", 
+            "total_conductors": 0,
+            "active_conductors": 0,
+            "monitoring_conductors": 0,
+            "boarding_conductors": 0,
+            "conductors": [
+                # Example structure for when connected to simulator
+                # {
+                #     "conductor_id": "CON_001",
+                #     "conductor_name": "Mary Johnson",
+                #     "conductor_state": "monitoring",
+                #     "vehicle_id": "BUS_001",
+                #     "assigned_route_id": "Route_1",
+                #     "passengers_on_board": 12,
+                #     "capacity": 40,
+                #     "seats_available": 28,
+                #     "monitored_passengers": 5,
+                #     "boarding_queue": 2,
+                #     "last_update": "2025-09-16T19:45:30"
+                # }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/conductors/{conductor_id}")
+async def get_conductor_status(conductor_id: str):
+    """Get detailed status for a specific conductor"""
+    try:
+        return {
+            "conductor_id": conductor_id,
+            "message": f"Conductor {conductor_id} status - requires active simulator connection",
+            "details": {
+                "personal_info": None,
+                "operational_state": None,
+                "passenger_management": None,
+                "vehicle_coordination": None,
+                "route_monitoring": None
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/gps/devices")
+async def get_all_gps_devices():
+    """Get status of all GPS devices across the fleet"""
+    try:
+        return {
+            "message": "GPS devices status - requires active simulator connection",
+            "total_devices": 0,
+            "active_devices": 0,
+            "offline_devices": 0,
+            "transmitting_devices": 0,
+            "devices": [
+                # Example structure for when connected to simulator
+                # {
+                #     "device_id": "GPS_BUS_001",
+                #     "vehicle_id": "BUS_001",
+                #     "current_state": "ON",
+                #     "last_position": {"lat": 13.1939, "lon": -59.5432},
+                #     "last_transmission": "2025-09-16T19:45:30",
+                #     "transmitter_connected": True,
+                #     "plugin_active": True,
+                #     "buffer_status": "active"
+                # }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/gps/telemetry")
+async def get_gps_telemetry():
+    """Get real-time GPS telemetry data from all active devices"""
+    try:
+        return {
+            "message": "GPS telemetry - requires active simulator connection",
+            "timestamp": datetime.now().isoformat(),
+            "active_transmissions": 0,
+            "telemetry_data": [
+                # Example structure for when connected to simulator
+                # {
+                #     "device_id": "GPS_BUS_001",
+                #     "vehicle_id": "BUS_001", 
+                #     "lat": 13.1939,
+                #     "lon": -59.5432,
+                #     "speed": 35.5,
+                #     "heading": 42.0,
+                #     "altitude": 50.0,
+                #     "timestamp": "2025-09-16T19:45:30",
+                #     "accuracy": 3.2
+                # }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/passengers/stats")
+async def get_passenger_stats():
+    """Get comprehensive passenger service statistics"""
+    try:
+        return {
+            "message": "Passenger stats - requires active simulator connection",
+            "total_scheduled": 0,
+            "total_spawned": 0,
+            "active_passengers": 0,
+            "passengers_on_board": 0,
+            "spawn_rate_per_minute": 0.0,
+            "memory_usage_mb": 0.0,
+            "stats": PassengerStats()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/passengers/active")
+async def get_active_passengers():
+    """Get list of currently active passengers"""
+    try:
+        return {
+            "message": "Active passengers - requires active simulator connection",
+            "count": 0,
+            "passengers": [
+                # Example structure for when connected to simulator
+                # {
+                #     "passenger_id": "SCHED_11_0025",
+                #     "status": "spawned",
+                #     "spawn_time": "2025-09-16T19:02:43",
+                #     "origin": "349m WSW of Center Street",
+                #     "destination": "Downtown Terminal",
+                #     "route_preference": "Route_1",
+                #     "current_position": {"lat": 13.1939, "lon": -59.5432}
+                # }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/routes")
+async def get_all_routes():
+    """Get comprehensive information about all routes"""
+    try:
+        return {
+            "message": "Routes information - requires active simulator connection",
+            "total_routes": 0,
+            "active_routes": 0,
+            "routes": [
+                # Example structure for when connected to simulator
+                # {
+                #     "route_id": "Route_1",
+                #     "route_name": "City Center Loop",
+                #     "assigned_vehicles": 2,
+                #     "total_gps_points": 343,
+                #     "route_length_km": 12.5,
+                #     "estimated_duration_minutes": 45,
+                #     "passenger_demand": 25,
+                #     "status": "active"
+                # }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/routes/{route_id}")
+async def get_route_info(route_id: str):
+    """Get detailed information about a specific route"""
+    try:
+        return {
+            "route_id": route_id,
+            "message": f"Route {route_id} information - requires active simulator connection",
+            "details": {
+                "route_geometry": None,
+                "assigned_vehicles": [],
+                "passenger_demand": None,
+                "gps_waypoints": None,
+                "operational_status": None
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Command execution endpoint
 @app.post("/command", response_model=CommandResponse)
