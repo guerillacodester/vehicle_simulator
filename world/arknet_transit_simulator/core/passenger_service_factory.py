@@ -92,6 +92,21 @@ class PassengerServiceFactory:
             await self.passenger_service.start_service()
             self.initialized = True
             
+            # NEW: Load passengers from arknet_passenger_generator with scheduling
+            total_scheduled = 0
+            for route_id in route_ids:
+                try:
+                    scheduled_count = await self.passenger_service.load_and_schedule_from_generator(route_id, start_hour=7)
+                    total_scheduled += scheduled_count
+                    logging.info(f"[{self.component_name}] Scheduled {scheduled_count} passengers for route {route_id}")
+                except Exception as e:
+                    logging.warning(f"[{self.component_name}] Could not load scheduled passengers for route {route_id}: {e}")
+            
+            if total_scheduled > 0:
+                logging.info(f"[{self.component_name}] 📋 TOTAL SCHEDULED: {total_scheduled} passengers across {len(route_ids)} routes")
+            else:
+                logging.info(f"[{self.component_name}] ⚠️  No passengers scheduled - using random spawning as fallback")
+            
             # Log service creation
             buffer_stats = await self.dispatcher.get_route_buffer_stats()
             logging.info(f"[{self.component_name}] Passenger service created for {len(route_ids)} routes")

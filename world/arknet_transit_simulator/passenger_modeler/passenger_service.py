@@ -90,7 +90,8 @@ class DynamicPassengerService:
         
         # Passenger management (memory-bounded)
         self.max_passengers = min(100, max_memory_mb * 10)  # ~10 passengers per MB
-        self.active_passengers: Dict[str, Any] = {}  # passenger_id -> passenger_data
+        self.active_passengers: Dict[str, Any] = {}  # passenger_id -> passenger_data (waiting/traveling)
+        self.scheduled_passengers: List[Dict[str, Any]] = []  # NEW: passengers scheduled for future departure
         self.passenger_buffer = deque(maxlen=self.max_passengers)
         
         # Background tasks
@@ -316,6 +317,146 @@ class DynamicPassengerService:
             self.logger.error(f"Error adding passenger event: {e}")
             return False
     
+    def schedule_passengers_from_generator_data(self, route_passenger_data: Dict, simulation_start_time: datetime):
+        """
+        Schedule passengers using time-distributed data from arknet_passenger_generator.
+        
+        Args:
+            route_passenger_data: Data from generate_route_passenger_summary()
+            simulation_start_time: When the simulation started
+        """
+        try:
+            scheduled_count = 0
+            
+            # Process each stop's passenger data
+            for stop_data in route_passenger_data.get('stops', []):
+                stop_id = stop_data.get('stop_id')
+                stop_name = stop_data.get('stop_name', f'Stop_{stop_id}')
+                stop_coords = stop_data.get('coordinates', [0, 0])
+                
+                # Get the time-distributed passengers from the generator
+                passenger_times = stop_data.get('time_distributed_passengers', [])
+                
+                for passenger_time in passenger_times:
+                    # Convert statistical model time to relative simulation time
+                    # passenger_time is like 7.5 (7:30 AM from statistical model)
+                    hours = int(passenger_time)
+                    minutes = int((passenger_time - hours) * 60)
+                    
+                    # Calculate relative offset preserving the statistical distribution
+                    # Map the hour range (e.g., 7-8 AM) to simulation minutes (0-60 min)
+                    # This preserves the statistical timing patterns within simulation window
+                    
+                    # Find the earliest time in this batch to use as baseline
+                    if not hasattr(self, '_simulation_baseline_hour'):
+                        # Set baseline to earliest passenger time across all stops
+                        all_times = []
+                        for stop in route_passenger_data.get('stops', []):
+                            all_times.extend(stop.get('time_distributed_passengers', []))
+                        self._simulation_baseline_hour = min(all_times) if all_times else 7.0
+                    
+                    # Convert to minutes offset from baseline, preserving statistical distribution
+                    baseline_minutes = self._simulation_baseline_hour * 60
+                    passenger_minutes = passenger_time * 60
+                    relative_minutes = passenger_minutes - baseline_minutes
+                    
+                    # Scale to simulation window (spread over first hour of simulation)
+                    # This preserves relative timing while fitting in simulation duration
+                    simulation_window_minutes = 60  # Use first 60 minutes of simulation
+                    if relative_minutes < 0:
+                        relative_minutes = 0
+                    elif relative_minutes > simulation_window_minutes:
+                        relative_minutes = simulation_window_minutes
+                    
+                    depart_time = simulation_start_time + timedelta(minutes=relative_minutes)
+                    
+                    # Create scheduled passenger
+                    passenger_id = f"SCHED_{stop_id}_{scheduled_count:04d}"
+                    scheduled_passenger = {
+                        'id': passenger_id,
+                        'stop_id': stop_id,
+                        'stop_name': stop_name,
+                        'stop_coords': stop_coords,
+                        'depart_time': depart_time,
+                        'schedule_time': simulation_start_time,
+                        'status': 'scheduled',
+                        'route_id': route_passenger_data.get('route_info', {}).get('route_id', 'unknown'),
+                        'source': 'arknet_generator'
+                    }
+                    
+                    self.scheduled_passengers.append(scheduled_passenger)
+                    scheduled_count += 1
+            
+            # Sort scheduled passengers by departure time
+            self.scheduled_passengers.sort(key=lambda p: p['depart_time'])
+            
+            # Debug: Show first few scheduled passengers with times
+            if scheduled_count > 0:
+                self.logger.info(f"📋 First 5 scheduled passengers:")
+                for i, passenger in enumerate(self.scheduled_passengers[:5]):
+                    depart_str = passenger['depart_time'].strftime('%H:%M:%S')
+                    self.logger.info(f"   {i+1}. {passenger['id']} at {passenger['stop_name']} → departs {depart_str}")
+            
+            self.logger.info(f"Scheduled {scheduled_count} passengers from generator data")
+            return scheduled_count
+            
+        except Exception as e:
+            self.logger.error(f"Error scheduling passengers from generator data: {e}")
+            return 0
+    
+    async def load_and_schedule_from_generator(self, route_id: str, start_hour: int = 7) -> int:
+        """
+        Load passenger data from arknet_passenger_generator and schedule passengers.
+        
+        Args:
+            route_id: Route ID to generate passengers for
+            start_hour: Starting hour for passenger generation (default 7 AM)
+            
+        Returns:
+            int: Number of passengers scheduled
+        """
+        try:
+            # Import the generator module
+            from .arknet_passenger_generator import (
+                fetch_route_data, convert_geometry_to_lat_lng, 
+                generate_stops_with_spacing, load_statistical_passenger_model,
+                generate_route_passenger_summary, load_config
+            )
+            
+            # Load the statistical model and config
+            load_statistical_passenger_model()
+            config = load_config()
+            
+            # Fetch route data from API
+            route_data, geometry_data = fetch_route_data(route_id)
+            if not route_data or not geometry_data:
+                self.logger.error(f"Could not fetch route data for route {route_id}")
+                return 0
+            
+            # Process route geometry
+            route_points = convert_geometry_to_lat_lng(geometry_data)
+            stops = generate_stops_with_spacing(route_points)
+            
+            # Generate passenger summary with time distribution
+            passenger_summary = generate_route_passenger_summary(
+                route_data, stops, None, start_hour, 
+                config['walking_distance_meters'], 
+                config['passenger_demand_multiplier']
+            )
+            
+            # Schedule passengers from the summary
+            simulation_start_time = datetime.now()
+            scheduled_count = self.schedule_passengers_from_generator_data(
+                passenger_summary, simulation_start_time
+            )
+            
+            self.logger.info(f"Successfully loaded and scheduled {scheduled_count} passengers for route {route_id}")
+            return scheduled_count
+            
+        except Exception as e:
+            self.logger.error(f"Error loading passengers from generator for route {route_id}: {e}")
+            return 0
+
     def get_memory_usage(self) -> float:
         """
         Estimate current memory usage in MB (embedded optimization).
@@ -436,14 +577,39 @@ class DynamicPassengerService:
     
     async def _spawn_passengers_batch(self) -> int:
         """
-        Spawn a batch of passengers using dispatcher route buffer for GPS-aware placement.
-        Enhanced with route geometry queries for realistic passenger placement.
+        Process scheduled passengers whose departure time has arrived.
+        Creates active passengers from scheduled ones when their depart_time arrives.
         
         Returns:
-            int: Number of passengers spawned
+            int: Number of passengers spawned (moved from scheduled to active)
         """
         try:
+            current_time = datetime.now()
+            spawned = 0
+            
+            # Find scheduled passengers whose departure time has arrived
+            due_passengers = []
+            remaining_scheduled = []
+            
+            for passenger in self.scheduled_passengers:
+                if current_time >= passenger['depart_time']:
+                    due_passengers.append(passenger)
+                else:
+                    remaining_scheduled.append(passenger)
+            
+            # Debug: Show spawning status
+            if len(self.scheduled_passengers) > 0:
+                next_depart = min(p['depart_time'] for p in self.scheduled_passengers) if remaining_scheduled else None
+                self.logger.info(f"🕐 Spawn check at {current_time.strftime('%H:%M:%S')}: "
+                               f"{len(due_passengers)} due, {len(remaining_scheduled)} waiting "
+                               f"(next: {next_depart.strftime('%H:%M:%S') if next_depart else 'none'})")
+            
+            # Update scheduled list (remove due passengers)
+            self.scheduled_passengers = remaining_scheduled
+            
+            # Process due passengers (up to max_spawn limit)
             max_spawn = min(
+                len(due_passengers),
                 self.config['max_spawn_per_batch'],
                 self.max_passengers - len(self.active_passengers)
             )
@@ -451,24 +617,35 @@ class DynamicPassengerService:
             if max_spawn <= 0:
                 return 0
             
-            spawned = 0
-            for _ in range(max_spawn):
-                passenger_id = f"PASS_{int(time.time()*1000)}_{spawned}"
+            # Convert scheduled passengers to active passengers
+            for i in range(max_spawn):
+                scheduled_passenger = due_passengers[i]
                 
-                # Use dispatcher route buffer for realistic passenger placement
-                passenger_data = await self._create_passenger_with_route_data(passenger_id)
+                # Create active passenger data from scheduled passenger
+                active_passenger = {
+                    'id': scheduled_passenger['id'],
+                    'spawn_time': current_time,  # When actually created
+                    'depart_time': scheduled_passenger['depart_time'],  # When they wanted to travel
+                    'route_id': scheduled_passenger['route_id'],
+                    'stop_id': scheduled_passenger['stop_id'],
+                    'stop_name': scheduled_passenger['stop_name'],
+                    'stop_coords': scheduled_passenger['stop_coords'],
+                    'status': 'waiting',  # Changed from 'scheduled' to 'waiting'
+                    'source': scheduled_passenger['source'],
+                    'wait_start_time': current_time
+                }
                 
-                if passenger_data:
-                    self.active_passengers[passenger_id] = passenger_data
-                    spawned += 1
-                    
-                    # Log passenger creation with GPS coordinates
-                    route_id = passenger_data.get('route_id', 'unknown')
-                    pickup_coords = passenger_data.get('pickup_coords', [0, 0])
-                    dest_coords = passenger_data.get('destination_coords', [0, 0])
-                    self.logger.debug(f"Spawned passenger {passenger_id} on route {route_id}: "
-                                    f"pickup ({pickup_coords[1]:.6f}, {pickup_coords[0]:.6f}) → "
-                                    f"destination ({dest_coords[1]:.6f}, {dest_coords[0]:.6f})")
+                # Try to enhance with route geometry if dispatcher available
+                if self.dispatcher:
+                    enhanced_data = await self._enhance_passenger_with_route_data(active_passenger)
+                    if enhanced_data:
+                        active_passenger.update(enhanced_data)
+                
+                self.active_passengers[scheduled_passenger['id']] = active_passenger
+                spawned += 1
+                
+                self.logger.info(f"🚶 SPAWNED PASSENGER: {scheduled_passenger['id']} "
+                                f"at {scheduled_passenger['stop_name']} (scheduled: {scheduled_passenger['depart_time'].strftime('%H:%M:%S')}, spawned: {current_time.strftime('%H:%M:%S')})")
             
             return spawned
             
@@ -476,6 +653,55 @@ class DynamicPassengerService:
             self.logger.error(f"Error spawning passengers: {e}")
             return 0
     
+    async def _enhance_passenger_with_route_data(self, passenger_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Enhance passenger data with route geometry for pickup/destination coordinates."""
+        try:
+            route_id = passenger_data.get('route_id')
+            if not route_id:
+                return None
+                
+            # Query dispatcher for route geometry
+            route_info = await self.dispatcher.query_route_by_id(route_id)
+            
+            if route_info and route_info.geometry and route_info.geometry.get('coordinates'):
+                coords = route_info.geometry['coordinates']
+                
+                if len(coords) >= 2:
+                    # Select pickup and destination points along route with minimum distance
+                    import random
+                    min_distance_m = self.config['destination_distance_meters']
+                    max_attempts = 20  # Limit attempts to avoid infinite loops
+                    
+                    for attempt in range(max_attempts):
+                        pickup_idx = random.randint(0, len(coords) - 2)
+                        dest_idx = random.randint(pickup_idx + 1, len(coords) - 1)
+                        
+                        pickup_coord = coords[pickup_idx]
+                        dest_coord = coords[dest_idx]
+                        
+                        # Check if distance meets minimum requirement
+                        pickup_lat, pickup_lon = pickup_coord[1], pickup_coord[0]  # [lon, lat] -> lat, lon
+                        dest_lat, dest_lon = dest_coord[1], dest_coord[0]
+                        
+                        trip_distance = haversine_distance(pickup_lat, pickup_lon, dest_lat, dest_lon)
+                        
+                        if trip_distance >= min_distance_m:
+                            break
+                    
+                    return {
+                        'route_name': route_info.route_name,
+                        'pickup_coords': pickup_coord,  # [lon, lat]
+                        'destination_coords': dest_coord,  # [lon, lat]
+                        'using_route_geometry': True,
+                        'trip_distance_m': trip_distance
+                    }
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error enhancing passenger with route data: {str(e)}")
+            return None
+
     async def _create_passenger_with_route_data(self, passenger_id: str) -> Optional[Dict[str, Any]]:
         """Create passenger with realistic GPS coordinates from route geometry."""
         try:
@@ -484,6 +710,7 @@ class DynamicPassengerService:
                 return {
                     'id': passenger_id,
                     'spawn_time': datetime.now(),
+                    'depart_time': datetime.now(),  # NEW: When passenger wants to travel
                     'route_id': list(self.route_ids)[0] if self.route_ids else 'unknown',
                     'status': 'waiting'
                 }
@@ -526,6 +753,7 @@ class DynamicPassengerService:
                     return {
                         'id': passenger_id,
                         'spawn_time': datetime.now(),
+                        'depart_time': datetime.now(),  # NEW: When passenger wants to travel
                         'route_id': route_id,
                         'route_name': route_info.route_name,
                         'pickup_coords': pickup_coord,  # [lon, lat]
@@ -539,6 +767,7 @@ class DynamicPassengerService:
             return {
                 'id': passenger_id,
                 'spawn_time': datetime.now(),
+                'depart_time': datetime.now(),  # NEW: When passenger wants to travel
                 'route_id': route_id,
                 'status': 'waiting',
                 'using_route_geometry': False

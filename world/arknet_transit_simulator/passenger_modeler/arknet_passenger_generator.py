@@ -163,7 +163,24 @@ def load_statistical_passenger_model():
     global statistical_model, named_locations
     
     try:
-        with open('models/generated/barbados_v4_statistical.json', 'r', encoding='utf-8') as f:
+        # Try multiple possible locations for the statistical model
+        import os
+        possible_paths = [
+            'models/generated/barbados_v4_statistical.json',  # Relative to current dir
+            os.path.join(os.path.dirname(__file__), 'models/generated/barbados_v4_statistical.json'),  # Relative to this module
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models/generated/barbados_v4_statistical.json'),  # One level up
+        ]
+        
+        model_file = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                model_file = path
+                break
+        
+        if not model_file:
+            raise FileNotFoundError(f"Could not find statistical model in any of: {possible_paths}")
+            
+        with open(model_file, 'r', encoding='utf-8') as f:
             statistical_model = json.load(f)
         
         print("✅ Loaded statistical passenger model")
@@ -215,9 +232,25 @@ def load_statistical_passenger_model():
     except FileNotFoundError:
         print("❌ Statistical passenger model not found")
         print("   Run consolidated_passenger_modeler.py first to generate the model")
+        # Initialize empty structure to prevent NameError
+        statistical_model = {
+            'bus_stops': {},
+            'amenities': {},
+            'streets': {},
+            'places': {}
+        }
+        named_locations = {}
         return None
     except Exception as e:
         print(f"❌ Error loading passenger model: {e}")
+        # Initialize empty structure to prevent NameError
+        statistical_model = {
+            'bus_stops': {},
+            'amenities': {},
+            'streets': {},
+            'places': {}
+        }
+        named_locations = {}
         return None
 
 def find_nearby_passenger_locations(stop_lat, stop_lng, passenger_locations, walking_distance_meters):
