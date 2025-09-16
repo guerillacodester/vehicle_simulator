@@ -1,0 +1,71 @@
+{
+  "ZR1001": {
+    "active": true,
+    "route_file": "data/roads/route_1_final.geojson",
+    "route": "1",
+    "speed_model": "kinematic",
+    "speed": 80,
+    "accel_limit": 3,
+    "decel_limit": 4,
+    "corner_slowdown": 1,
+    "release_ticks": 3,
+    "initial_state": "AT_TERMINAL",
+    "terminal_id": "TERMINAL_1"
+  },
+  "vehicles": [
+    {
+      "id": "BUS001",
+      "route_id": "route_1",
+      "status": "active",
+      "speed_model": "kinematic",
+      "speed": 60,
+      "accel_limit": 3,
+      "decel_limit": 4,
+      "corner_slowdown": 1,
+      "release_ticks": 3,
+      "position": {
+        "lat": 40.730610,
+        "lng": -73.935242
+      },
+      "heading": 45,
+      "capacity": 40,
+      "passengers": 0
+    },
+    {
+      "id": "BUS002", 
+      "route_id": "route_1",
+      "status": "active",
+      "speed_model": "kinematic",
+      "speed": 60,
+      "accel_limit": 3,
+      "decel_limit": 4,
+      "corner_slowdown": 1,
+      "release_ticks": 3,
+      "position": {
+        "lat": 40.730610,
+        "lng": -73.935242
+      },
+      "heading": 90,
+      "capacity": 40,
+      "passengers": 0
+    },
+    {
+      "id": "BUS003",
+      "route_id": "route_1", 
+      "status": "active",
+      "speed_model": "kinematic",
+      "speed": 60,
+      "accel_limit": 3,
+      "decel_limit": 4,
+      "corner_slowdown": 1,
+      "release_ticks": 3,
+      "position": {
+        "lat": 40.730610,
+        "lng": -73.935242
+      },
+      "heading": 0,
+      "capacity": 40,
+      "passengers": 0
+    }
+  ]
+}
