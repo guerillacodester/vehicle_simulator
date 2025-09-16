@@ -1,0 +1,2 @@
+
+cd deprecated && python -m world.arknet_transit_simulator --mode depot --duration 90 --debug
