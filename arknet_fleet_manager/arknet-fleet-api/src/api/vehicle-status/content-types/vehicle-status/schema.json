@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "vehicle_statuses",
+  "info": {
+    "singularName": "vehicle-status",
+    "pluralName": "vehicle-statuses", 
+    "displayName": "Vehicle Status",
+    "description": "Lookup table for vehicle status values (UUID + name)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true
+    },
+    "content-type-builder": {
+      "visible": true
+    }
+  },
+  "attributes": {
+    "status_id": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "name": {
+      "type": "string", 
+      "required": true,
+      "unique": true
+    },
+    "vehicles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vehicle.vehicle",
+      "mappedBy": "vehicle_status"
+    }
+  }
+}

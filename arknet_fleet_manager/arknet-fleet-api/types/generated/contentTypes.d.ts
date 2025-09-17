@@ -869,6 +869,50 @@ export interface ApiTripTrip extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiVehicleStatusVehicleStatus
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'vehicle_statuses';
+  info: {
+    description: 'Lookup table for vehicle status values (UUID + name)';
+    displayName: 'Vehicle Status';
+    pluralName: 'vehicle-statuses';
+    singularName: 'vehicle-status';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: true;
+    };
+    'content-type-builder': {
+      visible: true;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::vehicle-status.vehicle-status'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publishedAt: Schema.Attribute.DateTime;
+    status_id: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    vehicles: Schema.Attribute.Relation<'oneToMany', 'api::vehicle.vehicle'>;
+  };
+}
+
 export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
   collectionName: 'vehicles';
   info: {
@@ -1455,6 +1499,7 @@ declare module '@strapi/strapi' {
       'api::shape.shape': ApiShapeShape;
       'api::stop.stop': ApiStopStop;
       'api::trip.trip': ApiTripTrip;
+      'api::vehicle-status.vehicle-status': ApiVehicleStatusVehicleStatus;
       'api::vehicle.vehicle': ApiVehicleVehicle;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
