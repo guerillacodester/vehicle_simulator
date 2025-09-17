@@ -1,0 +1,98 @@
+2025-09-17 19:56:35,740 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-17 19:56:35,807 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-17 19:56:35,935 - INFO - Authentication (password) successful!
+2025-09-17 19:56:37,936 - INFO - SSH tunnel established on local port 6543
+2025-09-17 19:56:38,121 - INFO - SSH tunnel closed
+2025-09-17 19:57:19,741 - INFO - ============================================================
+2025-09-17 19:57:19,741 - INFO - Starting ArkNet Transit Data Migration
+2025-09-17 19:57:19,741 - INFO - ============================================================
+2025-09-17 19:57:19,742 - INFO - Starting data migration from remote to local database...
+2025-09-17 19:57:19,742 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-17 19:57:19,790 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-17 19:57:19,907 - INFO - Authentication (password) successful!
+2025-09-17 19:57:21,908 - INFO - SSH tunnel established on local port 6543
+2025-09-17 19:57:21,909 - INFO - Connecting to remote database via SSH tunnel...
+2025-09-17 19:57:22,014 - INFO - Remote database connected successfully
+2025-09-17 19:57:22,022 - INFO - Connecting to local database...
+2025-09-17 19:57:22,095 - INFO - Local database connected successfully
+2025-09-17 19:57:22,095 - INFO - Migrating table: countries
+2025-09-17 19:57:22,110 - ERROR - Migration failed: 0
+2025-09-17 19:57:22,111 - INFO - Remote database connection closed
+2025-09-17 19:57:22,112 - INFO - Local database connection closed
+2025-09-17 19:57:22,112 - INFO - SSH tunnel closed
+2025-09-17 19:57:22,113 - ERROR - Migration failed with error: 0
+2025-09-17 19:58:49,899 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-17 19:58:49,946 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-17 19:58:50,063 - INFO - Authentication (password) successful!
+2025-09-17 19:58:52,065 - INFO - SSH tunnel established on local port 6543
+2025-09-17 19:58:52,360 - INFO - SSH tunnel closed
+2025-09-17 19:59:15,175 - INFO - ============================================================
+2025-09-17 19:59:15,176 - INFO - Starting ArkNet Transit Data Migration
+2025-09-17 19:59:15,176 - INFO - ============================================================
+2025-09-17 19:59:15,176 - INFO - Starting data migration from remote to local database...
+2025-09-17 19:59:15,176 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-17 19:59:15,209 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-17 19:59:15,324 - INFO - Authentication (password) successful!
+2025-09-17 19:59:17,325 - INFO - SSH tunnel established on local port 6543
+2025-09-17 19:59:17,326 - INFO - Connecting to remote database via SSH tunnel...
+2025-09-17 19:59:17,426 - INFO - Remote database connected successfully
+2025-09-17 19:59:17,426 - INFO - Connecting to local database...
+2025-09-17 19:59:17,466 - INFO - Local database connected successfully
+2025-09-17 19:59:17,466 - INFO - Migrating table: countries
+2025-09-17 19:59:17,478 - ERROR - Migration failed: 0
+2025-09-17 19:59:17,479 - INFO - Remote database connection closed
+2025-09-17 19:59:17,479 - INFO - Local database connection closed
+2025-09-17 19:59:17,480 - INFO - SSH tunnel closed
+2025-09-17 19:59:17,480 - ERROR - Migration failed with error: 0
+2025-09-17 19:59:45,640 - INFO - ============================================================
+2025-09-17 19:59:45,640 - INFO - Starting ArkNet Transit Data Migration
+2025-09-17 19:59:45,640 - INFO - ============================================================
+2025-09-17 19:59:45,641 - INFO - Starting data migration from remote to local database...
+2025-09-17 19:59:45,641 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-17 19:59:45,677 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-17 19:59:45,792 - INFO - Authentication (password) successful!
+2025-09-17 19:59:47,242 - INFO - SSH tunnel closed
+2025-09-17 20:01:16,933 - INFO - ============================================================
+2025-09-17 20:01:16,934 - INFO - Starting Strapi Data Migration
+2025-09-17 20:01:16,934 - INFO - ============================================================
+2025-09-17 20:01:16,934 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-17 20:01:16,980 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-17 20:01:17,098 - INFO - Authentication (password) successful!
+2025-09-17 20:01:19,099 - INFO - SSH tunnel established on local port 6543
+2025-09-17 20:01:19,100 - INFO - Connecting to remote database via SSH tunnel...
+2025-09-17 20:01:19,196 - INFO - Connecting to local database...
+2025-09-17 20:01:19,233 - INFO - Both database connections established
+2025-09-17 20:01:19,233 - INFO - Migrating countries...
+2025-09-17 20:01:19,297 - INFO - Cleared table: countries
+2025-09-17 20:01:19,309 - INFO - Migrated 28 countries
+2025-09-17 20:01:19,309 - INFO - Migrating depots...
+2025-09-17 20:01:19,340 - INFO - Cleared link table: depots_country_lnk
+2025-09-17 20:01:19,353 - INFO - Cleared table: depots
+2025-09-17 20:01:19,358 - INFO - Migrated 1 depots
+2025-09-17 20:01:19,359 - INFO - Migrating routes...
+2025-09-17 20:01:19,387 - INFO - Cleared link table: routes_country_lnk
+2025-09-17 20:01:19,400 - INFO - Cleared table: routes
+2025-09-17 20:01:19,407 - INFO - Migrated 3 routes
+2025-09-17 20:01:19,407 - INFO - Migrating drivers...
+2025-09-17 20:01:19,435 - INFO - Cleared link table: drivers_country_lnk
+2025-09-17 20:01:19,440 - INFO - Cleared link table: drivers_home_depot_lnk
+2025-09-17 20:01:19,453 - INFO - Cleared table: drivers
+2025-09-17 20:01:19,466 - INFO - Migrated 4 drivers
+2025-09-17 20:01:19,467 - INFO - Migrating vehicles...
+2025-09-17 20:01:19,505 - INFO - Cleared link table: vehicles_country_lnk
+2025-09-17 20:01:19,509 - INFO - Cleared link table: vehicles_home_depot_lnk
+2025-09-17 20:01:19,513 - INFO - Cleared link table: vehicles_preferred_route_lnk
+2025-09-17 20:01:19,519 - INFO - Cleared link table: vehicles_assigned_driver_lnk
+2025-09-17 20:01:19,522 - INFO - Cleared link table: vehicles_gps_device_lnk
+2025-09-17 20:01:19,537 - INFO - Cleared table: vehicles
+2025-09-17 20:01:19,558 - INFO - Migrated 4 vehicles
+2025-09-17 20:01:19,558 - INFO - ============================================================
+2025-09-17 20:01:19,558 - INFO - Migration completed successfully!
+2025-09-17 20:01:19,558 - INFO - ID Mappings created:
+2025-09-17 20:01:19,558 - INFO -   countries: 28 records
+2025-09-17 20:01:19,558 - INFO -   depots: 1 records
+2025-09-17 20:01:19,558 - INFO -   routes: 3 records
+2025-09-17 20:01:19,558 - INFO -   drivers: 4 records
+2025-09-17 20:01:19,558 - INFO -   vehicles: 4 records
+2025-09-17 20:01:19,559 - INFO -   gps_devices: 0 records
+2025-09-17 20:01:19,559 - INFO - SSH tunnel closed

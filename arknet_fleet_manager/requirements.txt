@@ -1,0 +1,2 @@
+psycopg2-binary==2.9.7
+paramiko==3.3.1
