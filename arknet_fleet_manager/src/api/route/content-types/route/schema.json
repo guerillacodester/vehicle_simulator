@@ -1,29 +1,51 @@
 {
   "kind": "collectionType",
-  "collectionName": "cms_routes",
+  "collectionName": "routes",
   "info": {
     "singularName": "route",
     "pluralName": "routes",
     "displayName": "Route",
-    "description": "Transit system routes"
+    "description": "Transit routes for fleet management"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
-    "code": {
-      "type": "string",
-      "required": true,
-      "unique": true
-    },
-    "name": {
+    "short_name": {
       "type": "string",
       "required": true
     },
+    "long_name": {
+      "type": "string"
+    },
+    "country_id": {
+      "type": "string",
+      "required": true
+    },
+    "parishes": {
+      "type": "string"
+    },
+    "description": {
+      "type": "text"
+    },
+    "color": {
+      "type": "string",
+      "maxLength": 7
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "valid_from": {
+      "type": "date"
+    },
+    "valid_to": {
+      "type": "date"
+    },
     "geometry": {
-      "type": "text",
-      "required": false
+      "type": "json"
     }
   }
 }

@@ -1,32 +1,72 @@
 {
   "kind": "collectionType",
-  "collectionName": "cms_vehicles",
+  "collectionName": "vehicles",
   "info": {
     "singularName": "vehicle",
     "pluralName": "vehicles",
     "displayName": "Vehicle",
-    "description": "Transit system vehicles"
+    "description": "Fleet management vehicle records"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
-    "registration": {
+    "reg_code": {
       "type": "string",
-      "required": true
+      "required": true,
+      "unique": true
     },
-    "type": {
-      "type": "string",
+    "country_id": {
+      "type": "string"
+    },
+    "home_depot_id": {
+      "type": "string"
+    },
+    "preferred_route_id": {
+      "type": "string"
+    },
+    "assigned_driver_id": {
+      "type": "string"
+    },
+    "assigned_gps_device_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["available", "in_service", "maintenance", "retired"],
+      "default": "available",
       "required": true
     },
     "capacity": {
       "type": "integer",
-      "required": true
+      "default": 11
     },
-    "status": {
-      "type": "string",
-      "required": true
+    "profile_id": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "text"
+    },
+    "max_speed_kmh": {
+      "type": "decimal",
+      "default": 25.0
+    },
+    "acceleration_mps2": {
+      "type": "decimal",
+      "default": 1.2
+    },
+    "braking_mps2": {
+      "type": "decimal",
+      "default": 1.8
+    },
+    "eco_mode": {
+      "type": "boolean",
+      "default": false
+    },
+    "performance_profile": {
+      "type": "enumeration",
+      "enum": ["standard", "eco", "performance", "express"]
     }
   }
 }

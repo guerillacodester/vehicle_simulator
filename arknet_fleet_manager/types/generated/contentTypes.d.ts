@@ -107,43 +107,6 @@ export interface AdminApiTokenPermission extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface AdminAuditLog extends Struct.CollectionTypeSchema {
-  collectionName: 'strapi_audit_logs';
-  info: {
-    displayName: 'Audit Log';
-    pluralName: 'audit-logs';
-    singularName: 'audit-log';
-  };
-  options: {
-    draftAndPublish: false;
-    timestamps: false;
-  };
-  pluginOptions: {
-    'content-manager': {
-      visible: false;
-    };
-    'content-type-builder': {
-      visible: false;
-    };
-  };
-  attributes: {
-    action: Schema.Attribute.String & Schema.Attribute.Required;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    date: Schema.Attribute.DateTime & Schema.Attribute.Required;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'admin::audit-log'> &
-      Schema.Attribute.Private;
-    payload: Schema.Attribute.JSON;
-    publishedAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    user: Schema.Attribute.Relation<'oneToOne', 'admin::user'>;
-  };
-}
-
 export interface AdminPermission extends Struct.CollectionTypeSchema {
   collectionName: 'admin_permissions';
   info: {
@@ -410,51 +373,29 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiDepotDepot extends Struct.CollectionTypeSchema {
-  collectionName: 'cms_depots';
-  info: {
-    description: 'Transit system depots';
-    displayName: 'Depot';
-    pluralName: 'depots';
-    singularName: 'depot';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::depot.depot'> &
-      Schema.Attribute.Private;
-    location: Schema.Attribute.Text;
-    name: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
-    publishedAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
 export interface ApiDriverDriver extends Struct.CollectionTypeSchema {
-  collectionName: 'cms_drivers';
+  collectionName: 'drivers';
   info: {
-    description: 'Transit system drivers';
+    description: 'Driver records for fleet management';
     displayName: 'Driver';
     pluralName: 'drivers';
     singularName: 'driver';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
+    country_id: Schema.Attribute.String & Schema.Attribute.Required;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    license_number: Schema.Attribute.String &
+    employment_status: Schema.Attribute.Enumeration<
+      ['active', 'inactive', 'suspended', 'retired']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'active'>;
+    home_depot_id: Schema.Attribute.String;
+    license_no: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -465,10 +406,45 @@ export interface ApiDriverDriver extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     name: Schema.Attribute.String & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
-    status: Schema.Attribute.Enumeration<
-      ['active', 'inactive', 'suspended', 'retired']
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGpsDeviceGpsDevice extends Struct.CollectionTypeSchema {
+  collectionName: 'gps_devices';
+  info: {
+    description: 'GPS devices for vehicle tracking';
+    displayName: 'GPS Device';
+    pluralName: 'gps-devices';
+    singularName: 'gps-device';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    device_name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    firmware_version: Schema.Attribute.String;
+    is_active: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gps-device.gps-device'
     > &
-      Schema.Attribute.DefaultTo<'active'>;
+      Schema.Attribute.Private;
+    manufacturer: Schema.Attribute.String;
+    model: Schema.Attribute.String;
+    notes: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    serial_number: Schema.Attribute.String & Schema.Attribute.Unique;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -476,61 +452,158 @@ export interface ApiDriverDriver extends Struct.CollectionTypeSchema {
 }
 
 export interface ApiRouteRoute extends Struct.CollectionTypeSchema {
-  collectionName: 'cms_routes';
+  collectionName: 'routes';
   info: {
-    description: 'Transit system routes';
+    description: 'Transit routes for fleet management';
     displayName: 'Route';
     pluralName: 'routes';
     singularName: 'route';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
-    code: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+    color: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 7;
+      }>;
+    country_id: Schema.Attribute.String & Schema.Attribute.Required;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    geometry: Schema.Attribute.Text;
+    description: Schema.Attribute.Text;
+    geometry: Schema.Attribute.JSON;
+    is_active: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::route.route'> &
       Schema.Attribute.Private;
-    name: Schema.Attribute.String & Schema.Attribute.Required;
+    long_name: Schema.Attribute.String;
+    parishes: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    short_name: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valid_from: Schema.Attribute.Date;
+    valid_to: Schema.Attribute.Date;
+  };
+}
+
+export interface ApiTripTrip extends Struct.CollectionTypeSchema {
+  collectionName: 'trips';
+  info: {
+    description: 'Trip schedules for fleet management';
+    displayName: 'Trip';
+    pluralName: 'trips';
+    singularName: 'trip';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    block_id: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    direction_id: Schema.Attribute.Integer;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::trip.trip'> &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    route_id: Schema.Attribute.String & Schema.Attribute.Required;
+    service_id: Schema.Attribute.String & Schema.Attribute.Required;
+    shape_id: Schema.Attribute.String;
+    trip_headsign: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
   };
 }
 
-export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
-  collectionName: 'cms_vehicles';
+export interface ApiVehicleAssignmentVehicleAssignment
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'vehicle_assignments';
   info: {
-    description: 'Transit system vehicles';
+    description: 'Vehicle assignments to routes and drivers';
+    displayName: 'Vehicle Assignment';
+    pluralName: 'vehicle-assignments';
+    singularName: 'vehicle-assignment';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    assigned_at: Schema.Attribute.DateTime;
+    block_id: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    driver_id: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::vehicle-assignment.vehicle-assignment'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    route_id: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valid_from: Schema.Attribute.DateTime;
+    valid_to: Schema.Attribute.DateTime;
+    vehicle_id: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
+  collectionName: 'vehicles';
+  info: {
+    description: 'Fleet management vehicle records';
     displayName: 'Vehicle';
     pluralName: 'vehicles';
     singularName: 'vehicle';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
-    capacity: Schema.Attribute.Integer & Schema.Attribute.Required;
+    acceleration_mps2: Schema.Attribute.Decimal &
+      Schema.Attribute.DefaultTo<1.2>;
+    assigned_driver_id: Schema.Attribute.String;
+    assigned_gps_device_id: Schema.Attribute.String;
+    braking_mps2: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<1.8>;
+    capacity: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<11>;
+    country_id: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    eco_mode: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    home_depot_id: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::vehicle.vehicle'
     > &
       Schema.Attribute.Private;
+    max_speed_kmh: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<25>;
+    notes: Schema.Attribute.Text;
+    performance_profile: Schema.Attribute.Enumeration<
+      ['standard', 'eco', 'performance', 'express']
+    >;
+    preferred_route_id: Schema.Attribute.String;
+    profile_id: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
-    registration: Schema.Attribute.String & Schema.Attribute.Required;
-    status: Schema.Attribute.String & Schema.Attribute.Required;
-    type: Schema.Attribute.String & Schema.Attribute.Required;
+    reg_code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    status: Schema.Attribute.Enumeration<
+      ['available', 'in_service', 'maintenance', 'retired']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'available'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1041,15 +1114,16 @@ declare module '@strapi/strapi' {
     export interface ContentTypeSchemas {
       'admin::api-token': AdminApiToken;
       'admin::api-token-permission': AdminApiTokenPermission;
-      'admin::audit-log': AdminAuditLog;
       'admin::permission': AdminPermission;
       'admin::role': AdminRole;
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
-      'api::depot.depot': ApiDepotDepot;
       'api::driver.driver': ApiDriverDriver;
+      'api::gps-device.gps-device': ApiGpsDeviceGpsDevice;
       'api::route.route': ApiRouteRoute;
+      'api::trip.trip': ApiTripTrip;
+      'api::vehicle-assignment.vehicle-assignment': ApiVehicleAssignmentVehicleAssignment;
       'api::vehicle.vehicle': ApiVehicleVehicle;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

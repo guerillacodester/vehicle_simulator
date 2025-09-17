@@ -1,0 +1,42 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gps_devices",
+  "info": {
+    "singularName": "gps-device",
+    "pluralName": "gps-devices",
+    "displayName": "GPS Device",
+    "description": "GPS devices for vehicle tracking"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "device_name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "serial_number": {
+      "type": "string",
+      "unique": true
+    },
+    "manufacturer": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "firmware_version": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "notes": {
+      "type": "text"
+    }
+  }
+}

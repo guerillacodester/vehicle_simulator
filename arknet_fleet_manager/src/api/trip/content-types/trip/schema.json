@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "trips",
+  "info": {
+    "singularName": "trip",
+    "pluralName": "trips",
+    "displayName": "Trip",
+    "description": "Trip schedules for fleet management"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "route_id": {
+      "type": "string",
+      "required": true
+    },
+    "service_id": {
+      "type": "string",
+      "required": true
+    },
+    "shape_id": {
+      "type": "string"
+    },
+    "trip_headsign": {
+      "type": "string"
+    },
+    "direction_id": {
+      "type": "integer"
+    },
+    "block_id": {
+      "type": "string"
+    }
+  }
+}

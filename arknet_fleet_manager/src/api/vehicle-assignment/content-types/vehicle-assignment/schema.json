@@ -1,0 +1,38 @@
+{
+  "kind": "collectionType",
+  "collectionName": "vehicle_assignments",
+  "info": {
+    "singularName": "vehicle-assignment",
+    "pluralName": "vehicle-assignments",
+    "displayName": "Vehicle Assignment",
+    "description": "Vehicle assignments to routes and drivers"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "vehicle_id": {
+      "type": "string",
+      "required": true
+    },
+    "driver_id": {
+      "type": "string"
+    },
+    "route_id": {
+      "type": "string"
+    },
+    "block_id": {
+      "type": "string"
+    },
+    "assigned_at": {
+      "type": "datetime"
+    },
+    "valid_from": {
+      "type": "datetime"
+    },
+    "valid_to": {
+      "type": "datetime"
+    }
+  }
+}

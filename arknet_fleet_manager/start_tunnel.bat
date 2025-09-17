@@ -1,3 +1,0 @@
-@echo off
-echo Starting SSH tunnel to PostgreSQL database...
-plink -batch -L 5433:localhost:5432 david@arknetglobal.com -pw "Cabbyminnie5!" -N
