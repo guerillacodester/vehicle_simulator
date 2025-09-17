@@ -13,16 +13,20 @@
   "pluginOptions": {},
   "attributes": {
     "registration": {
-      "type": "string"
+      "type": "string",
+      "required": true
     },
     "type": {
-      "type": "string"
+      "type": "string",
+      "required": true
     },
     "capacity": {
-      "type": "integer"
+      "type": "integer",
+      "required": true
     },
     "status": {
-      "type": "string"
+      "type": "string",
+      "required": true
     }
   }
 }
