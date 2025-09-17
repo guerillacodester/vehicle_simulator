@@ -967,15 +967,14 @@ export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
     reg_code: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
-    status: Schema.Attribute.Enumeration<
-      ['available', 'in_transit', 'maintenance', 'out_of_service', 'reserved']
-    > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'available'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     vehicle_id: Schema.Attribute.UID<'reg_code'> & Schema.Attribute.Required;
+    vehicle_status: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::vehicle-status.vehicle-status'
+    >;
   };
 }
 

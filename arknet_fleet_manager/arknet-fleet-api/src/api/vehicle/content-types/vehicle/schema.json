@@ -22,11 +22,11 @@
       "required": true,
       "unique": true
     },
-    "status": {
-      "type": "enumeration",
-      "enum": ["available", "in_transit", "maintenance", "out_of_service", "reserved"],
-      "default": "available",
-      "required": true
+    "vehicle_status": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::vehicle-status.vehicle-status",
+      "inversedBy": "vehicles"
     },
     "capacity": {
       "type": "integer",
