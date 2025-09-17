@@ -480,7 +480,7 @@ export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    capacity: Schema.Attribute.Integer;
+    capacity: Schema.Attribute.Integer & Schema.Attribute.Required;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -491,9 +491,9 @@ export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
-    registration: Schema.Attribute.String;
-    status: Schema.Attribute.String;
-    type: Schema.Attribute.String;
+    registration: Schema.Attribute.String & Schema.Attribute.Required;
+    status: Schema.Attribute.String & Schema.Attribute.Required;
+    type: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
