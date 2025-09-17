@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cms_vehicles",
+  "info": {
+    "singularName": "vehicle",
+    "pluralName": "vehicles",
+    "displayName": "Vehicle",
+    "description": "Transit system vehicles"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "registration": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "capacity": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string"
+    }
+  }
+}

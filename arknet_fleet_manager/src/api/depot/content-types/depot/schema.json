@@ -1,0 +1,25 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cms_depots",
+  "info": {
+    "singularName": "depot",
+    "pluralName": "depots",
+    "displayName": "Depot",
+    "description": "Transit system depots"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "location": {
+      "type": "text",
+      "required": false
+    }
+  }
+}
