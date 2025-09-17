@@ -30,6 +30,12 @@
         "retired"
       ],
       "default": "active"
+    },
+    "vehicles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vehicle.vehicle",
+      "mappedBy": "driver"
     }
   }
 }

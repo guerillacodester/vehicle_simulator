@@ -23,6 +23,24 @@
     },
     "status": {
       "type": "string"
+    },
+    "driver": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::driver.driver",
+      "inversedBy": "vehicles"
+    },
+    "route": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::route.route",
+      "inversedBy": "vehicles"
+    },
+    "depot": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::depot.depot",
+      "inversedBy": "vehicles"
     }
   }
 }

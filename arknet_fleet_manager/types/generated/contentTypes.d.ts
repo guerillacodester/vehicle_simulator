@@ -399,6 +399,7 @@ export interface ApiDepotDepot extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    vehicles: Schema.Attribute.Relation<'oneToMany', 'api::vehicle.vehicle'>;
   };
 }
 
@@ -435,6 +436,7 @@ export interface ApiDriverDriver extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    vehicles: Schema.Attribute.Relation<'oneToMany', 'api::vehicle.vehicle'>;
   };
 }
 
@@ -465,6 +467,7 @@ export interface ApiRouteRoute extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    vehicles: Schema.Attribute.Relation<'oneToMany', 'api::vehicle.vehicle'>;
   };
 }
 
@@ -484,6 +487,8 @@ export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    depot: Schema.Attribute.Relation<'manyToOne', 'api::depot.depot'>;
+    driver: Schema.Attribute.Relation<'manyToOne', 'api::driver.driver'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -492,6 +497,7 @@ export interface ApiVehicleVehicle extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     registration: Schema.Attribute.String;
+    route: Schema.Attribute.Relation<'manyToOne', 'api::route.route'>;
     status: Schema.Attribute.String;
     type: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;

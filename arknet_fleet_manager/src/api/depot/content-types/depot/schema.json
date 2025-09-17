@@ -20,6 +20,12 @@
     "location": {
       "type": "text",
       "required": false
+    },
+    "vehicles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vehicle.vehicle",
+      "mappedBy": "depot"
     }
   }
 }
