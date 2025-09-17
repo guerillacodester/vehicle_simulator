@@ -1,0 +1,61 @@
+{
+  "kind": "collectionType",
+  "collectionName": "depots",
+  "info": {
+    "singularName": "depot",
+    "pluralName": "depots",
+    "displayName": "Depot",
+    "description": "Vehicle depots for fleet management"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "depot_id": {
+      "type": "uid",
+      "required": true,
+      "targetField": "name"
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "address": {
+      "type": "text",
+      "required": false
+    },
+    "location": {
+      "type": "json",
+      "required": false
+    },
+    "capacity": {
+      "type": "integer",
+      "required": false,
+      "default": 50
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "country": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::country.country",
+      "inversedBy": "depots"
+    },
+    "vehicles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vehicle.vehicle",
+      "mappedBy": "home_depot"
+    },
+    "drivers": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::driver.driver",
+      "mappedBy": "home_depot"
+    }
+  }
+}

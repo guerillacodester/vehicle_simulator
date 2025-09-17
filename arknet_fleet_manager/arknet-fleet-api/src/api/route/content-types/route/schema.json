@@ -1,0 +1,79 @@
+{
+  "kind": "collectionType",
+  "collectionName": "routes",
+  "info": {
+    "singularName": "route",
+    "pluralName": "routes",
+    "displayName": "Route",
+    "description": "Transit routes in the fleet management system"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "route_id": {
+      "type": "uid",
+      "required": true,
+      "targetField": "short_name"
+    },
+    "short_name": {
+      "type": "string",
+      "required": true
+    },
+    "long_name": {
+      "type": "string",
+      "required": false
+    },
+    "parishes": {
+      "type": "text",
+      "required": false
+    },
+    "description": {
+      "type": "text",
+      "required": false
+    },
+    "color": {
+      "type": "string",
+      "required": false,
+      "maxLength": 7
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "valid_from": {
+      "type": "date",
+      "required": false
+    },
+    "valid_to": {
+      "type": "date",
+      "required": false
+    },
+    "country": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::country.country",
+      "inversedBy": "routes"
+    },
+    "vehicles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vehicle.vehicle",
+      "mappedBy": "preferred_route"
+    },
+    "trips": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::trip.trip",
+      "mappedBy": "route"
+    },
+    "blocks": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::block.block",
+      "mappedBy": "route"
+    }
+  }
+}
