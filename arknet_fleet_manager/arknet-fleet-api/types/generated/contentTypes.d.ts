@@ -800,7 +800,7 @@ export interface ApiShapeShape extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     shape_dist_traveled: Schema.Attribute.Decimal;
-    shape_id: Schema.Attribute.UID & Schema.Attribute.Required;
+    shape_id: Schema.Attribute.String & Schema.Attribute.Required;
     shape_pt_lat: Schema.Attribute.Decimal & Schema.Attribute.Required;
     shape_pt_lon: Schema.Attribute.Decimal & Schema.Attribute.Required;
     shape_pt_sequence: Schema.Attribute.Integer & Schema.Attribute.Required;

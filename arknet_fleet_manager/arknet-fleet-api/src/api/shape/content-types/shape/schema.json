@@ -13,7 +13,7 @@
   "pluginOptions": {},
   "attributes": {
     "shape_id": {
-      "type": "uid",
+      "type": "string",
       "required": true
     },
     "shape_pt_lat": {

@@ -1,0 +1,55 @@
+{
+  "arknettransit": {
+    "accessible": true,
+    "tables": {
+      "routes": {
+        "error": "0"
+      },
+      "geometry_columns": {
+        "error": "0"
+      },
+      "shapes": {
+        "error": "0"
+      },
+      "route_shapes": {
+        "error": "0"
+      },
+      "trips": {
+        "error": "0"
+      },
+      "stops": {
+        "error": "0"
+      }
+    },
+    "postgis_enabled": false,
+    "geometry_tables": [
+      "geometry_columns",
+      "route_shapes",
+      "shapes"
+    ],
+    "gtfs_tables": [
+      "route_shapes",
+      "routes",
+      "shapes",
+      "stops",
+      "trips"
+    ]
+  },
+  "barbados_transit_gtfs": {
+    "error": "connection to server at \"127.0.0.1\", port 6543 failed: FATAL:  database \"barbados_transit_gtfs\" does not exist\n"
+  },
+  "postgres": {
+    "accessible": true,
+    "tables": {},
+    "postgis_enabled": false,
+    "geometry_tables": [],
+    "gtfs_tables": []
+  },
+  "template1": {
+    "accessible": true,
+    "tables": {},
+    "postgis_enabled": false,
+    "geometry_tables": [],
+    "gtfs_tables": []
+  }
+}

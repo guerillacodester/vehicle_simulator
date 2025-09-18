@@ -7,8 +7,11 @@ Migrates route geometry data from PostGIS database to Strapi GTFS format.
 import psycopg2
 import requests
 import json
-from sshtunnel import SSHTunnel
 import time
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from migrate_data import SSHTunnel
 
 class GeometryMigrator:
     def __init__(self):
@@ -21,16 +24,9 @@ class GeometryMigrator:
         print("=" * 60)
         
         try:
-            self.tunnel = SSHTunnel(
-                ('arknetglobal.com', 22),
-                ssh_username='arknetvps',
-                ssh_password='Arknet%2024',
-                remote_bind_address=('localhost', 5432),
-                local_bind_address=('localhost', 5433)
-            )
-            
+            self.tunnel = SSHTunnel('arknetglobal.com', 22, 'david', 'Cabbyminnie5!', 'localhost', 5432, 6543)
             self.tunnel.start()
-            print(f"✅ SSH tunnel established on local port {self.tunnel.local_bind_port}")
+            print(f"✅ SSH tunnel established on local port 6543")
             return True
             
         except Exception as e:
@@ -44,11 +40,11 @@ class GeometryMigrator:
         
         try:
             self.db_connection = psycopg2.connect(
-                host='localhost',
-                port=self.tunnel.local_bind_port,
-                database='barbados_transit_gtfs',
-                user='postgres',
-                password='B@rbados2024!'
+                host='127.0.0.1',
+                port=6543, 
+                database='arknettransit',
+                user='david',
+                password='Ga25w123!'
             )
             
             # Test connection with PostGIS
@@ -79,21 +75,21 @@ class GeometryMigrator:
         cursor.execute("SELECT COUNT(*) FROM route_shapes")
         route_shape_count = cursor.fetchone()[0]
         
-        # Get coordinate point count
+        # Get coordinate point count (CORRECTED: column is 'geom' not 'shape_geom')
         cursor.execute("""
             SELECT COUNT(*) FROM (
-                SELECT (ST_DumpPoints(shape_geom)).geom 
+                SELECT (ST_DumpPoints(geom)).geom 
                 FROM shapes 
-                WHERE shape_geom IS NOT NULL
+                WHERE geom IS NOT NULL
             ) AS points
         """)
         total_points = cursor.fetchone()[0]
         
-        # Sample data
+        # Sample data (CORRECTED: column is 'geom' not 'shape_geom')
         cursor.execute("""
-            SELECT shape_id, ST_NumPoints(shape_geom) as point_count
+            SELECT shape_id, ST_NumPoints(geom) as point_count
             FROM shapes 
-            WHERE shape_geom IS NOT NULL 
+            WHERE geom IS NOT NULL 
             ORDER BY shape_id 
             LIMIT 3
         """)
@@ -134,15 +130,15 @@ class GeometryMigrator:
         
         cursor = self.db_connection.cursor()
         
-        # Extract all shapes with coordinate points
+        # Extract all shapes with coordinate points (CORRECTED: column is 'geom' not 'shape_geom')
         cursor.execute("""
             SELECT 
                 s.shape_id,
-                (ST_DumpPoints(s.shape_geom)).path[1] as shape_pt_sequence,
-                ST_Y((ST_DumpPoints(s.shape_geom)).geom) as shape_pt_lat,
-                ST_X((ST_DumpPoints(s.shape_geom)).geom) as shape_pt_lon
+                (ST_DumpPoints(s.geom)).path[1] as shape_pt_sequence,
+                ST_Y((ST_DumpPoints(s.geom)).geom) as shape_pt_lat,
+                ST_X((ST_DumpPoints(s.geom)).geom) as shape_pt_lon
             FROM shapes s
-            WHERE s.shape_geom IS NOT NULL
+            WHERE s.geom IS NOT NULL
             ORDER BY s.shape_id, shape_pt_sequence
         """)
         
@@ -177,7 +173,6 @@ class GeometryMigrator:
         
         cursor.execute("""
             SELECT 
-                route_shape_id,
                 route_id,
                 shape_id,
                 variant_code,
@@ -190,9 +185,9 @@ class GeometryMigrator:
         
         print(f"✅ Extracted {len(route_shapes_data)} route-shape relationships")
         
-        # Preview data
-        for i, (rs_id, route_id, shape_id, variant, default) in enumerate(route_shapes_data[:5]):
-            print(f"  {rs_id}: Route {route_id} → Shape {shape_id} (variant: {variant}, default: {default})")
+        # Preview data (no route_shape_id in source table)
+        for i, (route_id, shape_id, variant, default) in enumerate(route_shapes_data[:5]):
+            print(f"  Route {route_id} → Shape {shape_id} (variant: {variant}, default: {default})")
         
         if len(route_shapes_data) > 5:
             print(f"  ... and {len(route_shapes_data) - 5} more")
@@ -257,14 +252,22 @@ class GeometryMigrator:
                         success_count += 1
                     else:
                         print(f"  ❌ Failed to create point {point['shape_pt_sequence']}: {response.status_code}")
+                        try:
+                            error_detail = response.json()
+                            print(f"      Error: {error_detail}")
+                        except:
+                            print(f"      Response: {response.text[:200]}...")
                         error_count += 1
                         
                 except Exception as e:
                     print(f"  ❌ Error creating point {point['shape_pt_sequence']}: {e}")
                     error_count += 1
+                
+                # Small delay between individual point creations
+                time.sleep(0.05)
             
-            # Brief pause between shapes
-            time.sleep(0.1)
+            # Brief pause between shapes to avoid overwhelming Strapi
+            time.sleep(0.2)
         
         print(f"\n📊 Shapes Migration Results:")
         print(f"  ✅ Success: {success_count} points")
@@ -280,11 +283,14 @@ class GeometryMigrator:
         success_count = 0
         error_count = 0
         
-        for rs_id, route_id, shape_id, variant_code, is_default in route_shapes_data:
+        for route_id, shape_id, variant_code, is_default in route_shapes_data:
             try:
+                # Generate route_shape_id from route_id and shape_id combination
+                route_shape_id = f"{route_id}_{shape_id}"
+                
                 payload = {
                     "data": {
-                        "route_shape_id": rs_id,
+                        "route_shape_id": route_shape_id,
                         "route_id": route_id,
                         "shape_id": shape_id,
                         "variant_code": variant_code,
@@ -299,14 +305,14 @@ class GeometryMigrator:
                 )
                 
                 if response.status_code in [200, 201]:
-                    print(f"✅ Migrated route-shape {rs_id}: Route {route_id} → Shape {shape_id}")
+                    print(f"✅ Migrated route-shape {route_shape_id}: Route {route_id} → Shape {shape_id}")
                     success_count += 1
                 else:
-                    print(f"❌ Failed to migrate route-shape {rs_id}: {response.status_code}")
+                    print(f"❌ Failed to migrate route-shape {route_shape_id}: {response.status_code}")
                     error_count += 1
                     
             except Exception as e:
-                print(f"❌ Error migrating route-shape {rs_id}: {e}")
+                print(f"❌ Error migrating route-shape {route_shape_id}: {e}")
                 error_count += 1
         
         print(f"\n📊 Route-Shapes Migration Results:")
