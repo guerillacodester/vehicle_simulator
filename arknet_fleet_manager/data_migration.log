@@ -96,3 +96,23 @@
 2025-09-17 20:01:19,558 - INFO -   vehicles: 4 records
 2025-09-17 20:01:19,559 - INFO -   gps_devices: 0 records
 2025-09-17 20:01:19,559 - INFO - SSH tunnel closed
+2025-09-18 08:09:29,046 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-18 08:09:29,331 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-18 08:09:29,615 - INFO - Authentication (password) successful!
+2025-09-18 08:09:31,617 - INFO - SSH tunnel established on local port 6543
+2025-09-18 08:09:42,532 - INFO - SSH tunnel closed
+2025-09-18 08:12:34,754 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-18 08:12:34,882 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-18 08:12:36,217 - INFO - Authentication (password) successful!
+2025-09-18 08:12:38,230 - INFO - SSH tunnel established on local port 6543
+2025-09-18 08:12:51,450 - INFO - SSH tunnel closed
+2025-09-18 08:13:29,440 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-18 08:13:29,685 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-18 08:13:29,985 - INFO - Authentication (password) successful!
+2025-09-18 08:13:32,003 - INFO - SSH tunnel established on local port 6543
+2025-09-18 08:13:42,933 - INFO - SSH tunnel closed
+2025-09-18 08:15:54,283 - INFO - Starting SSH tunnel to arknetglobal.com:22
+2025-09-18 08:15:54,355 - INFO - Connected (version 2.0, client OpenSSH_9.7p1)
+2025-09-18 08:15:54,736 - INFO - Authentication (password) successful!
+2025-09-18 08:15:56,741 - INFO - SSH tunnel established on local port 6543
+2025-09-18 08:17:00,382 - INFO - SSH tunnel closed
