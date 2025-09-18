@@ -643,6 +643,39 @@ export interface ApiGpsDeviceGpsDevice extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiRouteShapeRouteShape extends Struct.CollectionTypeSchema {
+  collectionName: 'route_shapes';
+  info: {
+    description: 'Links routes to their geometric shapes with variants';
+    displayName: 'Route Shape';
+    pluralName: 'route-shapes';
+    singularName: 'route-shape';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    is_default: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::route-shape.route-shape'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    route_id: Schema.Attribute.String & Schema.Attribute.Required;
+    route_shape_id: Schema.Attribute.UID & Schema.Attribute.Required;
+    shape_id: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    variant_code: Schema.Attribute.String;
+  };
+}
+
 export interface ApiRouteRoute extends Struct.CollectionTypeSchema {
   collectionName: 'routes';
   info: {
@@ -1493,6 +1526,7 @@ declare module '@strapi/strapi' {
       'api::depot.depot': ApiDepotDepot;
       'api::driver.driver': ApiDriverDriver;
       'api::gps-device.gps-device': ApiGpsDeviceGpsDevice;
+      'api::route-shape.route-shape': ApiRouteShapeRouteShape;
       'api::route.route': ApiRouteRoute;
       'api::service.service': ApiServiceService;
       'api::shape.shape': ApiShapeShape;
