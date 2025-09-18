@@ -1,8 +1,6 @@
 import path from 'path';
 
-export default ({ env }) => {
-  const client = env('DATABASE_CLIENT', 'sqlite');
-
+export default ({ env }:any) => {
   const connections = {
     mysql: {
       connection: {
@@ -48,7 +46,10 @@ export default ({ env }) => {
       },
       useNullAsDefault: true,
     },
-  };
+  } as const;
+
+  type ClientType = keyof typeof connections;
+  const client = env('DATABASE_CLIENT', 'sqlite') as ClientType;
 
   return {
     connection: {
