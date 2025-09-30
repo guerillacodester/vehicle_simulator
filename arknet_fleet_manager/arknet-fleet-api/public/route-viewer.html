@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Map Viewer - Step 2A</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        #route-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        #map {
+            height: 600px;
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .error {
+            background: #ffe6e6;
+            border: 1px solid #ff9999;
+            color: #cc0000;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #e6f7e6;
+            border: 1px solid #99cc99;
+            color: #006600;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .route-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .route-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .route-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .detail-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .detail-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Route Map Viewer</h1>
+        
+        <div id="route-info">
+            <div class="loading">Loading route information...</div>
+        </div>
+        
+        <div style="margin-bottom: 15px; text-align: center;">
+            <button id="toggle-view" onclick="toggleView()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                🔄 Toggle View (Lines ↔ Points)
+            </button>
+            <span id="current-view" style="margin-left: 10px; color: #666;">Current: Lines + Sample Points</span>
+        </div>
+        
+        <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        console.log('=== ROUTE MAP VIEWER - STEP 2A ===');
+        
+        // Configuration
+        const API_BASE = 'http://localhost:1337/api';
+        
+        // Get route ID from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const routeId = urlParams.get('route') || '1A'; // Default for testing
+        
+        console.log('Loading route:', routeId);
+        
+        // Initialize map (will be recentered based on country)
+        const map = L.map('map').setView([0, 0], 2);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 18
+        }).addTo(map);
+        
+        // Main function to load and display route data
+        async function loadRouteData() {
+            try {
+                updateRouteInfo('🔍 Fetching route information...');
+                
+                // Step 1: Get basic route info
+                const route = await fetchRouteInfo(routeId);
+                displayRouteInfo(route);
+                
+                // Step 2: Center map on country
+                centerMapOnCountry(route.country);
+                
+                // Step 3: Get route shapes
+                updateRouteInfo(route, '🗺️ Loading route geometry...');
+                await loadRouteShapes(routeId);
+                
+                updateRouteInfo(route, '✅ Route loaded successfully!');
+                
+            } catch (error) {
+                console.error('Error loading route:', error);
+                document.getElementById('route-info').innerHTML = 
+                    `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Fetch basic route information
+        async function fetchRouteInfo(routeId) {
+            console.log('Fetching route info for:', routeId);
+            
+            const response = await fetch(`${API_BASE}/routes?filters[short_name][$eq]=${routeId}&populate=country`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch route: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.data || data.data.length === 0) {
+                throw new Error(`Route "${routeId}" not found`);
+            }
+            
+            return data.data[0];
+        }
+        
+        // Display route information
+        function displayRouteInfo(route) {
+            const statusClass = route.is_active ? 'status-active' : 'status-inactive';
+            const statusText = route.is_active ? '✅ Active' : '❌ Inactive';
+            
+            const routeInfoHtml = `
+                <div class="route-header">
+                    <div class="route-title">🚌 Route ${route.short_name}</div>
+                    <div class="route-status ${statusClass}">${statusText}</div>
+                </div>
+                
+                <div class="route-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Route Name</div>
+                        <div class="detail-value">${route.long_name || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Description</div>
+                        <div class="detail-value">${route.description || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Parishes</div>
+                        <div class="detail-value">${route.parishes || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Country</div>
+                        <div class="detail-value">${route.country?.name || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Route Color</div>
+                        <div class="detail-value" style="color: ${route.color || '#333'}">${route.color || 'Default'}</div>
+                    </div>
+                </div>
+                
+                <div id="loading-status" class="loading">🗺️ Loading route geometry...</div>
+            `;
+            
+            document.getElementById('route-info').innerHTML = routeInfoHtml;
+        }
+        
+        // Update route info with status message
+        function updateRouteInfo(route, statusMessage) {
+            if (typeof route === 'string') {
+                // Just show loading message
+                document.getElementById('route-info').innerHTML = 
+                    `<div class="loading">${route}</div>`;
+            } else {
+                // Update status in existing route info
+                const statusElement = document.getElementById('loading-status');
+                if (statusElement) {
+                    if (statusMessage.includes('✅')) {
+                        statusElement.className = 'success';
+                    }
+                    statusElement.textContent = statusMessage;
+                }
+            }
+        }
+        
+        // Center map on country coordinates
+        function centerMapOnCountry(country) {
+            if (country && country.latitude && country.longitude) {
+                console.log('Centering map on country:', country.name, `[${country.latitude}, ${country.longitude}]`);
+                map.setView([country.latitude, country.longitude], country.default_zoom || 10);
+            } else {
+                console.log('No country coordinates available, using default center');
+                // Default to world view
+                map.setView([0, 0], 2);
+            }
+        }
+        
+        // Load and display route shapes
+        async function loadRouteShapes(routeId) {
+            try {
+                console.log('Loading route shapes for:', routeId);
+                
+                // Get route-shapes for this route
+                const routeShapesResponse = await fetch(`${API_BASE}/route-shapes?filters[route_id][$eq]=${routeId}`);
+                
+                if (!routeShapesResponse.ok) {
+                    throw new Error(`Failed to fetch route shapes: ${routeShapesResponse.status}`);
+                }
+                
+                const routeShapesData = await routeShapesResponse.json();
+                console.log('Found route shapes:', routeShapesData.data.length);
+                
+                if (!routeShapesData.data || routeShapesData.data.length === 0) {
+                    throw new Error('No route shapes found for this route');
+                }
+                
+                let totalShapes = 0;
+                let totalPoints = 0;
+                const bounds = L.latLngBounds();
+                
+                // Process each route-shape
+                for (const routeShape of routeShapesData.data) {
+                    const shapeId = routeShape.shape_id;
+                    console.log('Loading shape:', shapeId);
+                    
+                    // Get shape points for this shape
+                    const shapePointsResponse = await fetch(`${API_BASE}/shapes?filters[shape_id][$eq]=${shapeId}&sort=shape_pt_sequence:asc`);
+                    
+                    if (!shapePointsResponse.ok) {
+                        console.error('Failed to fetch shape points for:', shapeId);
+                        continue;
+                    }
+                    
+                    const shapePointsData = await shapePointsResponse.json();
+                    console.log(`Shape ${shapeId} has ${shapePointsData.data.length} points`);
+                    
+                    if (shapePointsData.data && shapePointsData.data.length > 0) {
+                        // Convert to coordinate array
+                        const coordinates = shapePointsData.data.map(point => [
+                            point.shape_pt_lat,
+                            point.shape_pt_lon
+                        ]);
+                        
+                        // Debug: Log coordinate details
+                        console.log(`Shape ${shapeId} coordinates:`, {
+                            count: coordinates.length,
+                            first: coordinates[0],
+                            last: coordinates[coordinates.length - 1],
+                            sample: coordinates.slice(0, 3)
+                        });
+                        
+                        // Create visualization based on view mode
+                        const isDefault = routeShape.is_default;
+                        const color = isDefault ? '#FF4444' : '#4444FF';
+                        const weight = isDefault ? 5 : 3;
+                        
+                        if (viewMode === 'lines') {
+                            // Show connected lines with sample points
+                            const polyline = L.polyline(coordinates, {
+                                color: color,
+                                weight: weight,
+                                opacity: 0.8
+                            }).addTo(map);
+                            
+                            mapLayers.push(polyline);
+                            
+                            // Add sample point markers (every 5th point)
+                            coordinates.forEach((coord, index) => {
+                                if (index % 5 === 0) {
+                                    const marker = L.circleMarker([coord[0], coord[1]], {
+                                        radius: 3,
+                                        fillColor: color,
+                                        color: 'white',
+                                        weight: 1,
+                                        opacity: 1,
+                                        fillOpacity: 0.8
+                                    }).addTo(map);
+                                    
+                                    mapLayers.push(marker);
+                                    
+                                    marker.bindPopup(`
+                                        <strong>Sample Point ${index + 1}/${coordinates.length}</strong><br>
+                                        <strong>Lat:</strong> ${coord[0].toFixed(8)}<br>
+                                        <strong>Lon:</strong> ${coord[1].toFixed(8)}<br>
+                                        <strong>Shape:</strong> ${shapeId}<br>
+                                        <strong>Sequence:</strong> ${index + 1}
+                                    `);
+                                }
+                            });
+                            
+                            // Add popup to polyline
+                            polyline.bindPopup(`
+                                <strong>Shape:</strong> ${shapeId}<br>
+                                <strong>Route Shape:</strong> ${routeShape.route_shape_id}<br>
+                                <strong>Type:</strong> ${isDefault ? 'Default Route' : 'Variant'}<br>
+                                <strong>Variant Code:</strong> ${routeShape.variant_code || 'N/A'}<br>
+                                <strong>Points:</strong> ${coordinates.length}<br>
+                                <strong>Precision:</strong> ${coordinates[0][0].toString().split('.')[1]?.length || 0} decimals<br>
+                                <strong>First Point:</strong> ${coordinates[0][0].toFixed(6)}, ${coordinates[0][1].toFixed(6)}<br>
+                                <strong>Last Point:</strong> ${coordinates[coordinates.length-1][0].toFixed(6)}, ${coordinates[coordinates.length-1][1].toFixed(6)}
+                            `);
+                            
+                        } else {
+                            // Show all individual points as dots
+                            coordinates.forEach((coord, index) => {
+                                const marker = L.circleMarker([coord[0], coord[1]], {
+                                    radius: 2,
+                                    fillColor: color,
+                                    color: color,
+                                    weight: 1,
+                                    opacity: 0.8,
+                                    fillOpacity: 0.6
+                                }).addTo(map);
+                                
+                                mapLayers.push(marker);
+                                
+                                marker.bindPopup(`
+                                    <strong>Point ${index + 1}/${coordinates.length}</strong><br>
+                                    <strong>Lat:</strong> ${coord[0].toFixed(8)}<br>
+                                    <strong>Lon:</strong> ${coord[1].toFixed(8)}<br>
+                                    <strong>Shape:</strong> ${shapeId}<br>
+                                    <strong>Sequence:</strong> ${index + 1}<br>
+                                    <strong>Type:</strong> ${isDefault ? 'Default Route' : 'Variant'}
+                                `);
+                            });
+                        }
+                        
+                        // Extend bounds
+                        coordinates.forEach(coord => bounds.extend(coord));
+                        
+                        totalShapes++;
+                        totalPoints += coordinates.length;
+                    }
+                }
+                
+                // Fit map to show all shapes
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, { padding: [20, 20] });
+                }
+                
+                console.log(`Loaded ${totalShapes} shapes with ${totalPoints} total points`);
+                
+                // Update status
+                const statusElement = document.getElementById('loading-status');
+                if (statusElement) {
+                    statusElement.className = 'success';
+                    statusElement.innerHTML = `✅ Loaded ${totalShapes} route shape(s) with ${totalPoints} coordinate points`;
+                }
+                
+            } catch (error) {
+                console.error('Error loading route shapes:', error);
+                throw error;
+            }
+        }
+        
+        // View mode toggle
+        let viewMode = 'lines'; // 'lines' or 'points'
+        let mapLayers = [];
+        
+        function toggleView() {
+            viewMode = viewMode === 'lines' ? 'points' : 'lines';
+            document.getElementById('current-view').textContent = 
+                `Current: ${viewMode === 'lines' ? 'Lines + Sample Points' : 'All Individual Points'}`;
+            
+            // Clear existing layers
+            mapLayers.forEach(layer => map.removeLayer(layer));
+            mapLayers = [];
+            
+            // Reload shapes with new view mode
+            if (window.currentRouteId) {
+                loadRouteShapes(window.currentRouteId);
+            }
+        }
+        
+        // Start loading when page loads
+        window.addEventListener('load', () => {
+            console.log('Page loaded, starting route data load...');
+            window.currentRouteId = routeId;
+            loadRouteData();
+        });
+    </script>
+</body>
+</html>

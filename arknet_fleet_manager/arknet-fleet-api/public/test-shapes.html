@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 4: Shape Geometry Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; }
+        .warning { background: #fff3cd; color: #856404; }
+        .error { background: #f8d7da; color: #721c24; }
+        .code { background: #f1f1f1; padding: 10px; font-family: monospace; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Step 4: Shape Geometry Fetching Test</h1>
+    <div id="status">Testing...</div>
+    <div id="results"></div>
+    
+    <script>
+        console.log('=== STEP 4 TEST ===');
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const routeId = urlParams.get('route_id') || '1A';
+        
+        document.getElementById('status').innerHTML = `<div class="info">Testing route: <strong>${routeId}</strong></div>`;
+        
+        // Step 1: Get route data to find the UUID
+        console.log('Step 1: Getting route data...');
+        fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`)
+            .then(response => response.json())
+            .then(routeData => {
+                console.log('Route data:', routeData);
+                
+                if (!routeData.data || routeData.data.length === 0) {
+                    throw new Error(`Route "${routeId}" not found`);
+                }
+                
+                const route = routeData.data[0];
+                const routeUuid = route.route_id;
+                
+                document.getElementById('results').innerHTML += `
+                    <div class="info success">
+                        <h3>✅ Step 3 Complete - Route Found:</h3>
+                        <ul>
+                            <li><strong>Short Name:</strong> ${route.short_name}</li>
+                            <li><strong>Long Name:</strong> ${route.long_name || 'None'}</li>
+                            <li><strong>UUID:</strong> ${routeUuid}</li>
+                        </ul>
+                    </div>
+                `;
+                
+                // Step 2: Test route-shapes API
+                console.log('Step 2: Testing route-shapes API...');
+                document.getElementById('status').innerHTML = `<div class="info">Now testing shape geometry for UUID: ${routeUuid}</div>`;
+                
+                return fetch(`http://localhost:1337/api/route-shapes?filters[route_id][$eq]=${routeUuid}`);
+            })
+            .then(response => {
+                console.log('Shape API response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`Shape API returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(shapeData => {
+                console.log('Shape data received:', shapeData);
+                
+                if (!shapeData.data) {
+                    throw new Error('Shape API returned invalid data structure');
+                }
+                
+                if (shapeData.data.length === 0) {
+                    // No shape data found
+                    document.getElementById('status').innerHTML = `<div class="warning">⚠️ Step 4 Result: No shape geometry found</div>`;
+                    document.getElementById('results').innerHTML += `
+                        <div class="info warning">
+                            <h3>Step 4 Result: No Shape Data</h3>
+                            <p>The route exists but has no shape geometry defined in the route-shapes table.</p>
+                            <p><strong>API Response:</strong></p>
+                            <div class="code">${JSON.stringify(shapeData, null, 2)}</div>
+                            <p><strong>Next Steps:</strong></p>
+                            <ul>
+                                <li>Add shape data to the route-shapes table, OR</li>
+                                <li>Test with a different route that has shapes, OR</li>
+                                <li>Skip to Step 5 with mock coordinates for testing</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    // Success! Shape data found
+                    const shapes = shapeData.data;
+                    const sortedShapes = shapes.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence);
+                    
+                    document.getElementById('status').innerHTML = `<div class="success">✅ Step 4 Complete! Found ${shapes.length} shape points</div>`;
+                    document.getElementById('results').innerHTML += `
+                        <div class="info success">
+                            <h3>✅ Step 4 Complete - Shape Geometry Found!</h3>
+                            <ul>
+                                <li><strong>Total Points:</strong> ${shapes.length}</li>
+                                <li><strong>Shape ID:</strong> ${sortedShapes[0]?.shape_id || 'Unknown'}</li>
+                                <li><strong>First Point:</strong> Lat ${sortedShapes[0]?.shape_pt_lat}, Lon ${sortedShapes[0]?.shape_pt_lon}</li>
+                                <li><strong>Last Point:</strong> Lat ${sortedShapes[sortedShapes.length-1]?.shape_pt_lat}, Lon ${sortedShapes[sortedShapes.length-1]?.shape_pt_lon}</li>
+                            </ul>
+                            <p><strong>Sample Points:</strong></p>
+                            <div class="code">${JSON.stringify(sortedShapes.slice(0, 3), null, 2)}</div>
+                            <p><strong>Ready for Step 5:</strong> Route Rendering on Map! 🗺️</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('status').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                document.getElementById('results').innerHTML += `
+                    <div class="info error">
+                        <h3>Step 4 Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Possible causes:</strong></p>
+                        <ul>
+                            <li>route-shapes table doesn't exist</li>
+                            <li>route-shapes API endpoint not configured</li>
+                            <li>Database connection issue</li>
+                            <li>No shapes data for this route</li>
+                        </ul>
+                    </div>
+                `;
+            });
+    </script>
+</body>
+</html>

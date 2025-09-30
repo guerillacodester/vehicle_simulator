@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Route Coordinates</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .coord { background: #f0f0f0; padding: 10px; margin: 5px 0; border-radius: 3px; }
+        .invalid { background: #ffcccc; }
+        .valid { background: #ccffcc; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Route Coordinates for Route 1A</h1>
+    <div id="status">Loading...</div>
+    <div id="results"></div>
+    
+    <script>
+        async function debugRoute() {
+            const status = document.getElementById('status');
+            const results = document.getElementById('results');
+            
+            try {
+                status.textContent = 'Step 1: Getting route data...';
+                
+                // Get route
+                const routeResp = await fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=1A`);
+                const routeData = await routeResp.json();
+                
+                console.log('Route data:', routeData);
+                
+                if (!routeData.data || routeData.data.length === 0) {
+                    throw new Error('Route 1A not found');
+                }
+                
+                const route = routeData.data[0];
+                const routeUuid = route.route_id;
+                
+                results.innerHTML += `
+                    <h3>✅ Route Found:</h3>
+                    <ul>
+                        <li><strong>Short Name:</strong> ${route.short_name}</li>
+                        <li><strong>Long Name:</strong> ${route.long_name}</li>
+                        <li><strong>UUID:</strong> ${routeUuid}</li>
+                    </ul>
+                `;
+                
+                status.textContent = 'Step 2: Getting route-shapes...';
+                
+                // Get route-shapes
+                const shapesResp = await fetch(`http://localhost:1337/api/route-shapes?filters[route_id][$eq]=${routeUuid}`);
+                const shapesData = await shapesResp.json();
+                
+                console.log('Route-shapes data:', shapesData);
+                
+                if (!shapesData.data || shapesData.data.length === 0) {
+                    throw new Error('No route-shapes found');
+                }
+                
+                const shapeIds = [...new Set(shapesData.data.map(s => s.shape_id))];
+                
+                results.innerHTML += `
+                    <h3>✅ Route-Shapes Found:</h3>
+                    <ul>
+                        <li><strong>Total References:</strong> ${shapesData.data.length}</li>
+                        <li><strong>Unique Shape IDs:</strong> ${shapeIds.length}</li>
+                        <li><strong>Shape IDs:</strong> ${shapeIds.join(', ')}</li>
+                    </ul>
+                `;
+                
+                status.textContent = 'Step 3: Getting coordinates for each shape...';
+                
+                // Get coordinates for each shape
+                let tableHTML = `
+                    <h3>🔍 ALL COORDINATES FOUND:</h3>
+                    <table>
+                        <tr>
+                            <th>#</th>
+                            <th>Shape ID</th>
+                            <th>Sequence</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th>Distance</th>
+                            <th>Valid?</th>
+                        </tr>
+                `;
+                
+                let totalCoords = 0;
+                let validCoords = 0;
+                let invalidCoords = 0;
+                
+                for (let i = 0; i < shapeIds.length; i++) {
+                    const shapeId = shapeIds[i];
+                    
+                    const coordResp = await fetch(`http://localhost:1337/api/shapes?filters[shape_id][$eq]=${shapeId}&sort=shape_pt_sequence:asc&pagination[pageSize]=1000`);
+                    const coordData = await coordResp.json();
+                    
+                    console.log(`Shape ${shapeId} coordinates:`, coordData);
+                    
+                    if (coordData.data && coordData.data.length > 0) {
+                        coordData.data.forEach((coord, index) => {
+                            totalCoords++;
+                            
+                            const lat = parseFloat(coord.shape_pt_lat);
+                            const lon = parseFloat(coord.shape_pt_lon);
+                            const isValid = !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
+                            
+                            if (isValid) {
+                                validCoords++;
+                            } else {
+                                invalidCoords++;
+                            }
+                            
+                            const rowClass = isValid ? 'valid' : 'invalid';
+                            
+                            tableHTML += `
+                                <tr class="${rowClass}">
+                                    <td>${totalCoords}</td>
+                                    <td>${shapeId.substring(0, 8)}...</td>
+                                    <td>${coord.shape_pt_sequence || 'N/A'}</td>
+                                    <td>${coord.shape_pt_lat}</td>
+                                    <td>${coord.shape_pt_lon}</td>
+                                    <td>${coord.shape_dist_traveled || 'N/A'}</td>
+                                    <td>${isValid ? '✅ YES' : '❌ NO'}</td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        results.innerHTML += `<p>⚠️ No coordinates found for shape: ${shapeId}</p>`;
+                    }
+                }
+                
+                tableHTML += '</table>';
+                
+                results.innerHTML += `
+                    <h3>📊 SUMMARY:</h3>
+                    <ul>
+                        <li><strong>Total Coordinates Found:</strong> ${totalCoords}</li>
+                        <li><strong>Valid Coordinates:</strong> ${validCoords}</li>
+                        <li><strong>Invalid Coordinates:</strong> ${invalidCoords}</li>
+                    </ul>
+                    ${tableHTML}
+                `;
+                
+                status.textContent = `✅ Complete! Found ${totalCoords} coordinates (${validCoords} valid, ${invalidCoords} invalid)`;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                status.textContent = `❌ Error: ${error.message}`;
+                results.innerHTML += `<div class="coord invalid">ERROR: ${error.message}</div>`;
+            }
+        }
+        
+        debugRoute();
+    </script>
+</body>
+</html>

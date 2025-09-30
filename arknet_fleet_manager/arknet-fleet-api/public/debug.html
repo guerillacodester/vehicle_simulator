@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Route Map</title>
+</head>
+<body>
+    <h1>Debug Route Map</h1>
+    <p>Route ID: <span id="route-id">Loading...</span></p>
+    <p>Status: <span id="status">Loading...</span></p>
+    
+    <script>
+        try {
+            console.log('=== DEBUG SCRIPT START ===');
+            
+            // Test 1: Basic functionality
+            document.getElementById('route-id').textContent = 'Script running!';
+            console.log('✅ DOM manipulation works');
+            
+            // Test 2: URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const routeId = urlParams.get('route_id');
+            console.log('Route ID from URL:', routeId);
+            
+            document.getElementById('route-id').textContent = routeId || 'No route ID';
+            
+            // Test 3: Simple fetch
+            if (routeId) {
+                document.getElementById('status').textContent = 'Testing API...';
+                console.log('About to test API call...');
+                
+                fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`)
+                    .then(response => {
+                        console.log('API Response status:', response.status);
+                        document.getElementById('status').textContent = `API responded: ${response.status}`;
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('API Response data:', data);
+                        if (data.data && data.data.length > 0) {
+                            document.getElementById('status').textContent = `✅ Found route: ${data.data[0].short_name}`;
+                        } else {
+                            document.getElementById('status').textContent = `❌ Route "${routeId}" not found`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('API Error:', error);
+                        document.getElementById('status').textContent = `❌ API Error: ${error.message}`;
+                    });
+            } else {
+                document.getElementById('status').textContent = 'No route ID provided';
+            }
+            
+            console.log('=== DEBUG SCRIPT END ===');
+            
+        } catch (error) {
+            console.error('❌ SCRIPT ERROR:', error);
+            document.body.innerHTML += `<div style="color: red; margin-top: 20px;"><strong>JavaScript Error:</strong> ${error.message}</div>`;
+        }
+    </script>
+</body>
+</html>

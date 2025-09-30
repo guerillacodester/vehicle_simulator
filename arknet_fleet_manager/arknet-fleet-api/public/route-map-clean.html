@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Map Viewer</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .header {
+            background: #4945ff;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .status {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        #route-info {
+            background: #f8f9fa;
+            padding: 10px 20px;
+            border-bottom: 1px solid #ddd;
+            font-size: 14px;
+        }
+        
+        #map {
+            height: calc(100vh - 110px);
+            width: 100%;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Route Map Viewer</h1>
+        <div class="status" id="status">Loading map...</div>
+    </div>
+    
+    <div id="route-info">
+        <strong>Route ID:</strong> <span id="route-id-display">Not specified</span>
+    </div>
+    
+    <div id="map"></div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <script>
+        // Wait for Leaflet to load completely
+        function initializeRouteMap() {
+            console.log('=== ROUTE MAP SCRIPT STARTED ===');
+            console.log('Leaflet version:', typeof L !== 'undefined' ? L.version : 'NOT LOADED');
+        
+        try {
+            // Get route_id from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const routeId = urlParams.get('route_id');
+            console.log('Route ID from URL:', routeId);
+            
+            // Update the display
+            const routeIdDisplay = document.getElementById('route-id-display');
+            if (routeId) {
+                routeIdDisplay.textContent = routeId;
+                routeIdDisplay.style.color = '#28a745';
+                routeIdDisplay.style.fontWeight = 'bold';
+            } else {
+                routeIdDisplay.textContent = 'Not specified (add ?route_id=YOUR_ROUTE_ID to URL)';
+                routeIdDisplay.style.color = '#dc3545';
+            }
+            
+            // Initialize the map
+            console.log('Initializing map...');
+            
+            // Default center (you can change this to your preferred location)
+            const defaultCenter = [18.0179, -76.8099]; // Jamaica coordinates
+            const defaultZoom = 10;
+            
+            // Create the map
+            const map = L.map('map').setView(defaultCenter, defaultZoom);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+            
+            // Update status and handle route lookup
+            const statusElement = document.getElementById('status');
+            
+            if (routeId) {
+                statusElement.textContent = `Looking up route: ${routeId}`;
+                statusElement.style.color = '#ffc107';
+                
+                // Fetch route data
+                fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.data && data.data.length > 0) {
+                            const route = data.data[0];
+                            statusElement.textContent = `✅ Found route "${route.short_name}" - ready for shapes`;
+                            statusElement.style.color = '#28a745';
+                            console.log('Route found:', route);
+                            
+                            // Show route details
+                            const routeInfo = document.getElementById('route-info');
+                            routeInfo.innerHTML += `
+                                <br><strong>Route Details:</strong>
+                                <div style="margin-left: 20px; font-size: 12px;">
+                                    • Short Name: ${route.short_name}
+                                    • Long Name: ${route.long_name || 'None'}
+                                    • Route ID: ${route.route_id}
+                                    • Active: ${route.is_active ? 'Yes' : 'No'}
+                                </div>
+                            `;
+                        } else {
+                            statusElement.textContent = `❌ Route "${routeId}" not found`;
+                            statusElement.style.color = '#dc3545';
+                            console.log('Route not found');
+                            
+                            // Show available routes
+                            showAvailableRoutes();
+                        }
+                    })
+                    .catch(error => {
+                        statusElement.textContent = `❌ Error: ${error.message}`;
+                        statusElement.style.color = '#dc3545';
+                        console.error('Route lookup error:', error);
+                    });
+            } else {
+                statusElement.textContent = 'Map loaded - no route specified';
+            }
+            
+            // Function to show available routes
+            function showAvailableRoutes() {
+                fetch('http://localhost:1337/api/routes')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.data && data.data.length > 0) {
+                            const routeInfo = document.getElementById('route-info');
+                            routeInfo.innerHTML += `
+                                <br><strong>❗ Available routes:</strong>
+                                ${data.data.map(route => `
+                                    <div style="margin-left: 20px; font-size: 12px; margin-top: 5px;">
+                                        • <strong>${route.short_name}</strong> - ${route.long_name || 'No description'}
+                                        <br><span style="margin-left: 15px; color: #666; font-size: 11px;">
+                                          Try: <a href="?route_id=${route.short_name}">?route_id=${route.short_name}</a>
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            `;
+                        }
+                    })
+                    .catch(error => console.error('Could not fetch available routes:', error));
+            }
+            
+            // Add a test marker
+            const testMarker = L.marker(defaultCenter)
+                .addTo(map)
+                .bindPopup(`<b>Test Location</b><br>Route: ${routeId || 'None specified'}`)
+                .openPopup();
+            
+            console.log('Route map initialization complete');
+            
+        } catch (error) {
+            console.error('❌ SCRIPT ERROR:', error);
+            document.getElementById('status').textContent = `❌ JavaScript Error: ${error.message}`;
+            document.getElementById('status').style.color = '#dc3545';
+        }
+        }
+        
+        // Check if Leaflet is loaded, if not wait for it
+        if (typeof L !== 'undefined') {
+            console.log('Leaflet already loaded, initializing immediately');
+            initializeRouteMap();
+        } else {
+            console.log('Waiting for Leaflet to load...');
+            window.addEventListener('load', function() {
+                console.log('Page loaded, checking for Leaflet...');
+                if (typeof L !== 'undefined') {
+                    initializeRouteMap();
+                } else {
+                    console.error('Leaflet failed to load');
+                    document.getElementById('status').textContent = '❌ Map library failed to load';
+                    document.getElementById('status').style.color = '#dc3545';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -12,11 +12,6 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "route_id": {
-      "type": "uid",
-      "required": true,
-      "targetField": "short_name"
-    },
     "short_name": {
       "type": "string",
       "required": true
@@ -55,7 +50,8 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::country.country",
-      "inversedBy": "routes"
+      "inversedBy": "routes",
+      "required": true
     },
     "vehicles": {
       "type": "relation",
@@ -74,6 +70,15 @@
       "relation": "oneToMany",
       "target": "api::block.block",
       "mappedBy": "route"
+    },
+    "geojson_data": {
+      "type": "json",
+      "required": false,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
     }
   }
 }

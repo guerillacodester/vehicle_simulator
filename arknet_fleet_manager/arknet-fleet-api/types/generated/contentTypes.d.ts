@@ -693,11 +693,18 @@ export interface ApiRouteRoute extends Struct.CollectionTypeSchema {
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 7;
       }>;
-    country: Schema.Attribute.Relation<'manyToOne', 'api::country.country'>;
+    country: Schema.Attribute.Relation<'manyToOne', 'api::country.country'> &
+      Schema.Attribute.Required;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.Text;
+    geojson_data: Schema.Attribute.JSON &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }>;
     is_active: Schema.Attribute.Boolean &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<true>;
@@ -707,7 +714,6 @@ export interface ApiRouteRoute extends Struct.CollectionTypeSchema {
     long_name: Schema.Attribute.String;
     parishes: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
-    route_id: Schema.Attribute.UID<'short_name'> & Schema.Attribute.Required;
     short_name: Schema.Attribute.String & Schema.Attribute.Required;
     trips: Schema.Attribute.Relation<'oneToMany', 'api::trip.trip'>;
     updatedAt: Schema.Attribute.DateTime;
@@ -801,8 +807,8 @@ export interface ApiShapeShape extends Struct.CollectionTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     shape_dist_traveled: Schema.Attribute.Decimal;
     shape_id: Schema.Attribute.String & Schema.Attribute.Required;
-    shape_pt_lat: Schema.Attribute.Decimal & Schema.Attribute.Required;
-    shape_pt_lon: Schema.Attribute.Decimal & Schema.Attribute.Required;
+    shape_pt_lat: Schema.Attribute.Float & Schema.Attribute.Required;
+    shape_pt_lon: Schema.Attribute.Float & Schema.Attribute.Required;
     shape_pt_sequence: Schema.Attribute.Integer & Schema.Attribute.Required;
     trips: Schema.Attribute.Relation<'oneToMany', 'api::trip.trip'>;
     updatedAt: Schema.Attribute.DateTime;

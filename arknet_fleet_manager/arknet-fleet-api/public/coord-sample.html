@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head><title>Coordinate Sample</title></head>
+<body>
+    <h1>First 20 Coordinates Sample</h1>
+    <div id="results">Loading...</div>
+    
+    <script>
+        async function sampleCoords() {
+            try {
+                // Get route 1A
+                const routeResp = await fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=1A`);
+                const routeData = await routeResp.json();
+                const route = routeData.data[0];
+                
+                // Get first shape
+                const shapesResp = await fetch(`http://localhost:1337/api/route-shapes?filters[route_id][$eq]=${route.route_id}`);
+                const shapesData = await shapesResp.json();
+                const firstShapeId = shapesData.data[0].shape_id;
+                
+                // Get first 20 coordinates
+                const coordResp = await fetch(`http://localhost:1337/api/shapes?filters[shape_id][$eq]=${firstShapeId}&sort=shape_pt_sequence:asc&pagination[pageSize]=20`);
+                const coordData = await coordResp.json();
+                
+                let html = '<table border="1"><tr><th>Index</th><th>Raw Lat</th><th>Raw Lon</th><th>Parsed Lat</th><th>Parsed Lon</th><th>Valid?</th></tr>';
+                
+                coordData.data.forEach((coord, i) => {
+                    const rawLat = coord.shape_pt_lat;
+                    const rawLon = coord.shape_pt_lon;
+                    const parsedLat = parseFloat(rawLat);
+                    const parsedLon = parseFloat(rawLon);
+                    const isValid = !isNaN(parsedLat) && !isNaN(parsedLon) && parsedLat !== 0 && parsedLon !== 0;
+                    
+                    html += `<tr>
+                        <td>${i+1}</td>
+                        <td>${rawLat}</td>
+                        <td>${rawLon}</td>
+                        <td>${parsedLat}</td>
+                        <td>${parsedLon}</td>
+                        <td>${isValid ? 'YES' : 'NO'}</td>
+                    </tr>`;
+                });
+                
+                html += '</table>';
+                document.getElementById('results').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        sampleCoords();
+    </script>
+</body>
+</html>

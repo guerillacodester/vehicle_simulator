@@ -17,11 +17,11 @@
       "required": true
     },
     "shape_pt_lat": {
-      "type": "decimal",
+      "type": "float",
       "required": true
     },
     "shape_pt_lon": {
-      "type": "decimal",
+      "type": "float",
       "required": true
     },
     "shape_pt_sequence": {

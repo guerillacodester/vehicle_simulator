@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 4 Debug</title>
+</head>
+<body>
+    <h1>Step 4 Debug Test</h1>
+    <div id="output">Loading...</div>
+    
+    <script>
+        console.log('Script is running!');
+        
+        // Test URL parsing
+        const urlParams = new URLSearchParams(window.location.search);
+        const routeId = urlParams.get('route_id');
+        console.log('Route ID:', routeId);
+        
+        document.getElementById('output').innerHTML = `
+            <p>JavaScript is working!</p>
+            <p>Route ID from URL: ${routeId || 'Not found'}</p>
+            <p>Full URL: ${window.location.href}</p>
+        `;
+        
+        // Test API call
+        if (routeId) {
+            console.log('Testing API call...');
+            fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`)
+                .then(response => {
+                    console.log('API response:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API data:', data);
+                    document.getElementById('output').innerHTML += `
+                        <p>✅ API call successful!</p>
+                        <p>Found ${data.data ? data.data.length : 0} routes</p>
+                    `;
+                })
+                .catch(error => {
+                    console.error('API error:', error);
+                    document.getElementById('output').innerHTML += `
+                        <p>❌ API error: ${error.message}</p>
+                    `;
+                });
+        }
+    </script>
+</body>
+</html>
