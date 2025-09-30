@@ -2,11 +2,41 @@
 
 ## 📊 Project Status Overview
 
-### 🎯 COMPLETION STATUS: 84% COMPLETE (40/48 Major Tasks)
+### 🎯 COMPLETION STATUS: 87% COMPLETE (42/48 Major Tasks)
 
 **Target Platform**: Radxa Rock S0 (512MB RAM, ARM Cortex-A55)  
 **Performance Validated**: 150 vehicles + 1,938 passengers at 71% CPU, 157MB memory  
-**MVP Status**: 13 hours remaining for complete passenger lifecycle demo
+**MVP Status**: 11 hours remaining for complete passenger lifecycle demo
+
+---
+
+## 🗺️ ROUTE MAP INTEGRATION PROJECT - **IN PROGRESS**
+
+### ✅ COMPLETED: Phase 1 - GeoJSON Import System
+
+- [x] **Step 1A**: Added geojson_data JSON field to routes content type
+- [x] **Step 1B**: Created GeoJSON processing lifecycle hook with UUID generation
+- [x] **Step 1C**: Fixed coordinate precision (decimal → float) + comprehensive cleanup system
+- [x] **Step 1D**: Validated GeoJSON import with 387 coordinate points (6 shapes: 88+60+52+96+25+66)
+- [x] **Route cleanup**: Automatic cleanup of shapes/route_shapes when GeoJSON cleared or route deleted
+- [x] **Smart processing**: Only processes shapes when geojson_data field is actually modified
+- [x] **Country field**: Made mandatory for proper map centering
+
+### 🔄 IN PROGRESS: Phase 2 - Route Map Integration  
+
+- [x] **Step 2A**: Created route-viewer.html with Leaflet integration and country-based centering
+- [ ] **Step 2A-DEBUG**: Fix coordinate dot display issue (expected 387 dots, troubleshoot API/database)
+- [ ] **Step 2B**: Add "View Map" button to Strapi routes admin interface  
+- [ ] **Step 2C**: Test complete workflow: GeoJSON import → View Map button → Route visualization
+- [ ] **Step 2D**: Finalize popup integration and user experience
+
+### 📋 DEBUGGING TASKS - **NEXT SESSION**
+
+- [ ] **Verify all-dots.html shows exactly 387 coordinate points**
+- [ ] **Investigate if pagination limit affects coordinate retrieval**  
+- [ ] **Check database for actual coordinate count vs expected count**
+- [ ] **Validate shape point sequences are correctly ordered**
+- [ ] **Test country-based map centering functionality**
 
 ---
 
