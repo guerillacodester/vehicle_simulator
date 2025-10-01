@@ -654,6 +654,11 @@ export interface ApiRouteShapeRouteShape extends Struct.CollectionTypeSchema {
   options: {
     draftAndPublish: true;
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+  };
   attributes: {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -793,6 +798,11 @@ export interface ApiShapeShape extends Struct.CollectionTypeSchema {
   };
   options: {
     draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
   };
   attributes: {
     createdAt: Schema.Attribute.DateTime;
