@@ -362,14 +362,283 @@ class FastApiStrategy(ApiStrategy):
             self.session = None
 
 
+class StrapiStrategy(ApiStrategy):
+    """Strapi CMS implementation of ApiStrategy - replaces FastAPI with Strapi REST API"""
+    
+    def __init__(self, api_base_url: str):
+        self.api_base_url = api_base_url
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.api_connected = False
+    
+    async def initialize(self) -> bool:
+        """Initialize HTTP session"""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        return True
+    
+    async def test_connection(self) -> bool:
+        """Test Strapi API connection"""
+        if not self.session:
+            return False
+        
+        try:
+            # Test basic connectivity to Strapi API
+            async with self.session.get(f"{self.api_base_url}/api/vehicles", timeout=5) as response:
+                if response.status == 200:
+                    logging.info(f"Strapi connection successful")
+                    self.api_connected = True
+                    return True
+                else:
+                    logging.error(f"Strapi returned status {response.status}")
+                    return False
+                    
+        except Exception as e:
+            logging.error(f"Strapi connection failed: {str(e)}")
+            return False
+    
+    async def get_vehicle_assignments(self) -> List[VehicleAssignment]:
+        """Get vehicle assignments from Strapi with proper relationship mapping"""
+        if not self.api_connected or not self.session:
+            logging.error(f"[StrapiStrategy] Cannot fetch assignments - API not connected")
+            return []
+        
+        try:
+            # Get vehicles with populated relationships using correct Strapi field names
+            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate%5B0%5D=assigned_driver&populate%5B1%5D=preferred_route&populate%5B2%5D=vehicle_status", timeout=10) as response:
+                if response.status != 200:
+                    logging.error(f"[StrapiStrategy] Failed to fetch assignments: HTTP {response.status}")
+                    return []
+                
+                vehicles_data = await response.json()
+                assignments = []
+                
+                # Transform Strapi vehicles into VehicleAssignment objects
+                for vehicle_item in vehicles_data.get('data', []):
+                    vehicle = vehicle_item
+                    driver = vehicle.get('assigned_driver')
+                    route = vehicle.get('preferred_route')
+                    status = vehicle.get('vehicle_status')
+                    
+                    # Only include assignments with active drivers and valid routes
+                    if (driver and route and 
+                        driver.get('employment_status') == 'active' and
+                        vehicle.get('reg_code') and route.get('short_name')):
+                        
+                        assignment = VehicleAssignment(
+                            vehicle_id=vehicle.get('reg_code', ''),          # Use reg_code as vehicle_id
+                            route_id=route.get('short_name', ''),            # Use route short_name
+                            driver_id=driver.get('license_no', ''),          # Use license_no as driver_id
+                            assignment_type='regular',
+                            start_time=vehicle.get('createdAt'),
+                            end_time=None,
+                            # Human-readable friendly names
+                            vehicle_reg_code=vehicle.get('reg_code', 'Unknown Vehicle'),
+                            driver_name=driver.get('name', 'Unknown Driver'),
+                            route_name=route.get('long_name', 'Unknown Route'),
+                            vehicle_status=status.get('status_id', 'unknown') if status else 'unknown'
+                        )
+                        assignments.append(assignment)
+                
+                logging.info(f"[StrapiStrategy] Fetched {len(assignments)} vehicle assignments from Strapi")
+                return assignments
+                        
+        except Exception as e:
+            logging.error(f"[StrapiStrategy] Error fetching vehicle assignments: {str(e)}")
+            return []
+    
+    async def get_all_depot_vehicles(self) -> List[Dict[str, Any]]:
+        """Get ALL vehicles from Strapi depot with normalized format matching FastAPI"""
+        if not self.api_connected or not self.session:
+            logging.error(f"[StrapiStrategy] Cannot fetch depot vehicles - API not connected")
+            return []
+        
+        try:
+            # Get all vehicles from Strapi API with relationships
+            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate=vehicle_status", timeout=10) as response:
+                if response.status == 200:
+                    vehicles_data = await response.json()
+                    vehicles = []
+                    
+                    # Transform Strapi vehicles to match FastAPI format
+                    for vehicle_item in vehicles_data.get('data', []):
+                        vehicle = vehicle_item
+                        status = vehicle.get('vehicle_status')
+                        
+                        # Create normalized vehicle dict matching FastAPI format
+                        normalized_vehicle = {
+                            'registration': vehicle.get('reg_code', ''),
+                            'reg_code': vehicle.get('reg_code', ''),  # Also include for compatibility
+                            'capacity': vehicle.get('capacity', 0),
+                            'type': vehicle.get('vehicle_type', 'bus'),  # Default type
+                            'status': status.get('status_id', 'unknown') if status else 'unknown',
+                            'vehicle_status': status.get('status_id', 'unknown') if status else 'unknown',
+                            'max_speed_kmh': vehicle.get('max_speed_kmh', 90),
+                            'acceleration_mps2': vehicle.get('acceleration_mps2', 1.2),
+                            'braking_mps2': vehicle.get('braking_mps2', 1.8),
+                            'eco_mode': vehicle.get('eco_mode', True),
+                            'createdAt': vehicle.get('createdAt'),
+                            'updatedAt': vehicle.get('updatedAt')
+                        }
+                        vehicles.append(normalized_vehicle)
+                    
+                    logging.debug(f"[StrapiStrategy] Fetched {len(vehicles)} total depot vehicles from Strapi")
+                    return vehicles
+                else:
+                    logging.error(f"[StrapiStrategy] Failed to fetch depot vehicles: HTTP {response.status}")
+                    return []
+                    
+        except Exception as e:
+            logging.error(f"[StrapiStrategy] Error fetching depot vehicles: {str(e)}")
+            return []
+    
+    async def get_driver_assignments(self) -> List[DriverAssignment]:
+        """Get driver assignments from Strapi using vehicle→driver reverse relationship"""
+        if not self.api_connected or not self.session:
+            logging.error(f"[StrapiStrategy] Cannot fetch driver assignments - API not connected")
+            return []
+        
+        try:
+            # Get vehicle assignments and extract driver info (reverse of vehicle assignments)
+            vehicle_assignments = await self.get_vehicle_assignments()
+            assignments = []
+            
+            # Transform vehicle assignments into driver assignments
+            for vehicle_assignment in vehicle_assignments:
+                if vehicle_assignment.driver_id and vehicle_assignment.driver_name:
+                    assignment = DriverAssignment(
+                        driver_id=vehicle_assignment.driver_id,
+                        driver_name=vehicle_assignment.driver_name,
+                        license_number=vehicle_assignment.driver_id,  # Same as driver_id
+                        vehicle_id=vehicle_assignment.vehicle_id,
+                        route_id=vehicle_assignment.route_id,
+                        status="available",  # All active drivers are available
+                        shift_start=vehicle_assignment.start_time,
+                        shift_end=vehicle_assignment.end_time
+                    )
+                    assignments.append(assignment)
+                
+            logging.info(f"[StrapiStrategy] Fetched {len(assignments)} driver assignments from vehicle relationships")
+            return assignments
+                    
+        except Exception as e:
+            logging.error(f"[StrapiStrategy] Error fetching driver assignments: {str(e)}")
+            return []
+    
+    async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
+        """Get route information and geometry using GTFS-compliant Strapi structure"""
+        if not self.api_connected or not self.session:
+            logging.error(f"[StrapiStrategy] Cannot fetch route info - Strapi API not connected")
+            return None
+        
+        try:
+            # Step 1: Get route details by route code from Strapi routes table
+            async with self.session.get(f"{self.api_base_url}/api/routes?filters[short_name][$eq]={route_code}", timeout=10) as route_response:
+                if route_response.status != 200:
+                    logging.error(f"[StrapiStrategy] Failed to fetch route {route_code}: HTTP {route_response.status}")
+                    return None
+                    
+                route_data = await route_response.json()
+                routes = route_data.get('data', [])
+                
+                if not routes:
+                    logging.error(f"[StrapiStrategy] Route {route_code} not found in Strapi")
+                    return None
+                
+                route = routes[0]
+                route_name = route.get('long_name', f'Route {route_code}')
+                
+                logging.info(f"[StrapiStrategy] Found route: {route_name} (code: {route_code})")
+                
+            # Step 2: Get default route_shape for this route using GTFS route-shapes table
+            async with self.session.get(f"{self.api_base_url}/api/route-shapes?filters[route_id][$eq]={route_code}&filters[is_default][$eq]=true", timeout=10) as shape_link_response:
+                if shape_link_response.status != 200:
+                    logging.error(f"[StrapiStrategy] Failed to fetch route-shapes for route {route_code}: HTTP {shape_link_response.status}")
+                    return None
+                    
+                shape_link_data = await shape_link_response.json()
+                route_shapes = shape_link_data.get('data', [])
+                
+                if not route_shapes:
+                    logging.error(f"[StrapiStrategy] No default route-shape found for route {route_code}")
+                    return None
+                
+                shape_id = route_shapes[0].get('shape_id')
+                logging.info(f"[StrapiStrategy] Found default shape_id: {shape_id} for route {route_code}")
+                
+            # Step 3: Get actual GPS coordinates from shapes table ordered by sequence
+            async with self.session.get(f"{self.api_base_url}/api/shapes?filters[shape_id][$eq]={shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000", timeout=15) as shapes_response:
+                if shapes_response.status != 200:
+                    logging.error(f"[StrapiStrategy] Failed to fetch shapes for shape_id {shape_id}: HTTP {shapes_response.status}")
+                    return None
+                    
+                shapes_data = await shapes_response.json()
+                shape_points = shapes_data.get('data', [])
+                
+                if not shape_points:
+                    logging.error(f"[StrapiStrategy] No shape points found for shape_id {shape_id}")
+                    return None
+                
+                # Convert shape points to GeoJSON LineString coordinates
+                coordinates = []
+                for point in shape_points:
+                    lon = point.get('shape_pt_lon')
+                    lat = point.get('shape_pt_lat')
+                    if lon is not None and lat is not None:
+                        coordinates.append([lon, lat])  # GeoJSON format: [longitude, latitude]
+                
+                coordinate_count = len(coordinates)
+                
+                if coordinate_count > 0:
+                    logging.info(f"[StrapiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates from GTFS-compliant Strapi tables")
+                    
+                    # Log first and last coordinates as verification
+                    first_coord = coordinates[0]
+                    last_coord = coordinates[-1]
+                    logging.info(f"[StrapiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
+                    
+                    # Create proper GeoJSON geometry
+                    geometry = {
+                        "type": "LineString",
+                        "coordinates": coordinates
+                    }
+                else:
+                    logging.error(f"[StrapiStrategy] ❌ No valid coordinates found for route {route_code}")
+                    return None
+                
+            # Create RouteInfo with complete data from GTFS-compliant Strapi structure
+            route_info = RouteInfo(
+                route_id=route_code,              # Route code (1A, 1B, etc.)
+                route_name=route_name,            # Human-readable route name from Strapi
+                route_type='bus',                 # Bus route type
+                geometry=geometry,                # Complete GPS geometry from GTFS shapes
+                stops=None,                       # Stops not needed for basic vehicle movement
+                distance_km=None,                 # Distance not needed for basic vehicle movement
+                coordinate_count=coordinate_count, # Number of GPS coordinates
+                shape_id=shape_id                 # GTFS shape_id for reference
+            )
+            
+            logging.info(f"[StrapiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates from GTFS structure")
+            return route_info
+                    
+        except Exception as e:
+            logging.error(f"[StrapiStrategy] Error fetching route info for {route_code}: {str(e)}")
+            return None
+    
+    async def close(self) -> None:
+        """Clean up HTTP session"""
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+
 class Dispatcher(StateMachine, IDispatcher):
-    def __init__(self, component_name: str = "Dispatcher", api_strategy: Optional[ApiStrategy] = None, api_base_url: str = "http://localhost:8000"):
+    def __init__(self, component_name: str = "Dispatcher", api_strategy: Optional[ApiStrategy] = None, api_base_url: str = "http://localhost:1337"):
         super().__init__(component_name, PersonState.OFFSITE)
         self.initialized = False
         
-        # Use provided strategy or create default FastAPI strategy
+        # Use provided strategy or create default Strapi strategy (modern GTFS-compliant)
         if api_strategy is None:
-            self.api_strategy = FastApiStrategy(api_base_url)
+            self.api_strategy = StrapiStrategy(api_base_url)
         else:
             self.api_strategy = api_strategy
             
@@ -485,7 +754,9 @@ class Dispatcher(StateMachine, IDispatcher):
     
     async def send_routes_to_drivers(self, driver_routes: List[Dict[str, str]]) -> bool:
         """Send route assignments with GPS coordinates to drivers via Fleet Manager API."""
-        if not self.api_connected or not self.session:
+        logging.info(f"[{self.component_name}] 🚀 send_routes_to_drivers called with {len(driver_routes)} routes")
+        
+        if not self.api_connected:
             logging.error(f"[{self.component_name}] Cannot send routes - API not connected")
             return False
         
@@ -557,7 +828,7 @@ class Dispatcher(StateMachine, IDispatcher):
     
     async def populate_route_buffer(self, route_ids: List[str]) -> bool:
         """Populate route buffer with complete route data for passenger service queries."""
-        if not self.api_connected or not self.session:
+        if not self.api_connected:
             logging.error(f"[{self.component_name}] Cannot populate route buffer - API not connected")
             return False
         
@@ -610,3 +881,56 @@ class Dispatcher(StateMachine, IDispatcher):
         except Exception as e:
             logging.error(f"[{self.component_name}] Error getting route buffer stats: {str(e)}")
             return {'error': str(e)}
+    
+    # Strategy management helper methods
+    def get_current_strategy(self) -> str:
+        """Get the name of the currently active API strategy."""
+        return type(self.api_strategy).__name__
+    
+    def get_current_api_url(self) -> str:
+        """Get the API base URL of the current strategy."""
+        return getattr(self.api_strategy, 'api_base_url', 'Unknown')
+    
+    async def switch_to_fastapi(self, api_url: str = "http://localhost:8000") -> bool:
+        """Switch to FastAPI strategy - for backward compatibility or fallback."""
+        try:
+            # Close current strategy
+            if hasattr(self.api_strategy, 'session') and self.api_strategy.session:
+                await self.api_strategy.session.close()
+            
+            # Switch to FastAPI strategy
+            self.api_strategy = FastApiStrategy(api_url)
+            self.api_base_url = api_url
+            
+            # Initialize new strategy
+            await self.api_strategy.initialize()
+            self.api_connected = await self.api_strategy.test_connection()
+            
+            logging.info(f"[{self.component_name}] Switched to FastAPI strategy: {api_url}")
+            return self.api_connected
+            
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Failed to switch to FastAPI: {str(e)}")
+            return False
+    
+    async def switch_to_strapi(self, api_url: str = "http://localhost:1337") -> bool:
+        """Switch to Strapi strategy - modern GTFS-compliant API."""
+        try:
+            # Close current strategy
+            if hasattr(self.api_strategy, 'session') and self.api_strategy.session:
+                await self.api_strategy.session.close()
+            
+            # Switch to Strapi strategy
+            self.api_strategy = StrapiStrategy(api_url)
+            self.api_base_url = api_url
+            
+            # Initialize new strategy
+            await self.api_strategy.initialize()
+            self.api_connected = await self.api_strategy.test_connection()
+            
+            logging.info(f"[{self.component_name}] Switched to Strapi strategy: {api_url}")
+            return self.api_connected
+            
+        except Exception as e:
+            logging.error(f"[{self.component_name}] Failed to switch to Strapi: {str(e)}")
+            return False

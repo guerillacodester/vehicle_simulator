@@ -18,10 +18,10 @@ log = logging.getLogger("vehicle_simulator.entry")
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="python -m world.arknet_transit_simulator",
-                                description="Clean Vehicle Simulator (depot + dispatcher only)")
+                                description="Vehicle Simulator - Modern GTFS-compliant transit system (uses Strapi API by default)")
     p.add_argument('--mode', choices=['display', 'depot', 'status'], default='display', help='Mode to run')
     p.add_argument('--duration', type=float, default=None, help='Duration in seconds (depot mode)')
-    p.add_argument('--api-url', type=str, default='http://localhost:8000', help='Fleet Manager API base URL')
+    p.add_argument('--api-url', type=str, default='http://localhost:1337', help='API base URL (Strapi: 1337, FastAPI: 8000)')
     p.add_argument('--debug', action='store_true', help='Enable debug logging')
     return p.parse_args(argv)
 

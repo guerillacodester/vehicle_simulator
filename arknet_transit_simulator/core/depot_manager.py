@@ -356,7 +356,7 @@ class DepotManager(StateMachine, IDepotManager):
         Returns:
             bool: True if route distribution was successful for operational vehicles
         """
-        logging.debug(f"[{self.component_name}] distribute_routes_to_operational_vehicles called with {len(active_drivers) if active_drivers else 0} drivers")
+        logging.info(f"[{self.component_name}] 🚀 distribute_routes_to_operational_vehicles called with {len(active_drivers) if active_drivers else 0} drivers")
         
         if not self.dispatcher or not active_drivers:
             logging.info(f"[{self.component_name}] No operational vehicles for route distribution")
@@ -399,12 +399,44 @@ class DepotManager(StateMachine, IDepotManager):
                 logging.info(f"[{self.component_name}] No operational vehicles found for route distribution")
                 return True
                 
-            # Send routes only for operational vehicles
+            # Send routes only for operational vehicles (for API logging)
             success = await self.dispatcher.send_routes_to_drivers(operational_routes)
             if success:
-                logging.info(f"[{self.component_name}] Successfully distributed routes to {len(operational_routes)} operational vehicles")
+                logging.info(f"[{self.component_name}] Successfully prepared routes for {len(operational_routes)} operational vehicles")
             else:
-                logging.info(f"[{self.component_name}] Route distribution completed with API limitations (expected in development)")
+                logging.info(f"[{self.component_name}] Route preparation completed with API limitations (expected in development)")
+            
+            # Now actually set the route geometry on each driver object
+            logging.info(f"[{self.component_name}] 🗺️ Setting route geometry on {len(active_drivers)} drivers...")
+            for driver in active_drivers:
+                driver_name = getattr(driver, 'person_name', 'Unknown Driver')
+                logging.info(f"[{self.component_name}] 🔍 Checking driver {driver_name}...")
+                
+                if (hasattr(driver, 'current_state') and 
+                    driver.current_state.value in ['ONBOARD', 'WAITING'] and
+                    hasattr(driver, 'route_name')):
+                    
+                    route_name = getattr(driver, 'route_name', None)
+                    logging.info(f"[{self.component_name}] 📋 Driver {driver_name} assigned to route {route_name}")
+                    
+                    if route_name:
+                        try:
+                            # Get the route info with GPS coordinates from dispatcher
+                            logging.info(f"[{self.component_name}] 📡 Fetching route info for {route_name}...")
+                            route_info = await self.dispatcher.get_route_info(route_name)
+                            if route_info and route_info.geometry:
+                                # Set the route coordinates on the driver
+                                coordinates = route_info.geometry.get('coordinates', [])
+                                driver.route = coordinates  # Set GPS coordinates for driving
+                                
+                                vehicle_id = getattr(driver, 'vehicle_id', 'unknown')
+                                logging.info(f"[{self.component_name}] ✅ Set {len(coordinates)} GPS coordinates on driver {driver_name} (vehicle {vehicle_id}) for route {route_name}")
+                            else:
+                                logging.warning(f"[{self.component_name}] ❌ No route geometry found for route {route_name}")
+                        except Exception as e:
+                            logging.error(f"[{self.component_name}] Error setting route on driver: {e}")
+                else:
+                    logging.warning(f"[{self.component_name}] ⚠️  Driver {driver_name} not eligible for route assignment (state: {getattr(driver, 'current_state', 'unknown')}, has_route_name: {hasattr(driver, 'route_name')})")
             
             # Start passenger service after routes are distributed
             await self._start_passenger_service_after_routes(operational_routes)

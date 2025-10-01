@@ -90,7 +90,7 @@ logger = logging.getLogger(__name__)
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: str = "http://localhost:8000") -> None:
+    def __init__(self, api_url: str = "http://localhost:1337") -> None:
         self.api_url = api_url
         self.dispatcher = None
         self.depot = None
@@ -166,7 +166,7 @@ class CleanVehicleSimulator:
                 # Check vehicle status to determine driver state
                 vehicle_status = getattr(vehicle_assignment, 'vehicle_status', 'available')
                 
-                if vehicle_status in ['available', 'in_service']:
+                if vehicle_status in ['available', 'in_service', 'active']:
                     # Vehicle is operational - driver boards and starts GPS
                     logger.info(f"👤 Starting driver: {driver_assignment.driver_name} → {vehicle_assignment.vehicle_id} ({vehicle_status}) → {vehicle_assignment.route_id}")
                     

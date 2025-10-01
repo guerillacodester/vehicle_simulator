@@ -427,8 +427,8 @@ class DynamicPassengerService:
             load_statistical_passenger_model()
             config = load_config()
             
-            # Fetch route data from API
-            route_data, geometry_data = fetch_route_data(route_id)
+            # Fetch route data from API via dispatcher (StrapiStrategy)
+            route_data, geometry_data = fetch_route_data(route_id, dispatcher=self.dispatcher)
             if not route_data or not geometry_data:
                 self.logger.error(f"Could not fetch route data for route {route_id}")
                 return 0

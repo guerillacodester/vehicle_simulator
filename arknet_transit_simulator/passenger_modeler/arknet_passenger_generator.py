@@ -42,31 +42,105 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     
     return R * c
 
-def fetch_route_data(route_id):
-    """Fetch route data and geometry from public API"""
+def fetch_route_data(route_id, dispatcher=None):
+    """Fetch route data and geometry using GTFS protocol: routes -> route-shapes -> shapes tables"""
+    import requests
     try:
-        print(f"📡 Fetching Route {route_id} from Fleet Manager API...")
+        print(f"📡 Fetching Route {route_id} from Strapi API using GTFS protocol...")
         
-        # Fetch route metadata
-        response = requests.get(f'http://localhost:8000/api/v1/routes/public/{route_id}')
+        # Get the base URL from the dispatcher's api strategy
+        base_url = 'http://localhost:1337'
+        if dispatcher:
+            base_url = getattr(dispatcher.api_strategy, 'api_base_url', 'http://localhost:1337')
+        
+        # Step 1: Get route data from routes table
+        print(f"🔍 Step 1: Fetching route data from routes table...")
+        route_url = f"{base_url}/api/routes"
+        params = {'filters[short_name][$eq]': route_id}
+        response = requests.get(route_url, params=params)
+        
         if response.status_code != 200:
-            print(f"❌ Failed to fetch route metadata: HTTP {response.status_code}")
+            print(f"❌ Failed to fetch routes: HTTP {response.status_code}")
             return None, None
             
-        route_data = response.json()
+        routes_data = response.json()
+        routes = routes_data.get('data', [])
         
-        # Fetch route geometry
-        response = requests.get(f'http://localhost:8000/api/v1/routes/public/{route_id}/geometry')
+        if not routes:
+            print(f"❌ Route {route_id} not found in routes table")
+            return None, None
+        
+        route = routes[0]
+        route_data = {
+            'short_name': route.get('short_name'),
+            'long_name': route.get('long_name'), 
+            'route_type': 'bus',
+            'route_id': route.get('route_id', route.get('short_name'))
+        }
+        
+        # Step 2: Get shape_id from route-shapes table
+        print(f"🔍 Step 2: Fetching shape_id from route-shapes table...")
+        route_shapes_url = f"{base_url}/api/route-shapes"
+        params = {'filters[route_id][$eq]': route_id, 'filters[is_default][$eq]': True}
+        response = requests.get(route_shapes_url, params=params)
+        
         if response.status_code != 200:
-            print(f"❌ Failed to fetch route geometry: HTTP {response.status_code}")
+            print(f"❌ Failed to fetch route-shapes: HTTP {response.status_code}")
             return None, None
             
-        geometry_data = response.json()
+        route_shapes_data = response.json()
+        route_shapes = route_shapes_data.get('data', [])
         
-        print(f"✅ Successfully fetched Route {route_id} data")
+        if not route_shapes:
+            print(f"❌ No shape found for route {route_id} in route-shapes table")
+            return None, None
+            
+        shape_id = route_shapes[0].get('shape_id')
+        print(f"✅ Found shape_id: {shape_id}")
+        
+        # Step 3: Get GPS coordinates from shapes table
+        print(f"🔍 Step 3: Fetching GPS coordinates from shapes table...")
+        shapes_url = f"{base_url}/api/shapes"
+        params = {'filters[shape_id][$eq]': shape_id, 'sort': 'shape_pt_sequence:asc'}
+        response = requests.get(shapes_url, params=params)
+        
+        if response.status_code != 200:
+            print(f"❌ Failed to fetch shapes: HTTP {response.status_code}")
+            return None, None
+            
+        shapes_data = response.json()
+        shapes = shapes_data.get('data', [])
+        
+        if not shapes:
+            print(f"❌ No GPS coordinates found for shape_id {shape_id}")
+            return None, None
+        
+        # Convert shapes to GeoJSON format
+        coordinates = []
+        for shape in shapes:
+            lon = shape.get('shape_pt_lon')
+            lat = shape.get('shape_pt_lat')
+            if lon is not None and lat is not None:
+                coordinates.append([lon, lat])
+        
+        geometry_data = {
+            'type': 'FeatureCollection',
+            'features': [{
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'LineString',
+                    'coordinates': coordinates
+                }
+            }]
+        }
+        
+        print(f"✅ Successfully fetched Route {route_id} data via GTFS protocol")
         print(f"   Short Name: {route_data.get('short_name')}")
         print(f"   Long Name: {route_data.get('long_name')}")
         print(f"   Route Type: {route_data.get('route_type')}")
+        print(f"   GPS Coordinates: {len(coordinates)} points")
+        
+        return route_data, geometry_data
         
         return route_data, geometry_data
         
@@ -75,12 +149,25 @@ def fetch_route_data(route_id):
         return None, None
 
 def convert_geometry_to_lat_lng(geometry_data):
-    """Convert API geometry from [lng, lat] to (lat, lng) format"""
-    geometry = geometry_data.get('geometry', {})
-    coordinates = geometry.get('coordinates', [])
+    """Convert GTFS geometry from [lng, lat] to (lat, lng) format"""
+    # Handle new GTFS FeatureCollection format
+    if geometry_data.get('type') == 'FeatureCollection':
+        features = geometry_data.get('features', [])
+        if features:
+            geometry = features[0].get('geometry', {})
+            coordinates = geometry.get('coordinates', [])
+            geometry_type = geometry.get('type')
+        else:
+            coordinates = []
+            geometry_type = None
+    else:
+        # Handle legacy format
+        geometry = geometry_data.get('geometry', {})
+        coordinates = geometry.get('coordinates', [])
+        geometry_type = geometry.get('type')
     
-    if geometry.get('type') != 'LineString':
-        print(f"⚠️  Expected LineString geometry, got {geometry.get('type')}")
+    if geometry_type != 'LineString':
+        print(f"⚠️  Expected LineString geometry, got {geometry_type}")
         return []
     
     # API returns [longitude, latitude], we need (latitude, longitude)
