@@ -93,7 +93,8 @@
     "gps_device": {
       "type": "relation",
       "relation": "oneToOne",
-      "target": "api::gps-device.gps-device"
+      "target": "api::gps-device.gps-device",
+      "inversedBy": "assigned_vehicle"
     }
   }
 }
