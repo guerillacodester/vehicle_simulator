@@ -79,6 +79,16 @@
           "localized": false
         }
       }
+    },
+    "view_map_url": {
+      "type": "text",
+      "required": false,
+      "pluginOptions": {
+        "content-manager": {
+          "visible": true,
+          "editable": false
+        }
+      }
     }
   }
 }

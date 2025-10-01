@@ -4,6 +4,12 @@ export default {
   async afterCreate(event: any) {
     const { result } = event;
     
+    // Set view map URL
+    const viewMapUrl = `/route-viewer.html?route=${result.id}`;
+    await strapi.entityService.update('api::route.route', result.id, {
+      data: { view_map_url: viewMapUrl }
+    });
+    
     if (result.geojson_data) {
       await processGeoJSONData(result, result.short_name);
     }
@@ -12,6 +18,10 @@ export default {
   async beforeUpdate(event: any) {
     const { data } = event.params;
     const routeId = event.params.where.id;
+    
+    // Always update map URL when route is updated
+    const viewMapUrl = `/route-viewer.html?route=${routeId}`;
+    data.view_map_url = viewMapUrl;
     
     // Only process shapes if geojson_data field is being updated
     if (!data.hasOwnProperty('geojson_data')) {

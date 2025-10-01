@@ -727,6 +727,13 @@ export interface ApiRouteRoute extends Struct.CollectionTypeSchema {
     valid_from: Schema.Attribute.Date;
     valid_to: Schema.Attribute.Date;
     vehicles: Schema.Attribute.Relation<'oneToMany', 'api::vehicle.vehicle'>;
+    view_map_url: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        'content-manager': {
+          editable: false;
+          visible: true;
+        };
+      }>;
   };
 }
 
