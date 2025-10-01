@@ -275,7 +275,7 @@ class DynamicPassengerService:
                     f"Routes updated - Added: {list(added_routes)}, Removed: {list(removed_routes)}"
                 )
                 
-                # TODO: In later tasks, we'll need to handle passenger cleanup for removed routes
+                # NOTE: Passenger cleanup for removed routes handled by route safety validation
                 
             return True
             
