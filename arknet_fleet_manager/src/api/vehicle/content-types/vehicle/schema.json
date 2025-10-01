@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cms_vehicles",
+  "info": {
+    "singularName": "vehicle",
+    "pluralName": "vehicles",
+    "displayName": "Vehicle",
+    "description": "Transit system vehicles"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "registration": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "capacity": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string"
+    },
+    "driver": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::driver.driver",
+      "inversedBy": "vehicles"
+    },
+    "route": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::route.route",
+      "inversedBy": "vehicles"
+    },
+    "depot": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::depot.depot",
+      "inversedBy": "vehicles"
+    }
+  }
+}
