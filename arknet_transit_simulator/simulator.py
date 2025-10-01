@@ -104,7 +104,7 @@ class CleanVehicleSimulator:
             from arknet_transit_simulator.core.dispatcher import Dispatcher
 
             logger.info("Initializing clean simulator (depot + dispatcher)...")
-            self.dispatcher = Dispatcher("FleetDispatcher", self.api_url)
+            self.dispatcher = Dispatcher("FleetDispatcher", api_base_url=self.api_url)
             self.depot = DepotManager("MainDepot")
             self.depot.set_dispatcher(self.dispatcher)
 

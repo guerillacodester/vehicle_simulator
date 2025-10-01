@@ -98,7 +98,7 @@ async def run_status(api_url: str):
     
     try:
         # Test API connectivity without full initialization
-        dispatcher = Dispatcher("StatusChecker", api_url)
+        dispatcher = Dispatcher("StatusChecker", api_base_url=api_url)
         
         # Quick API connection test
         status_section("🔗 Connecting to Fleet Manager...", f"API: {api_url}")

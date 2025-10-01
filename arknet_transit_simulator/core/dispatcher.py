@@ -2,9 +2,44 @@ import logging
 import aiohttp
 import asyncio
 import math
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Tuple
 from .states import StateMachine, PersonState
 from .interfaces import IDispatcher, VehicleAssignment, DriverAssignment, RouteInfo
+
+
+class ApiStrategy(ABC):
+    """Abstract base class for API strategies (FastAPI, Strapi, etc.)"""
+    
+    @abstractmethod
+    async def test_connection(self) -> bool:
+        """Test API connectivity"""
+        pass
+    
+    @abstractmethod
+    async def get_vehicle_assignments(self) -> List[VehicleAssignment]:
+        """Get vehicle assignments with human-readable data"""
+        pass
+    
+    @abstractmethod
+    async def get_driver_assignments(self) -> List[DriverAssignment]:
+        """Get driver assignments with human-readable data"""
+        pass
+    
+    @abstractmethod
+    async def get_all_depot_vehicles(self) -> List[Dict[str, Any]]:
+        """Get all vehicles in depot regardless of status"""
+        pass
+    
+    @abstractmethod
+    async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
+        """Get route information and geometry by route code"""
+        pass
+    
+    @abstractmethod
+    async def close(self) -> None:
+        """Clean up resources"""
+        pass
 
 class RouteBuffer:
     """Thread-safe, searchable route buffer for GPS-based route queries."""
@@ -117,10 +152,228 @@ class RouteBuffer:
                 'initialized': self._initialized
             }
 
+
+class FastApiStrategy(ApiStrategy):
+    """FastAPI implementation of ApiStrategy - maintains existing behavior"""
+    
+    def __init__(self, api_base_url: str):
+        self.api_base_url = api_base_url
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.api_connected = False
+    
+    async def initialize(self) -> bool:
+        """Initialize HTTP session"""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        return True
+    
+    async def test_connection(self) -> bool:
+        """Test API connection - CRITICAL: NO fallback allowed."""
+        if not self.session:
+            return False
+        
+        try:
+            # Test basic connectivity to Fleet Manager API
+            async with self.session.get(f"{self.api_base_url}/health", timeout=5) as response:
+                if response.status == 200:
+                    logging.info(f"FastAPI connection successful")
+                    self.api_connected = True
+                    return True
+                else:
+                    logging.error(f"FastAPI returned status {response.status}")
+                    return False
+                    
+        except Exception as e:
+            logging.error(f"FastAPI connection failed: {str(e)}")
+            return False
+    
+    async def get_vehicle_assignments(self) -> List[VehicleAssignment]:
+        """Get vehicle assignments using PUBLIC API with human-readable data only - NO UUIDs."""
+        if not self.api_connected or not self.session:
+            logging.error(f"[FastApiStrategy] Cannot fetch assignments - API not connected")
+            return []
+        
+        try:
+            # Use the search endpoint that provides complete assignment data with human-readable identifiers
+            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", timeout=10) as response:
+                if response.status != 200:
+                    logging.error(f"[FastApiStrategy] Failed to fetch assignments: HTTP {response.status}")
+                    return []
+                
+                pairs_data = await response.json()
+                assignments = []
+                
+                # Transform search results into VehicleAssignment objects  
+                for pair in pairs_data:
+                    # Include ALL assignments from Fleet Manager - respect exact driver/vehicle pairings
+                    # regardless of vehicle status (maintenance, retired, etc.)
+                    if (pair.get('driver_employment_status') == 'active' and
+                        pair.get('registration') and pair.get('route_code')):
+                        
+                        assignment = VehicleAssignment(
+                            vehicle_id=pair.get('registration', ''),  # Use reg code as vehicle_id (no UUIDs)
+                            route_id=pair.get('route_code', ''),      # Use route code as route_id (no UUIDs)
+                            driver_id=pair.get('driver_license', ''), # Use license as driver_id (no UUIDs)
+                            assignment_type='regular',
+                            start_time=pair.get('assignment_date'),
+                            end_time=None,
+                            # Human-readable friendly names
+                            vehicle_reg_code=pair.get('registration', 'Unknown Vehicle'),
+                            driver_name=pair.get('driver_name', 'Unknown Driver'),
+                            route_name=pair.get('route_name', 'Unknown Route'),
+                            vehicle_status=pair.get('vehicle_status', 'unknown')  # Include vehicle operational status
+                        )
+                        assignments.append(assignment)
+            
+            logging.info(f"[FastApiStrategy] Fetched {len(assignments)} vehicle assignments with friendly names")
+            return assignments
+                    
+        except Exception as e:
+            logging.error(f"[FastApiStrategy] Error fetching vehicle assignments: {str(e)}")
+            return []
+
+    async def get_all_depot_vehicles(self) -> List[Dict[str, Any]]:
+        """Get ALL vehicles in depot regardless of status - for complete inventory tracking."""
+        if not self.api_connected or not self.session:
+            logging.error(f"[FastApiStrategy] Cannot fetch depot vehicles - API not connected")
+            return []
+        
+        try:
+            # Get all vehicles from public API (includes all statuses)
+            async with self.session.get(f"{self.api_base_url}/api/v1/vehicles/public", timeout=10) as response:
+                if response.status == 200:
+                    vehicles_data = await response.json()
+                    logging.debug(f"[FastApiStrategy] Fetched {len(vehicles_data)} total depot vehicles")
+                    return vehicles_data
+                else:
+                    logging.error(f"[FastApiStrategy] Failed to fetch depot vehicles: HTTP {response.status}")
+                    return []
+                    
+        except Exception as e:
+            logging.error(f"[FastApiStrategy] Error fetching depot vehicles: {str(e)}")
+            return []
+
+    async def get_driver_assignments(self) -> List[DriverAssignment]:
+        """Get driver assignments using PUBLIC API with human-readable data only - NO UUIDs."""
+        if not self.api_connected or not self.session:
+            logging.error(f"[FastApiStrategy] Cannot fetch driver assignments - API not connected")
+            return []
+        
+        try:
+            # Use the search endpoint that provides complete assignment data with human-readable identifiers
+            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", timeout=10) as response:
+                if response.status != 200:
+                    logging.error(f"[FastApiStrategy] Failed to fetch driver assignments: HTTP {response.status}")
+                    return []
+                
+                pairs_data = await response.json()
+                assignments = []
+                
+                # Transform search results into DriverAssignment objects
+                for pair in pairs_data:
+                    if pair.get('driver_employment_status') == 'active':
+                        assignment = DriverAssignment(
+                            driver_id=pair.get('driver_license', ''),    # Use license as driver_id (no UUIDs)
+                            driver_name=pair.get('driver_name', ''),
+                            license_number=pair.get('driver_license', ''),
+                            vehicle_id=pair.get('registration', ''),     # Use reg code as vehicle_id (no UUIDs)
+                            route_id=pair.get('route_code', ''),         # Use route code as route_id (no UUIDs)
+                            status="available",  # All active drivers are available
+                            shift_start=pair.get('assignment_date'),
+                            shift_end=None
+                        )
+                        assignments.append(assignment)
+                
+                logging.info(f"[FastApiStrategy] Fetched {len(assignments)} driver assignments from Fleet Manager")
+                return assignments
+                    
+        except Exception as e:
+            logging.error(f"[FastApiStrategy] Error fetching driver assignments: {str(e)}")
+            return []
+
+    async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
+        """Get route information and geometry directly by route number from Fleet Manager PUBLIC API."""
+        if not self.api_connected or not self.session:
+            logging.error(f"[FastApiStrategy] Cannot fetch route info - Fleet Manager API not connected")
+            return None
+        
+        try:
+            # Step 1: Get route details by route code from Fleet Manager PUBLIC API
+            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}", timeout=10) as route_response:
+                if route_response.status != 200:
+                    logging.error(f"[FastApiStrategy] Route {route_code} not found in Fleet Manager: HTTP {route_response.status}")
+                    return None
+                    
+                route_data = await route_response.json()
+                route_name = route_data.get('long_name', f'Route {route_code}')
+                
+                logging.info(f"[FastApiStrategy] Found route: {route_name} (code: {route_code})")
+                
+            # Step 2: Get route geometry by route code from Fleet Manager PUBLIC API
+            geometry = None
+            coordinate_count = 0
+            
+            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}/geometry", timeout=10) as geo_response:
+                if geo_response.status != 200:
+                    logging.error(f"[FastApiStrategy] Failed to fetch geometry for route {route_code}: HTTP {geo_response.status}")
+                    return None
+                    
+                route_geometry_data = await geo_response.json()
+                geometry = route_geometry_data.get('geometry')
+                
+                if geometry and geometry.get('coordinates'):
+                    coordinate_count = len(geometry['coordinates'])
+                    logging.info(f"[FastApiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates from Fleet Manager API")
+                    
+                    # Log first and last coordinates as verification
+                    coords = geometry['coordinates']
+                    if coords:
+                        first_coord = coords[0]
+                        last_coord = coords[-1]
+                        logging.info(f"[FastApiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
+                else:
+                    logging.error(f"[FastApiStrategy] ❌ Route {route_code} geometry is null from Fleet Manager API")
+                    logging.error(f"[FastApiStrategy] ❌ Fleet Manager route geometry endpoint is broken - API should return GPS coordinates from route_shapes→shapes join")
+                    return None
+                
+            # Create RouteInfo with complete data from Fleet Manager API
+            route_info = RouteInfo(
+                route_id=route_code,              # Route code (1A, 1B, etc.)
+                route_name=route_name,            # Human-readable route name from Fleet Manager
+                route_type='bus',                 # Bus route type
+                geometry=geometry,                # Complete GPS geometry from Fleet Manager API
+                stops=None,                       # Stops not needed for basic vehicle movement
+                distance_km=None,                 # Distance not needed for basic vehicle movement
+                coordinate_count=coordinate_count, # Number of GPS coordinates
+                shape_id=None                     # Shape ID not needed when we have direct geometry
+            )
+            
+            logging.info(f"[FastApiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates")
+            return route_info
+                    
+        except Exception as e:
+            logging.error(f"[FastApiStrategy] Error fetching route info for {route_code}: {str(e)}")
+            return None
+
+    async def close(self) -> None:
+        """Clean up HTTP session"""
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+
 class Dispatcher(StateMachine, IDispatcher):
-    def __init__(self, component_name: str = "Dispatcher", api_base_url: str = "http://localhost:8000"):
+    def __init__(self, component_name: str = "Dispatcher", api_strategy: Optional[ApiStrategy] = None, api_base_url: str = "http://localhost:8000"):
         super().__init__(component_name, PersonState.OFFSITE)
         self.initialized = False
+        
+        # Use provided strategy or create default FastAPI strategy
+        if api_strategy is None:
+            self.api_strategy = FastApiStrategy(api_base_url)
+        else:
+            self.api_strategy = api_strategy
+            
+        # Keep backwards compatibility  
         self.api_base_url = api_base_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.api_connected = False
@@ -132,14 +385,15 @@ class Dispatcher(StateMachine, IDispatcher):
             # Transition to arriving state
             await self.transition_to(PersonState.ARRIVING)
             
-            # Create HTTP session
-            self.session = aiohttp.ClientSession()
+            # Initialize the API strategy
+            if hasattr(self.api_strategy, 'initialize'):
+                await self.api_strategy.initialize()
             
-            # Test API connection - CRITICAL: Must succeed or fail completely
-            api_connected = await self._test_api_connection()
+            # Test API connection through strategy - CRITICAL: Must succeed or fail completely
+            api_connected = await self.api_strategy.test_connection()
             if not api_connected:
-                await self.session.close()
-                self.session = None
+                if hasattr(self.api_strategy, 'close'):
+                    await self.api_strategy.close()
                 await self.transition_to(PersonState.UNAVAILABLE)
                 return False
             
@@ -162,7 +416,11 @@ class Dispatcher(StateMachine, IDispatcher):
         try:
             await self.transition_to(PersonState.DEPARTING)
             
-            # Close HTTP session
+            # Close API strategy
+            if hasattr(self.api_strategy, 'close'):
+                await self.api_strategy.close()
+            
+            # Close HTTP session for backwards compatibility
             if self.session:
                 await self.session.close()
                 self.session = None
@@ -210,172 +468,20 @@ class Dispatcher(StateMachine, IDispatcher):
             return False
     
     async def get_vehicle_assignments(self) -> List[VehicleAssignment]:
-        """Get vehicle assignments using PUBLIC API with human-readable data only - NO UUIDs."""
-        if not self.api_connected or not self.session:
-            logging.error(f"[{self.component_name}] Cannot fetch assignments - API not connected")
-            return []
-        
-        try:
-            # Use the search endpoint that provides complete assignment data with human-readable identifiers
-            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", timeout=10) as response:
-                if response.status != 200:
-                    logging.error(f"[{self.component_name}] Failed to fetch assignments: HTTP {response.status}")
-                    return []
-                
-                pairs_data = await response.json()
-                assignments = []
-                
-                # Transform search results into VehicleAssignment objects  
-                for pair in pairs_data:
-                    # Include ALL assignments from Fleet Manager - respect exact driver/vehicle pairings
-                    # regardless of vehicle status (maintenance, retired, etc.)
-                    if (pair.get('driver_employment_status') == 'active' and
-                        pair.get('registration') and pair.get('route_code')):
-                        
-                        assignment = VehicleAssignment(
-                            vehicle_id=pair.get('registration', ''),  # Use reg code as vehicle_id (no UUIDs)
-                            route_id=pair.get('route_code', ''),      # Use route code as route_id (no UUIDs)
-                            driver_id=pair.get('driver_license', ''), # Use license as driver_id (no UUIDs)
-                            assignment_type='regular',
-                            start_time=pair.get('assignment_date'),
-                            end_time=None,
-                            # Human-readable friendly names
-                            vehicle_reg_code=pair.get('registration', 'Unknown Vehicle'),
-                            driver_name=pair.get('driver_name', 'Unknown Driver'),
-                            route_name=pair.get('route_name', 'Unknown Route'),
-                            vehicle_status=pair.get('vehicle_status', 'unknown')  # Include vehicle operational status
-                        )
-                        assignments.append(assignment)
-            
-            logging.info(f"[{self.component_name}] Fetched {len(assignments)} vehicle assignments with friendly names")
-            return assignments
-                    
-        except Exception as e:
-            logging.error(f"[{self.component_name}] Error fetching vehicle assignments: {str(e)}")
-            return []
+        """Get vehicle assignments - delegates to API strategy."""
+        return await self.api_strategy.get_vehicle_assignments()
     
     async def get_all_depot_vehicles(self) -> List[Dict[str, Any]]:
-        """Get ALL vehicles in depot regardless of status - for complete inventory tracking."""
-        if not self.api_connected or not self.session:
-            logging.error(f"[{self.component_name}] Cannot fetch depot vehicles - API not connected")
-            return []
-        
-        try:
-            # Get all vehicles from public API (includes all statuses)
-            async with self.session.get(f"{self.api_base_url}/api/v1/vehicles/public", timeout=10) as response:
-                if response.status == 200:
-                    vehicles_data = await response.json()
-                    logging.debug(f"[{self.component_name}] Fetched {len(vehicles_data)} total depot vehicles")
-                    return vehicles_data
-                else:
-                    logging.error(f"[{self.component_name}] Failed to fetch depot vehicles: HTTP {response.status}")
-                    return []
-                    
-        except Exception as e:
-            logging.error(f"[{self.component_name}] Error fetching depot vehicles: {str(e)}")
-            return []
+        """Get ALL vehicles in depot - delegates to API strategy."""
+        return await self.api_strategy.get_all_depot_vehicles()
     
     async def get_driver_assignments(self) -> List[DriverAssignment]:
-        """Get driver assignments using PUBLIC API with human-readable data only - NO UUIDs."""
-        if not self.api_connected or not self.session:
-            logging.error(f"[{self.component_name}] Cannot fetch driver assignments - API not connected")
-            return []
-        
-        try:
-            # Use the search endpoint that provides complete assignment data with human-readable identifiers
-            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", timeout=10) as response:
-                if response.status != 200:
-                    logging.error(f"[{self.component_name}] Failed to fetch driver assignments: HTTP {response.status}")
-                    return []
-                
-                pairs_data = await response.json()
-                assignments = []
-                
-                # Transform search results into DriverAssignment objects
-                for pair in pairs_data:
-                    if pair.get('driver_employment_status') == 'active':
-                        assignment = DriverAssignment(
-                            driver_id=pair.get('driver_license', ''),    # Use license as driver_id (no UUIDs)
-                            driver_name=pair.get('driver_name', ''),
-                            license_number=pair.get('driver_license', ''),
-                            vehicle_id=pair.get('registration', ''),     # Use reg code as vehicle_id (no UUIDs)
-                            route_id=pair.get('route_code', ''),         # Use route code as route_id (no UUIDs)
-                            status="available",  # All active drivers are available
-                            shift_start=pair.get('assignment_date'),
-                            shift_end=None
-                        )
-                        assignments.append(assignment)
-                
-                logging.info(f"[{self.component_name}] Fetched {len(assignments)} driver assignments from Fleet Manager")
-                return assignments
-                    
-        except Exception as e:
-            logging.error(f"[{self.component_name}] Error fetching driver assignments: {str(e)}")
-            return []
+        """Get driver assignments - delegates to API strategy."""
+        return await self.api_strategy.get_driver_assignments()
     
     async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
-        """Get route information and geometry directly by route number from Fleet Manager PUBLIC API."""
-        if not self.api_connected or not self.session:
-            logging.error(f"[{self.component_name}] Cannot fetch route info - Fleet Manager API not connected")
-            return None
-        
-        try:
-            # Step 1: Get route details by route code from Fleet Manager PUBLIC API
-            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}", timeout=10) as route_response:
-                if route_response.status != 200:
-                    logging.error(f"[{self.component_name}] Route {route_code} not found in Fleet Manager: HTTP {route_response.status}")
-                    return None
-                    
-                route_data = await route_response.json()
-                route_name = route_data.get('long_name', f'Route {route_code}')
-                
-                logging.info(f"[{self.component_name}] Found route: {route_name} (code: {route_code})")
-                
-            # Step 2: Get route geometry by route code from Fleet Manager PUBLIC API
-            geometry = None
-            coordinate_count = 0
-            
-            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}/geometry", timeout=10) as geo_response:
-                if geo_response.status != 200:
-                    logging.error(f"[{self.component_name}] Failed to fetch geometry for route {route_code}: HTTP {geo_response.status}")
-                    return None
-                    
-                route_geometry_data = await geo_response.json()
-                geometry = route_geometry_data.get('geometry')
-                
-                if geometry and geometry.get('coordinates'):
-                    coordinate_count = len(geometry['coordinates'])
-                    logging.info(f"[{self.component_name}] ✅ Route {route_name} has {coordinate_count} GPS coordinates from Fleet Manager API")
-                    
-                    # Log first and last coordinates as verification
-                    coords = geometry['coordinates']
-                    if coords:
-                        first_coord = coords[0]
-                        last_coord = coords[-1]
-                        logging.info(f"[{self.component_name}] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
-                else:
-                    logging.error(f"[{self.component_name}] ❌ Route {route_code} geometry is null from Fleet Manager API")
-                    logging.error(f"[{self.component_name}] ❌ Fleet Manager route geometry endpoint is broken - API should return GPS coordinates from route_shapes→shapes join")
-                    return None
-                
-            # Create RouteInfo with complete data from Fleet Manager API
-            route_info = RouteInfo(
-                route_id=route_code,              # Route code (1A, 1B, etc.)
-                route_name=route_name,            # Human-readable route name from Fleet Manager
-                route_type='bus',                 # Bus route type
-                geometry=geometry,                # Complete GPS geometry from Fleet Manager API
-                stops=None,                       # Stops not needed for basic vehicle movement
-                distance_km=None,                 # Distance not needed for basic vehicle movement
-                coordinate_count=coordinate_count, # Number of GPS coordinates
-                shape_id=None                     # Shape ID not needed when we have direct geometry
-            )
-            
-            logging.info(f"[{self.component_name}] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates")
-            return route_info
-                    
-        except Exception as e:
-            logging.error(f"[{self.component_name}] Error fetching route info for {route_code}: {str(e)}")
-            return None
+        """Get route information and geometry - delegates to API strategy."""
+        return await self.api_strategy.get_route_info(route_code)
     
     async def send_routes_to_drivers(self, driver_routes: List[Dict[str, str]]) -> bool:
         """Send route assignments with GPS coordinates to drivers via Fleet Manager API."""
