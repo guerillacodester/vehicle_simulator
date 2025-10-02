@@ -127,33 +127,61 @@
 - ✅ Quick start script (quick_test_socketio.py)
 - ✅ Complete documentation (PHASE_1_SOCKETIO_FOUNDATION_COMPLETE.md)
 
-### 🔴 PHASE 2: Commuter Service with Reservoirs (3-4 Hours)
+### ✅ PHASE 2: Commuter Service with Reservoirs - ARCHITECTURE COMPLETE (October 3, 2025)
 
-#### **2.1 Depot Reservoir Implementation** (60 minutes)
+#### **2.1 Depot Reservoir Implementation** ✅ (COMPLETE)
 
-- **Task**: Create depot reservoir for outbound commuters only
-- **Files**: `commuter_service/depot_reservoir.py`
-- **Expected Outcome**: Queue-based outbound commuter management
+- ✅ **Created depot_reservoir.py** with OUTBOUND-only commuter management
+- ✅ **FIFO Queue per (depot_id, route_id)** for ordered boarding
+- ✅ **Socket.IO Event Handlers**: query_commuters, commuters_found, picked_up
+- ✅ **Proximity Query**: 500m radius for depot location matching
+- **Expected Outcome**: Queue-based outbound commuter management ✓
 
-#### **2.2 Route Reservoir Implementation** (60 minutes)
+#### **2.2 Route Reservoir Implementation** ✅ (COMPLETE)
 
-- **Task**: Create route reservoir for bidirectional commuters
-- **Files**: `commuter_service/route_reservoir.py`
-- **Expected Outcome**: Inbound/outbound commuter spawning along routes
+- ✅ **Created route_reservoir.py** with BIDIRECTIONAL commuter management
+- ✅ **Grid-Based Spatial Indexing**: ~1km cells for efficient proximity queries
+- ✅ **Direction Filtering**: Separate OUTBOUND/INBOUND commuter pools
+- ✅ **Socket.IO Integration**: Query with direction parameter, direction-aware responses
+- **Expected Outcome**: Inbound/outbound commuter spawning along routes ✓
 
-#### **2.3 Statistical Spawning Engine** (45 minutes)
+#### **2.3 PostGIS Geographic Data System** ✅ (COMPLETE)
 
-- **Task**: Implement data-driven commuter spawning algorithms
-- **Files**: `commuter_service/statistical_spawner.py`
-- **Expected Outcome**: Realistic commuter generation based on time/location
+- ✅ **PostGIS 3.5 Installed**: Via Stack Builder, verified working
+- ✅ **Country Lifecycle Hook**: 4 GeoJSON processors (POIs, Places, Landuse, Regions)
+- ✅ **Places Content Type**: Separate from POIs (15k+ records, performance)
+- ✅ **Cascade Delete**: Automatic cleanup of all related geographic data
+- **Expected Outcome**: Strapi-based geographic data management ✓
 
-#### **2.4 Socket.IO Client Integration** (45 minutes)
+#### **2.4 Comprehensive Documentation Suite** ✅ (COMPLETE)
 
-- **Task**: Connect commuter service to Strapi Socket.IO hub
-- **Files**: `commuter_service/socketio_client.py`
-- **Expected Outcome**: Real-time event emission and listening
+- ✅ **FULL_MVP_ARCHITECTURE.md**: Complete technical architecture (600+ lines)
+- ✅ **COMMUTER_SPAWNING_SUMMARY.md**: Depot vs Route spawning (500+ lines)
+- ✅ **HOW_IT_WORKS_SIMPLE.md**: Layman's explanation (1000+ lines)
+- ✅ **CONDUCTOR_ACCESS_MECHANISM.md**: Socket.IO query/response (600+ lines)
+- ✅ **CONDUCTOR_QUERY_LOGIC_CONFIRMED.md**: Depot/route conditional logic (300+ lines)
+- ✅ **INTEGRATION_CHECKLIST.md**: Step-by-step integration guide (500+ lines)
+- **Expected Outcome**: Complete architectural understanding ✓
 
-### 🔴 PHASE 3: Depot Integration (2-3 Hours)
+### 🔴 PHASE 2.5: Geographic Data Import Testing (30 Minutes) - NEXT TASK
+
+#### **2.5.1 Create Test GeoJSON Files** (10 minutes)
+
+- **Task**: Create 4 sample GeoJSON files (10 features each)
+- **Files**: test_pois.geojson, test_places.geojson, test_landuse.geojson, test_regions.geojson
+- **Expected Outcome**: Valid GeoJSON files ready for upload
+
+#### **2.5.2 Test Import Flow via Strapi Admin** (10 minutes)
+
+- **Task**: Upload files via Country content type, verify import status
+- **Expected Outcome**: Status shows "✅ POIs, ✅ Places, ✅ Landuse, ✅ Regions"
+
+#### **2.5.3 Verify Data in Database** (10 minutes)
+
+- **Task**: Query APIs to confirm data imported correctly
+- **Expected Outcome**: All 40 records (10×4) imported with correct coordinates
+
+### 🔴 PHASE 3: Spawner Integration & Testing (2-3 Hours)
 
 #### **3.1 Depot Queue Management** (60 minutes)
 
@@ -169,6 +197,22 @@
 
 #### **3.3 Seat-Based Departure Logic** (30 minutes)
 
+### 🔴 PHASE 3: Vehicle & Depot Integration (2-3 Hours)
+
+ **3.1 Depot Queue Management** (60 minutes)
+
+- **Task**: Implement FIFO queue with seat-based departure logic
+- **Files**: `arknet_transit_simulator/core/depot_queue_manager.py`
+- **Expected Outcome**: Vehicles queue properly, depart when seats filled
+
+ **3.2 Conductor Socket.IO Integration** (45 minutes)
+
+- **Task**: Connect conductor to Socket.IO for real-time commuter queries
+- **Files**: `arknet_transit_simulator/vehicle/conductor.py`
+- **Expected Outcome**: Conductor can query reservoirs and coordinate boarding
+
+ **3.3 Seat-Based Departure Logic** (30 minutes)
+
 - **Task**: Engine starts when seats filled, next vehicle moves to head
 - **Files**: `arknet_transit_simulator/vehicle/driver/navigation/vehicle_driver.py`
 - **Expected Outcome**: Automated departure based on capacity, not time
@@ -178,6 +222,38 @@
 - **Task**: Switch from depot to route reservoir when vehicle departs
 - **Files**: `arknet_transit_simulator/vehicle/conductor.py`
 - **Expected Outcome**: Proximity-based route commuter pickup
+
+### 🔴 PHASE 3.5: API Permissions & Spawner Integration (90 Minutes)
+
+#### **3.5.1 Configure API Permissions for Geographic Data** (15 minutes)
+
+- **Task**: Enable public read access for geographic content types
+- **Files**: Strapi Admin UI → Settings → Users & Permissions
+- **Expected Outcome**: Public API access without authentication
+
+#### **3.2 Connect Spawner to Strapi API** (45 minutes)
+
+- **Task**: Modify poisson_geojson_spawner.py to query Strapi instead of local files
+- **Files**: `commuter_service/poisson_geojson_spawner.py`, update API client
+- **Expected Outcome**: Spawner loads POIs/landuse/regions from database
+
+#### **3.3 Test Depot Boarding Flow** (30 minutes)
+
+- **Task**: Run test script, verify depot commuter spawning and queries
+- **Files**: `test_depot_commuter_communication.py`
+- **Expected Outcome**: Commuters spawn, vehicles query successfully, pickup works
+
+#### **3.4 Test Route Pickup Flow** (30 minutes)
+
+- **Task**: Test bidirectional route commuters with direction filtering
+- **Files**: Create `test_route_bidirectional_flow.py`
+- **Expected Outcome**: OUTBOUND and INBOUND commuters handled separately
+
+#### **3.5 Integrate Conductor with Simulator** (60 minutes)
+
+- **Task**: Add conductor query methods to vehicle/conductor.py
+- **Files**: `arknet_transit_simulator/vehicle/conductor.py`
+- **Expected Outcome**: Conductor queries depot when parked, route when traveling
 
 ### 🔴 PHASE 4: Full Integration Testing (1-2 Hours)
 

@@ -1,0 +1,87 @@
+{
+  "kind": "collectionType",
+  "collectionName": "places",
+  "info": {
+    "singularName": "place",
+    "pluralName": "places",
+    "displayName": "Place",
+    "description": "Geographic place names (cities, towns, villages, localities)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 255
+    },
+    "place_type": {
+      "type": "enumeration",
+      "enum": [
+        "city",
+        "town",
+        "village",
+        "hamlet",
+        "suburb",
+        "neighbourhood",
+        "locality",
+        "island",
+        "other"
+      ],
+      "required": true,
+      "default": "locality"
+    },
+    "latitude": {
+      "type": "decimal",
+      "required": true,
+      "min": -90,
+      "max": 90
+    },
+    "longitude": {
+      "type": "decimal",
+      "required": true,
+      "min": -180,
+      "max": 180
+    },
+    "population": {
+      "type": "integer",
+      "default": 0
+    },
+    "importance": {
+      "type": "decimal",
+      "min": 0,
+      "max": 1,
+      "default": 0.5
+    },
+    "osm_id": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "osm_type": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "tags": {
+      "type": "json"
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "country": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::country.country",
+      "inversedBy": "places"
+    },
+    "region": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::region.region",
+      "inversedBy": "places"
+    }
+  }
+}

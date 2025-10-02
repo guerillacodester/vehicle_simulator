@@ -5,7 +5,7 @@
     "singularName": "country",
     "pluralName": "countries",
     "displayName": "Country",
-    "description": "Countries in the fleet management system"
+    "description": "Countries in the fleet management system with geographic data import"
   },
   "options": {
     "draftAndPublish": false
@@ -84,11 +84,68 @@
       "target": "api::region.region",
       "mappedBy": "country"
     },
+    "places": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::place.place",
+      "mappedBy": "country"
+    },
     "spawn_config": {
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::spawn-config.spawn-config",
       "mappedBy": "country"
+    },
+    "pois_geojson_file": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["files"],
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "landuse_geojson_file": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["files"],
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "regions_geojson_file": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["files"],
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "place_names_geojson_file": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["files"],
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "geodata_import_status": {
+      "type": "text",
+      "default": ""
+    },
+    "geodata_last_import": {
+      "type": "datetime"
     }
   }
 }

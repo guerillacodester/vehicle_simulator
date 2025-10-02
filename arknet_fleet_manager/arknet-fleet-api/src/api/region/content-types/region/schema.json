@@ -86,6 +86,12 @@
       "relation": "oneToMany",
       "target": "api::landuse-zone.landuse-zone",
       "mappedBy": "region"
+    },
+    "places": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::place.place",
+      "mappedBy": "region"
     }
   }
 }
