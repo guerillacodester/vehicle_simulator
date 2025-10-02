@@ -18,10 +18,12 @@
     "@strapi/plugin-cloud": "5.23.5",
     "@strapi/plugin-users-permissions": "5.23.5",
     "@strapi/strapi": "5.23.5",
+    "@types/socket.io": "^3.0.2",
     "pg": "8.8.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
+    "socket.io": "^4.7.2",
     "styled-components": "^6.0.0"
   },
   "devDependencies": {
