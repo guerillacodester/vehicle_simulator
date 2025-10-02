@@ -7,7 +7,7 @@ Verify if depots have proper GPS coordinates and identify missing location data.
 
 import asyncio
 import logging
-from passenger_service.strapi_api_client import StrapiApiClient
+from commuter_service.strapi_api_client import StrapiApiClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -56,7 +56,7 @@ async def check_depot_coordinates():
         
         if depots_without_location > 0:
             print(f"\n⚠️  ISSUE: {depots_without_location} depots missing GPS coordinates!")
-            print(f"   This will break realistic passenger spawning.")
+            print(f"   This will break realistic commuter spawning.")
             print(f"   Need to add proper lat/lon coordinates to depot database.")
             
             # Suggest realistic coordinates for Barbados depots

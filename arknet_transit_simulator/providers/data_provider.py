@@ -210,7 +210,7 @@ class FleetDataProvider:
     def get_vehicles(self) -> List[Dict[str, Any]]:
         """
         Get all vehicles with proper capacity, depot names, and route assignments.
-        FIXED VERSION with 16-passenger capacity and user-friendly data.
+        FIXED VERSION with 16-commuter capacity and user-friendly data.
         """
         self._ensure_api_available()
         
@@ -248,7 +248,7 @@ class FleetDataProvider:
                     'id': vehicle.get('vehicle_id'),  # Keep UUID for internal use
                     'vehicle_name': vehicle.get('reg_code', 'Unknown Vehicle'),  # User-friendly name
                     'license_plate': vehicle.get('reg_code'),
-                    'capacity': 16,  # FIXED: All ZR vans in Barbados have 16-passenger capacity
+                    'capacity': 16,  # FIXED: All ZR vans in Barbados have 16-commuter capacity
                     'fuel_type': None,  # Not available in API
                     'status': vehicle.get('status'),
                     'depot_id': vehicle.get('home_depot_id'),  # Keep for lookups

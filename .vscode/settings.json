@@ -3,6 +3,6 @@
         "./common",
         "./vehicle_depot/vehicle",
         "./world/vehicle",
-        "./passenger_modeler/plugins"
+        "./commuter_modeler/plugins"
     ]
 }

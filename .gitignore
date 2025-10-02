@@ -19,7 +19,7 @@ world/fleet_manager/frontend/.next/
 world/fleet_manager/frontend/node_modules/
 logs/
 logs/
-passenger_modeler/models/generated/barbados_v4_statistical.json
-passenger_modeler/models/generated/barbados.json
-passenger_modeler/models/generated/generated_barbados_model.json
-passenger_modeler/models/generated/test_model.json
+commuter_modeler/models/generated/barbados_v4_statistical.json
+commuter_modeler/models/generated/barbados.json
+commuter_modeler/models/generated/generated_barbados_model.json
+commuter_modeler/models/generated/test_model.json

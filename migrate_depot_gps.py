@@ -3,7 +3,7 @@ Depot GPS Coordinates Migration
 ==============================
 
 Add realistic GPS coordinates to depot records in Strapi database.
-This is CRITICAL for the passenger reservoir system to work properly.
+This is CRITICAL for the commuter reservoir system to work properly.
 """
 
 import asyncio
@@ -113,7 +113,7 @@ async def update_depot_coordinates():
                 
             print(f"\n🎯 DEPOT GPS MIGRATION COMPLETED!")
             print(f"   All depots should now have realistic GPS coordinates.")
-            print(f"   Ready for passenger reservoir spatial spawning!")
+            print(f"   Ready for commuter reservoir spatial spawning!")
             
         except Exception as e:
             print(f"❌ Error updating depot coordinates: {e}")
@@ -171,7 +171,7 @@ async def main():
     print("🚀 DEPOT GPS COORDINATES MIGRATION")
     print("=" * 60)
     print("This will add realistic GPS coordinates to all depot records.")
-    print("Required for passenger reservoir spatial spawning to work correctly.")
+    print("Required for commuter reservoir spatial spawning to work correctly.")
     print()
     
     # Step 1: Update coordinates
@@ -182,7 +182,7 @@ async def main():
     
     if success:
         print(f"\n🎉 MIGRATION SUCCESSFUL!")
-        print(f"   Depot GPS coordinates are now ready for passenger spawning.")
+        print(f"   Depot GPS coordinates are now ready for commuter spawning.")
         print(f"   You can proceed with reservoir system testing.")
     else:
         print(f"\n❌ MIGRATION INCOMPLETE!")
