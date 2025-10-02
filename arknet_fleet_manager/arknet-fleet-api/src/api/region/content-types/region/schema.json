@@ -1,0 +1,91 @@
+{
+  "kind": "collectionType",
+  "collectionName": "regions",
+  "info": {
+    "singularName": "region",
+    "pluralName": "regions",
+    "displayName": "Region / Parish",
+    "description": "Administrative regions within countries (parishes, districts, states)"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": "Sub-country administrative divisions for geographic organization"
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 255
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 50,
+      "unique": false
+    },
+    "region_type": {
+      "type": "enumeration",
+      "enum": [
+        "parish",
+        "district",
+        "state",
+        "province",
+        "municipality",
+        "county",
+        "other"
+      ],
+      "default": "other"
+    },
+    "description": {
+      "type": "text"
+    },
+    "geometry_geojson": {
+      "type": "json"
+    },
+    "center_latitude": {
+      "type": "decimal",
+      "min": -90,
+      "max": 90
+    },
+    "center_longitude": {
+      "type": "decimal",
+      "min": -180,
+      "max": 180
+    },
+    "area_sq_km": {
+      "type": "decimal",
+      "min": 0
+    },
+    "population": {
+      "type": "integer",
+      "min": 0
+    },
+    "tags": {
+      "type": "json",
+      "default": []
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "country": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::country.country",
+      "inversedBy": "regions"
+    },
+    "pois": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::poi.poi",
+      "mappedBy": "region"
+    },
+    "landuse_zones": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::landuse-zone.landuse-zone",
+      "mappedBy": "region"
+    }
+  }
+}

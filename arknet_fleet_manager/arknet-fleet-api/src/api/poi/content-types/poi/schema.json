@@ -1,0 +1,116 @@
+{
+  "kind": "collectionType",
+  "collectionName": "pois",
+  "info": {
+    "singularName": "poi",
+    "pluralName": "pois",
+    "displayName": "Point of Interest (POI)",
+    "description": "Points of interest for passenger spawning (bus stops, markets, clinics, etc.)"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": "Geographic points where passengers spawn/despawn"
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "poi_type": {
+      "type": "enumeration",
+      "enum": [
+        "bus_station",
+        "marketplace",
+        "clinic",
+        "school",
+        "university",
+        "hospital",
+        "shopping_center",
+        "office",
+        "residential",
+        "industrial",
+        "airport",
+        "ferry_terminal",
+        "park",
+        "beach",
+        "restaurant",
+        "hotel",
+        "church",
+        "government",
+        "other"
+      ],
+      "required": true,
+      "default": "other"
+    },
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 255
+    },
+    "description": {
+      "type": "text"
+    },
+    "latitude": {
+      "type": "decimal",
+      "required": true,
+      "min": -90,
+      "max": 90
+    },
+    "longitude": {
+      "type": "decimal",
+      "required": true,
+      "min": -180,
+      "max": 180
+    },
+    "spawn_weight": {
+      "type": "decimal",
+      "default": 1.0,
+      "min": 0,
+      "max": 10
+    },
+    "peak_hour_multiplier": {
+      "type": "decimal",
+      "default": 1.0,
+      "min": 0,
+      "max": 5
+    },
+    "off_peak_multiplier": {
+      "type": "decimal",
+      "default": 1.0,
+      "min": 0,
+      "max": 5
+    },
+    "tags": {
+      "type": "json",
+      "default": []
+    },
+    "osm_id": {
+      "type": "string",
+      "unique": false
+    },
+    "amenity": {
+      "type": "string"
+    },
+    "opening_hours": {
+      "type": "string"
+    },
+    "capacity_estimate": {
+      "type": "integer",
+      "min": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "country": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::country.country",
+      "inversedBy": "pois"
+    },
+    "region": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::region.region",
+      "inversedBy": "pois"
+    }
+  }
+}

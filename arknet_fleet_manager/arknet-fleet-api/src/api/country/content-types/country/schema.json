@@ -65,6 +65,30 @@
       "relation": "oneToMany",
       "target": "api::depot.depot",
       "mappedBy": "country"
+    },
+    "pois": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::poi.poi",
+      "mappedBy": "country"
+    },
+    "landuse_zones": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::landuse-zone.landuse-zone",
+      "mappedBy": "country"
+    },
+    "regions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::region.region",
+      "mappedBy": "country"
+    },
+    "spawn_config": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::spawn-config.spawn-config",
+      "mappedBy": "country"
     }
   }
 }

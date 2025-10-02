@@ -1,0 +1,141 @@
+{
+  "kind": "collectionType",
+  "collectionName": "spawn_configs",
+  "info": {
+    "singularName": "spawn-config",
+    "pluralName": "spawn-configs",
+    "displayName": "Spawn Configuration",
+    "description": "Configuration for passenger spawning algorithms per country"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": "Country-specific spawning parameters and strategies"
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 255
+    },
+    "description": {
+      "type": "text"
+    },
+    "strategy_type": {
+      "type": "enumeration",
+      "enum": [
+        "depot_based",
+        "route_based",
+        "poi_based",
+        "zone_based",
+        "mixed"
+      ],
+      "default": "mixed",
+      "required": true
+    },
+    "base_spawn_rate": {
+      "type": "decimal",
+      "default": 1.0,
+      "min": 0,
+      "max": 100
+    },
+    "peak_hours_start": {
+      "type": "time",
+      "default": "07:00"
+    },
+    "peak_hours_end": {
+      "type": "time",
+      "default": "09:00"
+    },
+    "evening_peak_start": {
+      "type": "time",
+      "default": "16:00"
+    },
+    "evening_peak_end": {
+      "type": "time",
+      "default": "18:00"
+    },
+    "peak_multiplier": {
+      "type": "decimal",
+      "default": 2.0,
+      "min": 0,
+      "max": 10
+    },
+    "off_peak_multiplier": {
+      "type": "decimal",
+      "default": 0.5,
+      "min": 0,
+      "max": 10
+    },
+    "weekend_multiplier": {
+      "type": "decimal",
+      "default": 0.7,
+      "min": 0,
+      "max": 10
+    },
+    "depot_spawn_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "route_spawn_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "poi_spawn_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "zone_spawn_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "max_spawn_radius_km": {
+      "type": "decimal",
+      "default": 5.0,
+      "min": 0,
+      "max": 100
+    },
+    "min_distance_between_spawns_m": {
+      "type": "decimal",
+      "default": 50.0,
+      "min": 0,
+      "max": 1000
+    },
+    "poi_type_weights": {
+      "type": "json",
+      "default": {
+        "bus_station": 3.0,
+        "marketplace": 2.5,
+        "school": 2.0,
+        "hospital": 1.5,
+        "office": 1.8,
+        "residential": 1.2,
+        "shopping_center": 2.2
+      }
+    },
+    "zone_type_weights": {
+      "type": "json",
+      "default": {
+        "residential": 2.0,
+        "commercial": 2.5,
+        "industrial": 1.5,
+        "mixed_use": 2.2
+      }
+    },
+    "time_based_modifiers": {
+      "type": "json",
+      "default": []
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "country": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::country.country",
+      "inversedBy": "spawn_config"
+    }
+  }
+}
