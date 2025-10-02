@@ -1,0 +1,45 @@
+{
+  "description": "Commuter Behavior Configuration for Barbados Transit System",
+  "version": "1.0",
+  "last_updated": "2025-10-02",
+  
+  "walking_speeds": {
+    "default_walking_speed_ms": 1.4,
+    "slow_walking_speed_ms": 1.0,
+    "fast_walking_speed_ms": 1.8
+  },
+  
+  "walking_distances_by_priority": {
+    "max_walking_distance_low_priority": 400,
+    "max_walking_distance_medium_priority": 300,
+    "max_walking_distance_high_priority": 200,
+    "max_walking_distance_critical_priority": 100
+  },
+  
+  "disembark_thresholds_by_area": {
+    "disembark_threshold_urban": 50,
+    "disembark_threshold_suburban": 100,
+    "disembark_threshold_rural": 200
+  },
+  
+  "pickup_flexibility_levels": {
+    "pickup_flexibility_impatient": 0.3,
+    "pickup_flexibility_standard": 0.6,
+    "pickup_flexibility_patient": 0.9
+  },
+  
+  "priority_thresholds": {
+    "low": 0.0,
+    "medium": 0.4,
+    "high": 0.7,
+    "critical": 0.9
+  },
+  
+  "comments": {
+    "walking_speeds": "Based on average human walking speeds (m/s)",
+    "walking_distances": "Maximum distance commuters willing to walk (meters)",
+    "disembark_thresholds": "Distance from destination to request disembark (meters)",
+    "flexibility": "Patience level for pickup optimization (0.0-1.0)",
+    "priority_thresholds": "Cutoff points for priority-based service levels"
+  }
+}
