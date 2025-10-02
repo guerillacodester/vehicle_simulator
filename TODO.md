@@ -97,6 +97,7 @@
 #### **📁 Current File Structure**
 
 **Root Directory (6 files)**:
+
 - `check_depot_gps.py` - GPS validation utility
 - `migrate_depot_gps.py` - GPS migration utility  
 - `simple_commuter_test.py` - Core system test
