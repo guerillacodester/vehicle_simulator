@@ -92,21 +92,25 @@
 ### 🔴 PHASE 1: Socket.IO Foundation (2-3 Hours)
 
 #### **1.1 Strapi Socket.IO Server Setup** (45 minutes)
+
 - **Task**: Configure Socket.IO server in Strapi on port 1337
 - **Files**: `strapi/config/socket.io.js`, `strapi/config/middleware.js`
 - **Expected Outcome**: Real-time websocket server operational
 
 #### **1.2 Message Format Standards** (30 minutes)
+
 - **Task**: Create standardized message formats and event types
 - **Files**: `socketio_message_standards.py`
 - **Expected Outcome**: Consistent event structure across services
 
 #### **1.3 Event Routing & Pub/Sub** (45 minutes)
+
 - **Task**: Implement event routing and basic pub/sub functionality
 - **Files**: `strapi_socketio_router.js`
 - **Expected Outcome**: Events properly routed between services
 
 #### **1.4 Connection Management** (30 minutes)
+
 - **Task**: Handle client connections, disconnections, and reconnection
 - **Files**: `socketio_connection_manager.py`
 - **Expected Outcome**: Robust connection handling with fault tolerance
@@ -114,21 +118,25 @@
 ### 🔴 PHASE 2: Commuter Service with Reservoirs (3-4 Hours)
 
 #### **2.1 Depot Reservoir Implementation** (60 minutes)
+
 - **Task**: Create depot reservoir for outbound commuters only
 - **Files**: `commuter_service/depot_reservoir.py`
 - **Expected Outcome**: Queue-based outbound commuter management
 
 #### **2.2 Route Reservoir Implementation** (60 minutes)
+
 - **Task**: Create route reservoir for bidirectional commuters
 - **Files**: `commuter_service/route_reservoir.py`
 - **Expected Outcome**: Inbound/outbound commuter spawning along routes
 
 #### **2.3 Statistical Spawning Engine** (45 minutes)
+
 - **Task**: Implement data-driven commuter spawning algorithms
 - **Files**: `commuter_service/statistical_spawner.py`
 - **Expected Outcome**: Realistic commuter generation based on time/location
 
 #### **2.4 Socket.IO Client Integration** (45 minutes)
+
 - **Task**: Connect commuter service to Strapi Socket.IO hub
 - **Files**: `commuter_service/socketio_client.py`
 - **Expected Outcome**: Real-time event emission and listening
@@ -136,21 +144,25 @@
 ### 🔴 PHASE 3: Depot Integration (2-3 Hours)
 
 #### **3.1 Depot Queue Management** (60 minutes)
+
 - **Task**: Implement FIFO queue with seat-based departure logic
 - **Files**: `arknet_transit_simulator/core/depot_queue_manager.py`
 - **Expected Outcome**: Vehicles queue properly, depart when seats filled
 
 #### **3.2 Conductor Socket.IO Integration** (45 minutes)
+
 - **Task**: Connect conductor to Socket.IO for real-time commuter queries
 - **Files**: `arknet_transit_simulator/vehicle/conductor.py`
 - **Expected Outcome**: Conductor can query reservoirs and coordinate boarding
 
 #### **3.3 Seat-Based Departure Logic** (30 minutes)
+
 - **Task**: Engine starts when seats filled, next vehicle moves to head
 - **Files**: `arknet_transit_simulator/vehicle/driver/navigation/vehicle_driver.py`
 - **Expected Outcome**: Automated departure based on capacity, not time
 
 #### **3.4 Route Reservoir Access** (45 minutes)
+
 - **Task**: Switch from depot to route reservoir when vehicle departs
 - **Files**: `arknet_transit_simulator/vehicle/conductor.py`
 - **Expected Outcome**: Proximity-based route commuter pickup
@@ -158,14 +170,17 @@
 ### 🔴 PHASE 4: Full Integration Testing (1-2 Hours)
 
 #### **4.1 End-to-End Flow Testing** (30 minutes)
+
 - **Task**: Test complete depot boarding → departure → route pickup flow
 - **Expected Outcome**: Full commuter lifecycle working seamlessly
 
 #### **4.2 Performance & Load Testing** (30 minutes)
+
 - **Task**: Validate system performance with multiple vehicles
 - **Expected Outcome**: System stable under realistic load
 
 #### **4.3 Error Handling & Edge Cases** (30 minutes)
+
 - **Task**: Test disconnections, failures, and recovery scenarios
 - **Expected Outcome**: Robust fault tolerance and graceful degradation
 
