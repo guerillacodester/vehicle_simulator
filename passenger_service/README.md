@@ -5,7 +5,7 @@ This directory contains the **plugin-based country system** for passenger behavi
 ## 🏗️ Architecture Overview
 
 ```text
-passenger_microservice_data/
+passenger_service/
 ├── base/                           # Base plugin system
 │   ├── country_plugin.py         # Abstract base class for plugins
 │   ├── plugin_loader.py          # Plugin discovery and loading
@@ -64,7 +64,7 @@ passenger_microservice_data/
 ### **Basic Plugin Loading**
 
 ```python
-from passenger_microservice_data import get_plugin_manager
+from passenger_service import get_plugin_manager
 
 # Get plugin manager
 manager = get_plugin_manager()
