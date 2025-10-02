@@ -43,6 +43,10 @@ class EnhancedDepotInfo:
     @property
     def capacity(self) -> int:
         return self.depot_data.capacity
+    
+    @property
+    def is_active(self) -> bool:
+        return self.depot_data.is_active
 
 @dataclass
 class EnhancedRouteInfo:
@@ -73,6 +77,18 @@ class EnhancedRouteInfo:
     @property
     def coordinate_count(self) -> int:
         return self.route_data.coordinate_count
+    
+    @property
+    def description(self) -> Optional[str]:
+        return self.route_data.description
+    
+    @property
+    def parishes(self) -> Optional[List[str]]:
+        return self.route_data.parishes
+    
+    @property
+    def is_active(self) -> bool:
+        return self.route_data.is_active
 
 @dataclass
 class PassengerSpawnRequest:
