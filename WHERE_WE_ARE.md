@@ -263,7 +263,7 @@ Invoke-RestMethod -Uri "http://localhost:1337/api/landuse-zones?pagination[pageS
 
 ### **Two-Reservoir Pattern**
 
-```
+```text
 ┌─────────────────┐         ┌─────────────────┐
 │  DEPOT          │         │  ROUTE          │
 │  RESERVOIR      │         │  RESERVOIR      │
@@ -326,7 +326,7 @@ else:  # On route
 
 ### **Strapi Backend (TypeScript)**
 
-```
+```text
 arknet_fleet_manager/arknet-fleet-api/
 ├── src/
 │   ├── api/
@@ -345,7 +345,7 @@ arknet_fleet_manager/arknet-fleet-api/
 
 ### **Python Commuter Service**
 
-```
+```text
 commuter_service/
 ├── depot_reservoir.py              # OUTBOUND commuters, FIFO queue
 ├── route_reservoir.py              # BIDIRECTIONAL commuters, grid index
@@ -360,7 +360,7 @@ commuter_service/
 
 ### **Vehicle Simulator**
 
-```
+```text
 arknet_transit_simulator/
 ├── vehicle/conductor.py            # Needs Socket.IO integration
 ├── vehicle/driver.py               # Route following
@@ -414,7 +414,7 @@ After completing the GeoJSON import:
 - ✅ No errors in Strapi console logs
 - ✅ PostgreSQL performance remains stable
 
-**Ready to proceed to Phase 3: Vehicle Integration**
+**Ready to proceed to Phase 3: Vehicle Integration
 
 ---
 
