@@ -21,6 +21,7 @@
 **Result**: ✅ `npm run build` succeeds without errors
 
 **Fixes Applied**:
+
 - Import statements (fs/promises, existsSync, readFileSync)
 - Type definitions (AmenityMapping, PlaceTypeMapping, LanduseMapping)
 - Entity service calls (added `as any` type assertions)
