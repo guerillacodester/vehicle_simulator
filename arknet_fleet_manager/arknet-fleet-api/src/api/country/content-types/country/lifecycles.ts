@@ -1,5 +1,19 @@
-import fs from 'fs';
+import fs from 'fs/promises';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
+
+// Type definitions
+interface AmenityMapping {
+  [key: string]: string;
+}
+
+interface PlaceTypeMapping {
+  [key: string]: string;
+}
+
+interface LanduseMapping {
+  [key: string]: string;
+}
 
 export default {
   /**
@@ -12,39 +26,39 @@ export default {
     
     try {
       // Delete POIs
-      const pois = await strapi.entityService.findMany('api::poi.poi', {
+      const pois = await strapi.entityService.findMany('api::poi.poi' as any, {
         filters: { country: countryId }
-      });
+      }) as any[];
       console.log(`[Country] Deleting ${pois.length} POIs...`);
       for (const poi of pois) {
-        await strapi.entityService.delete('api::poi.poi', poi.id);
+        await strapi.entityService.delete('api::poi.poi' as any, poi.id);
       }
       
       // Delete Places
-      const places = await strapi.entityService.findMany('api::place.place', {
+      const places = await strapi.entityService.findMany('api::place.place' as any, {
         filters: { country: countryId }
-      });
+      }) as any[];
       console.log(`[Country] Deleting ${places.length} Places...`);
       for (const place of places) {
-        await strapi.entityService.delete('api::place.place', place.id);
+        await strapi.entityService.delete('api::place.place' as any, place.id);
       }
       
       // Delete Landuse Zones
-      const zones = await strapi.entityService.findMany('api::landuse-zone.landuse-zone', {
+      const zones = await strapi.entityService.findMany('api::landuse-zone.landuse-zone' as any, {
         filters: { country: countryId }
-      });
+      }) as any[];
       console.log(`[Country] Deleting ${zones.length} Landuse Zones...`);
       for (const zone of zones) {
-        await strapi.entityService.delete('api::landuse-zone.landuse-zone', zone.id);
+        await strapi.entityService.delete('api::landuse-zone.landuse-zone' as any, zone.id);
       }
       
       // Delete Regions
-      const regions = await strapi.entityService.findMany('api::region.region', {
+      const regions = await strapi.entityService.findMany('api::region.region' as any, {
         filters: { country: countryId }
-      });
+      }) as any[];
       console.log(`[Country] Deleting ${regions.length} Regions...`);
       for (const region of regions) {
-        await strapi.entityService.delete('api::region.region', region.id);
+        await strapi.entityService.delete('api::region.region' as any, region.id);
       }
       
       console.log(`[Country] ✅ Cascade delete complete`);
@@ -87,9 +101,9 @@ export default {
       try {
         await processPOIsGeoJSON(result);
         importResults.push('✅ POIs');
-      } catch (error) {
+      } catch (error: any) {
         console.error('[Country] Error processing POIs:', error);
-        importResults.push(`❌ POIs: ${error.message}`);
+        importResults.push(`❌ POIs: ${error?.message || 'Unknown error'}`);
       }
     }
     
@@ -99,9 +113,9 @@ export default {
       try {
         await processPlacesGeoJSON(result);
         importResults.push('✅ Places');
-      } catch (error) {
+      } catch (error: any) {
         console.error('[Country] Error processing Places:', error);
-        importResults.push(`❌ Places: ${error.message}`);
+        importResults.push(`❌ Places: ${error?.message || 'Unknown error'}`);
       }
     }
     
@@ -111,9 +125,9 @@ export default {
       try {
         await processLanduseGeoJSON(result);
         importResults.push('✅ Landuse');
-      } catch (error) {
+      } catch (error: any) {
         console.error('[Country] Error processing Landuse:', error);
-        importResults.push(`❌ Landuse: ${error.message}`);
+        importResults.push(`❌ Landuse: ${error?.message || 'Unknown error'}`);
       }
     }
     
@@ -123,19 +137,19 @@ export default {
       try {
         await processRegionsGeoJSON(result);
         importResults.push('✅ Regions');
-      } catch (error) {
+      } catch (error: any) {
         console.error('[Country] Error processing Regions:', error);
-        importResults.push(`❌ Regions: ${error.message}`);
+        importResults.push(`❌ Regions: ${error?.message || 'Unknown error'}`);
       }
     }
     
     // Update import status if any files were processed
     if (importResults.length > 0) {
-      await strapi.entityService.update('api::country.country', result.id, {
+      await strapi.entityService.update('api::country.country' as any, result.id, {
         data: {
           geodata_import_status: `${importResults.join(', ')} at ${new Date().toISOString()}`,
           geodata_last_import: new Date()
-        }
+        } as any
       });
     }
   }
@@ -155,11 +169,11 @@ async function processPOIsGeoJSON(country: any) {
   // Read file from uploads directory
   const filePath = path.join(strapi.dirs.static.public, file.url);
   
-  if (!fs.existsSync(filePath)) {
+  if (!existsSync(filePath)) {
     throw new Error(`POIs GeoJSON file not found: ${filePath}`);
   }
   
-  const fileContent = fs.readFileSync(filePath, 'utf-8');
+  const fileContent = readFileSync(filePath, 'utf-8');
   const geojson = JSON.parse(fileContent);
   
   if (!geojson.features || !Array.isArray(geojson.features)) {
@@ -169,14 +183,14 @@ async function processPOIsGeoJSON(country: any) {
   console.log(`[Country] Processing ${geojson.features.length} POI features...`);
   
   // Clear existing POIs for this country
-  const existingPOIs = await strapi.entityService.findMany('api::poi.poi', {
+  const existingPOIs = await strapi.entityService.findMany('api::poi.poi' as any, {
     filters: { country: country.id }
-  });
+  }) as any[];
   
   console.log(`[Country] Deleting ${existingPOIs.length} existing POIs...`);
   
   for (const poi of existingPOIs) {
-    await strapi.entityService.delete('api::poi.poi', poi.id);
+    await strapi.entityService.delete('api::poi.poi' as any, poi.id);
   }
   
   // Import POIs in chunks (to avoid timeout)
@@ -242,7 +256,7 @@ async function processPOIsGeoJSON(country: any) {
  * Helper: Map OSM amenity to POI type
  */
 function mapAmenityType(amenity: string): string {
-  const mapping = {
+  const mapping: AmenityMapping = {
     'bus_station': 'bus_station',
     'bus_stop': 'bus_station',
     'marketplace': 'marketplace',
@@ -270,7 +284,8 @@ function mapAmenityType(amenity: string): string {
     'community_centre': 'community_center'
   };
   
-  return mapping[amenity?.toLowerCase()] || 'other';
+  const key = amenity?.toLowerCase();
+  return (key && mapping[key]) ? mapping[key] : 'other';
 }
 
 /**
@@ -361,7 +376,7 @@ async function processPlacesGeoJSON(country: any) {
  * Helper: Map OSM place type to Place type
  */
 function mapPlaceType(placeType: string): string {
-  const mapping = {
+  const mapping: PlaceTypeMapping = {
     'city': 'city',
     'town': 'town',
     'village': 'village',
@@ -373,7 +388,8 @@ function mapPlaceType(placeType: string): string {
     'isolated_dwelling': 'hamlet'
   };
   
-  return mapping[placeType?.toLowerCase()] || 'other';
+  const key = placeType?.toLowerCase();
+  return (key && mapping[key]) ? mapping[key] : 'other';
 }
 
 /**
@@ -425,13 +441,13 @@ async function processLanduseGeoJSON(country: any) {
       if (feature.geometry.type === 'Polygon' && coords[0]?.length > 0) {
         // Simple centroid: average of all points in outer ring
         const ring = coords[0];
-        lat = ring.reduce((sum, p) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum, p) => sum + p[0], 0) / ring.length;
+        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
+        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
       } else if (feature.geometry.type === 'MultiPolygon' && coords[0]?.[0]?.length > 0) {
         // Use first polygon's outer ring
         const ring = coords[0][0];
-        lat = ring.reduce((sum, p) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum, p) => sum + p[0], 0) / ring.length;
+        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
+        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
       } else if (feature.geometry.type === 'Point') {
         [lon, lat] = coords;
       } else {
@@ -488,7 +504,7 @@ async function processLanduseGeoJSON(country: any) {
  * Helper: Map OSM landuse to zone type
  */
 function mapLanduseType(landuse: string): string {
-  const mapping = {
+  const mapping: LanduseMapping = {
     'residential': 'residential',
     'commercial': 'commercial',
     'industrial': 'industrial',
@@ -504,7 +520,8 @@ function mapLanduseType(landuse: string): string {
     'brownfield': 'mixed_use'
   };
   
-  return mapping[landuse?.toLowerCase()] || 'mixed_use';
+  const key = landuse?.toLowerCase();
+  return (key && mapping[key]) ? mapping[key] : 'mixed_use';
 }
 
 /**
@@ -555,12 +572,12 @@ async function processRegionsGeoJSON(country: any) {
       
       if (feature.geometry.type === 'Polygon' && coords[0]?.length > 0) {
         const ring = coords[0];
-        lat = ring.reduce((sum, p) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum, p) => sum + p[0], 0) / ring.length;
+        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
+        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
       } else if (feature.geometry.type === 'MultiPolygon' && coords[0]?.[0]?.length > 0) {
         const ring = coords[0][0];
-        lat = ring.reduce((sum, p) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum, p) => sum + p[0], 0) / ring.length;
+        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
+        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
       } else {
         console.warn(`[Country] Unsupported geometry type for region: ${feature.geometry.type}`);
         continue;
