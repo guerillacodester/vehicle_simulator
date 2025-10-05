@@ -12,6 +12,8 @@ export default [
           'img-src': ["'self'", 'data:', 'blob:', 'https://market-assets.strapi.io', 'https://*.tile.openstreetmap.org'],
         },
       },
+      // Allow GeoJSON file uploads (application/json, application/geo+json)
+      allowedFileTypes: ['image', 'video', 'audio', 'file'],
     },
   },
   'strapi::cors',

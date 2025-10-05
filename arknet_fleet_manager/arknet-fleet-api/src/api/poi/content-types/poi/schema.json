@@ -48,13 +48,13 @@
       "type": "text"
     },
     "latitude": {
-      "type": "decimal",
+      "type": "float",
       "required": true,
       "min": -90,
       "max": 90
     },
     "longitude": {
-      "type": "decimal",
+      "type": "float",
       "required": true,
       "min": -180,
       "max": 180
