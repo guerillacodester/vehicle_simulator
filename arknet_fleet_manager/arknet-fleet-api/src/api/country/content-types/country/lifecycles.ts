@@ -72,6 +72,7 @@ export default {
    * Track which GeoJSON files have changed
    */
   async beforeUpdate(event: any) {
+    debugger; // BREAKPOINT: Country beforeUpdate triggered
     const { data, where } = event.params;
     
     console.log('[Country] ===== BEFORE UPDATE DEBUG =====');
@@ -118,6 +119,7 @@ export default {
    * Process all uploaded GeoJSON files
    */
   async afterUpdate(event: any) {
+    debugger; // BREAKPOINT: Country afterUpdate triggered
     const { result } = event;
     const filesChanged = event.state?.filesChanged || {};
     const filesRemoved = event.state?.filesRemoved || {};
@@ -257,6 +259,7 @@ export default {
  * Process POIs GeoJSON file and import to database
  */
 async function processPOIsGeoJSON(country: any) {
+  debugger; // BREAKPOINT: POI processing started
   const file = country.pois_geojson_file;
   
   if (!file) {
@@ -331,6 +334,11 @@ async function processPOIsGeoJSON(country: any) {
       // Map OSM amenity to POI type
       const poiType = mapAmenityType(props.amenity);
       
+      // Debug: Log the mapping for troubleshooting
+      if (props.amenity && poiType === 'other') {
+        console.log(`[Country] DEBUG: Unmapped amenity type "${props.amenity}" -> defaulting to "other"`);
+      }
+      
       poisToCreate.push({
         name: props.name || props.amenity || 'Unnamed POI',
         poi_type: poiType,
@@ -348,11 +356,15 @@ async function processPOIsGeoJSON(country: any) {
       });
     }
     
-    // Bulk create chunk
+    // Bulk create chunk using entityService to properly handle relations
     if (poisToCreate.length > 0) {
-      await strapi.db.query('api::poi.poi').createMany({
-        data: poisToCreate
-      });
+      // NOTE: createMany() bypasses Strapi's ORM and doesn't populate junction tables
+      // We must use entityService.create() for each POI to establish the country relationship
+      for (const poiData of poisToCreate) {
+        await strapi.entityService.create('api::poi.poi' as any, {
+          data: poiData
+        });
+      }
       
       importedCount += poisToCreate.length;
       console.log(`[Country] POI import progress: ${importedCount}/${geojson.features.length}`);
@@ -369,35 +381,93 @@ async function processPOIsGeoJSON(country: any) {
  */
 function mapAmenityType(amenity: string): string {
   const mapping: AmenityMapping = {
+    // Transit
     'bus_station': 'bus_station',
     'bus_stop': 'bus_station',
+    'ferry_terminal': 'ferry_terminal',
+    'airport': 'airport',
+    
+    // Commercial
     'marketplace': 'marketplace',
     'market': 'marketplace',
+    'shopping_centre': 'shopping_center',
+    'shopping_center': 'shopping_center',
+    'mall': 'shopping_center',
+    'supermarket': 'shopping_center',
+    'shop': 'shopping_center',
+    
+    // Healthcare
     'hospital': 'hospital',
     'clinic': 'clinic',
     'doctors': 'clinic',
+    'pharmacy': 'clinic',
+    'dentist': 'clinic',
+    
+    // Education
     'school': 'school',
     'college': 'university',
     'university': 'university',
-    'police': 'police_station',
-    'fire_station': 'fire_station',
-    'place_of_worship': 'place_of_worship',
-    'church': 'place_of_worship',
-    'mosque': 'place_of_worship',
-    'temple': 'place_of_worship',
-    'bank': 'bank',
-    'post_office': 'post_office',
+    'kindergarten': 'school',
+    
+    // Religious
+    'place_of_worship': 'church',
+    'church': 'church',
+    'mosque': 'church',
+    'temple': 'church',
+    'synagogue': 'church',
+    
+    // Government/Public
+    'police': 'government',
+    'fire_station': 'government',
+    'post_office': 'government',
+    'townhall': 'government',
+    'courthouse': 'government',
+    'embassy': 'government',
+    'library': 'government',
+    
+    // Business
+    'bank': 'office',
+    'office': 'office',
+    'company': 'office',
+    
+    // Hospitality
     'restaurant': 'restaurant',
-    'cafe': 'cafe',
-    'pharmacy': 'pharmacy',
-    'fuel': 'fuel_station',
-    'parking': 'parking',
-    'library': 'library',
-    'community_centre': 'community_center'
+    'cafe': 'restaurant',
+    'fast_food': 'restaurant',
+    'food_court': 'restaurant',
+    'bar': 'restaurant',
+    'pub': 'restaurant',
+    'hotel': 'hotel',
+    'motel': 'hotel',
+    'guesthouse': 'hotel',
+    'hostel': 'hotel',
+    
+    // Recreation
+    'park': 'park',
+    'playground': 'park',
+    'sports_centre': 'park',
+    'stadium': 'park',
+    'beach': 'beach',
+    
+    // Residential/Industrial areas
+    'residential': 'residential',
+    'industrial': 'industrial',
+    'commercial': 'office',
+    
+    // Fuel and services
+    'fuel': 'other',
+    'parking': 'other',
+    'atm': 'other',
+    'community_centre': 'other',
+    'social_facility': 'other'
   };
   
-  const key = amenity?.toLowerCase();
-  return (key && mapping[key]) ? mapping[key] : 'other';
+  if (!amenity) {
+    return 'other';
+  }
+  
+  const key = amenity.toLowerCase().trim();
+  return mapping[key] || 'other';
 }
 
 /**

@@ -2,36 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Depot Mode",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/arknet_transit_simulator/main.py",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "args": ["--mode", "depot", "--duration", "30"]
-    },
-    {
-      "name": "Debug Basic Mode", 
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/arknet_transit_simulator/main.py",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "args": ["--mode", "basic", "--duration", "30"]
-    },
-    {
-      "name": "Debug Depot (Verbose)",
-      "type": "debugpy",
-      "request": "launch", 
-      "program": "${workspaceFolder}/arknet_transit_simulator/main.py",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "args": ["--mode", "depot", "--debug", "--duration", "60"]
-    },
-    {
       "type": "node",
       "request": "launch",
       "name": "Debug Strapi (Develop)",
@@ -40,7 +10,6 @@
       "cwd": "${workspaceFolder}/arknet_fleet_manager/arknet-fleet-api",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "outputCapture": "std",
       "skipFiles": [
         "<node_internals>/**",
         "**/node_modules/**"
@@ -51,12 +20,7 @@
       "sourceMaps": true,
       "smartStep": true,
       "restart": true,
-      "timeout": 120000,
-      "serverReadyAction": {
-        "pattern": "Server listening",
-        "uriFormat": "http://localhost:1337",
-        "action": "debugWithChrome"
-      }
+      "timeout": 60000
     },
     {
       "type": "node",
