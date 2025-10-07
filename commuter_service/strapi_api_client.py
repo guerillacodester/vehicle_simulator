@@ -313,6 +313,131 @@ class StrapiApiClient:
             logging.warning(f"Plugin config not available for {country_code}: {e}")
             return None
     
+    # ==================== GEOGRAPHIC DATA ACCESS METHODS ====================
+    
+    async def get_pois_by_country(self, country_id: int) -> List[Dict[str, Any]]:
+        """Get all POIs for a specific country"""
+        self._ensure_connected()
+        
+        try:
+            response = await self.session.get(
+                f"{self.base_url}/api/pois",
+                params={
+                    "filters[country][id][$eq]": country_id,
+                    "pagination[pageSize]": 2000,  # Large limit for geographic data
+                    "sort": "name:asc"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            pois = data.get('data', [])
+            logging.info(f"✅ Retrieved {len(pois)} POIs for country {country_id}")
+            return pois
+            
+        except Exception as e:
+            logging.error(f"❌ Failed to get POIs for country {country_id}: {e}")
+            return []
+    
+    async def get_places_by_country(self, country_id: int) -> List[Dict[str, Any]]:
+        """Get all Places (place names) for a specific country"""
+        self._ensure_connected()
+        
+        try:
+            response = await self.session.get(
+                f"{self.base_url}/api/places",
+                params={
+                    "filters[country][id][$eq]": country_id,
+                    "pagination[pageSize]": 10000,  # Very large limit for place names
+                    "sort": "name:asc"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            places = data.get('data', [])
+            logging.info(f"✅ Retrieved {len(places)} Places for country {country_id}")
+            return places
+            
+        except Exception as e:
+            logging.error(f"❌ Failed to get Places for country {country_id}: {e}")
+            return []
+    
+    async def get_landuse_zones_by_country(self, country_id: int) -> List[Dict[str, Any]]:
+        """Get all Landuse zones for a specific country"""
+        self._ensure_connected()
+        
+        try:
+            response = await self.session.get(
+                f"{self.base_url}/api/landuse-zones",
+                params={
+                    "filters[country][id][$eq]": country_id,
+                    "pagination[pageSize]": 5000,  # Large limit for landuse zones
+                    "sort": "zone_type:asc"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            zones = data.get('data', [])
+            logging.info(f"✅ Retrieved {len(zones)} Landuse zones for country {country_id}")
+            return zones
+            
+        except Exception as e:
+            logging.error(f"❌ Failed to get Landuse zones for country {country_id}: {e}")
+            return []
+    
+    async def get_regions_by_country(self, country_id: int) -> List[Dict[str, Any]]:
+        """Get all Regions for a specific country"""
+        self._ensure_connected()
+        
+        try:
+            response = await self.session.get(
+                f"{self.base_url}/api/regions",
+                params={
+                    "filters[country][id][$eq]": country_id,
+                    "pagination[pageSize]": 1000,  # Moderate limit for regions
+                    "sort": "name:asc"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            regions = data.get('data', [])
+            logging.info(f"✅ Retrieved {len(regions)} Regions for country {country_id}")
+            return regions
+            
+        except Exception as e:
+            logging.error(f"❌ Failed to get Regions for country {country_id}: {e}")
+            return []
+    
+    async def get_country_by_code(self, country_code: str) -> Optional[Dict[str, Any]]:
+        """Get country information by country code"""
+        self._ensure_connected()
+        
+        try:
+            response = await self.session.get(
+                f"{self.base_url}/api/countries",
+                params={
+                    "filters[code][$eq]": country_code.upper(),
+                    "pagination[pageSize]": 1
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            countries = data.get('data', [])
+            if countries:
+                logging.info(f"✅ Retrieved country info for {country_code}")
+                return countries[0]
+            else:
+                logging.warning(f"No country found with code {country_code}")
+                return None
+            
+        except Exception as e:
+            logging.error(f"❌ Failed to get country {country_code}: {e}")
+            return None
+
     async def health_check(self) -> Dict[str, Any]:
         """Perform a health check on the API connection"""
         try:

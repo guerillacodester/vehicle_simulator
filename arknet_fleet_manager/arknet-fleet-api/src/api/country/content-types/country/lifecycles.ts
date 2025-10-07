@@ -106,11 +106,23 @@ export default {
     
     // Track which GeoJSON files are being updated or removed
     event.state = event.state || {};
+    
+    // More precise change detection - only trigger if file ID actually changed
+    const currentPoiFileId = currentCountry?.pois_geojson_file?.id;
+    const currentPlacesFileId = currentCountry?.place_names_geojson_file?.id;
+    const currentLanduseFileId = currentCountry?.landuse_geojson_file?.id;
+    const currentRegionsFileId = currentCountry?.regions_geojson_file?.id;
+    
+    const newPoiFileId = data.pois_geojson_file?.id || data.pois_geojson_file;
+    const newPlacesFileId = data.place_names_geojson_file?.id || data.place_names_geojson_file;
+    const newLanduseFileId = data.landuse_geojson_file?.id || data.landuse_geojson_file;
+    const newRegionsFileId = data.regions_geojson_file?.id || data.regions_geojson_file;
+    
     event.state.filesChanged = {
-      pois: data.hasOwnProperty('pois_geojson_file'),
-      places: data.hasOwnProperty('place_names_geojson_file'),
-      landuse: data.hasOwnProperty('landuse_geojson_file'),
-      regions: data.hasOwnProperty('regions_geojson_file')
+      pois: data.hasOwnProperty('pois_geojson_file') && (currentPoiFileId !== newPoiFileId),
+      places: data.hasOwnProperty('place_names_geojson_file') && (currentPlacesFileId !== newPlacesFileId),
+      landuse: data.hasOwnProperty('landuse_geojson_file') && (currentLanduseFileId !== newLanduseFileId),
+      regions: data.hasOwnProperty('regions_geojson_file') && (currentRegionsFileId !== newRegionsFileId)
     };
     
     // Track which files are being removed
@@ -121,6 +133,12 @@ export default {
       landuse: data.hasOwnProperty('landuse_geojson_file') && data.landuse_geojson_file === null && !!(currentCountry?.landuse_geojson_file?.id || currentCountry?.landuse_geojson_file),
       regions: data.hasOwnProperty('regions_geojson_file') && data.regions_geojson_file === null && !!(currentCountry?.regions_geojson_file?.id || currentCountry?.regions_geojson_file)
     };
+    
+    console.log('[Country] File ID comparison:');
+    console.log('  POI: current =', currentPoiFileId, 'new =', newPoiFileId);
+    console.log('  Places: current =', currentPlacesFileId, 'new =', newPlacesFileId);
+    console.log('  Landuse: current =', currentLanduseFileId, 'new =', newLanduseFileId);
+    console.log('  Regions: current =', currentRegionsFileId, 'new =', newRegionsFileId);
     
     console.log('[Country] File changes detected:', event.state.filesChanged);
     console.log('[Country] File removals detected:', event.state.filesRemoved);
@@ -228,19 +246,20 @@ export default {
     if (shouldDeleteRegions) {
       console.log('[Country] Regions GeoJSON file removed or set to null - checking for existing Regions...');
       try {
-        const existingRegions = await strapi.entityService.findMany('api::region.region' as any, {
-          filters: { country: result.id }
-        }) as any[];
+        // First check how many Regions exist for this country
+        const existingRegions = await strapi.db.query('api::region.region').findMany({
+          where: { country: result.id }
+        });
         
         if (existingRegions.length > 0) {
           console.log(`[Country] Found ${existingRegions.length} existing Regions - deleting them...`);
           
-          for (const region of existingRegions) {
-            await strapi.entityService.delete('api::region.region' as any, region.id);
-          }
+          const deletedCount = await strapi.db.query('api::region.region').deleteMany({
+            where: { country: result.id }
+          });
           
-          console.log(`[Country] ✅ Deleted ${existingRegions.length} Regions`);
-          importResults.push(`🗑️ Deleted ${existingRegions.length} Regions`);
+          console.log(`[Country] ✅ Deleted ${deletedCount} Regions`);
+          importResults.push(`🗑️ Deleted ${deletedCount} Regions`);
         } else {
           console.log('[Country] No Regions found for this country - nothing to delete');
         }
@@ -707,8 +726,8 @@ async function processLanduseGeoJSON(country: any) {
       zonesToCreate.push({
         name: props.name || `${zoneType} Zone`,
         zone_type: zoneType,
-        center_lat: lat,
-        center_lon: lon,
+        center_latitude: lat,
+        center_longitude: lon,
         geometry_geojson: geometryGeoJSON,
         osm_id: props.osm_id || props.id,
         tags: props.tags ? JSON.stringify(props.tags) : null,
@@ -721,13 +740,17 @@ async function processLanduseGeoJSON(country: any) {
       });
     }
     
-    // Bulk create chunk
-    if (zonesToCreate.length > 0) {
-      await strapi.db.query('api::landuse-zone.landuse-zone').createMany({
-        data: zonesToCreate
+    // Create zones individually to establish relationships properly
+    // We must use entityService.create() for each zone to establish the country relationship
+    for (const zoneData of zonesToCreate) {
+      await strapi.entityService.create('api::landuse-zone.landuse-zone' as any, {
+        data: zoneData
       });
       
-      importedCount += zonesToCreate.length;
+      importedCount++;
+    }
+    
+    if (zonesToCreate.length > 0) {
       console.log(`[Country] Landuse import progress: ${importedCount}/${geojson.features.length}`);
     }
   }
@@ -746,19 +769,20 @@ function mapLanduseType(landuse: string): string {
     'commercial': 'commercial',
     'industrial': 'industrial',
     'retail': 'commercial',
-    'education': 'education',
+    'education': 'institutional',        // Map education to institutional
     'institutional': 'institutional',
     'recreation_ground': 'recreation',
     'park': 'recreation',
-    'grass': 'green_space',
-    'forest': 'green_space',
-    'farmland': 'agricultural',
+    'grass': 'forest',                   // Map grass to forest (closest match)
+    'forest': 'forest',
+    'farmland': 'farmland',              // Map to farmland (allowed value)
+    'agricultural': 'farmland',          // Map agricultural to farmland
     'construction': 'mixed_use',
     'brownfield': 'mixed_use'
   };
   
   const key = landuse?.toLowerCase();
-  return (key && mapping[key]) ? mapping[key] : 'mixed_use';
+  return (key && mapping[key]) ? mapping[key] : 'other';  // Use 'other' as fallback
 }
 
 /**

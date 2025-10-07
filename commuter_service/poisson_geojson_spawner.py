@@ -45,57 +45,69 @@ class PopulationZone:
 
 
 class GeoJSONDataLoader:
-    """Loads and processes GeoJSON files for population-based spawning"""
+    """Loads and processes GeoJSON data from Strapi API for population-based spawning"""
     
-    def __init__(self, geojson_dir: str = "passenger_service/geojson_data"):
-        self.geojson_dir = Path(geojson_dir)
+    def __init__(self, api_client: StrapiApiClient):
+        self.api_client = api_client
         self.population_zones: List[PopulationZone] = []
         self.amenity_zones: List[PopulationZone] = []
         self.transport_hubs: List[Dict[str, Any]] = []
+        self.country_id: Optional[int] = None
         
     async def load_geojson_data(self, country_code: str = "barbados") -> bool:
-        """Load all GeoJSON files for a country"""
+        """Load all GeoJSON data from Strapi API for a country"""
         try:
-            # Load different types of GeoJSON data
-            await self._load_landuse_data(country_code)
-            await self._load_amenities_data(country_code)
-            await self._load_names_data(country_code)
-            await self._load_busstops_data(country_code)
+            # Get country information
+            country_data = await self.api_client.get_country_by_code(country_code.upper())
+            if not country_data:
+                logging.error(f"❌ Country {country_code} not found in database")
+                return False
             
-            logging.info(f"✅ Loaded GeoJSON data: {len(self.population_zones)} population zones, "
+            self.country_id = country_data['id']
+            logging.info(f"🌍 Loading geographic data for {country_data['name']} (ID: {self.country_id})")
+            
+            # Load different types of GeoJSON data from API
+            await self._load_landuse_data_from_api()
+            await self._load_amenities_data_from_api()
+            await self._load_places_data_from_api()
+            await self._load_regions_data_from_api()
+            
+            logging.info(f"✅ Loaded GeoJSON data from API: {len(self.population_zones)} population zones, "
                         f"{len(self.amenity_zones)} amenity zones, {len(self.transport_hubs)} transport hubs")
             return True
             
         except Exception as e:
-            logging.error(f"❌ Failed to load GeoJSON data: {e}")
+            logging.error(f"❌ Failed to load GeoJSON data from API: {e}")
             return False
     
-    async def _load_landuse_data(self, country_code: str):
-        """Load land use data for population estimation"""
-        landuse_file = self.geojson_dir / f"{country_code}_landuse.geojson"
-        
-        if not landuse_file.exists():
-            logging.warning(f"Land use file not found: {landuse_file}")
+    async def _load_landuse_data_from_api(self):
+        """Load land use data from Strapi API for population estimation"""
+        if not self.country_id:
+            logging.warning("No country ID set for landuse data loading")
             return
+            
+        landuse_zones = await self.api_client.get_landuse_zones_by_country(self.country_id)
+        logging.info(f"📊 Loading {len(landuse_zones)} landuse zones from API")
         
-        with open(landuse_file, 'r') as f:
-            landuse_data = json.load(f)
-        
-        for feature in landuse_data.get('features', []):
+        for zone_data in landuse_zones:
             try:
-                geometry = shape(feature['geometry'])
-                properties = feature.get('properties', {})
+                # Extract geometry from Strapi format
+                geometry_data = zone_data.get('geometry')
+                if not geometry_data:
+                    continue
                 
-                # Extract land use type
-                landuse_type = properties.get('landuse', properties.get('type', 'unknown'))
+                geometry = shape(geometry_data)
+                
+                # Extract landuse type
+                landuse_type = zone_data.get('landuse_type', 'unknown')
                 
                 # Calculate population density based on land use
-                population_density = self._estimate_population_density(landuse_type, properties)
+                population_density = self._estimate_population_density(landuse_type, zone_data)
                 
                 if population_density > 0:
                     # Create population zone
                     zone = PopulationZone(
-                        zone_id=f"landuse_{len(self.population_zones)}",
+                        zone_id=f"landuse_{zone_data['id']}",
                         center_point=self._get_geometry_center(geometry),
                         geometry=geometry,
                         base_population=int(geometry.area * 1000000 * population_density),  # Rough estimate
@@ -106,96 +118,109 @@ class GeoJSONDataLoader:
                     self.population_zones.append(zone)
                     
             except Exception as e:
-                logging.debug(f"Skipping invalid landuse feature: {e}")
+                logging.debug(f"Skipping invalid landuse zone {zone_data.get('id', 'unknown')}: {e}")
     
-    async def _load_amenities_data(self, country_code: str):
-        """Load amenities data for activity-based spawning"""
-        amenities_file = self.geojson_dir / f"{country_code}_amenities.geojson"
-        
-        if not amenities_file.exists():
-            logging.warning(f"Amenities file not found: {amenities_file}")
+    async def _load_amenities_data_from_api(self):
+        """Load amenities data from Strapi API for activity-based spawning"""
+        if not self.country_id:
+            logging.warning("No country ID set for amenities data loading")
             return
+            
+        pois = await self.api_client.get_pois_by_country(self.country_id)
+        logging.info(f"🎯 Loading {len(pois)} POIs from API")
         
-        with open(amenities_file, 'r') as f:
-            amenities_data = json.load(f)
-        
-        for feature in amenities_data.get('features', []):
+        for poi_data in pois:
             try:
-                geometry = shape(feature['geometry'])
-                properties = feature.get('properties', {})
+                # Create point geometry from lat/lon
+                lat = poi_data.get('latitude')
+                lon = poi_data.get('longitude')
+                if lat is None or lon is None:
+                    continue
                 
-                # Extract amenity type
-                amenity_type = properties.get('amenity', properties.get('type', 'unknown'))
+                geometry = Point(lon, lat)  # Point(x, y) = Point(lon, lat)
+                
+                # Extract amenity/POI type
+                poi_type = poi_data.get('poi_type', 'unknown')
                 
                 # Calculate activity multiplier
-                activity_level = self._estimate_activity_level(amenity_type, properties)
+                activity_level = self._estimate_activity_level(poi_type, poi_data)
                 
                 if activity_level > 0:
                     zone = PopulationZone(
-                        zone_id=f"amenity_{len(self.amenity_zones)}",
-                        center_point=self._get_geometry_center(geometry),
+                        zone_id=f"poi_{poi_data['id']}",
+                        center_point=(lat, lon),
                         geometry=geometry,
-                        base_population=0,  # Amenities don't have residential population
-                        zone_type=amenity_type,
+                        base_population=0,  # POIs don't have residential population
+                        zone_type=poi_type,
                         spawn_rate_per_hour=activity_level,
-                        peak_hours=self._get_amenity_peak_hours(amenity_type)
+                        peak_hours=self._get_amenity_peak_hours(poi_type)
                     )
                     self.amenity_zones.append(zone)
                     
             except Exception as e:
-                logging.debug(f"Skipping invalid amenity feature: {e}")
+                logging.debug(f"Skipping invalid POI {poi_data.get('id', 'unknown')}: {e}")
     
-    async def _load_names_data(self, country_code: str):
-        """Load place names for enhanced zone identification"""
-        names_file = self.geojson_dir / f"{country_code}_names.geojson"
-        
-        if not names_file.exists():
-            logging.warning(f"Names file not found: {names_file}")
+    async def _load_places_data_from_api(self):
+        """Load place names from Strapi API for enhanced zone identification"""
+        if not self.country_id:
+            logging.warning("No country ID set for places data loading")
             return
+            
+        places = await self.api_client.get_places_by_country(self.country_id)
+        logging.info(f"📍 Loading {len(places)} places from API")
         
-        with open(names_file, 'r') as f:
-            names_data = json.load(f)
-        
-        # Use names data to enhance existing zones with better identification
-        for feature in names_data.get('features', []):
+        # Use places data to enhance existing zones with better identification
+        for place_data in places:
             try:
-                geometry = shape(feature['geometry'])
-                properties = feature.get('properties', {})
+                # Create point geometry from lat/lon or use geometry if available
+                geometry_data = place_data.get('geometry')
+                lat = place_data.get('latitude')
+                lon = place_data.get('longitude')
                 
-                name = properties.get('name', properties.get('place', ''))
-                place_type = properties.get('place', properties.get('type', 'unknown'))
+                if geometry_data:
+                    geometry = shape(geometry_data)
+                elif lat is not None and lon is not None:
+                    geometry = Point(lon, lat)
+                else:
+                    continue
+                
+                name = place_data.get('name', '')
+                place_type = place_data.get('place_type', 'unknown')
                 
                 # Enhance nearby population zones with place names
                 center = self._get_geometry_center(geometry)
                 self._enhance_nearby_zones(center, name, place_type)
                 
             except Exception as e:
-                logging.debug(f"Skipping invalid name feature: {e}")
+                logging.debug(f"Skipping invalid place {place_data.get('id', 'unknown')}: {e}")
     
-    async def _load_busstops_data(self, country_code: str):
-        """Load bus stops as transport hubs"""
-        busstops_file = self.geojson_dir / f"{country_code}_busstops.geojson"
-        
-        if not busstops_file.exists():
-            logging.warning(f"Bus stops file not found: {busstops_file}")
+    async def _load_regions_data_from_api(self):
+        """Load regions from Strapi API as administrative boundaries"""
+        if not self.country_id:
+            logging.warning("No country ID set for regions data loading")
             return
+            
+        regions = await self.api_client.get_regions_by_country(self.country_id)
+        logging.info(f"🗺️ Loading {len(regions)} regions from API")
         
-        with open(busstops_file, 'r') as f:
-            busstops_data = json.load(f)
-        
-        for feature in busstops_data.get('features', []):
+        for region_data in regions:
             try:
-                geometry = shape(feature['geometry'])
-                properties = feature.get('properties', {})
+                # Extract geometry from Strapi format
+                geometry_data = region_data.get('geometry')
+                if not geometry_data:
+                    continue
                 
-                stop_info = {
-                    'id': f"stop_{len(self.transport_hubs)}",
-                    'name': properties.get('name', f"Bus Stop {len(self.transport_hubs)}"),
+                geometry = shape(geometry_data)
+                
+                region_info = {
+                    'id': f"region_{region_data['id']}",
+                    'name': region_data.get('name', f"Region {region_data['id']}"),
                     'coordinates': self._get_geometry_center(geometry),
-                    'type': 'bus_stop',
-                    'geometry': geometry
+                    'type': 'administrative_region',
+                    'geometry': geometry,
+                    'region_type': region_data.get('region_type', 'unknown')
                 }
-                self.transport_hubs.append(stop_info)
+                self.transport_hubs.append(region_info)  # Using transport_hubs for now
                 
             except Exception as e:
                 logging.debug(f"Skipping invalid bus stop feature: {e}")
@@ -295,9 +320,9 @@ class GeoJSONDataLoader:
 class PoissonGeoJSONSpawner:
     """Poisson-based passenger spawning using GeoJSON population data"""
     
-    def __init__(self, api_client: StrapiApiClient, geojson_dir: str = "passenger_service/geojson_data"):
+    def __init__(self, api_client: StrapiApiClient):
         self.api_client = api_client
-        self.geojson_loader = GeoJSONDataLoader(geojson_dir)
+        self.geojson_loader = GeoJSONDataLoader(self.api_client)
         self.routes: List[RouteData] = []
         self.depots: List[DepotData] = []
         self._initialized = False
