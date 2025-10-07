@@ -585,9 +585,26 @@ async function processPlacesGeoJSON(country: any) {
       const props = feature.properties || {};
       const coords = feature.geometry?.coordinates;
       
-      if (!coords || coords.length < 2) continue;
+      if (!coords) continue;
       
-      const [lon, lat] = coords;
+      // Calculate centroid based on geometry type
+      let lat, lon;
+      
+      if (feature.geometry.type === 'Point') {
+        [lon, lat] = coords;
+      } else if (feature.geometry.type === 'LineString' && coords.length > 0) {
+        // Calculate centroid of LineString by averaging all points
+        lat = coords.reduce((sum: number, p: any) => sum + p[1], 0) / coords.length;
+        lon = coords.reduce((sum: number, p: any) => sum + p[0], 0) / coords.length;
+      } else if (feature.geometry.type === 'Polygon' && coords[0]?.length > 0) {
+        // Calculate centroid of outer ring
+        const ring = coords[0];
+        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
+        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
+      } else {
+        console.warn(`[Country] Unsupported geometry type for place: ${feature.geometry.type}`);
+        continue;
+      }
       
       // Validate coordinates
       if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
@@ -595,8 +612,8 @@ async function processPlacesGeoJSON(country: any) {
         continue;
       }
       
-      // Map OSM place type
-      const placeType = mapPlaceType(props.place || props.type);
+      // For barbados_names.json - road/place names without type info, use 'locality'
+      const placeType = props.place || props.type ? mapPlaceType(props.place || props.type) : 'locality';
       
       placesToCreate.push({
         name: props.name || 'Unnamed Place',
@@ -612,13 +629,17 @@ async function processPlacesGeoJSON(country: any) {
       });
     }
     
-    // Bulk create chunk
-    if (placesToCreate.length > 0) {
-      await strapi.db.query('api::place.place').createMany({
-        data: placesToCreate
+    // Create places individually to establish relationships properly
+    // We must use entityService.create() for each place to establish the country relationship
+    for (const placeData of placesToCreate) {
+      await strapi.entityService.create('api::place.place' as any, {
+        data: placeData
       });
       
-      importedCount += placesToCreate.length;
+      importedCount++;
+    }
+    
+    if (placesToCreate.length > 0) {
       console.log(`[Country] Places import progress: ${importedCount}/${geojson.features.length}`);
     }
   }
@@ -647,6 +668,8 @@ function mapPlaceType(placeType: string): string {
   const key = placeType?.toLowerCase();
   return (key && mapping[key]) ? mapping[key] : 'other';
 }
+
+
 
 /**
  * Process Landuse GeoJSON file and import to database
