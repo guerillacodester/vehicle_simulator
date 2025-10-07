@@ -30,45 +30,57 @@ async def test_individual_endpoints():
         
         print("🧪 Testing Direct HTTP Calls:")
         
-        # Test POIs endpoint
+        # Test POIs endpoint with high pagination
         try:
-            response = await session.get(f"{base_url}/api/pois")
+            response = await session.get(f"{base_url}/api/pois?pagination[limit]=50000")
             print(f"  📍 /api/pois: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 print(f"    Total POIs in system: {len(data.get('data', []))}")
+                meta = data.get('meta', {}).get('pagination', {})
+                if meta:
+                    print(f"    Pagination total: {meta.get('total', 'unknown')}")
         except Exception as e:
             print(f"    ❌ POIs endpoint error: {e}")
         
-        # Test Places endpoint
+        # Test Places endpoint with high pagination
         try:
-            response = await session.get(f"{base_url}/api/places")
+            response = await session.get(f"{base_url}/api/places?pagination[limit]=50000")
             print(f"  🏘️  /api/places: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 print(f"    Total Places in system: {len(data.get('data', []))}")
+                meta = data.get('meta', {}).get('pagination', {})
+                if meta:
+                    print(f"    Pagination total: {meta.get('total', 'unknown')}")
         except Exception as e:
             print(f"    ❌ Places endpoint error: {e}")
         
-        # Test Landuse Zones endpoint
+        # Test Landuse Zones endpoint with high pagination
         try:
-            response = await session.get(f"{base_url}/api/landuse-zones")
+            response = await session.get(f"{base_url}/api/landuse-zones?pagination[limit]=50000")
             print(f"  🌾 /api/landuse-zones: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 print(f"    Total Landuse zones in system: {len(data.get('data', []))}")
+                meta = data.get('meta', {}).get('pagination', {})
+                if meta:
+                    print(f"    Pagination total: {meta.get('total', 'unknown')}")
             else:
                 print(f"    ❌ Response: {response.text[:200]}")
         except Exception as e:
             print(f"    ❌ Landuse zones endpoint error: {e}")
         
-        # Test Regions endpoint
+        # Test Regions endpoint with high pagination
         try:
-            response = await session.get(f"{base_url}/api/regions")
+            response = await session.get(f"{base_url}/api/regions?pagination[limit]=50000")
             print(f"  🗺️  /api/regions: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 print(f"    Total Regions in system: {len(data.get('data', []))}")
+                meta = data.get('meta', {}).get('pagination', {})
+                if meta:
+                    print(f"    Pagination total: {meta.get('total', 'unknown')}")
         except Exception as e:
             print(f"    ❌ Regions endpoint error: {e}")
     
