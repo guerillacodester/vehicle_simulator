@@ -87,10 +87,22 @@ export default {
       populate: ['pois_geojson_file', 'place_names_geojson_file', 'landuse_geojson_file', 'regions_geojson_file']
     }) as any;
     
-    console.log('[Country] Current POI file:', currentCountry?.pois_geojson_file?.id || 'NONE');
-    console.log('[Country] Current Places file:', currentCountry?.place_names_geojson_file?.id || 'NONE');
-    console.log('[Country] Current Landuse file:', currentCountry?.landuse_geojson_file?.id || 'NONE');
-    console.log('[Country] Current Regions file:', currentCountry?.regions_geojson_file?.id || 'NONE');
+    console.log('[Country] Current POI file:', currentCountry?.pois_geojson_file?.id || 'NONE', '(full object exists:', !!currentCountry?.pois_geojson_file, ')');
+    console.log('[Country] Current Places file:', currentCountry?.place_names_geojson_file?.id || 'NONE', '(full object exists:', !!currentCountry?.place_names_geojson_file, ')');
+    console.log('[Country] Current Landuse file:', currentCountry?.landuse_geojson_file?.id || 'NONE', '(full object exists:', !!currentCountry?.landuse_geojson_file, ')');
+    console.log('[Country] Current Regions file:', currentCountry?.regions_geojson_file?.id || 'NONE', '(full object exists:', !!currentCountry?.regions_geojson_file, ')');
+    
+    // Check if there are actually POIs/Places/etc in the database for this country
+    try {
+      const existingPOIsCount = await strapi.db.query('api::poi.poi').count({ where: { country: where.id } });
+      const existingPlacesCount = await strapi.db.query('api::place.place').count({ where: { country: where.id } });
+      const existingLanduseCount = await strapi.db.query('api::landuse-zone.landuse-zone').count({ where: { country: where.id } });
+      const existingRegionsCount = await strapi.db.query('api::region.region').count({ where: { country: where.id } });
+      
+      console.log('[Country] Existing data in DB - POIs:', existingPOIsCount, 'Places:', existingPlacesCount, 'Landuse:', existingLanduseCount, 'Regions:', existingRegionsCount);
+    } catch (error: any) {
+      console.log('[Country] Could not check existing data counts:', error?.message || error);
+    }
     
     // Track which GeoJSON files are being updated or removed
     event.state = event.state || {};
@@ -104,10 +116,10 @@ export default {
     // Track which files are being removed
     // File is removed if: data contains the field AND it's set to null AND there was a previous file
     event.state.filesRemoved = {
-      pois: data.hasOwnProperty('pois_geojson_file') && data.pois_geojson_file === null && currentCountry?.pois_geojson_file !== null,
-      places: data.hasOwnProperty('place_names_geojson_file') && data.place_names_geojson_file === null && currentCountry?.place_names_geojson_file !== null,
-      landuse: data.hasOwnProperty('landuse_geojson_file') && data.landuse_geojson_file === null && currentCountry?.landuse_geojson_file !== null,
-      regions: data.hasOwnProperty('regions_geojson_file') && data.regions_geojson_file === null && currentCountry?.regions_geojson_file !== null
+      pois: data.hasOwnProperty('pois_geojson_file') && data.pois_geojson_file === null && !!(currentCountry?.pois_geojson_file?.id || currentCountry?.pois_geojson_file),
+      places: data.hasOwnProperty('place_names_geojson_file') && data.place_names_geojson_file === null && !!(currentCountry?.place_names_geojson_file?.id || currentCountry?.place_names_geojson_file),
+      landuse: data.hasOwnProperty('landuse_geojson_file') && data.landuse_geojson_file === null && !!(currentCountry?.landuse_geojson_file?.id || currentCountry?.landuse_geojson_file),
+      regions: data.hasOwnProperty('regions_geojson_file') && data.regions_geojson_file === null && !!(currentCountry?.regions_geojson_file?.id || currentCountry?.regions_geojson_file)
     };
     
     console.log('[Country] File changes detected:', event.state.filesChanged);
@@ -126,69 +138,112 @@ export default {
     
     const importResults = [];
     
-    // Delete POIs if file was removed
-    if (filesRemoved.pois) {
-      console.log('[Country] POIs GeoJSON file removed - deleting all POIs...');
+    // Delete POIs if file was removed OR if file is set to null and POIs exist
+    const shouldDeletePOIs = filesRemoved.pois || (filesChanged.pois && !result.pois_geojson_file);
+    if (shouldDeletePOIs) {
+      console.log('[Country] POIs GeoJSON file removed or set to null - checking for existing POIs...');
       try {
-        // Use bulk delete for efficiency and transaction safety
-        const deletedCount = await strapi.db.query('api::poi.poi').deleteMany({
+        // First check how many POIs exist for this country
+        const existingPOIs = await strapi.db.query('api::poi.poi').findMany({
           where: { country: result.id }
         });
         
-        console.log(`[Country] ✅ Deleted ${deletedCount} POIs`);
-        importResults.push(`🗑️ Deleted ${deletedCount} POIs`);
+        if (existingPOIs.length > 0) {
+          console.log(`[Country] Found ${existingPOIs.length} existing POIs - deleting them...`);
+          
+          // Use bulk delete for efficiency and transaction safety
+          const deletedCount = await strapi.db.query('api::poi.poi').deleteMany({
+            where: { country: result.id }
+          });
+          
+          console.log(`[Country] ✅ Deleted ${deletedCount} POIs`);
+          importResults.push(`🗑️ Deleted ${deletedCount} POIs`);
+        } else {
+          console.log('[Country] No POIs found for this country - nothing to delete');
+        }
       } catch (error: any) {
         console.error('[Country] Error deleting POIs:', error);
         importResults.push(`❌ POI deletion failed: ${error?.message || 'Unknown error'}`);
       }
     }
     
-    // Delete Places if file was removed
-    if (filesRemoved.places) {
-      console.log('[Country] Places GeoJSON file removed - deleting all Places...');
+    // Delete Places if file was removed OR if file is set to null and Places exist
+    const shouldDeletePlaces = filesRemoved.places || (filesChanged.places && !result.place_names_geojson_file);
+    if (shouldDeletePlaces) {
+      console.log('[Country] Places GeoJSON file removed or set to null - checking for existing Places...');
       try {
-        const deletedCount = await strapi.db.query('api::place.place').deleteMany({
+        // First check how many Places exist for this country
+        const existingPlaces = await strapi.db.query('api::place.place').findMany({
           where: { country: result.id }
         });
         
-        console.log(`[Country] ✅ Deleted ${deletedCount} Places`);
-        importResults.push(`🗑️ Deleted ${deletedCount} Places`);
+        if (existingPlaces.length > 0) {
+          console.log(`[Country] Found ${existingPlaces.length} existing Places - deleting them...`);
+          
+          const deletedCount = await strapi.db.query('api::place.place').deleteMany({
+            where: { country: result.id }
+          });
+          
+          console.log(`[Country] ✅ Deleted ${deletedCount} Places`);
+          importResults.push(`🗑️ Deleted ${deletedCount} Places`);
+        } else {
+          console.log('[Country] No Places found for this country - nothing to delete');
+        }
       } catch (error: any) {
         console.error('[Country] Error deleting Places:', error);
         importResults.push(`❌ Place deletion failed: ${error?.message || 'Unknown error'}`);
       }
     }
     
-    // Delete Landuse zones if file was removed
-    if (filesRemoved.landuse) {
-      console.log('[Country] Landuse GeoJSON file removed - deleting all Landuse zones...');
+    // Delete Landuse zones if file was removed OR if file is set to null and Landuse zones exist
+    const shouldDeleteLanduse = filesRemoved.landuse || (filesChanged.landuse && !result.landuse_geojson_file);
+    if (shouldDeleteLanduse) {
+      console.log('[Country] Landuse GeoJSON file removed or set to null - checking for existing Landuse zones...');
       try {
-        const deletedCount = await strapi.db.query('api::landuse-zone.landuse-zone').deleteMany({
+        // First check how many Landuse zones exist for this country
+        const existingLanduse = await strapi.db.query('api::landuse-zone.landuse-zone').findMany({
           where: { country: result.id }
         });
         
-        console.log(`[Country] ✅ Deleted ${deletedCount} Landuse zones`);
-        importResults.push(`🗑️ Deleted ${deletedCount} Landuse zones`);
+        if (existingLanduse.length > 0) {
+          console.log(`[Country] Found ${existingLanduse.length} existing Landuse zones - deleting them...`);
+          
+          const deletedCount = await strapi.db.query('api::landuse-zone.landuse-zone').deleteMany({
+            where: { country: result.id }
+          });
+          
+          console.log(`[Country] ✅ Deleted ${deletedCount} Landuse zones`);
+          importResults.push(`🗑️ Deleted ${deletedCount} Landuse zones`);
+        } else {
+          console.log('[Country] No Landuse zones found for this country - nothing to delete');
+        }
       } catch (error: any) {
         console.error('[Country] Error deleting Landuse zones:', error);
         importResults.push(`❌ Landuse deletion failed: ${error?.message || 'Unknown error'}`);
       }
     }
     
-    // Delete Regions if file was removed
-    if (filesRemoved.regions) {
-      console.log('[Country] Regions GeoJSON file removed - deleting all Regions...');
+    // Delete Regions if file was removed OR if file is set to null and Regions exist
+    const shouldDeleteRegions = filesRemoved.regions || (filesChanged.regions && !result.regions_geojson_file);
+    if (shouldDeleteRegions) {
+      console.log('[Country] Regions GeoJSON file removed or set to null - checking for existing Regions...');
       try {
         const existingRegions = await strapi.entityService.findMany('api::region.region' as any, {
           filters: { country: result.id }
         }) as any[];
         
-        for (const region of existingRegions) {
-          await strapi.entityService.delete('api::region.region' as any, region.id);
+        if (existingRegions.length > 0) {
+          console.log(`[Country] Found ${existingRegions.length} existing Regions - deleting them...`);
+          
+          for (const region of existingRegions) {
+            await strapi.entityService.delete('api::region.region' as any, region.id);
+          }
+          
+          console.log(`[Country] ✅ Deleted ${existingRegions.length} Regions`);
+          importResults.push(`🗑️ Deleted ${existingRegions.length} Regions`);
+        } else {
+          console.log('[Country] No Regions found for this country - nothing to delete');
         }
-        
-        console.log(`[Country] ✅ Deleted ${existingRegions.length} Regions`);
-        importResults.push(`🗑️ Deleted ${existingRegions.length} Regions`);
       } catch (error: any) {
         console.error('[Country] Error deleting Regions:', error);
         importResults.push(`❌ Region deletion failed: ${error?.message || 'Unknown error'}`);
