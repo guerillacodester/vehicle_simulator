@@ -1,8 +1,8 @@
 # ArkNet Transit Vehicle Simulator - Updated TODO
 
-## 🎯 CURRENT FOCUS: STEP 5 - PLUGIN-COMPATIBLE RESERVOIR ARCHITECTURE
+## 🎯 CURRENT FOCUS: STEP 6 - PRODUCTION API INTEGRATION
 
-### **⚡ IMMEDIATE NEXT ACTION: Data Source Abstraction Implementation**
+### **⚡ IMMEDIATE NEXT ACTION: Replace Simulated Data with Live API Integration**
 
 **SUCCESS CRITERIA FOR STEP 5 (6/6 tests required):**
 
