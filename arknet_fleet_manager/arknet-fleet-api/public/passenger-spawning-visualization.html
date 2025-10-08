@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Passenger Spawning Visualization</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 300;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .controls-panel {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .time-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .time-slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .time-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        
+        .time-display {
+            font-weight: 600;
+            color: #333;
+            min-width: 80px;
+            text-align: center;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .route-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            position: relative;
+        }
+        
+        .route-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .route-dropdown-btn {
+            padding: 8px 16px;
+            border: 2px solid #28a745;
+            background: white;
+            color: #28a745;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .route-dropdown-btn:hover {
+            background: #28a745;
+            color: white;
+        }
+        
+        .route-dropdown-content {
+            display: none;
+            position: absolute;
+            background: white;
+            min-width: 200px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            z-index: 1000;
+            top: 100%;
+            left: 0;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .route-dropdown.active .route-dropdown-content {
+            display: block;
+        }
+        
+        .route-item {
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .route-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .route-item:last-child {
+            border-bottom: none;
+        }
+        
+        .route-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        
+        .route-info {
+            flex: 1;
+        }
+        
+        .route-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .route-details {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .filter-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .playback-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .play-btn {
+            padding: 10px 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s ease;
+        }
+        
+        .play-btn:hover {
+            background: #218838;
+        }
+        
+        .play-btn.playing {
+            background: #dc3545;
+        }
+        
+        .stats-panel {
+            background: white;
+            padding: 10px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .stats-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stats-value {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        #map {
+            height: calc(100vh - 180px);
+            width: 100%;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        .loading-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .popup-custom {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .popup-custom .location-type {
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+        
+        .popup-custom .location-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .popup-custom .spawn-info {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .controls-panel {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            
+            .time-control {
+                min-width: auto;
+            }
+            
+            .filter-controls, .playback-controls {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚌 Real-Time Passenger Spawning Visualization</h1>
+        <div class="subtitle">Live temporal analysis of passenger generation across depots, routes, and POIs</div>
+    </div>
+    
+    <div class="controls-panel">
+        <div class="time-control">
+            <label>Time of Day:</label>
+            <input type="range" class="time-slider" id="timeSlider" min="0" max="23" value="8" step="1">
+            <div class="time-display" id="timeDisplay">08:00</div>
+        </div>
+        
+        <div class="filter-controls">
+            <label>Show:</label>
+            <button class="filter-btn active" data-filter="depot">Depots</button>
+            <button class="filter-btn active" data-filter="route">Routes</button>
+            <button class="filter-btn active" data-filter="poi">POIs</button>
+        </div>
+        
+        <div class="route-controls">
+            <div class="route-dropdown" id="routeDropdown">
+                <button class="route-dropdown-btn" id="routeDropdownBtn">
+                    🚌 Routes <span id="routeCount">0</span> ▼
+                </button>
+                <div class="route-dropdown-content" id="routeDropdownContent">
+                    <!-- Route items will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="playback-controls">
+            <button class="play-btn" id="playBtn">▶ Play</button>
+            <label>
+                Speed:
+                <select id="speedSelect">
+                    <option value="500">0.5x</option>
+                    <option value="1000" selected>1x</option>
+                    <option value="2000">2x</option>
+                    <option value="5000">5x</option>
+                </select>
+            </label>
+        </div>
+    </div>
+    
+    <div class="stats-panel">
+        <div class="stats-item">
+            <span class="legend-dot" style="background: #ff6b6b;"></span>
+            <span>Depot Spawns: <span class="stats-value" id="depotCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span class="legend-dot" style="background: #4ecdc4;"></span>
+            <span>Route Spawns: <span class="stats-value" id="routeCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span class="legend-dot" style="background: #45b7d1;"></span>
+            <span>POI Spawns: <span class="stats-value" id="poiCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span>Total Active: <span class="stats-value" id="totalCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span>Peak Hour: <span class="stats-value" id="peakHour">--</span></span>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div>Loading passenger spawning data...</div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    
+    <script>
+        // Configuration
+        const CONFIG = {
+            API_BASE: 'http://localhost:1337/api',
+            BARBADOS_BOUNDS: [[13.0396, -59.6489], [13.3356, -59.4206]],
+            BARBADOS_CENTER: [13.1879, -59.5348],
+            SPAWN_SIMULATION_SAMPLES: 100, // Number of spawn samples per hour per location
+            COLORS: {
+                depot: '#ff6b6b',
+                route: '#4ecdc4', 
+                poi: '#45b7d1'
+            }
+        };
+        
+        // Global state
+        let map;
+        let passengerLayers = {
+            depot: L.layerGroup(),
+            route: L.layerGroup(), 
+            poi: L.layerGroup()
+        };
+        let routeLayers = {}; // Store route polylines by route ID
+        let selectedRoutes = new Set(); // Track which routes are selected
+        let baseData = {
+            depots: [],
+            routes: [],
+            pois: []
+        };
+        let isPlaying = false;
+        let playInterval = null;
+        let currentHour = 8;
+        let activeFilters = new Set(['depot', 'route', 'poi']);
+        
+        // Initialize the application
+        async function init() {
+            try {
+                initializeMap();
+                await loadBaseData();
+                setupEventListeners();
+                await generateSpawningData(currentHour);
+                hideLoading();
+                updateDisplay();
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                document.getElementById('loading').innerHTML = 
+                    '<div style="color: red;">❌ Failed to load data. Please check API connection.</div>';
+            }
+        }
+        
+        // Initialize the Leaflet map
+        function initializeMap() {
+            map = L.map('map').setView(CONFIG.BARBADOS_CENTER, 11);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+            
+            // Add layer groups to map
+            Object.values(passengerLayers).forEach(layer => {
+                layer.addTo(map);
+            });
+            
+            // Fit map to Barbados bounds
+            map.fitBounds(CONFIG.BARBADOS_BOUNDS, { padding: [20, 20] });
+        }
+        
+        // Load base geographic data from API
+        async function loadBaseData() {
+            console.log('Loading base geographic data...');
+            
+            // Load depots
+            const depotResponse = await fetch(`${CONFIG.API_BASE}/depots?filters[is_active][$eq]=true&pagination[pageSize]=100`);
+            const depotData = await depotResponse.json();
+            baseData.depots = depotData.data.filter(depot => depot.latitude && depot.longitude);
+            
+            // Load routes  
+            const routeResponse = await fetch(`${CONFIG.API_BASE}/routes?filters[is_active][$eq]=true&pagination[pageSize]=100`);
+            const routeData = await routeResponse.json();
+            baseData.routes = routeData.data;
+            
+            // Load POIs
+            const poiResponse = await fetch(`${CONFIG.API_BASE}/pois?pagination[pageSize]=100`);
+            const poiData = await poiResponse.json();
+            baseData.pois = poiData.data.filter(poi => poi.latitude && poi.longitude);
+            
+            console.log(`Loaded: ${baseData.depots.length} depots, ${baseData.routes.length} routes, ${baseData.pois.length} POIs`);
+            
+            // Load route geometries and populate dropdown
+            await loadRouteGeometries();
+            populateRouteDropdown();
+        }
+        
+        // Load route geometries from API
+        async function loadRouteGeometries() {
+            console.log('Loading route geometries...');
+            
+            for (let route of baseData.routes) {
+                try {
+                    // Get ALL route shapes for this route (not just default)
+                    const shapeResponse = await fetch(
+                        `${CONFIG.API_BASE}/route-shapes?filters[route_id][$eq]=${route.short_name}`
+                    );
+                    const shapeData = await shapeResponse.json();
+                    
+                    if (shapeData.data && shapeData.data.length > 0) {
+                        console.log(`Loading ${shapeData.data.length} shape segments for route ${route.short_name}`);
+                        
+                        // Create separate polylines for each shape segment (connect the dots properly!)
+                        const routePolylines = [];
+                        let totalPoints = 0;
+                        
+                        // Process each shape segment to create individual polylines
+                        for (let i = 0; i < shapeData.data.length; i++) {
+                            const shapeRecord = shapeData.data[i];
+                            
+                            // Get the actual coordinates from shapes table
+                            const coordResponse = await fetch(
+                                `${CONFIG.API_BASE}/shapes?filters[shape_id][$eq]=${shapeRecord.shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000`
+                            );
+                            const coordData = await coordResponse.json();
+                            
+                            if (coordData.data && coordData.data.length > 0) {
+                                console.log(`  Shape ${i+1}/${shapeData.data.length} - ${shapeRecord.shape_id.substring(0,8)}...: ${coordData.data.length} points`);
+                                
+                                // Convert shape points to coordinates (properly sequenced)
+                                const shapeCoords = coordData.data
+                                    .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence)
+                                    .map(point => [point.shape_pt_lat, point.shape_pt_lon]);
+                                
+                                // Create polyline for THIS shape segment only
+                                const segmentPolyline = L.polyline(shapeCoords, {
+                                    color: getRouteColor(route.short_name),
+                                    weight: 3,
+                                    opacity: 0.8
+                                });
+                                
+                                // Add popup for this segment
+                                segmentPolyline.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">ROUTE SEGMENT</div>
+                                        <div class="location-name">${route.short_name} - Segment ${i+1}</div>
+                                        <div class="spawn-info">
+                                            Points in segment: ${coordData.data.length}<br>
+                                            Shape ID: ${shapeRecord.shape_id.substring(0,12)}...<br>
+                                            Default: ${shapeRecord.is_default ? 'Yes' : 'No'}<br>
+                                            Sequence: ${Math.min(...coordData.data.map(p => p.shape_pt_sequence))} - ${Math.max(...coordData.data.map(p => p.shape_pt_sequence))}
+                                        </div>
+                                    </div>
+                                `);
+                                
+                                routePolylines.push(segmentPolyline);
+                                totalPoints += coordData.data.length;
+                            }
+                        }
+                        
+                        // Create layer group with all segment polylines
+                        const routeGroup = L.layerGroup(routePolylines);
+                        
+                        // Store the route layer and metadata
+                        routeLayers[route.short_name] = routeGroup;
+                        route.totalPoints = totalPoints;
+                        
+                        console.log(`✅ Loaded route ${route.short_name} with ${totalPoints} individual points across ${shapeData.data.length} shape segments`);
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Failed to load geometry for route ${route.short_name}:`, error);
+                }
+            }
+        }
+        
+        // Get color for route based on route ID
+        function getRouteColor(routeId) {
+            const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22'];
+            let hash = 0;
+            for (let i = 0; i < routeId.length; i++) {
+                hash = routeId.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return colors[Math.abs(hash) % colors.length];
+        }
+        
+        // Populate the route dropdown
+        function populateRouteDropdown() {
+            const dropdown = document.getElementById('routeDropdownContent');
+            const routeCountSpan = document.querySelector('#routeDropdown .route-dropdown-btn span');
+            
+            dropdown.innerHTML = '';
+            
+            if (baseData.routes.length === 0) {
+                dropdown.innerHTML = '<div class="route-item">No routes available</div>';
+                routeCountSpan.textContent = '0';
+                return;
+            }
+            
+            routeCountSpan.textContent = baseData.routes.length;
+            
+            baseData.routes.forEach(route => {
+                const routeItem = document.createElement('div');
+                routeItem.className = 'route-item';
+                routeItem.innerHTML = `
+                    <input type="checkbox" class="route-checkbox" data-route-id="${route.short_name}" 
+                           id="route-${route.short_name}">
+                    <div class="route-info">
+                        <div class="route-name">${route.short_name}</div>
+                        <div class="route-details">
+                            ${route.long_name || 'No description'} 
+                            ${route.route_length_km ? `• ${route.route_length_km.toFixed(1)}km` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Add click handler
+                const checkbox = routeItem.querySelector('.route-checkbox');
+                checkbox.addEventListener('change', (e) => {
+                    toggleRouteDisplay(route.short_name, e.target.checked);
+                });
+                
+                // Make the whole item clickable
+                routeItem.addEventListener('click', (e) => {
+                    if (e.target.type !== 'checkbox') {
+                        checkbox.checked = !checkbox.checked;
+                        toggleRouteDisplay(route.short_name, checkbox.checked);
+                    }
+                });
+                
+                dropdown.appendChild(routeItem);
+            });
+        }
+        
+        // Toggle route display on map
+        function toggleRouteDisplay(routeId, show) {
+            const polyline = routeLayers[routeId];
+            
+            if (!polyline) return;
+            
+            if (show) {
+                selectedRoutes.add(routeId);
+                map.addLayer(polyline);
+            } else {
+                selectedRoutes.delete(routeId);
+                map.removeLayer(polyline);
+            }
+        }
+        
+        // Generate realistic spawning data using production algorithms
+        async function generateSpawningData(hour) {
+            console.log(`Generating spawning data for hour ${hour}...`);
+            
+            // Clear existing layers
+            Object.values(passengerLayers).forEach(layer => layer.clearLayers());
+            
+            let counts = { depot: 0, route: 0, poi: 0 };
+            
+            // Simulate depot spawning
+            for (const depot of baseData.depots) {
+                const spawnRate = calculateDepotSpawnRate(depot, hour);
+                const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES));
+                
+                for (let i = 0; i < spawnCount; i++) {
+                    // Add small random offset to show multiple passengers
+                    const lat = depot.latitude + (Math.random() - 0.5) * 0.001;
+                    const lon = depot.longitude + (Math.random() - 0.5) * 0.001;
+                    
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 4,
+                        fillColor: CONFIG.COLORS.depot,
+                        color: 'white',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
+                    
+                    marker.bindPopup(`
+                        <div class="popup-custom">
+                            <div class="location-type">DEPOT</div>
+                            <div class="location-name">${depot.name}</div>
+                            <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                            Capacity: ${depot.capacity} passengers<br>
+                            Spawn Rate: ${spawnRate.toFixed(2)}/hour</div>
+                        </div>
+                    `);
+                    
+                    passengerLayers.depot.addLayer(marker);
+                    counts.depot++;
+                }
+            }
+            
+            // Simulate route spawning (passengers along route paths)
+            for (const route of baseData.routes) {
+                if (route.geometry_coordinates && route.geometry_coordinates.length > 0) {
+                    const spawnRate = calculateRouteSpawnRate(route, hour);
+                    const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES));
+                    
+                    for (let i = 0; i < spawnCount; i++) {
+                        // Pick random point along route
+                        const randomCoord = route.geometry_coordinates[
+                            Math.floor(Math.random() * route.geometry_coordinates.length)
+                        ];
+                        
+                        if (randomCoord && randomCoord.length >= 2) {
+                            const lat = randomCoord[1] + (Math.random() - 0.5) * 0.0005;
+                            const lon = randomCoord[0] + (Math.random() - 0.5) * 0.0005;
+                            
+                            const marker = L.circleMarker([lat, lon], {
+                                radius: 3,
+                                fillColor: CONFIG.COLORS.route,
+                                color: 'white',
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                            
+                            marker.bindPopup(`
+                                <div class="popup-custom">
+                                    <div class="location-type">ROUTE STOP</div>
+                                    <div class="location-name">Route ${route.short_name}</div>
+                                    <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                                    Route: ${route.long_name}<br>
+                                    Spawn Rate: ${spawnRate.toFixed(2)}/hour</div>
+                                </div>
+                            `);
+                            
+                            passengerLayers.route.addLayer(marker);
+                            counts.route++;
+                        }
+                    }
+                }
+            }
+            
+            // Simulate POI spawning
+            for (const poi of baseData.pois.slice(0, 50)) { // Limit for performance
+                const spawnRate = calculatePOISpawnRate(poi, hour);
+                const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.1)); // Scale down POI spawning
+                
+                for (let i = 0; i < spawnCount; i++) {
+                    const lat = poi.latitude + (Math.random() - 0.5) * 0.0003;
+                    const lon = poi.longitude + (Math.random() - 0.5) * 0.0003;
+                    
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 2,
+                        fillColor: CONFIG.COLORS.poi,
+                        color: 'white',
+                        weight: 0.5,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+                    
+                    marker.bindPopup(`
+                        <div class="popup-custom">
+                            <div class="location-type">POI</div>
+                            <div class="location-name">${poi.name || 'Unnamed POI'}</div>
+                            <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                            Type: ${poi.poi_type || 'Unknown'}<br>
+                            Spawn Rate: ${spawnRate.toFixed(2)}/hour</div>
+                        </div>
+                    `);
+                    
+                    passengerLayers.poi.addLayer(marker);
+                    counts.poi++;
+                }
+            }
+            
+            // Update statistics
+            updateStats(counts, hour);
+        }
+        
+        // Calculate depot spawn rate based on time and capacity
+        function calculateDepotSpawnRate(depot, hour) {
+            // Base rate influenced by capacity
+            let baseRate = Math.sqrt(depot.capacity) * 0.5;
+            
+            // Time multipliers (rush hours have higher spawning)
+            const timeMultipliers = {
+                6: 1.2, 7: 1.8, 8: 2.5, 9: 1.5,  // Morning rush
+                12: 1.3, 13: 1.1,                   // Lunch
+                17: 2.2, 18: 2.0, 19: 1.4,         // Evening rush
+                20: 0.8, 21: 0.6, 22: 0.4, 23: 0.2 // Night
+            };
+            
+            const timeMultiplier = timeMultipliers[hour] || 0.7;
+            return baseRate * timeMultiplier;
+        }
+        
+        // Calculate route spawn rate based on time and route characteristics
+        function calculateRouteSpawnRate(route, hour) {
+            // Base rate influenced by route length
+            let baseRate = Math.min(route.coordinate_count || 50, 100) * 0.02;
+            
+            // Time multipliers
+            const timeMultipliers = {
+                7: 1.5, 8: 2.0, 9: 1.2,       // Morning commute
+                17: 1.8, 18: 1.6, 19: 1.0,    // Evening commute
+                12: 0.8, 13: 0.9              // Lunch time
+            };
+            
+            const timeMultiplier = timeMultipliers[hour] || 0.5;
+            return baseRate * timeMultiplier;
+        }
+        
+        // Calculate POI spawn rate based on POI type and time
+        function calculatePOISpawnRate(poi, hour) {
+            // Base rate by POI type
+            const typeMultipliers = {
+                'bus_station': 3.0,
+                'hospital': 1.5,
+                'school': 2.0,
+                'shop': 1.2,
+                'restaurant': 1.0
+            };
+            
+            let baseRate = typeMultipliers[poi.poi_type] || 0.8;
+            
+            // Time multipliers
+            const timeMultipliers = {
+                8: 1.8, 9: 1.2,               // Morning activity
+                12: 1.5, 13: 1.3,             // Lunch rush
+                17: 1.4, 18: 1.2, 19: 1.0,    // Evening activity
+                20: 0.8, 21: 0.6              // Night reduction
+            };
+            
+            const timeMultiplier = timeMultipliers[hour] || 0.5;
+            return baseRate * timeMultiplier;
+        }
+        
+        // Update statistics display
+        function updateStats(counts, hour) {
+            document.getElementById('depotCount').textContent = counts.depot;
+            document.getElementById('routeCount').textContent = counts.route;
+            document.getElementById('poiCount').textContent = counts.poi;
+            document.getElementById('totalCount').textContent = counts.depot + counts.route + counts.poi;
+            
+            // Calculate peak hour (simplified)
+            const peakHours = [7, 8, 17, 18];
+            if (peakHours.includes(hour)) {
+                document.getElementById('peakHour').textContent = `${hour}:00 (Peak)`;
+                document.getElementById('peakHour').style.color = '#e74c3c';
+            } else {
+                document.getElementById('peakHour').textContent = `${hour}:00 (Off-Peak)`;
+                document.getElementById('peakHour').style.color = '#27ae60';
+            }
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Time slider
+            const timeSlider = document.getElementById('timeSlider');
+            const timeDisplay = document.getElementById('timeDisplay');
+            
+            timeSlider.addEventListener('input', async (e) => {
+                currentHour = parseInt(e.target.value);
+                timeDisplay.textContent = `${String(currentHour).padStart(2, '0')}:00`;
+                await generateSpawningData(currentHour);
+                updateDisplay();
+            });
+            
+            // Filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const filter = e.target.dataset.filter;
+                    
+                    if (activeFilters.has(filter)) {
+                        activeFilters.delete(filter);
+                        e.target.classList.remove('active');
+                    } else {
+                        activeFilters.add(filter);
+                        e.target.classList.add('active');
+                    }
+                    
+                    updateDisplay();
+                });
+            });
+            
+            // Play/pause button
+            const playBtn = document.getElementById('playBtn');
+            playBtn.addEventListener('click', () => {
+                if (isPlaying) {
+                    stopPlayback();
+                } else {
+                    startPlayback();
+                }
+            });
+            
+            // Speed control
+            document.getElementById('speedSelect').addEventListener('change', () => {
+                if (isPlaying) {
+                    stopPlayback();
+                    startPlayback();
+                }
+            });
+            
+            // Route dropdown toggle
+            const routeDropdownBtn = document.getElementById('routeDropdownBtn');
+            const routeDropdown = document.getElementById('routeDropdown');
+            
+            routeDropdownBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                routeDropdown.classList.toggle('active');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!routeDropdown.contains(e.target)) {
+                    routeDropdown.classList.remove('active');
+                }
+            });
+            
+            // Prevent dropdown from closing when clicking inside
+            document.getElementById('routeDropdownContent').addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+        
+        // Start automatic playback
+        function startPlayback() {
+            isPlaying = true;
+            const playBtn = document.getElementById('playBtn');
+            playBtn.textContent = '⏸ Pause';
+            playBtn.classList.add('playing');
+            
+            const speed = parseInt(document.getElementById('speedSelect').value);
+            
+            playInterval = setInterval(async () => {
+                currentHour = (currentHour + 1) % 24;
+                document.getElementById('timeSlider').value = currentHour;
+                document.getElementById('timeDisplay').textContent = `${String(currentHour).padStart(2, '0')}:00`;
+                
+                await generateSpawningData(currentHour);
+                updateDisplay();
+            }, speed);
+        }
+        
+        // Stop automatic playback
+        function stopPlayback() {
+            isPlaying = false;
+            const playBtn = document.getElementById('playBtn');
+            playBtn.textContent = '▶ Play';
+            playBtn.classList.remove('playing');
+            
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
+        }
+        
+        // Update display based on active filters
+        function updateDisplay() {
+            Object.keys(passengerLayers).forEach(type => {
+                if (activeFilters.has(type)) {
+                    map.addLayer(passengerLayers[type]);
+                } else {
+                    map.removeLayer(passengerLayers[type]);
+                }
+            });
+        }
+        
+        // Hide loading screen
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
