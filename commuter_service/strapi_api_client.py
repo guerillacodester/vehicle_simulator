@@ -21,6 +21,8 @@ class DepotData:
     name: str
     address: Optional[str]
     location: Optional[Dict[str, float]]  # {lat: float, lon: float}
+    latitude: Optional[float]  # Direct latitude field
+    longitude: Optional[float]  # Direct longitude field
     capacity: int
     is_active: bool
 
@@ -117,6 +119,8 @@ class StrapiApiClient:
                     name=depot_data['name'],
                     address=depot_data.get('address'),
                     location=depot_data.get('location'),
+                    latitude=depot_data.get('latitude'),
+                    longitude=depot_data.get('longitude'),
                     capacity=depot_data.get('capacity', 50),
                     is_active=depot_data.get('is_active', True)
                 )
