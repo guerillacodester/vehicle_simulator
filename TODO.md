@@ -1,6 +1,6 @@
 # ArkNet Transit Vehicle Simulator - Updated TODO
 
-### 🎯 CURRENT FOCUS: STEP 5 - PLUGIN-COMPATIBLE RESERVOIR ARCHITECTURE
+## 🎯 CURRENT FOCUS: STEP 5 - PLUGIN-COMPATIBLE RESERVOIR ARCHITECTURE
 
 ### **⚡ IMMEDIATE NEXT ACTION: Data Source Abstraction Implementation**
 
@@ -39,6 +39,7 @@
 **🎯 CRITICAL REQUIREMENT:** Data source (simulated vs real-world GPS) must be completely immaterial to spawning system operation.
 
 ### **📋 CONTEXT PRESERVATION:**
+
 - **Full project context:** See `PROJECT_CONTEXT_MANAGER.md` for complete technical details
 - **Current depot data:** 5 transit depots with full-precision coordinates operational
 - **Validation scripts:** Steps 1-4 completed and validated (all tests passing)
@@ -61,34 +62,40 @@
 ### ✅ PRIORITY 1: POISSON SPAWNER API INTEGRATION - STEPS 1-4 COMPLETE
 
 #### **STEP 1: API Client Foundation** ✅ 100% SUCCESS (4/4 tests passed)
+
 - ✅ **API connectivity validation** with multi-page pagination discovery
 - ✅ **Country data retrieval** and Barbados geographic bounds confirmation  
 - ✅ **HTTP client configuration** for reliable 9,702-feature dataset access
 
 #### **STEP 2: Geographic Data Pagination** ✅ 100% SUCCESS (3/3 tests passed)  
+
 - ✅ **Complete dataset access** across 98 API pages (1,419 POIs + 8,283 Places)
 - ✅ **Multi-page iteration** with proper error handling and progress tracking
 - ✅ **Geographic bounds validation** for all Barbados coordinates
 
 #### **STEP 3: Poisson Mathematical Foundation** ✅ 100% SUCCESS (4/4 tests passed)
+
 - ✅ **Lambda calculations** with realistic passenger spawning rates (166/hour system-wide)
 - ✅ **Coordinate processing** from complete 9,702-feature geographic dataset
 - ✅ **Temporal scaling integration** for rush hour vs off-peak patterns  
 - ✅ **Performance validation** for 1200+ vehicle simulation capacity
 
 #### **STEP 4A: Depot Schema Fix** ✅ 100% SUCCESS (4/4 tests passed)
+
 - ✅ **Schema conversion** from nested `location` object to separate `latitude`/`longitude` fields
 - ✅ **Data type optimization** from `decimal` to `float` for full coordinate precision
 - ✅ **Field accessibility** confirmed for spawning system compatibility (`depot.latitude` access)
 - ✅ **Location field removal** to eliminate nested coordinate structure
 
 #### **STEP 4B: Depot Data Creation** ✅ 100% SUCCESS (5/5 depots created)
+
 - ✅ **Confirmed transit depots** from manual validation (indices 0,2,3,4,5 - excluding Chicken Galore)
 - ✅ **Full precision coordinates** maintained (6+ decimal places: 13.252068, -59.642543)
 - ✅ **Geographic coverage** across Barbados (North: Speightstown, Central: Bridgetown terminals)
 - ✅ **Capacity distribution** (50-80 vehicles per depot) with regional hub designation
 
 #### **STEP 4C: Geographic Integration Completion** ✅ 100% SUCCESS (4/4 tests passed)
+
 - ✅ **Depot reservoir spawning** functional with full-precision coordinate access  
 - ✅ **Route reservoir spawning** operational with real Barbados route data
 - ✅ **Geographic context mapping** working for location-aware passenger placement
@@ -102,25 +109,29 @@
 
 ### ✅ GEOGRAPHIC DATA IMPORT SYSTEM - COMPLETE
 
-#### **📍 POI System - COMPLETE** 
+#### **📍 POI System - COMPLETE**
+
 - ✅ **1,419 amenities imported** (restaurants, shops, services, etc.)
 - ✅ **Country relationships established** via lifecycle hooks
 - ✅ **Point geometry processing** with proper coordinate validation
 - ✅ **Amenity type classification** (restaurant, shop, service, etc.)
 
 #### **🏘️ Places System - COMPLETE**
+
 - ✅ **8,283 place names imported** (roads, highways, locations)
 - ✅ **LineString geometry support** with centroid calculation
 - ✅ **'Locality' type classification** for road/place names
 - ✅ **Proper relationship linking** to country records
 
 #### **🌾 Landuse Zones System - COMPLETE**
+
 - ✅ **2,168 landuse zones imported** (residential, commercial, industrial, etc.)
 - ✅ **Polygon/MultiPolygon geometry** with centroid calculation
 - ✅ **Zone type mapping** to schema-compliant values
 - ✅ **Individual entity creation** for proper relationship handling
 
 #### **🔧 Lifecycle Hook System - COMPLETE**
+
 - ✅ **File change detection** - Only processes modified files
 - ✅ **Relationship creation** - Uses entityService.create() for proper linking
 - ✅ **Cleanup on deletion** - Automatically removes data when files deleted
@@ -128,7 +139,8 @@
 - ✅ **Progress tracking** - Real-time import status reporting
 
 ### 🗂️ CURRENT GEOGRAPHIC DATA STATUS - **OPERATIONAL**
-```
+
+```text
 📊 Barbados Geographic Dataset - **FULLY LOADED & ACCESSIBLE**:
   📍 POIs: 1,419 records ✅ (Complete amenities: restaurants, shops, services)
   🏘️  Places: 8,283 records ✅ (Complete roads, highways, neighborhoods)  
@@ -152,6 +164,7 @@
 ### **🎯 CRITICAL DISCOVERY: Geographic Data Already Complete!**
 
 **✅ CONFIRMED STATUS**: **11,870 geographic features operational in Strapi**
+
 - POIs: 1,419 ✅ | Places: 8,283 ✅ | Landuse: 2,168 ✅ | Regions: 0
 - All data accessible via StrapiApiClient with proper pagination
 - Geographic foundation 100% ready for spawning system integration
@@ -161,19 +174,22 @@
 ### **🎯 PHASE B1: ACTIVATE POISSON SPAWNING (IMMEDIATE PRIORITY - 2 hours)**
 
 #### **🔧 B1.1: Update Spawner for Live API Data (CRITICAL)**
+
 - **Current Issue**: `poisson_geojson_spawner.py` tries to load from local GeoJSON files
 - **Solution**: Refactor GeoJSONDataLoader to use live Strapi API data  
 - **Available Data**: 11,870+ real Barbados geographic features via StrapiApiClient
 - **Expected Outcome**: Statistical spawning with actual population zones and amenities
 
 #### **🧪 B1.2: Test Geographic Spawning Patterns**
-- **Validation Points**: 
+
+- **Validation Points**:
   - Spawns occur at real Barbados locations (1,419 POIs + 2,168 landuse zones)
   - Time patterns reflect rush hour vs off-peak (residential → commercial flows)
   - Route assignments use actual road network (8,283 places/roads)
   - Statistical distribution follows Poisson characteristics
 
 #### **📊 B1.3: Validate Production-Scale Performance**
+
 - **Load Testing**: 11,870+ features with concurrent spawning requests
 - **Memory Usage**: Geographic data caching and API response optimization
 - **Spawn Rates**: Rush hour scenarios with realistic passenger volumes
@@ -183,16 +199,19 @@
 ### **🎯 OPTIONAL PHASE A: Additional Geographic Data (Low Priority - 1 hour)**
 
 #### **A1. Import Bus Stops (Optional Enhancement)**
+
 - **File**: `barbados_busstops.json` (1,332 transit points)
 - **Benefit**: More precise transit spawning locations
 - **Status**: Can be added later, core spawning doesn't require this
 
 #### **A2. Import Highway Infrastructure (Optional Enhancement)**  
+
 - **File**: `barbados_highway.json` (22,655 road segments)
 - **Benefit**: Complete road network visualization
 - **Status**: Can be added later, current 8,283 places provide sufficient routing context
 
 #### **B2. Validate Spawning Algorithms**
+
 - **Landuse Weights**: Test residential vs commercial spawning rates
 - **POI Distribution**: Verify passenger attraction to restaurants/shops
 - **Geographic Accuracy**: Confirm spawning matches real Barbados locations
@@ -201,12 +220,14 @@
 ### **🎯 PHASE C: Socket.IO Bridge Integration (2-4 hours)**
 
 #### **C1. Test Real-Time Passenger Flow**
-- **Bridge**: `simple_depot_commuter_communication.py` 
-- **Namespaces**: `/depot-reservoir`, `/route-reservoir` 
+
+- **Bridge**: `simple_depot_commuter_communication.py`
+- **Namespaces**: `/depot-reservoir`, `/route-reservoir`
 - **Data Flow**: Commuter service → Socket.IO → Main simulator
 - **Validation**: End-to-end passenger updates with geographic data
 
 #### **C2. Enhanced Geographic Spawning**
+
 - **Time-Based**: Peak/off-peak multipliers using landuse data
 - **Destination Logic**: POI-based passenger destination selection
 - **Route Optimization**: Use Places data for realistic passenger origins
@@ -214,11 +235,13 @@
 ### **🎯 PHASE D: Production Optimization (1-2 hours)**
 
 #### **D1. API Performance Testing**
+
 - **Load Testing**: 17,870+ features with concurrent requests
 - **Caching Strategy**: Optimize frequent geographic data queries  
 - **Connection Pooling**: Async client performance with large datasets
 
 #### **D2. System Integration Validation**
+
 - **End-to-End Test**: Vehicle simulation with real passenger flow
 - **Geographic Accuracy**: Validate all components use consistent data
 - **Performance Metrics**: Measure system performance with complete dataset
@@ -230,6 +253,7 @@
 ### **📂 Key Files Modified (October 7, 2025)**
 
 #### **Geographic Data Lifecycle System**
+
 - `arknet_fleet_manager/arknet-fleet-api/src/api/country/content-types/country/lifecycles.ts`
   - ✅ Complete POI, Places, Landuse processing
   - ✅ LineString/Polygon geometry handling with centroid calculation  
@@ -238,12 +262,14 @@
   - 🔲 Regions processing ready, Bus stops integration needed
 
 #### **API Client Integration**
-- `commuter_service/strapi_api_client.py` 
+
+- `commuter_service/strapi_api_client.py`
   - ✅ Geographic data access methods: `get_pois_by_country()`, `get_places_by_country()`, `get_landuse_zones_by_country()`
   - ✅ Fixed field names: `zone_type` (not `landuse_type`)
   - 🔲 Ready for Poisson spawner integration
 
 #### **Test Scripts Created**
+
 - `test_database_state.py` - Comprehensive system status check
 - `test_individual_endpoints.py` - API endpoint validation  
 - `test_relationship_tables.py` - Relationship verification
@@ -253,17 +279,20 @@
 ### **🎯 Critical Implementation Notes**
 
 #### **Relationship Handling**
+
 - **CRITICAL**: Must use `strapi.entityService.create()` for individual records
 - **AVOID**: `strapi.db.query().createMany()` bypasses relationship creation
 - **Verified**: POI, Places, Landuse all use proper relationship method
 
 #### **Geometry Processing**
+
 - **Point**: Direct coordinate extraction `[lon, lat] = coords`
 - **LineString**: Centroid calculation from all coordinate points
 - **Polygon**: Centroid from outer ring coordinates  
 - **Validation**: Coordinates must be within valid lat/lon ranges
 
 #### **Schema Compliance**
+
 - **Place Types**: `city, town, village, hamlet, suburb, neighbourhood, locality, island, other`
 - **Zone Types**: `residential, commercial, industrial, farmland, forest, recreation, institutional, mixed_use, transportation, water, other`
 - **POI Amenity Types**: `restaurant, shop, service, accommodation, entertainment, healthcare, education, transport, finance, other`
@@ -293,7 +322,7 @@ python -m src.services.poisson_geojson_spawner
 
 ## 🏆 COMPLETED ACHIEVEMENTS ARCHIVE### ✅ MIGRATION ACHIEVEMENTS (October 1, 2025)
 
-#### **🎯 Strategy Pattern Architecture - COMPLETE**
+### **🎯 Strategy Pattern Architecture - COMPLETE**
 
 - ✅ **ApiStrategy Interface**: Clean abstract base class for API strategies
 - ✅ **StrapiStrategy**: Full GTFS-compliant implementation (DEFAULT)
