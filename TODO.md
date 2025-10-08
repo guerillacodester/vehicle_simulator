@@ -1,50 +1,60 @@
 # ArkNet Transit Vehicle Simulator - Updated TODO
 
-## 🎯 CURRENT FOCUS: STEP 6 - PRODUCTION API INTEGRATION
+## 🎯 CURRENT FOCUS: PRIORITY 2 - REAL-TIME PASSENGER COORDINATION
 
-### **⚡ IMMEDIATE NEXT ACTION: Replace Simulated Data with Live API Integration**
+### **⚡ IMMEDIATE NEXT ACTION: Socket.IO Conductor-Driver Integration**
 
-**SUCCESS CRITERIA FOR STEP 6 (5/5 tests required):**
+**PRIORITY 1 COMPLETE ✅** - All simulated data successfully replaced with live API integration
 
-1. **🔄 Dynamic Data Fetching (No Hardcoded Values)**
-   - Replace all SimulatedPassengerDataSource with ProductionApiDataSource
-   - Live depot fetching from Strapi `/api/depots` endpoint
-   - Dynamic POI fetching from Strapi `/api/pois` with 9,702 features
-   - Live route data from Strapi `/api/routes` for geographic spawning
+### **🚀 PRIORITY 2: REAL-TIME VEHICLE COORDINATION SYSTEM**
 
-2. **🗺️ Geographic Bounds Filtering for Performance**
-   - Dynamic Barbados bounds calculation from actual API data
-   - Efficient API pagination with geographic filtering
-   - Performance optimization for real-time spawning operations
-   - Prevent unnecessary data loading outside operational bounds
+**SUCCESS CRITERIA FOR PRIORITY 2 (6 phases required):**
 
-3. **🏷️ Category-Based Spawning Weights (POI Metadata)**
-   - Dynamic spawning weights based on POI amenity types
-   - Restaurant/shop/transit POIs with different passenger attraction rates
-   - Real-world passenger preference modeling from POI categories
-   - Configurable category weights without hardcoded values
+1. **🔄 Socket.IO Conductor-Driver Communication**
+   - Real-time passenger monitoring at depots via Socket.IO events
+   - Conductor signals driver when seats filled or departure ready  
+   - Bi-directional communication for start/stop coordination
+   - Integration with existing Socket.IO architecture foundation
 
-4. **🛡️ Error Handling with Fallback Mechanisms**
-   - Graceful degradation when Strapi API calls fail
-   - Cached data fallback for network interruptions
-   - Error recovery and retry logic for production reliability
-   - Fallback to reduced functionality instead of system failure
+2. **🧭 Location-Aware Passenger Intelligence**
+   - Passengers monitor journey progress in real-time
+   - Automatic destination proximity detection (100m threshold)
+   - Passenger-initiated stop requests via Socket.IO events
+   - Dynamic passenger disembarkment management
 
-5. **⚡ Real-Time Performance Optimization (Caching Strategies)**
-   - Efficient API data caching for frequently accessed data
-   - Memory management for continuous API operations
-   - Background data refresh without blocking spawning operations
-   - Performance metrics tracking for production monitoring
+3. **📊 Multi-Passenger Capacity Management**
+   - Real-time seat availability tracking and updates
+   - Boarding queue management with capacity constraints
+   - Dynamic passenger flow between depot/route/POI reservoirs
+   - Optimal passenger distribution across vehicle fleet
 
-**🎯 COMPLETION TARGET:** This completes Priority 1 - Poisson Spawner API Integration (100%)
+4. **�️ Route-Based Passenger Pickup Continuation**
+   - After depot departure, monitor route stops for additional passengers
+   - Integration with route reservoir for en-route pickup opportunities  
+   - Dynamic route optimization based on passenger demand patterns
+   - Seamless transition between depot and route passenger sources
 
-### **✅ COMPLETED STEPS:**
+5. **📈 Fleet Coordination and Performance Analytics**
+   - Multi-vehicle coordination to prevent passenger service overlap
+   - Real-time performance metrics (pickup efficiency, journey times)
+   - Load balancing across 1,200+ vehicle simulation capacity
+   - System health monitoring and bottleneck identification
+
+6. **🎯 Complete Vehicle Operation Cycle Integration**
+   - End-to-end passenger journey from spawn → pickup → transport → dropoff
+   - Conductor decision-making logic with real passenger data
+   - Driver route optimization based on live passenger demand
+   - Full integration with ProductionApiDataSource for realistic simulation
+
+**🎯 COMPLETION TARGET:** This completes Priority 2 - Real-Time Passenger Coordination (100%)
+
+### **✅ COMPLETED STEPS (PRIORITY 1):**
 - ✅ **Step 1**: API Client Foundation (4/4 tests passed - 100%)
 - ✅ **Step 2**: Geographic Data Pagination (3/3 tests passed - 100%) 
 - ✅ **Step 3**: Poisson Mathematical Foundation (4/4 tests passed - 100%)
 - ✅ **Step 4**: Depot Integration (4A: 4/4, 4B: 5 depots, 4C: 4/4 tests - 100%)
 - ✅ **Step 5**: Plugin-Compatible Reservoir Architecture (6/6 tests passed - 100%)
-- 🔄 **Step 6**: Production API Integration (0/5 tests - IN PROGRESS)
+- ✅ **Step 6**: Production API Integration (5/5 tests passed - 100%)
 
 **SUCCESS CRITERIA FOR STEP 6 (5/5 tests required):**
 
