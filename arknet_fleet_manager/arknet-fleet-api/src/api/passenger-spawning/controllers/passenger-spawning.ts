@@ -19,25 +19,11 @@ export default {
 
       console.log(`🚀 Generating spawn requests for hour ${hour}...`);
 
-      // Execute the production spawning Python script
-      const pythonScript = path.join(__dirname, '..', '..', '..', '..', 'production_spawning_api.py');
+      // Execute database-direct spawning (maintains single source of truth without circular dependency)
+      const pythonScript = path.resolve(process.cwd(), 'database_spawning_api.py');
       
       return new Promise<void>((resolve, reject) => {
-        const python = spawn('python', ['-c', `
-import sys
-sys.path.append('${path.dirname(pythonScript).replace(/\\/g, '/')}')
-import asyncio
-from production_spawning_api import handle_spawn_request
-
-async def main():
-    result = await handle_spawn_request(${hour}, ${time_window_minutes})
-    print('RESULT_START')
-    import json
-    print(json.dumps(result))
-    print('RESULT_END')
-
-asyncio.run(main())
-        `], {
+        const python = spawn('python', [pythonScript, hour.toString(), time_window_minutes.toString()], {
           cwd: path.dirname(pythonScript)
         });
 

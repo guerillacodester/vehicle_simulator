@@ -314,6 +314,69 @@
             font-size: 12px;
         }
         
+        /* Custom icon styles */
+        .custom-depot-cluster {
+            background: none !important;
+            border: none !important;
+        }
+        
+        .depot-cluster {
+            background: rgba(255, 107, 107, 0.9);
+            border: 2px solid white;
+            border-radius: 8px;
+            padding: 4px 8px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            min-width: 50px;
+        }
+        
+        .depot-cluster i {
+            font-size: 16px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .depot-badge {
+            background: white;
+            color: #ff6b6b;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 2px 0;
+        }
+        
+        .depot-routes {
+            font-size: 9px;
+            opacity: 0.9;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 50px;
+        }
+        
+        .custom-passenger-icon {
+            background: none !important;
+            border: none !important;
+        }
+        
+        .custom-passenger-icon i {
+            color: #4ecdc4;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .custom-poi-icon {
+            background: none !important;
+            border: none !important;
+        }
+        
+        .custom-poi-icon i {
+            color: #45b7d1;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
         /* Responsive design */
         @media (max-width: 768px) {
             .controls-panel {
@@ -406,7 +469,12 @@
     </div>
     
     <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
     
     <script>
         // Configuration
@@ -419,6 +487,57 @@
                 depot: '#ff6b6b',
                 route: '#4ecdc4', 
                 poi: '#45b7d1'
+            }
+        };
+
+        // Icon definitions using Font Awesome
+        const ICONS = {
+            depot: (passengerCount, routes) => L.divIcon({
+                html: `
+                    <div class="depot-cluster">
+                        <i class="fas fa-warehouse"></i>
+                        <div class="depot-badge">${passengerCount}</div>
+                        <div class="depot-routes">${routes.join(', ')}</div>
+                    </div>
+                `,
+                iconSize: [60, 40],
+                iconAnchor: [30, 20],
+                className: 'custom-depot-cluster'
+            }),
+            passenger: L.divIcon({
+                html: '<i class="fas fa-user"></i>',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+                className: 'custom-passenger-icon'
+            }),
+            poi: (poiType) => {
+                const iconMap = {
+                    'restaurant': 'fa-utensils',
+                    'food': 'fa-utensils',
+                    'shop': 'fa-store',
+                    'retail': 'fa-store',
+                    'school': 'fa-graduation-cap',
+                    'education': 'fa-graduation-cap',
+                    'hospital': 'fa-hospital',
+                    'health': 'fa-hospital',
+                    'bank': 'fa-university',
+                    'finance': 'fa-university',
+                    'hotel': 'fa-bed',
+                    'accommodation': 'fa-bed',
+                    'gas_station': 'fa-gas-pump',
+                    'fuel': 'fa-gas-pump',
+                    'church': 'fa-church',
+                    'worship': 'fa-church'
+                };
+                
+                const iconClass = iconMap[poiType] || 'fa-map-marker-alt';
+                
+                return L.divIcon({
+                    html: `<i class="fas ${iconClass}"></i>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10],
+                    className: 'custom-poi-icon'
+                });
             }
         };
         
@@ -496,10 +615,56 @@
             baseData.pois = poiData.data.filter(poi => poi.latitude && poi.longitude);
             
             console.log(`Loaded: ${baseData.depots.length} depots, ${baseData.routes.length} routes, ${baseData.pois.length} POIs`);
+            console.log('🏢 Depot data:', baseData.depots);
+            
+            // Display POIs with proper icons
+            displayPOIs();
             
             // Load route geometries and populate dropdown
             await loadRouteGeometries();
             populateRouteDropdown();
+        }
+        
+        // Display POIs with proper category-specific icons
+        function displayPOIs() {
+            console.log('📍 Displaying POIs with category icons...');
+            
+            // Clear existing POI layer
+            passengerLayers.poi.clearLayers();
+            
+            // Display subset of POIs to avoid overcrowding
+            const displayPOIs = baseData.pois.slice(0, 100); // Show first 100 POIs
+            
+            for (const poi of displayPOIs) {
+                const poiType = (poi.poi_type || poi.category || 'unknown').toLowerCase();
+                const poiIcon = ICONS.poi(poiType);
+                
+                const marker = L.marker([poi.latitude, poi.longitude], { icon: poiIcon });
+                
+                marker.bindPopup(`
+                    <div class="popup-custom">
+                        <div class="location-type">POI - ${(poiType).toUpperCase()}</div>
+                        <div class="location-name">${poi.name || 'Unnamed POI'}</div>
+                        <div class="spawn-info">
+                            Category: ${poi.poi_type || poi.category || 'Unknown'}<br>
+                            Address: ${poi.address || 'No address'}<br>
+                            Coordinates: (${poi.latitude.toFixed(4)}, ${poi.longitude.toFixed(4)})<br>
+                            Importance: ${poi.importance || 'N/A'}
+                        </div>
+                    </div>
+                `);
+                
+                // Add tooltip for quick identification
+                marker.bindTooltip(`${poi.name || 'POI'} (${poiType})`, {
+                    permanent: false,
+                    direction: 'top',
+                    offset: [0, -10]
+                });
+                
+                passengerLayers.poi.addLayer(marker);
+            }
+            
+            console.log(`✅ Displayed ${displayPOIs.length} POIs with category icons`);
         }
         
         // Load route geometries from API
@@ -602,6 +767,32 @@
             }
         }
         
+        // Generate realistic destination for route passenger
+        function generateRouteDestination(request, startLat, startLon) {
+            // Generate destination based on zone type and typical travel patterns
+            const zoneType = request.zone_type || 'residential';
+            let latOffset, lonOffset;
+            
+            if (zoneType.includes('residential')) {
+                // Residential -> likely going to work/commercial areas (longer distance)
+                latOffset = Math.random() * 0.02 - 0.01; // ~1-2km range
+                lonOffset = Math.random() * 0.02 - 0.01;
+            } else if (zoneType.includes('commercial')) {
+                // Commercial -> shorter trips, local movement
+                latOffset = Math.random() * 0.01 - 0.005; // ~0.5-1km range
+                lonOffset = Math.random() * 0.01 - 0.005;
+            } else {
+                // Default medium range
+                latOffset = Math.random() * 0.015 - 0.0075; // ~0.75-1.5km range
+                lonOffset = Math.random() * 0.015 - 0.0075;
+            }
+            
+            return {
+                lat: startLat + latOffset,
+                lon: startLon + lonOffset
+            };
+        }
+
         // Get color for route based on route ID
         function getRouteColor(routeId) {
             const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22'];
@@ -678,6 +869,7 @@
         // Generate realistic spawning data using PRODUCTION Poisson GeoJSON spawning system
         async function generateSpawningData(hour) {
             console.log(`🚀 Generating spawning data for hour ${hour} using PRODUCTION system...`);
+            console.log(`🏢 Available depots: ${baseData.depots ? baseData.depots.length : 'undefined'}`);
             
             // Clear existing layers
             Object.values(passengerLayers).forEach(layer => layer.clearLayers());
@@ -702,47 +894,103 @@
                     const spawnData = await spawnResponse.json();
                     console.log(`✅ Production spawner returned ${spawnData.spawn_requests?.length || 0} spawn requests`);
                     
-                    // Process production spawn requests
+                    // Process production spawn requests with proper icons and details
                     if (spawnData.spawn_requests) {
                         for (const request of spawnData.spawn_requests) {
                             const lat = request.latitude;
                             const lon = request.longitude;
                             const spawnType = request.spawn_type || 'route'; // depot, route, poi
                             
-                            const marker = L.circleMarker([lat, lon], {
-                                radius: spawnType === 'depot' ? 5 : spawnType === 'route' ? 4 : 3,
-                                fillColor: CONFIG.COLORS[spawnType] || CONFIG.COLORS.route,
-                                color: 'white',
-                                weight: 1,
-                                opacity: 1,
-                                fillOpacity: 0.9
-                            });
+                            let marker;
                             
-                            marker.bindPopup(`
-                                <div class="popup-custom">
-                                    <div class="location-type">${spawnType.toUpperCase()}</div>
-                                    <div class="location-name">${request.location_name || 'Unknown Location'}</div>
-                                    <div class="spawn-info">
-                                        Spawned at ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
-                                        Type: ${request.zone_type || spawnType}<br>
-                                        Population: ${request.zone_population || 'N/A'}<br>
-                                        Poisson Rate: ${(request.spawn_rate || 0).toFixed(3)}/hour
+                            if (spawnType === 'poi') {
+                                // Use POI-specific icons
+                                const poiIcon = ICONS.poi(request.zone_type || 'default');
+                                marker = L.marker([lat, lon], { icon: poiIcon });
+                                
+                                marker.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">POI - ${(request.zone_type || 'unknown').toUpperCase()}</div>
+                                        <div class="location-name">${request.location_name || 'Unknown POI'}</div>
+                                        <div class="spawn-info">
+                                            Category: ${request.zone_type || 'unknown'}<br>
+                                            Activity Level: ${request.zone_population || 'N/A'}<br>
+                                            Spawn Rate: ${(request.spawn_rate || 0).toFixed(3)}/hour<br>
+                                            Time: ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}
+                                        </div>
                                     </div>
-                                </div>
-                            `);
+                                `);
+                                
+                            } else if (spawnType === 'route') {
+                                // Route passengers with start/destination info
+                                marker = L.marker([lat, lon], { icon: ICONS.passenger });
+                                
+                                // Generate realistic destination for route passenger
+                                const destination = generateRouteDestination(request, lat, lon);
+                                
+                                marker.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">ROUTE PASSENGER</div>
+                                        <div class="location-name">Commuter ${request.passenger_id || Math.random().toString(36).substr(2, 8)}</div>
+                                        <div class="spawn-info">
+                                            <strong>🚏 Start:</strong> (${lat.toFixed(4)}, ${lon.toFixed(4)})<br>
+                                            <strong>🎯 Destination:</strong> (${destination.lat.toFixed(4)}, ${destination.lon.toFixed(4)})<br>
+                                            <strong>📍 Zone:</strong> ${request.zone_type || 'residential'}<br>
+                                            <strong>⏰ Spawn:</strong> ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                                            <strong>📊 Rate:</strong> ${(request.spawn_rate || 0).toFixed(3)}/hour
+                                        </div>
+                                    </div>
+                                `);
+                                
+                                // Add hover tooltip for quick start/stop info
+                                marker.bindTooltip(`
+                                    Start: (${lat.toFixed(3)}, ${lon.toFixed(3)})<br>
+                                    Stop: (${destination.lat.toFixed(3)}, ${destination.lon.toFixed(3)})
+                                `, {
+                                    permanent: false,
+                                    direction: 'top',
+                                    offset: [0, -10]
+                                });
+                                
+                            } else {
+                                // Other spawn types (use appropriate icons)
+                                let icon;
+                                if (spawnType === 'depot') {
+                                    icon = ICONS.depot(1, ['Unknown']);
+                                } else {
+                                    icon = ICONS.passenger; // Default to passenger icon
+                                }
+                                marker = L.marker([lat, lon], { icon: icon });
+                                
+                                marker.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">${spawnType.toUpperCase()}</div>
+                                        <div class="location-name">${request.location_name || 'Unknown Location'}</div>
+                                        <div class="spawn-info">
+                                            Type: ${request.zone_type || spawnType}<br>
+                                            Population: ${request.zone_population || 'N/A'}<br>
+                                            Poisson Rate: ${(request.spawn_rate || 0).toFixed(3)}/hour<br>
+                                            Time: ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}
+                                        </div>
+                                    </div>
+                                `);
+                            }
                             
                             passengerLayers[spawnType].addLayer(marker);
                             counts[spawnType]++;
                         }
                     }
                 } else {
-                    console.warn('⚠️ Production spawning API not available, falling back to simulation');
-                    await fallbackSpawningSimulation(hour, counts);
+                    const errorMsg = `❌ Production spawning API failed with status: ${spawnResponse.status}`;
+                    console.error(errorMsg);
+                    throw new Error(`Production API unavailable: ${spawnResponse.status} ${spawnResponse.statusText}`);
                 }
                 
             } catch (error) {
-                console.warn('⚠️ Production spawning failed, using fallback:', error);
-                await fallbackSpawningSimulation(hour, counts);
+                console.error('❌ Production spawning system failure:', error);
+                // Display error to user instead of hiding it with fake data
+                alert(`� PRODUCTION API FAILURE\n\nThe passenger spawning system is not working:\n${error.message}\n\nPlease check:\n• Strapi server is running\n• API permissions are enabled\n• Python dependencies are installed\n• Database is accessible`);
+                throw error; // Re-throw to stop execution
             }
             
             // Update statistics display
@@ -755,35 +1003,38 @@
         
         // Fallback depot spawning when reservoir API unavailable
         async function fallbackDepotSpawning(hour, counts) {
+            console.log(`🔄 Fallback depot spawning for ${baseData.depots.length} depots`);
             for (const depot of baseData.depots) {
+                console.log(`🏢 Processing depot: ${depot.name} at (${depot.latitude}, ${depot.longitude})`);
                 const spawnRate = calculateDepotSpawnRate(depot, hour);
-                const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.5));
+                const spawnCount = Math.max(1, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.5)); // Force minimum of 1
+                console.log(`   Spawn rate: ${spawnRate}, spawn count: ${spawnCount}`);
                 
-                for (let i = 0; i < spawnCount; i++) {
-                    const lat = depot.latitude + (Math.random() - 0.5) * 0.001;
-                    const lon = depot.longitude + (Math.random() - 0.5) * 0.001;
-                    
-                    const marker = L.circleMarker([lat, lon], {
-                        radius: 4,
-                        fillColor: CONFIG.COLORS.depot,
-                        color: 'white',
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    });
+                if (spawnCount > 0) {
+                    // Create clustered depot marker (fallback version)
+                    const marker = L.marker(
+                        [depot.latitude, depot.longitude], 
+                        { icon: ICONS.depot(spawnCount, ['1A']) }
+                    );
                     
                     marker.bindPopup(`
                         <div class="popup-custom">
-                            <div class="location-type">DEPOT (FALLBACK)</div>
+                            <div class="location-type">DEPOT CLUSTER (FALLBACK)</div>
                             <div class="location-name">${depot.name}</div>
-                            <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
-                            Capacity: ${depot.capacity} passengers<br>
-                            Spawn Rate: ${spawnRate.toFixed(2)}/hour</div>
+                            <div class="spawn-info">
+                                <strong>Passengers: ${spawnCount}</strong><br>
+                                <strong>Routes: 1A</strong><br>
+                                <strong>Time: ${hour}:00</strong><br>
+                                <strong>Spawn Rate: ${spawnRate.toFixed(2)}/hour</strong><br>
+                                <em>Note: Using fallback simulation</em>
+                            </div>
                         </div>
                     `);
                     
+                    console.log(`   ✅ Created depot marker for ${depot.name}, adding to layer`);
                     passengerLayers.depot.addLayer(marker);
-                    counts.depot++;
+                    counts.depot += spawnCount;
+                    console.log(`   ✅ Depot layer now has ${passengerLayers.depot.getLayers().length} markers`);
                 }
             }
         }
@@ -792,7 +1043,7 @@
         async function fallbackSpawningSimulation(hour, counts) {
             console.log('🔄 Using fallback spawning simulation...');
             
-            // Call ACTUAL DEPOT RESERVOIR for depot spawning
+            // Call ACTUAL DEPOT RESERVOIR for depot spawning (with clustering)
             try {
                 const depotResponse = await fetch('/api/depot-reservoir/spawn-batch', {
                     method: 'POST',
@@ -809,41 +1060,65 @@
                     console.log(`✅ Depot reservoir returned ${depotData.spawned_commuters?.length || 0} commuters`);
                     
                     if (depotData.spawned_commuters) {
+                        // Group commuters by depot for clustering
+                        const depotGroups = {};
+                        
                         for (const commuter of depotData.spawned_commuters) {
-                            const marker = L.circleMarker([commuter.current_location.lat, commuter.current_location.lon], {
-                                radius: 5,
-                                fillColor: CONFIG.COLORS.depot,
-                                color: 'white',
-                                weight: 1,
-                                opacity: 1,
-                                fillOpacity: 0.9
-                            });
+                            const depotId = commuter.depot_id;
+                            if (!depotGroups[depotId]) {
+                                depotGroups[depotId] = {
+                                    depot_name: commuter.depot_name,
+                                    location: commuter.current_location,
+                                    commuters: [],
+                                    routes: new Set()
+                                };
+                            }
+                            depotGroups[depotId].commuters.push(commuter);
+                            depotGroups[depotId].routes.add(commuter.route_id);
+                        }
+                        
+                        // Create clustered depot markers
+                        for (const [depotId, group] of Object.entries(depotGroups)) {
+                            const passengerCount = group.commuters.length;
+                            const routes = Array.from(group.routes);
+                            
+                            const marker = L.marker(
+                                [group.location.lat, group.location.lon], 
+                                { icon: ICONS.depot(passengerCount, routes) }
+                            );
+                            
+                            // Create detailed popup with all passengers
+                            const passengerList = group.commuters.map(c => 
+                                `• ${c.commuter_id} → (${c.destination.lat.toFixed(4)}, ${c.destination.lon.toFixed(4)}) [P${c.priority}]`
+                            ).join('<br>');
                             
                             marker.bindPopup(`
                                 <div class="popup-custom">
-                                    <div class="location-type">DEPOT RESERVOIR</div>
-                                    <div class="location-name">${commuter.depot_name || 'Unknown Depot'}</div>
+                                    <div class="location-type">DEPOT CLUSTER</div>
+                                    <div class="location-name">${group.depot_name}</div>
                                     <div class="spawn-info">
-                                        ID: ${commuter.commuter_id}<br>
-                                        Spawn: ${commuter.spawn_time}<br>
-                                        Direction: ${commuter.direction}<br>
-                                        Priority: ${commuter.priority}<br>
-                                        Max Walk: ${commuter.max_walking_distance}m
+                                        <strong>Passengers: ${passengerCount}</strong><br>
+                                        <strong>Routes: ${routes.join(', ')}</strong><br>
+                                        <strong>Time: ${hour}:00</strong><br><br>
+                                        <div style="max-height: 150px; overflow-y: auto; font-size: 11px;">
+                                        ${passengerList}
+                                        </div>
                                     </div>
                                 </div>
                             `);
                             
                             passengerLayers.depot.addLayer(marker);
-                            counts.depot++;
+                            counts.depot += passengerCount;
                         }
                     }
                 } else {
-                    console.warn('⚠️ Depot reservoir API failed, using fallback');
-                    await fallbackDepotSpawning(hour, counts);
+                    const errorMsg = `❌ Depot reservoir API failed with status: ${depotResponse.status}`;
+                    console.error(errorMsg);
+                    throw new Error(`Depot reservoir API failed: ${depotResponse.status} ${depotResponse.statusText}`);
                 }
             } catch (error) {
-                console.warn('⚠️ Depot reservoir error:', error);
-                await fallbackDepotSpawning(hour, counts);
+                console.error('❌ Depot reservoir system failure:', error);
+                throw new Error(`Depot reservoir failed: ${error.message}`);
             }
             
             // Simulate route spawning using route coordinates
@@ -861,13 +1136,8 @@
                             const lat = randomCoord[1] + (Math.random() - 0.5) * 0.0005;
                             const lon = randomCoord[0] + (Math.random() - 0.5) * 0.0005;
                             
-                            const marker = L.circleMarker([lat, lon], {
-                                radius: 3,
-                                fillColor: CONFIG.COLORS.route,
-                                color: 'white',
-                                weight: 1,
-                                opacity: 1,
-                                fillOpacity: 0.8
+                            const marker = L.marker([lat, lon], {
+                                icon: ICONS.passenger
                             });
                             
                             marker.bindPopup(`
@@ -896,13 +1166,8 @@
                     const lat = poi.latitude + (Math.random() - 0.5) * 0.0003;
                     const lon = poi.longitude + (Math.random() - 0.5) * 0.0003;
                     
-                    const marker = L.circleMarker([lat, lon], {
-                        radius: 2,
-                        fillColor: CONFIG.COLORS.poi,
-                        color: 'white',
-                        weight: 0.5,
-                        opacity: 1,
-                        fillOpacity: 0.9
+                    const marker = L.marker([lat, lon], {
+                        icon: ICONS.poi(poi.poi_type || 'default')
                     });
                     
                     marker.bindPopup(`
@@ -926,8 +1191,9 @@
         
         // Calculate depot spawn rate based on time and capacity
         function calculateDepotSpawnRate(depot, hour) {
-            // Base rate influenced by capacity
-            let baseRate = Math.sqrt(depot.capacity) * 0.5;
+            // Base rate influenced by capacity (fallback to 50 if capacity is missing)
+            const capacity = depot.capacity || 50;
+            let baseRate = Math.sqrt(capacity) * 0.5;
             
             // Time multipliers (rush hours have higher spawning)
             const timeMultipliers = {

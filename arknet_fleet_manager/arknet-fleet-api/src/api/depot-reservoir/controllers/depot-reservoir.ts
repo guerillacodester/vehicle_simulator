@@ -31,7 +31,7 @@ export default {
 
       console.log(`🏢 Spawning commuters from ${depot_ids.length} depots for hour ${hour}...`);
 
-      // Execute the production depot reservoir Python script
+      // Execute the production depot reservoir Python script  
       const pythonScript = path.join(__dirname, '..', '..', '..', '..', 'depot_reservoir_api.py');
       
       return new Promise<void>((resolve, reject) => {
