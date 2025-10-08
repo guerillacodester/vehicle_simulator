@@ -25,9 +25,17 @@
       "type": "text",
       "required": false
     },
-    "location": {
-      "type": "json",
-      "required": false
+    "latitude": {
+      "type": "float",
+      "required": true,
+      "min": 13.0,
+      "max": 13.35
+    },
+    "longitude": {
+      "type": "float",
+      "required": true,
+      "min": -59.65,
+      "max": -59.4
     },
     "capacity": {
       "type": "integer",
