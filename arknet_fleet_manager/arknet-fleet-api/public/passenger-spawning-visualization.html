@@ -568,9 +568,31 @@
                         // Create layer group with all segment polylines
                         const routeGroup = L.layerGroup(routePolylines);
                         
+                        // Collect ALL coordinates for passenger spawning system
+                        let allSpawnCoordinates = [];
+                        for (let i = 0; i < shapeData.data.length; i++) {
+                            const shapeRecord = shapeData.data[i];
+                            
+                            // Re-fetch coordinates for spawning (we need them in different format)
+                            const coordResponse = await fetch(
+                                `${CONFIG.API_BASE}/shapes?filters[shape_id][$eq]=${shapeRecord.shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000`
+                            );
+                            const coordData = await coordResponse.json();
+                            
+                            if (coordData.data && coordData.data.length > 0) {
+                                // Store coordinates in [lon, lat] format for spawning system
+                                const shapeSpawnCoords = coordData.data
+                                    .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence)
+                                    .map(point => [point.shape_pt_lon, point.shape_pt_lat]);
+                                
+                                allSpawnCoordinates = allSpawnCoordinates.concat(shapeSpawnCoords);
+                            }
+                        }
+                        
                         // Store the route layer and metadata
                         routeLayers[route.short_name] = routeGroup;
                         route.totalPoints = totalPoints;
+                        route.geometry_coordinates = allSpawnCoordinates; // Store for passenger spawning!
                         
                         console.log(`✅ Loaded route ${route.short_name} with ${totalPoints} individual points across ${shapeData.data.length} shape segments`);
                     }
@@ -653,22 +675,91 @@
             }
         }
         
-        // Generate realistic spawning data using production algorithms
+        // Generate realistic spawning data using PRODUCTION Poisson GeoJSON spawning system
         async function generateSpawningData(hour) {
-            console.log(`Generating spawning data for hour ${hour}...`);
+            console.log(`🚀 Generating spawning data for hour ${hour} using PRODUCTION system...`);
             
             // Clear existing layers
             Object.values(passengerLayers).forEach(layer => layer.clearLayers());
             
             let counts = { depot: 0, route: 0, poi: 0 };
             
-            // Simulate depot spawning
+            try {
+                // Call the ACTUAL production spawning API
+                const spawnResponse = await fetch('/api/passenger-spawning/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        hour: hour,
+                        time_window_minutes: 5,
+                        country_code: 'barbados'
+                    })
+                });
+                
+                if (spawnResponse.ok) {
+                    const spawnData = await spawnResponse.json();
+                    console.log(`✅ Production spawner returned ${spawnData.spawn_requests?.length || 0} spawn requests`);
+                    
+                    // Process production spawn requests
+                    if (spawnData.spawn_requests) {
+                        for (const request of spawnData.spawn_requests) {
+                            const lat = request.latitude;
+                            const lon = request.longitude;
+                            const spawnType = request.spawn_type || 'route'; // depot, route, poi
+                            
+                            const marker = L.circleMarker([lat, lon], {
+                                radius: spawnType === 'depot' ? 5 : spawnType === 'route' ? 4 : 3,
+                                fillColor: CONFIG.COLORS[spawnType] || CONFIG.COLORS.route,
+                                color: 'white',
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            });
+                            
+                            marker.bindPopup(`
+                                <div class="popup-custom">
+                                    <div class="location-type">${spawnType.toUpperCase()}</div>
+                                    <div class="location-name">${request.location_name || 'Unknown Location'}</div>
+                                    <div class="spawn-info">
+                                        Spawned at ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                                        Type: ${request.zone_type || spawnType}<br>
+                                        Population: ${request.zone_population || 'N/A'}<br>
+                                        Poisson Rate: ${(request.spawn_rate || 0).toFixed(3)}/hour
+                                    </div>
+                                </div>
+                            `);
+                            
+                            passengerLayers[spawnType].addLayer(marker);
+                            counts[spawnType]++;
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ Production spawning API not available, falling back to simulation');
+                    await fallbackSpawningSimulation(hour, counts);
+                }
+                
+            } catch (error) {
+                console.warn('⚠️ Production spawning failed, using fallback:', error);
+                await fallbackSpawningSimulation(hour, counts);
+            }
+            
+            // Update statistics display
+            document.getElementById('depotCount').textContent = counts.depot;
+            document.getElementById('routeCount').textContent = counts.route;  
+            document.getElementById('poiCount').textContent = counts.poi;
+            
+            console.log(`📊 Spawned ${counts.depot + counts.route + counts.poi} passengers:`, counts);
+        }
+        
+        // Fallback depot spawning when reservoir API unavailable
+        async function fallbackDepotSpawning(hour, counts) {
             for (const depot of baseData.depots) {
                 const spawnRate = calculateDepotSpawnRate(depot, hour);
-                const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES));
+                const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.5));
                 
                 for (let i = 0; i < spawnCount; i++) {
-                    // Add small random offset to show multiple passengers
                     const lat = depot.latitude + (Math.random() - 0.5) * 0.001;
                     const lon = depot.longitude + (Math.random() - 0.5) * 0.001;
                     
@@ -683,7 +774,7 @@
                     
                     marker.bindPopup(`
                         <div class="popup-custom">
-                            <div class="location-type">DEPOT</div>
+                            <div class="location-type">DEPOT (FALLBACK)</div>
                             <div class="location-name">${depot.name}</div>
                             <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
                             Capacity: ${depot.capacity} passengers<br>
@@ -695,15 +786,73 @@
                     counts.depot++;
                 }
             }
+        }
+        
+        // Fallback spawning simulation when production API is unavailable
+        async function fallbackSpawningSimulation(hour, counts) {
+            console.log('🔄 Using fallback spawning simulation...');
             
-            // Simulate route spawning (passengers along route paths)
+            // Call ACTUAL DEPOT RESERVOIR for depot spawning
+            try {
+                const depotResponse = await fetch('/api/depot-reservoir/spawn-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hour: hour,
+                        time_window_minutes: 5,
+                        depot_ids: baseData.depots.map(d => d.id)
+                    })
+                });
+                
+                if (depotResponse.ok) {
+                    const depotData = await depotResponse.json();
+                    console.log(`✅ Depot reservoir returned ${depotData.spawned_commuters?.length || 0} commuters`);
+                    
+                    if (depotData.spawned_commuters) {
+                        for (const commuter of depotData.spawned_commuters) {
+                            const marker = L.circleMarker([commuter.current_location.lat, commuter.current_location.lon], {
+                                radius: 5,
+                                fillColor: CONFIG.COLORS.depot,
+                                color: 'white',
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            });
+                            
+                            marker.bindPopup(`
+                                <div class="popup-custom">
+                                    <div class="location-type">DEPOT RESERVOIR</div>
+                                    <div class="location-name">${commuter.depot_name || 'Unknown Depot'}</div>
+                                    <div class="spawn-info">
+                                        ID: ${commuter.commuter_id}<br>
+                                        Spawn: ${commuter.spawn_time}<br>
+                                        Direction: ${commuter.direction}<br>
+                                        Priority: ${commuter.priority}<br>
+                                        Max Walk: ${commuter.max_walking_distance}m
+                                    </div>
+                                </div>
+                            `);
+                            
+                            passengerLayers.depot.addLayer(marker);
+                            counts.depot++;
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ Depot reservoir API failed, using fallback');
+                    await fallbackDepotSpawning(hour, counts);
+                }
+            } catch (error) {
+                console.warn('⚠️ Depot reservoir error:', error);
+                await fallbackDepotSpawning(hour, counts);
+            }
+            
+            // Simulate route spawning using route coordinates
             for (const route of baseData.routes) {
                 if (route.geometry_coordinates && route.geometry_coordinates.length > 0) {
                     const spawnRate = calculateRouteSpawnRate(route, hour);
-                    const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES));
+                    const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.3)); // Reduce for fallback
                     
                     for (let i = 0; i < spawnCount; i++) {
-                        // Pick random point along route
                         const randomCoord = route.geometry_coordinates[
                             Math.floor(Math.random() * route.geometry_coordinates.length)
                         ];
@@ -723,7 +872,7 @@
                             
                             marker.bindPopup(`
                                 <div class="popup-custom">
-                                    <div class="location-type">ROUTE STOP</div>
+                                    <div class="location-type">ROUTE (FALLBACK)</div>
                                     <div class="location-name">Route ${route.short_name}</div>
                                     <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
                                     Route: ${route.long_name}<br>
