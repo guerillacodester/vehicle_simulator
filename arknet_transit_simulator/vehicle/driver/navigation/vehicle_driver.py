@@ -17,7 +17,10 @@ and does not load from files or databases on its own.
 
 import time
 import threading
+import asyncio
+import socketio
 from typing import List, Tuple, Optional
+from datetime import datetime
 
 from . import math
 from .telemetry_buffer import TelemetryBuffer
@@ -36,7 +39,9 @@ class VehicleDriver(BasePerson):
         engine_buffer=None,
         tick_time: float = 0.1,
         mode: str = "geodesic",
-        direction: str = "outbound"
+        direction: str = "outbound",
+        sio_url: str = "http://localhost:3000",
+        use_socketio: bool = True
     ):
         """
         VehicleDriver that accepts route coordinates directly.
@@ -50,6 +55,8 @@ class VehicleDriver(BasePerson):
         :param tick_time: worker loop sleep time (s)
         :param mode: "linear" (legacy) or "geodesic" (default)
         :param direction: "outbound" (default) or "inbound" (reverse route)
+        :param sio_url: Socket.IO server URL (Priority 2)
+        :param use_socketio: Enable/disable Socket.IO (Priority 2)
         """
         # Initialize BasePerson with PersonState, then override with DriverState
         super().__init__(driver_id, "VehicleDriver", driver_name)
@@ -70,6 +77,17 @@ class VehicleDriver(BasePerson):
         # References to vehicle components (to be set when boarding)
         self.vehicle_engine = None
         self.vehicle_gps = None
+        
+        # Socket.IO configuration (NEW for Priority 2)
+        self.use_socketio = use_socketio
+        self.sio_url = sio_url
+        self.sio_connected = False
+        self.location_broadcast_task = None
+        if self.use_socketio:
+            self.sio = socketio.AsyncClient(logger=False, engineio_logger=False)
+            self._setup_socketio_handlers()
+        else:
+            self.sio = None
 
         # Set route coordinates (reverse if inbound direction)
         if direction == "inbound":
@@ -95,10 +113,108 @@ class VehicleDriver(BasePerson):
         # Worker
         self._running = False
         self._thread: Optional[threading.Thread] = None
+    
+    def _setup_socketio_handlers(self) -> None:
+        """Set up Socket.IO event handlers (Priority 2)."""
+        
+        @self.sio.event
+        async def connect():
+            self.sio_connected = True
+            self.logger.info(f"[{self.person_name}] Socket.IO connected to {self.sio_url}")
+        
+        @self.sio.event
+        async def disconnect():
+            self.sio_connected = False
+            self.logger.warning(f"[{self.person_name}] Socket.IO disconnected")
+            
+        @self.sio.event
+        async def connect_error(data):
+            self.logger.error(f"[{self.person_name}] Socket.IO connection error: {data}")
+        
+        @self.sio.on('conductor:request:stop')
+        async def on_stop_request(data):
+            """Handle stop request from conductor (Priority 2)."""
+            self.logger.info(f"[{self.person_name}] Received stop request: {data}")
+            
+            # Stop engine if currently driving
+            if self.current_state == DriverState.ONBOARD:
+                await self.stop_engine()
+                
+                # Wait for specified duration
+                duration = data.get('duration_seconds', 30)
+                self.logger.info(f"[{self.person_name}] Stopping for {duration}s for passenger operations")
+                await asyncio.sleep(duration)
+                
+                self.logger.info(f"[{self.person_name}] Stop duration complete, waiting for conductor signal")
+        
+        @self.sio.on('conductor:ready:depart')
+        async def on_ready_to_depart(data):
+            """Handle ready-to-depart signal from conductor (Priority 2)."""
+            self.logger.info(f"[{self.person_name}] Conductor ready to depart: {data}")
+            
+            # Restart engine if in WAITING state
+            if self.current_state == DriverState.WAITING:
+                await self.start_engine()
+                self.logger.info(f"[{self.person_name}] Engine restarted, resuming journey")
+            
+    async def _connect_socketio(self) -> None:
+        """Connect to Socket.IO server (Priority 2)."""
+        if not self.use_socketio or self.sio_connected:
+            return
+        
+        try:
+            await self.sio.connect(self.sio_url)
+            self.logger.info(f"[{self.person_name}] Connected to Socket.IO server: {self.sio_url}")
+        except Exception as e:
+            self.logger.error(f"[{self.person_name}] Socket.IO connection failed: {e}")
+            self.logger.info(f"[{self.person_name}] Continuing without Socket.IO")
+            self.use_socketio = False
+            
+    async def _disconnect_socketio(self) -> None:
+        """Disconnect from Socket.IO server (Priority 2)."""
+        if self.use_socketio and self.sio_connected:
+            try:
+                await self.sio.disconnect()
+                self.logger.info(f"[{self.person_name}] Disconnected from Socket.IO server")
+            except Exception as e:
+                self.logger.error(f"[{self.person_name}] Error disconnecting Socket.IO: {e}")
+    
+    async def _broadcast_location_loop(self) -> None:
+        """Background task to broadcast location via Socket.IO (Priority 2)."""
+        
+        while self._running and self.use_socketio:
+            try:
+                if self.sio_connected and self.current_state == DriverState.ONBOARD:
+                    # Get current telemetry
+                    telemetry = self.step()
+                    
+                    if telemetry:
+                        location_data = {
+                            'vehicle_id': self.vehicle_id,
+                            'driver_id': self.component_id,
+                            'latitude': telemetry.get('latitude', 0),
+                            'longitude': telemetry.get('longitude', 0),
+                            'speed': telemetry.get('speed', 0),
+                            'heading': telemetry.get('heading', 0),
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        
+                        await self.sio.emit('driver:location:update', location_data)
+                
+                # Broadcast every 5 seconds
+                await asyncio.sleep(5.0)
+            
+            except Exception as e:
+                self.logger.error(f"Location broadcast error: {e}")
+                await asyncio.sleep(5.0)  # Continue trying
 
     async def _start_implementation(self) -> bool:
         """Driver boards vehicle and starts GPS device, but NOT the engine (real operations workflow)."""
         try:
+            # Connect to Socket.IO (Priority 2)
+            if self.use_socketio:
+                await self._connect_socketio()
+            
             # Set state to BOARDING while starting components
             self.current_state = DriverState.BOARDING
             self.logger.info(f"Driver {self.person_name} boarding vehicle {self.vehicle_id}")
@@ -141,6 +257,12 @@ class VehicleDriver(BasePerson):
             
             # Set state to WAITING after successful boarding (engine off, waiting for start trigger)
             self.current_state = DriverState.WAITING
+            
+            # Start location broadcasting (Priority 2)
+            if self.use_socketio:
+                self.location_broadcast_task = asyncio.create_task(self._broadcast_location_loop())
+                self.logger.info(f"[{self.person_name}] Location broadcasting task started")
+            
             self.logger.info(
                 f"Driver {self.person_name} successfully boarded {self.vehicle_id} - WAITING for engine start "
                 f"(mode={self.mode}, direction={self.direction})"
@@ -157,6 +279,19 @@ class VehicleDriver(BasePerson):
             # Set state to DISEMBARKING while stopping components
             self.current_state = DriverState.DISEMBARKING
             self.logger.info(f"Driver {self.person_name} disembarking from vehicle {self.vehicle_id}")
+            
+            # Cancel location broadcasting (Priority 2)
+            if self.location_broadcast_task:
+                self.location_broadcast_task.cancel()
+                try:
+                    await self.location_broadcast_task
+                except asyncio.CancelledError:
+                    pass
+                self.logger.info(f"[{self.person_name}] Location broadcasting task stopped")
+            
+            # Disconnect Socket.IO (Priority 2)
+            if self.use_socketio:
+                await self._disconnect_socketio()
             
             # Turn off vehicle components if available
             if self.vehicle_gps:

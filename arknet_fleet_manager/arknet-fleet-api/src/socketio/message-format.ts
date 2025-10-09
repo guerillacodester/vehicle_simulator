@@ -193,6 +193,138 @@ export interface SystemHealthStatus {
 }
 
 /**
+ * Driver location update (broadcast from vehicle driver)
+ */
+export interface DriverLocationUpdate {
+  /** Vehicle identifier */
+  vehicle_id: string;
+  
+  /** Driver identifier */
+  driver_id: string;
+  
+  /** Current latitude */
+  latitude: number;
+  
+  /** Current longitude */
+  longitude: number;
+  
+  /** Current speed (km/h) */
+  speed: number;
+  
+  /** Current heading (degrees, 0-360) */
+  heading: number;
+  
+  /** Timestamp of location update */
+  timestamp: string;
+}
+
+/**
+ * Conductor stop request (from conductor to driver)
+ */
+export interface ConductorStopRequest {
+  /** Vehicle identifier */
+  vehicle_id: string;
+  
+  /** Conductor identifier */
+  conductor_id: string;
+  
+  /** Stop identifier */
+  stop_id: string;
+  
+  /** Number of passengers boarding */
+  passengers_boarding: number;
+  
+  /** Number of passengers disembarking */
+  passengers_disembarking: number;
+  
+  /** Requested stop duration (seconds) */
+  duration_seconds: number;
+  
+  /** GPS position of stop [lat, lon] */
+  gps_position: [number, number];
+}
+
+/**
+ * Conductor ready to depart (from conductor to driver)
+ */
+export interface ConductorReadyToDepart {
+  /** Vehicle identifier */
+  vehicle_id: string;
+  
+  /** Conductor identifier */
+  conductor_id: string;
+  
+  /** Current passenger count on board */
+  passenger_count: number;
+  
+  /** Timestamp of ready signal */
+  timestamp: string;
+}
+
+/**
+ * Conductor query passengers request
+ */
+export interface ConductorQueryPassengers {
+  /** Depot identifier */
+  depot_id: string;
+  
+  /** Route identifier */
+  route_id: string;
+  
+  /** Current vehicle position [lat, lon] */
+  current_position: [number, number];
+}
+
+/**
+ * Passenger query response (to conductor)
+ */
+export interface PassengerQueryResponse {
+  /** List of eligible passengers */
+  passengers: Array<{
+    /** Passenger identifier */
+    passenger_id: string;
+    
+    /** Pickup latitude */
+    pickup_lat: number;
+    
+    /** Pickup longitude */
+    pickup_lon: number;
+    
+    /** Dropoff latitude */
+    dropoff_lat: number;
+    
+    /** Dropoff longitude */
+    dropoff_lon: number;
+    
+    /** Time window start (ISO 8601) */
+    time_window_start: string;
+    
+    /** Time window end (ISO 8601) */
+    time_window_end: string;
+  }>;
+}
+
+/**
+ * Passenger lifecycle event (board, alight, waiting, cancelled)
+ */
+export interface PassengerLifecycleEvent {
+  /** Passenger identifier */
+  passenger_id: string;
+  
+  /** Event type */
+  event_type: 'board' | 'alight' | 'waiting' | 'cancelled';
+  
+  /** Vehicle identifier (optional, for board/alight) */
+  vehicle_id?: string;
+  
+  /** Location of event [lat, lon] */
+  location: [number, number];
+  
+  /** Timestamp of event */
+  timestamp: string;
+}
+
+/**
  * Event type constants
  */
 export const EventTypes = {
@@ -212,6 +344,19 @@ export const EventTypes = {
   DEPOT_QUEUE_UPDATE: 'depot:queue_update',
   DEPOT_VEHICLE_DEPART: 'depot:vehicle_depart',
   DEPOT_SEATS_FILLED: 'depot:seats_filled',
+  
+  // Driver Events (Priority 2)
+  DRIVER_LOCATION_UPDATE: 'driver:location:update',
+  
+  // Conductor Events (Priority 2)
+  CONDUCTOR_REQUEST_STOP: 'conductor:request:stop',
+  CONDUCTOR_READY_DEPART: 'conductor:ready:depart',
+  CONDUCTOR_QUERY_PASSENGERS: 'conductor:query:passengers',
+  
+  // Passenger Events (Priority 2)
+  PASSENGER_LIFECYCLE_EVENT: 'passenger:lifecycle',
+  PASSENGER_BOARD_VEHICLE: 'passenger:board:vehicle',
+  PASSENGER_ALIGHT_VEHICLE: 'passenger:alight:vehicle',
   
   // System Events
   SERVICE_CONNECTED: 'system:service_connected',

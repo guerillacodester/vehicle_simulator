@@ -22,6 +22,7 @@ import threading
 import time
 import asyncio
 import math
+import socketio
 from typing import Dict, Any, Optional, Callable, List, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -113,7 +114,9 @@ class Conductor(BasePerson):
         assigned_route_id: str = None,
         capacity: int = 40, 
         tick_time: float = 1.0,
-        config: ConductorConfig = None
+        config: ConductorConfig = None,
+        sio_url: str = "http://localhost:3000",
+        use_socketio: bool = True
     ):
         # Initialize BasePerson with PersonState
         super().__init__(conductor_id, "Conductor", conductor_name)
@@ -128,6 +131,16 @@ class Conductor(BasePerson):
         self.passengers_on_board = 0
         self.seats_available = capacity
         self.boarding_active = False
+        
+        # Socket.IO configuration (NEW for Priority 2)
+        self.use_socketio = use_socketio
+        self.sio_url = sio_url
+        self.sio_connected = False
+        if self.use_socketio:
+            self.sio = socketio.AsyncClient(logger=False, engineio_logger=False)
+            self._setup_socketio_handlers()
+        else:
+            self.sio = None
         
         # Enhanced operational state
         self.conductor_state = ConductorState.MONITORING
@@ -229,6 +242,45 @@ class Conductor(BasePerson):
         """Set callback for querying depot for passengers."""
         self.depot_callback = callback
         
+    def _setup_socketio_handlers(self) -> None:
+        """Set up Socket.IO event handlers (Priority 2)."""
+        
+        @self.sio.event
+        async def connect():
+            self.sio_connected = True
+            self.logger.info(f"[{self.component_id}] Socket.IO connected to {self.sio_url}")
+        
+        @self.sio.event
+        async def disconnect():
+            self.sio_connected = False
+            self.logger.warning(f"[{self.component_id}] Socket.IO disconnected")
+            
+        @self.sio.event
+        async def connect_error(data):
+            self.logger.error(f"[{self.component_id}] Socket.IO connection error: {data}")
+            
+    async def _connect_socketio(self) -> None:
+        """Connect to Socket.IO server (Priority 2)."""
+        if not self.use_socketio or self.sio_connected:
+            return
+        
+        try:
+            await self.sio.connect(self.sio_url)
+            self.logger.info(f"[{self.component_id}] Connected to Socket.IO server: {self.sio_url}")
+        except Exception as e:
+            self.logger.error(f"[{self.component_id}] Socket.IO connection failed: {e}")
+            self.logger.info(f"[{self.component_id}] Falling back to callback-based communication")
+            self.use_socketio = False  # Disable Socket.IO, fall back to callbacks
+            
+    async def _disconnect_socketio(self) -> None:
+        """Disconnect from Socket.IO server (Priority 2)."""
+        if self.use_socketio and self.sio_connected:
+            try:
+                await self.sio.disconnect()
+                self.logger.info(f"[{self.component_id}] Disconnected from Socket.IO server")
+            except Exception as e:
+                self.logger.error(f"[{self.component_id}] Error disconnecting Socket.IO: {e}")
+        
     def assign_to_route(self, route_id: str) -> None:
         """Assign conductor to specific route."""
         self.assigned_route_id = route_id
@@ -241,6 +293,10 @@ class Conductor(BasePerson):
                 f"Enhanced Conductor {self.person_name} starting duties for vehicle {self.vehicle_id} "
                 f"on route {self.assigned_route_id}"
             )
+            
+            # Connect to Socket.IO (Priority 2)
+            if self.use_socketio:
+                await self._connect_socketio()
             
             # Start basic conductor operations
             if not self._running:
@@ -263,6 +319,10 @@ class Conductor(BasePerson):
         """Enhanced conductor stop with cleanup."""
         try:
             self.logger.info(f"Enhanced Conductor {self.person_name} finishing duties for vehicle {self.vehicle_id}")
+            
+            # Disconnect Socket.IO (Priority 2)
+            if self.use_socketio:
+                await self._disconnect_socketio()
             
             # Stop basic operations
             self._running = False
@@ -439,26 +499,25 @@ class Conductor(BasePerson):
         await self._signal_driver_stop()
         
     async def _signal_driver_stop(self) -> None:
-        """Signal driver to stop vehicle."""
-        if not self.driver_callback or not self.current_stop_operation:
+        """Signal driver to stop vehicle (Priority 2: Socket.IO + callback fallback)."""
+        if not self.current_stop_operation:
             return
             
         # Preserve current GPS position
         self.preserved_gps_position = self.current_vehicle_position
         
+        # Prepare signal data (Socket.IO format)
         signal_data = {
-            'action': 'stop_vehicle',
+            'vehicle_id': self.vehicle_id,
             'conductor_id': self.component_id,
-            'duration': self.current_stop_operation.requested_duration,
-            'location': {
-                'stop_id': self.current_stop_operation.stop_id,
-                'latitude': self.current_stop_operation.latitude,
-                'longitude': self.current_stop_operation.longitude
-            },
+            'stop_id': self.current_stop_operation.stop_id,
             'passengers_boarding': len(self.current_stop_operation.passengers_boarding),
             'passengers_disembarking': len(self.current_stop_operation.passengers_disembarking),
-            'preserve_gps': True,
-            'gps_position': self.preserved_gps_position
+            'duration_seconds': self.current_stop_operation.requested_duration,
+            'gps_position': [
+                self.current_stop_operation.latitude,
+                self.current_stop_operation.longitude
+            ]
         }
         
         self.logger.info(
@@ -467,15 +526,49 @@ class Conductor(BasePerson):
             f"(duration: {self.current_stop_operation.requested_duration:.0f}s)"
         )
         
-        self.driver_callback(self.component_id, signal_data)
+        # Try Socket.IO first (Priority 2)
+        if self.use_socketio and self.sio_connected:
+            try:
+                await self.sio.emit('conductor:request:stop', signal_data)
+                self.logger.info(f"[{self.component_id}] Stop request sent via Socket.IO")
+                # Start stop operation management
+                self.stop_operation_task = asyncio.create_task(self._manage_stop_operation())
+                return
+            except Exception as e:
+                self.logger.error(f"Socket.IO emit failed: {e}, falling back to callback")
         
-        # Start stop operation management
-        self.stop_operation_task = asyncio.create_task(self._manage_stop_operation())
+        # Fallback to callback (existing mechanism)
+        if self.driver_callback:
+            # Convert to old callback format for backward compatibility
+            callback_data = {
+                'action': 'stop_vehicle',
+                'conductor_id': self.component_id,
+                'duration': self.current_stop_operation.requested_duration,
+                'location': {
+                    'stop_id': self.current_stop_operation.stop_id,
+                    'latitude': self.current_stop_operation.latitude,
+                    'longitude': self.current_stop_operation.longitude
+                },
+                'passengers_boarding': len(self.current_stop_operation.passengers_boarding),
+                'passengers_disembarking': len(self.current_stop_operation.passengers_disembarking),
+                'preserve_gps': True,
+                'gps_position': self.preserved_gps_position
+            }
+            self.driver_callback(self.component_id, callback_data)
+            # Start stop operation management
+            self.stop_operation_task = asyncio.create_task(self._manage_stop_operation())
+        else:
+            self.logger.warning(f"[{self.component_id}] No communication method available for driver!")
+
         
     async def _manage_stop_operation(self) -> None:
         """Manage the stop operation process."""
         try:
             self.conductor_state = ConductorState.BOARDING_PASSENGERS
+            
+            # Initialize start time if not already set
+            if self.current_stop_operation.start_time is None:
+                self.current_stop_operation.start_time = datetime.now()
             
             # Handle disembarking first (faster)
             for passenger_id in self.current_stop_operation.passengers_disembarking:
@@ -507,20 +600,45 @@ class Conductor(BasePerson):
             await self._signal_driver_continue()
             
     async def _signal_driver_continue(self) -> None:
-        """Signal driver to continue driving."""
-        if not self.driver_callback:
-            return
-            
+        """Signal driver to continue driving (Priority 2: Socket.IO + callback fallback)."""
+        
+        # Prepare signal data (Socket.IO format)
         signal_data = {
-            'action': 'continue_driving',
+            'vehicle_id': self.vehicle_id,
             'conductor_id': self.component_id,
-            'restore_gps': True,
-            'gps_position': self.preserved_gps_position
+            'passenger_count': self.passengers_on_board,
+            'timestamp': datetime.now().isoformat()
         }
         
         self.logger.info(f"Conductor {self.component_id} signaling driver to continue")
         
-        self.driver_callback(self.component_id, signal_data)
+        # Try Socket.IO first (Priority 2)
+        if self.use_socketio and self.sio_connected:
+            try:
+                await self.sio.emit('conductor:ready:depart', signal_data)
+                self.logger.info(f"[{self.component_id}] Depart signal sent via Socket.IO")
+            except Exception as e:
+                self.logger.error(f"Socket.IO emit failed: {e}, falling back to callback")
+                # Fall through to callback
+                if self.driver_callback:
+                    callback_data = {
+                        'action': 'continue_driving',
+                        'conductor_id': self.component_id,
+                        'restore_gps': True,
+                        'gps_position': self.preserved_gps_position
+                    }
+                    self.driver_callback(self.component_id, callback_data)
+        elif self.driver_callback:
+            # Fallback to callback (existing mechanism)
+            callback_data = {
+                'action': 'continue_driving',
+                'conductor_id': self.component_id,
+                'restore_gps': True,
+                'gps_position': self.preserved_gps_position
+            }
+            self.driver_callback(self.component_id, callback_data)
+        else:
+            self.logger.warning(f"[{self.component_id}] No communication method available for driver!")
         
         # Reset state
         self.current_stop_operation = None
