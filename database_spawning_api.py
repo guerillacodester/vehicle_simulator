@@ -252,9 +252,28 @@ class DatabaseSpawningAPI:
                     print(f"Error processing route {route.get('short_name')} shape {shape_id}: {e}")
                     continue
         
-        # POIs are DESTINATIONS, not spawn points - they should not generate passengers
-        # Passengers spawn at depots and along routes, then travel TO POIs
-        # (POI spawning logic removed - POIs are now used only as destinations)
+        # Generate POI spawns
+        for poi in data['pois']:
+            poi_type = poi.get('poi_type', 'unknown')
+            base_spawn_rate = 2.0 if poi_type in ['transport', 'commercial'] else 1.0
+            spawn_count = max(0, int(base_spawn_rate * base_multiplier * time_window_minutes * 0.1))
+            
+            for _ in range(spawn_count):
+                # Add spatial variation around POI
+                lat = poi['latitude'] + random.gauss(0, 0.0003)
+                lon = poi['longitude'] + random.gauss(0, 0.0003)
+                
+                spawn_requests.append({
+                    "latitude": round(lat, 6),
+                    "longitude": round(lon, 6),
+                    "spawn_type": "poi",
+                    "location_name": poi['name'],
+                    "zone_type": poi_type,
+                    "zone_population": 100,  # Estimated POI activity
+                    "spawn_rate": base_spawn_rate * base_multiplier,
+                    "minute": random.randint(0, 59),
+                    "poi_id": poi['id']
+                })
         
         return spawn_requests
 

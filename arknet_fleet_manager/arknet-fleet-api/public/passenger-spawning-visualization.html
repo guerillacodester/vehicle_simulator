@@ -418,7 +418,7 @@
         <div class="route-controls">
             <div class="route-dropdown" id="routeDropdown">
                 <button class="route-dropdown-btn" id="routeDropdownBtn">
-                    🚌 Routes <span id="routeCount">0</span> ▼
+                    🚌 Routes <span id="routeListCount">0</span> ▼
                 </button>
                 <div class="route-dropdown-content" id="routeDropdownContent">
                     <!-- Route items will be populated dynamically -->
@@ -480,6 +480,7 @@
         // Configuration
         const CONFIG = {
             API_BASE: 'http://localhost:1337/api',
+            SPAWNING_API_BASE: 'http://localhost:1337/api',  // Use Strapi's passenger-spawning API directly
             BARBADOS_BOUNDS: [[13.0396, -59.6489], [13.3356, -59.4206]],
             BARBADOS_CENTER: [13.1879, -59.5348],
             SPAWN_SIMULATION_SAMPLES: 100, // Number of spawn samples per hour per location
@@ -875,10 +876,11 @@
             Object.values(passengerLayers).forEach(layer => layer.clearLayers());
             
             let counts = { depot: 0, route: 0, poi: 0 };
+            console.log('🔢 Initial counts:', counts);
             
             try {
-                // Call the ACTUAL production spawning API
-                const spawnResponse = await fetch('/api/passenger-spawning/generate', {
+                // Call the ACTUAL production spawning API via our new server
+                const spawnResponse = await fetch(`${CONFIG.SPAWNING_API_BASE}/passenger-spawning/generate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -896,10 +898,14 @@
                     
                     // Process production spawn requests with proper icons and details
                     if (spawnData.spawn_requests) {
+                        const spawnTypeCounts = {};
                         for (const request of spawnData.spawn_requests) {
                             const lat = request.latitude;
                             const lon = request.longitude;
                             const spawnType = request.spawn_type || 'route'; // depot, route, poi
+                            
+                            // Debug: Track spawn type distribution
+                            spawnTypeCounts[spawnType] = (spawnTypeCounts[spawnType] || 0) + 1;
                             
                             let marker;
                             
@@ -976,9 +982,31 @@
                                 `);
                             }
                             
+                            // Verify marker was created and layer exists
+                            if (!marker) {
+                                console.error(`❌ Failed to create marker for spawn type: ${spawnType}`);
+                                continue;
+                            }
+                            if (!passengerLayers[spawnType]) {
+                                console.error(`❌ Layer does not exist for spawn type: ${spawnType}`);
+                                continue;
+                            }
+                            
                             passengerLayers[spawnType].addLayer(marker);
                             counts[spawnType]++;
+                            
+                            // Debug: Log every 100th marker
+                            if (counts[spawnType] % 100 === 0) {
+                                console.log(`   Added ${counts[spawnType]} ${spawnType} markers...`);
+                            }
                         }
+                        console.log('🔍 Spawn type distribution from API:', spawnTypeCounts);
+                        console.log('📊 Final counts after processing:', counts);
+                        console.log('📍 Layer marker counts:', {
+                            depot: passengerLayers['depot'].getLayers().length,
+                            route: passengerLayers['route'].getLayers().length,
+                            poi: passengerLayers['poi'].getLayers().length
+                        });
                     }
                 } else {
                     const errorMsg = `❌ Production spawning API failed with status: ${spawnResponse.status}`;
@@ -993,10 +1021,8 @@
                 throw error; // Re-throw to stop execution
             }
             
-            // Update statistics display
-            document.getElementById('depotCount').textContent = counts.depot;
-            document.getElementById('routeCount').textContent = counts.route;  
-            document.getElementById('poiCount').textContent = counts.poi;
+            // Update statistics display (including peak hour indicator)
+            updateStats(counts, hour);
             
             console.log(`📊 Spawned ${counts.depot + counts.route + counts.poi} passengers:`, counts);
         }
@@ -1250,10 +1276,15 @@
         
         // Update statistics display
         function updateStats(counts, hour) {
-            document.getElementById('depotCount').textContent = counts.depot;
-            document.getElementById('routeCount').textContent = counts.route;
-            document.getElementById('poiCount').textContent = counts.poi;
-            document.getElementById('totalCount').textContent = counts.depot + counts.route + counts.poi;
+            console.log('📊 updateStats called with:', { counts, hour });
+            console.log('   - depot:', counts.depot, 'type:', typeof counts.depot);
+            console.log('   - route:', counts.route, 'type:', typeof counts.route);
+            console.log('   - poi:', counts.poi, 'type:', typeof counts.poi);
+            
+            document.getElementById('depotCount').textContent = counts.depot || 0;
+            document.getElementById('routeCount').textContent = counts.route || 0;
+            document.getElementById('poiCount').textContent = counts.poi || 0;
+            document.getElementById('totalCount').textContent = (counts.depot || 0) + (counts.route || 0) + (counts.poi || 0);
             
             // Calculate peak hour (simplified)
             const peakHours = [7, 8, 17, 18];
