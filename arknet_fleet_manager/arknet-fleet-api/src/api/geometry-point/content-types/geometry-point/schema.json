@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "geometry_points",
+  "info": {
+    "singularName": "geometry-point",
+    "pluralName": "geometry-points",
+    "displayName": "Geometry Point",
+    "description": "Point sequences for geofence geometries (PostGIS-ready)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "geometry_id": {
+      "type": "string",
+      "required": true
+    },
+    "point_lat": {
+      "type": "float",
+      "required": true,
+      "min": -90,
+      "max": 90
+    },
+    "point_lon": {
+      "type": "float",
+      "required": true,
+      "min": -180,
+      "max": 180
+    },
+    "point_sequence": {
+      "type": "integer",
+      "required": true,
+      "min": 0
+    },
+    "point_elevation": {
+      "type": "float",
+      "required": false
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    }
+  }
+}
