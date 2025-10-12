@@ -68,6 +68,18 @@
       "relation": "manyToOne",
       "target": "api::shape.shape",
       "inversedBy": "trips"
+    },
+    "stop_times": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::stop-time.stop-time",
+      "mappedBy": "trip"
+    },
+    "frequencies": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::frequency.frequency",
+      "mappedBy": "trip"
     }
   }
 }

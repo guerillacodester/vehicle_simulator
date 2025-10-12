@@ -33,6 +33,10 @@
       "required": false,
       "maxLength": 7
     },
+    "route_type": {
+      "type": "integer",
+      "required": false
+    },
     "is_active": {
       "type": "boolean",
       "required": true,
@@ -70,6 +74,12 @@
       "relation": "oneToMany",
       "target": "api::block.block",
       "mappedBy": "route"
+    },
+    "agencies": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::agency.agency",
+      "inversedBy": "routes"
     },
     "geojson_data": {
       "type": "json",

@@ -74,6 +74,12 @@
       "relation": "oneToMany",
       "target": "api::trip.trip",
       "mappedBy": "service"
+    },
+    "calendar_dates": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::calendar-date.calendar-date",
+      "mappedBy": "service"
     }
   }
 }

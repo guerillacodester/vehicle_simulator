@@ -1,0 +1,63 @@
+{
+  "kind": "collectionType",
+  "collectionName": "calendar_dates",
+  "info": {
+    "singularName": "calendar-date",
+    "pluralName": "calendar-dates",
+    "displayName": "Calendar Date",
+    "description": "Service exceptions for specific dates (GTFS calendar_dates.txt)"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "service": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::service.service",
+      "inversedBy": "calendar_dates"
+    },
+    "date": {
+      "type": "date",
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "exception_type": {
+      "type": "integer",
+      "required": true,
+      "min": 1,
+      "max": 2,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "description": {
+      "type": "text",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    }
+  }
+}

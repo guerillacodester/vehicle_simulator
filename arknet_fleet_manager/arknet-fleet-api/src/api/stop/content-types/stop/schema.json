@@ -74,6 +74,12 @@
       "type": "boolean",
       "required": true,
       "default": true
+    },
+    "stop_times": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::stop-time.stop-time",
+      "mappedBy": "stop"
     }
   }
 }

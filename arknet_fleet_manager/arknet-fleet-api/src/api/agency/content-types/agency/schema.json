@@ -1,0 +1,106 @@
+{
+  "kind": "collectionType",
+  "collectionName": "agency",
+  "info": {
+    "singularName": "agency",
+    "pluralName": "agencies",
+    "displayName": "Agency",
+    "description": "Transit agency information (GTFS agency.txt)"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "agency_id": {
+      "type": "string",
+      "required": false,
+      "unique": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "agency_name": {
+      "type": "string",
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "agency_url": {
+      "type": "string",
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "agency_timezone": {
+      "type": "string",
+      "required": true,
+      "default": "America/Barbados",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "agency_lang": {
+      "type": "string",
+      "default": "en",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "agency_phone": {
+      "type": "string",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "agency_fare_url": {
+      "type": "string",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "agency_email": {
+      "type": "email",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "routes": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::route.route",
+      "mappedBy": "agencies"
+    }
+  }
+}
