@@ -30,6 +30,7 @@ from commuter_service.socketio_client import (
 )
 from commuter_service.location_aware_commuter import LocationAwareCommuter
 from commuter_service.commuter_config import CommuterBehaviorConfig, CommuterConfigLoader
+from commuter_service.passenger_db import PassengerDatabase
 
 
 def get_grid_cell(lat: float, lon: float, cell_size: float = 0.01) -> Tuple[int, int]:
@@ -166,7 +167,8 @@ class RouteReservoir:
         socketio_url: str = "http://localhost:1337",
         config: Optional[CommuterBehaviorConfig] = None,
         grid_cell_size: float = 0.01,  # ~1km cells
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
+        strapi_url: Optional[str] = None
     ):
         self.socketio_url = socketio_url
         self.config = config or CommuterConfigLoader.get_default_config()
@@ -184,6 +186,9 @@ class RouteReservoir:
         
         # Socket.IO client
         self.client: Optional[SocketIOClient] = None
+        
+        # Database client for passenger persistence
+        self.db = PassengerDatabase(strapi_url)
         
         # Background tasks
         self.running = False
@@ -207,6 +212,9 @@ class RouteReservoir:
         self.running = True
         self.stats["start_time"] = datetime.now()
         
+        # Connect to database
+        await self.db.connect()
+        
         # Connect to Socket.IO
         self.client = create_route_client(
             url=self.socketio_url,
@@ -218,6 +226,15 @@ class RouteReservoir:
         
         # Connect to Socket.IO hub
         await self.client.connect()
+        
+        # Log startup statistics
+        self.logger.info("=" * 80)
+        self.logger.info("📊 ROUTE RESERVOIR - INITIALIZATION COMPLETE")
+        self.logger.info("=" * 80)
+        self.logger.info(f"🗺️  Grid Cell Size: {self.grid_cell_size}° (~1km)")
+        self.logger.info(f"🔄 Active Grid Cells: {len(self.grid)}")
+        self.logger.info(f"👥 Active Commuters: {len(self.active_commuters)}")
+        self.logger.info("=" * 80)
         
         # Start background tasks
         self.expiration_task = asyncio.create_task(self._expiration_loop())
@@ -239,6 +256,9 @@ class RouteReservoir:
                 await self.expiration_task
             except asyncio.CancelledError:
                 pass
+        
+        # Disconnect from database
+        await self.db.disconnect()
         
         # Disconnect from Socket.IO
         if self.client:
@@ -390,9 +410,31 @@ class RouteReservoir:
                 }
             )
         
-        self.logger.debug(
-            f"Spawned commuter {commuter.commuter_id} on route {route_id} "
-            f"({direction.value})"
+        # Persist to database
+        await self.db.insert_passenger(
+            passenger_id=commuter.commuter_id,
+            route_id=route_id,
+            lat=current_location[0],
+            lon=current_location[1],
+            destination_lat=destination[0],
+            destination_lon=destination[1],
+            destination_name="Destination",
+            depot_id=None,  # Route spawns don't have depot
+            direction=direction.value,
+            priority=priority,
+            expires_minutes=self.config.max_wait_time_minutes
+        )
+        
+        # Log spawn details
+        self.logger.info(
+            f"✅ ROUTE SPAWN #{self.stats['total_spawned']} | "
+            f"ID: {commuter.commuter_id} | "
+            f"Route: {route_id} | "
+            f"Location: ({current_location[0]:.4f}, {current_location[1]:.4f}) | "
+            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) | "
+            f"Direction: {direction.value} | "
+            f"Priority: {priority} | "
+            f"Grid: {grid_cell}"
         )
         
         return commuter
@@ -485,6 +527,9 @@ class RouteReservoir:
                 if removed:
                     segment.total_picked_up += 1
                     self.stats["total_picked_up"] += 1
+                    
+                    # Update database status
+                    await self.db.mark_boarded(commuter_id)
                     
                     # Emit pickup event
                     if self.client:

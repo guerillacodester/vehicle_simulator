@@ -397,8 +397,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>🚌 Real-Time Passenger Spawning Visualization</h1>
-        <div class="subtitle">Live temporal analysis of passenger generation across depots, routes, and POIs</div>
+        <h1>🚌 Live Passenger Database Visualization</h1>
+        <div class="subtitle">Real-time monitoring of active passengers from database (auto-refresh every 5s)</div>
     </div>
     
     <div class="controls-panel">
@@ -560,6 +560,7 @@
         let playInterval = null;
         let currentHour = 8;
         let activeFilters = new Set(['depot', 'route', 'poi']);
+        let autoRefreshInterval = null;
         
         // Initialize the application
         async function init() {
@@ -567,7 +568,9 @@
                 initializeMap();
                 await loadBaseData();
                 setupEventListeners();
-                await generateSpawningData(currentHour);
+                // Show live passengers from database
+                await showLivePassengers();
+                startAutoRefresh();
                 hideLoading();
                 updateDisplay();
             } catch (error) {
@@ -1186,6 +1189,99 @@
             updateStats(counts, hour);
         }
         
+        // Query real passengers from database (LIVE MODE)
+        async function showLivePassengers() {
+            console.log('🔴 LIVE MODE: Querying real passengers from database...');
+            
+            // Clear existing layers
+            Object.values(passengerLayers).forEach(layer => layer.clearLayers());
+            
+            let counts = { depot: 0, route: 0, poi: 0 };
+            
+            try {
+                const response = await fetch(`${CONFIG.API_BASE}/active-passengers`);
+                
+                if (!response.ok) {
+                    console.error('Failed to fetch passengers:', response.statusText);
+                    return;
+                }
+                
+                const result = await response.json();
+                const passengers = result.data || [];
+                
+                console.log(`✅ Retrieved ${passengers.length} active passengers from database`);
+                
+                for (const passenger of passengers) {
+                    const attrs = passenger.attributes;
+                    const lat = attrs.lat;
+                    const lon = attrs.lon;
+                    
+                    // Determine passenger type by depot_id presence
+                    const isDepotSpawn = attrs.depot_id != null;
+                    const passengerType = isDepotSpawn ? 'depot' : 'route';
+                    
+                    // Icon based on status
+                    let icon;
+                    if (attrs.status === 'WAITING') {
+                        icon = L.divIcon({
+                            html: '<i class="fas fa-user"></i>',
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8],
+                            className: 'custom-passenger-icon'
+                        });
+                    } else if (attrs.status === 'ONBOARD') {
+                        icon = L.divIcon({
+                            html: '<i class="fas fa-bus"></i>',
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8],
+                            className: 'custom-passenger-icon'
+                        });
+                    } else {
+                        icon = L.divIcon({
+                            html: '<i class="fas fa-check-circle"></i>',
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8],
+                            className: 'custom-passenger-icon'
+                        });
+                    }
+                    
+                    const marker = L.marker([lat, lon], { icon: icon });
+                    
+                    // Create popup with real passenger data
+                    const spawnedAt = new Date(attrs.spawned_at);
+                    const expiresAt = new Date(attrs.expires_at);
+                    
+                    marker.bindPopup(`
+                        <div class="popup-custom">
+                            <div class="location-type">${passengerType.toUpperCase()} PASSENGER - ${attrs.status}</div>
+                            <div class="location-name">${attrs.passenger_id}</div>
+                            <div class="spawn-info">
+                                <strong>📍 Current:</strong> (${lat.toFixed(4)}, ${lon.toFixed(4)})<br>
+                                <strong>🎯 Destination:</strong> (${attrs.destination_lat?.toFixed(4)}, ${attrs.destination_lon?.toFixed(4)})<br>
+                                <strong>🚌 Route:</strong> ${attrs.route_id}<br>
+                                ${attrs.depot_id ? `<strong>🏢 Depot:</strong> ${attrs.depot_id}<br>` : ''}
+                                <strong>➡️ Direction:</strong> ${attrs.direction}<br>
+                                <strong>⭐ Priority:</strong> ${attrs.priority}<br>
+                                <strong>⏰ Spawned:</strong> ${spawnedAt.toLocaleTimeString()}<br>
+                                <strong>⏳ Expires:</strong> ${expiresAt.toLocaleTimeString()}<br>
+                                ${attrs.boarded_at ? `<strong>✅ Boarded:</strong> ${new Date(attrs.boarded_at).toLocaleTimeString()}<br>` : ''}
+                            </div>
+                        </div>
+                    `);
+                    
+                    // Add to appropriate layer
+                    passengerLayers[passengerType].addLayer(marker);
+                    counts[passengerType]++;
+                }
+                
+                // Update statistics
+                updateStats(counts, null); // No hour in live mode
+                
+            } catch (error) {
+                console.error('Error fetching live passengers:', error);
+            }
+        }
+        
         // Calculate depot spawn rate based on time and capacity
         function calculateDepotSpawnRate(depot, hour) {
             // Base rate influenced by capacity (fallback to 50 if capacity is missing)
@@ -1252,45 +1348,40 @@
             document.getElementById('poiCount').textContent = counts.poi || 0;
             document.getElementById('totalCount').textContent = (counts.depot || 0) + (counts.route || 0) + (counts.poi || 0);
             
-            // Calculate peak hour (simplified)
-            const peakHours = [7, 8, 17, 18];
-            if (peakHours.includes(hour)) {
-                document.getElementById('peakHour').textContent = `${hour}:00 (Peak)`;
-                document.getElementById('peakHour').style.color = '#e74c3c';
-            } else {
-                document.getElementById('peakHour').textContent = `${hour}:00 (Off-Peak)`;
-                document.getElementById('peakHour').style.color = '#27ae60';
-            }
+            // Show current live time
+            const now = new Date();
+            document.getElementById('peakHour').textContent = `LIVE: ${now.toLocaleTimeString()}`;
+            document.getElementById('peakHour').style.color = '#3498db';
         }
         
         // Setup event listeners
         function setupEventListeners() {
-            // Time slider
+            // Time slider (disabled in live mode but kept for UI consistency)
             const timeSlider = document.getElementById('timeSlider');
             const timeDisplay = document.getElementById('timeDisplay');
             
-            timeSlider.addEventListener('input', async (e) => {
+            timeSlider.addEventListener('input', (e) => {
                 currentHour = parseInt(e.target.value);
                 timeDisplay.textContent = `${String(currentHour).padStart(2, '0')}:00`;
-                await generateSpawningData(currentHour);
-                updateDisplay();
+                // No action in live mode - just update display
             });
             
             // Filter buttons
             document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const filter = e.target.dataset.filter;
-                    
-                    if (activeFilters.has(filter)) {
-                        activeFilters.delete(filter);
-                        e.target.classList.remove('active');
-                    } else {
-                        activeFilters.add(filter);
-                        e.target.classList.add('active');
-                    }
-                    
-                    updateDisplay();
-                });
+                const filter = btn.dataset.filter;
+                if (filter) { // Only for filter buttons
+                    btn.addEventListener('click', (e) => {
+                        if (activeFilters.has(filter)) {
+                            activeFilters.delete(filter);
+                            e.target.classList.remove('active');
+                        } else {
+                            activeFilters.add(filter);
+                            e.target.classList.add('active');
+                        }
+                        
+                        updateDisplay();
+                    });
+                }
             });
             
             // Play/pause button
@@ -1362,6 +1453,29 @@
             if (playInterval) {
                 clearInterval(playInterval);
                 playInterval = null;
+            }
+        }
+        
+        // Start auto-refresh for live mode (every 5 seconds)
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            
+            autoRefreshInterval = setInterval(async () => {
+                console.log('🔄 Auto-refreshing live passengers...');
+                await showLivePassengers();
+            }, 5000); // Refresh every 5 seconds
+            
+            console.log('✅ Auto-refresh started (5s interval)');
+        }
+        
+        // Stop auto-refresh
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                console.log('⏸ Auto-refresh stopped');
             }
         }
         

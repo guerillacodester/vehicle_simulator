@@ -28,6 +28,7 @@ from commuter_service.socketio_client import (
 )
 from commuter_service.location_aware_commuter import LocationAwareCommuter
 from commuter_service.commuter_config import CommuterBehaviorConfig, CommuterConfigLoader
+from commuter_service.passenger_db import PassengerDatabase
 
 
 @dataclass
@@ -138,7 +139,8 @@ class DepotReservoir:
         self,
         socketio_url: str = "http://localhost:1337",
         config: Optional[CommuterBehaviorConfig] = None,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
+        strapi_url: Optional[str] = None
     ):
         self.socketio_url = socketio_url
         self.config = config or CommuterConfigLoader.get_default_config()
@@ -149,6 +151,9 @@ class DepotReservoir:
         
         # Socket.IO client
         self.client: Optional[SocketIOClient] = None
+        
+        # Database client for passenger persistence
+        self.db = PassengerDatabase(strapi_url)
         
         # Active commuters for quick lookup
         self.active_commuters: Dict[str, LocationAwareCommuter] = {}
@@ -175,6 +180,9 @@ class DepotReservoir:
         self.running = True
         self.stats["start_time"] = datetime.now()
         
+        # Connect to database
+        await self.db.connect()
+        
         # Connect to Socket.IO
         self.client = create_depot_client(
             url=self.socketio_url,
@@ -186,6 +194,17 @@ class DepotReservoir:
         
         # Connect to Socket.IO hub
         await self.client.connect()
+        
+        # Log startup statistics
+        self.logger.info("=" * 80)
+        self.logger.info("📊 DEPOT RESERVOIR - INITIALIZATION COMPLETE")
+        self.logger.info("=" * 80)
+        self.logger.info(f"🏢 Active Depots: {len(self.queues)}")
+        for (depot_id, route_id), queue in self.queues.items():
+            self.logger.info(
+                f"   • {depot_id} @ ({queue.depot_location[0]:.4f}, {queue.depot_location[1]:.4f}) - Route: {route_id}"
+            )
+        self.logger.info("=" * 80)
         
         # Start background tasks
         self.expiration_task = asyncio.create_task(self._expiration_loop())
@@ -207,6 +226,9 @@ class DepotReservoir:
                 await self.expiration_task
             except asyncio.CancelledError:
                 pass
+        
+        # Disconnect from database
+        await self.db.disconnect()
         
         # Disconnect from Socket.IO
         if self.client:
@@ -349,8 +371,30 @@ class DepotReservoir:
                 }
             )
         
-        self.logger.debug(
-            f"Spawned commuter {commuter.commuter_id} at depot {depot_id}"
+        # Persist to database
+        await self.db.insert_passenger(
+            passenger_id=commuter.commuter_id,
+            route_id=route_id,
+            latitude=depot_location[0],
+            longitude=depot_location[1],
+            destination_lat=destination[0],
+            destination_lon=destination[1],
+            destination_name="Destination",
+            depot_id=depot_id,
+            direction="OUTBOUND",
+            priority=priority,
+            expires_minutes=max_wait_time.total_seconds() / 60 if max_wait_time else 30
+        )
+        
+        # Log spawn details
+        self.logger.info(
+            f"✅ DEPOT SPAWN #{self.stats['total_spawned']} | "
+            f"ID: {commuter.commuter_id} | "
+            f"Depot: {depot_id} @ ({depot_location[0]:.4f}, {depot_location[1]:.4f}) | "
+            f"Route: {route_id} | "
+            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) | "
+            f"Priority: {priority} | "
+            f"Queue: {len(queue.commuters)} waiting"
         )
         
         return commuter
@@ -405,6 +449,9 @@ class DepotReservoir:
             if removed:
                 queue.total_picked_up += 1
                 self.stats["total_picked_up"] += 1
+                
+                # Update database status
+                await self.db.mark_boarded(commuter_id)
                 
                 # Emit pickup event
                 if self.client:
