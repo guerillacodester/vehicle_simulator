@@ -2,8 +2,8 @@ export default {
   routes: [
     {
       method: 'GET',
-      path: '/places',
-      handler: 'place.find',
+      path: '/poi-shapes',
+      handler: 'poi-shape.find',
       config: {
         policies: [],
         middlewares: [],
@@ -11,8 +11,8 @@ export default {
     },
     {
       method: 'GET',
-      path: '/places/:id',
-      handler: 'place.findOne',
+      path: '/poi-shapes/:id',
+      handler: 'poi-shape.findOne',
       config: {
         policies: [],
         middlewares: [],
@@ -20,8 +20,8 @@ export default {
     },
     {
       method: 'POST',
-      path: '/places',
-      handler: 'place.create',
+      path: '/poi-shapes',
+      handler: 'poi-shape.create',
       config: {
         policies: [],
         middlewares: [],
@@ -29,8 +29,8 @@ export default {
     },
     {
       method: 'PUT',
-      path: '/places/:id',
-      handler: 'place.update',
+      path: '/poi-shapes/:id',
+      handler: 'poi-shape.update',
       config: {
         policies: [],
         middlewares: [],
@@ -38,8 +38,8 @@ export default {
     },
     {
       method: 'DELETE',
-      path: '/places/:id',
-      handler: 'place.delete',
+      path: '/poi-shapes/:id',
+      handler: 'poi-shape.delete',
       config: {
         policies: [],
         middlewares: [],

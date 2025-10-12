@@ -103,6 +103,12 @@
       "relation": "manyToOne",
       "target": "api::region.region",
       "inversedBy": "landuse_zones"
+    },
+    "landuse_shapes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::landuse-shape.landuse-shape",
+      "mappedBy": "landuse_zone"
     }
   }
 }

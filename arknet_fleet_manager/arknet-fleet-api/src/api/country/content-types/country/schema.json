@@ -84,10 +84,10 @@
       "target": "api::region.region",
       "mappedBy": "country"
     },
-    "places": {
+    "highways": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::place.place",
+      "target": "api::highway.highway",
       "mappedBy": "country"
     },
     "spawn_config": {
@@ -129,7 +129,7 @@
         }
       }
     },
-    "place_names_geojson_file": {
+    "highways_geojson_file": {
       "type": "media",
       "multiple": false,
       "required": false,

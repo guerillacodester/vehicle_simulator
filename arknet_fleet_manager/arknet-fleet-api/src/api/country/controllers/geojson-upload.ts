@@ -17,8 +17,8 @@ export default {
         return ctx.badRequest('Country ID is required');
       }
 
-      if (!fileType || !['pois', 'places', 'landuse', 'regions'].includes(fileType)) {
-        return ctx.badRequest('Invalid file type. Must be: pois, places, landuse, or regions');
+      if (!fileType || !['pois', 'landuse', 'regions', 'highways'].includes(fileType)) {
+        return ctx.badRequest('Invalid file type. Must be: pois, landuse, regions, or highways');
       }
 
       const file = files.geojson;
@@ -54,9 +54,9 @@ export default {
       // Update the country record with the uploaded file
       const fieldMap: any = {
         pois: 'pois_geojson_file',
-        places: 'place_names_geojson_file',
         landuse: 'landuse_geojson_file',
         regions: 'regions_geojson_file',
+        highways: 'highways_geojson_file',
       };
 
       const country = await strapi.entityService.update(

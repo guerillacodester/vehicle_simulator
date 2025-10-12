@@ -111,6 +111,12 @@
       "relation": "manyToOne",
       "target": "api::region.region",
       "inversedBy": "pois"
+    },
+    "poi_shapes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::poi-shape.poi-shape",
+      "mappedBy": "poi"
     }
   }
 }

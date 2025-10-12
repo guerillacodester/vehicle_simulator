@@ -1,0 +1,34 @@
+{
+  "kind": "collectionType",
+  "collectionName": "highway_shapes",
+  "info": {
+    "singularName": "highway-shape",
+    "pluralName": "highway-shapes",
+    "displayName": "Highway Shape",
+    "description": "Stores coordinate points for highway geometries (LineStrings)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "shape_pt_lat": {
+      "type": "float",
+      "required": true
+    },
+    "shape_pt_lon": {
+      "type": "float",
+      "required": true
+    },
+    "shape_pt_sequence": {
+      "type": "integer",
+      "required": true
+    },
+    "highway": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::highway.highway",
+      "inversedBy": "highway_shapes"
+    }
+  }
+}

@@ -87,10 +87,16 @@
       "target": "api::landuse-zone.landuse-zone",
       "mappedBy": "region"
     },
-    "places": {
+    "highways": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::place.place",
+      "target": "api::highway.highway",
+      "mappedBy": "region"
+    },
+    "region_shapes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::region-shape.region-shape",
       "mappedBy": "region"
     }
   }
