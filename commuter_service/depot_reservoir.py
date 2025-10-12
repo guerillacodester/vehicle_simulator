@@ -29,6 +29,8 @@ from commuter_service.socketio_client import (
 from commuter_service.location_aware_commuter import LocationAwareCommuter
 from commuter_service.commuter_config import CommuterBehaviorConfig, CommuterConfigLoader
 from commuter_service.passenger_db import PassengerDatabase
+from commuter_service.strapi_api_client import StrapiApiClient, DepotData, RouteData
+from commuter_service.poisson_geojson_spawner import PoissonGeoJSONSpawner
 
 
 @dataclass
@@ -143,6 +145,7 @@ class DepotReservoir:
         strapi_url: Optional[str] = None
     ):
         self.socketio_url = socketio_url
+        self.strapi_url = strapi_url or "http://localhost:1337"
         self.config = config or CommuterConfigLoader.get_default_config()
         self.logger = logger or logging.getLogger(__name__)
         
@@ -155,12 +158,23 @@ class DepotReservoir:
         # Database client for passenger persistence
         self.db = PassengerDatabase(strapi_url)
         
+        # Strapi API client for depot/route data
+        self.api_client: Optional[StrapiApiClient] = None
+        
+        # Poisson spawner for statistical passenger generation
+        self.poisson_spawner: Optional[PoissonGeoJSONSpawner] = None
+        
+        # Depot and route data from API
+        self.depots: List[DepotData] = []
+        self.routes: List[RouteData] = []
+        
         # Active commuters for quick lookup
         self.active_commuters: Dict[str, LocationAwareCommuter] = {}
         
         # Background tasks
         self.running = False
         self.expiration_task: Optional[asyncio.Task] = None
+        self.spawning_task: Optional[asyncio.Task] = None
         
         # Statistics
         self.stats = {
@@ -183,6 +197,40 @@ class DepotReservoir:
         # Connect to database
         await self.db.connect()
         
+        # Initialize Strapi API client and load depot/route data
+        # Strip /api suffix if present (StrapiApiClient adds it internally)
+        api_base_url = self.strapi_url.rstrip('/api').rstrip('/')
+        self.api_client = StrapiApiClient(api_base_url)
+        await self.api_client.connect()
+        
+        self.logger.info("📡 Loading depots and routes from Strapi API...")
+        self.depots = await self.api_client.get_all_depots()
+        self.routes = await self.api_client.get_all_routes()
+        
+        self.logger.info(f"✅ Loaded {len(self.depots)} depots and {len(self.routes)} routes")
+        
+        # Initialize Poisson spawner with GeoJSON population data
+        self.logger.info("🌍 Initializing Poisson GeoJSON spawner with population data...")
+        self.poisson_spawner = PoissonGeoJSONSpawner(self.api_client)
+        await self.poisson_spawner.initialize(country_code="BB")  # Barbados ISO code
+        
+        # Create depot queues for all depot-route combinations
+        for depot in self.depots:
+            depot_lat = depot.latitude or (depot.location.get('lat') if depot.location else None)
+            depot_lon = depot.longitude or (depot.location.get('lon') if depot.location else None)
+            
+            if not depot_lat or not depot_lon:
+                self.logger.warning(f"Depot {depot.depot_id} has no GPS coordinates, skipping")
+                continue
+            
+            for route in self.routes:
+                queue_key = (depot.depot_id, route.short_name)
+                self.queues[queue_key] = DepotQueue(
+                    depot_id=depot.depot_id,
+                    depot_location=(depot_lat, depot_lon),
+                    route_id=route.short_name
+                )
+        
         # Connect to Socket.IO
         self.client = create_depot_client(
             url=self.socketio_url,
@@ -199,15 +247,22 @@ class DepotReservoir:
         self.logger.info("=" * 80)
         self.logger.info("📊 DEPOT RESERVOIR - INITIALIZATION COMPLETE")
         self.logger.info("=" * 80)
-        self.logger.info(f"🏢 Active Depots: {len(self.queues)}")
-        for (depot_id, route_id), queue in self.queues.items():
-            self.logger.info(
-                f"   • {depot_id} @ ({queue.depot_location[0]:.4f}, {queue.depot_location[1]:.4f}) - Route: {route_id}"
-            )
+        self.logger.info(f"🏢 Active Depots: {len(self.depots)}")
+        for depot in self.depots:
+            depot_lat = depot.latitude or (depot.location.get('lat') if depot.location else None)
+            depot_lon = depot.longitude or (depot.location.get('lon') if depot.location else None)
+            if depot_lat and depot_lon:
+                self.logger.info(f"   • {depot.depot_id} ({depot.name}) @ ({depot_lat:.4f}, {depot_lon:.4f})")
+        self.logger.info(f"🚌 Active Routes: {len(self.routes)}")
+        for route in self.routes[:5]:  # Show first 5
+            self.logger.info(f"   • {route.short_name}: {route.long_name}")
+        if len(self.routes) > 5:
+            self.logger.info(f"   ... and {len(self.routes) - 5} more")
         self.logger.info("=" * 80)
         
         # Start background tasks
         self.expiration_task = asyncio.create_task(self._expiration_loop())
+        self.spawning_task = asyncio.create_task(self._spawning_loop())
         
         self.logger.info("Depot reservoir service started successfully")
     
@@ -224,6 +279,13 @@ class DepotReservoir:
             self.expiration_task.cancel()
             try:
                 await self.expiration_task
+            except asyncio.CancelledError:
+                pass
+        
+        if self.spawning_task:
+            self.spawning_task.cancel()
+            try:
+                await self.spawning_task
             except asyncio.CancelledError:
                 pass
         
@@ -324,6 +386,10 @@ class DepotReservoir:
         Returns:
             LocationAwareCommuter instance
         """
+        # Normalize locations to (float, float) tuples
+        depot_location = self._normalize_location(depot_location)
+        destination = self._normalize_location(destination)
+        
         # Get or create queue
         queue = self._get_or_create_queue(depot_id, route_id, depot_location)
         
@@ -382,19 +448,52 @@ class DepotReservoir:
             destination_name="Destination",
             depot_id=depot_id,
             direction="OUTBOUND",
-            priority=priority,
+            priority=max(1, min(5, int(priority * 5) + 1)),  # Convert float (0.0-1.0) to int (1-5)
             expires_minutes=max_wait_time.total_seconds() / 60 if max_wait_time else 30
         )
+        
+        # Get location names
+        spawn_location_name = self._get_location_name(depot_location)
+        dest_location_name = self._get_location_name(destination)
+        
+        # Get depot name
+        depot_name = next((d.name for d in self.depots if d.depot_id == depot_id), depot_id)
         
         # Log spawn details
         self.logger.info(
             f"✅ DEPOT SPAWN #{self.stats['total_spawned']} | "
-            f"ID: {commuter.commuter_id} | "
-            f"Depot: {depot_id} @ ({depot_location[0]:.4f}, {depot_location[1]:.4f}) | "
+            f"ID: {commuter.commuter_id[:8]}... | "
+            f"Depot: {depot_name} @ ({depot_location[0]:.4f}, {depot_location[1]:.4f}) | "
+            f"Near: {spawn_location_name} | "
             f"Route: {route_id} | "
-            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) | "
+            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) → {dest_location_name} | "
             f"Priority: {priority} | "
             f"Queue: {len(queue.commuters)} waiting"
+        )
+        
+        # Emit spawn event via Socket.IO
+        await self.client.emit_message(
+            "commuter:spawned",
+            {
+                "passenger_id": commuter.commuter_id,
+                "depot_id": depot_id,
+                "depot_name": depot_name,
+                "route_id": route_id,
+                "spawn_location": {
+                    "lat": depot_location[0],
+                    "lon": depot_location[1],
+                    "name": spawn_location_name
+                },
+                "destination": {
+                    "lat": destination[0],
+                    "lon": destination[1],
+                    "name": dest_location_name
+                },
+                "priority": priority,
+                "queue_size": len(queue.commuters),
+                "spawn_time": commuter.spawn_time.isoformat(),
+                "type": "depot"
+            }
         )
         
         return commuter
@@ -503,6 +602,151 @@ class DepotReservoir:
             target=target,
             correlation_id=correlation_id
         )
+    
+    async def _spawning_loop(self):
+        """Background task for automatic Poisson-based passenger spawning using GeoJSON population data"""
+        self.logger.info("🚀 Starting automatic passenger spawning loop (using real GeoJSON population data)")
+        
+        while self.running:
+            try:
+                # Wait before next spawn cycle (30 seconds for demo)
+                await asyncio.sleep(30)  # 30-second intervals for testing
+                
+                current_time = datetime.now()
+                
+                # Generate spawn requests from Poisson spawner using GeoJSON population zones
+                spawn_requests = await self.poisson_spawner.generate_poisson_spawn_requests(
+                    current_time=current_time,
+                    time_window_minutes=5
+                )
+                
+                self.logger.info(f"🎲 Poisson spawner generated {len(spawn_requests)} spawn requests for hour {current_time.hour}")
+                
+                # Process spawn requests
+                for request in spawn_requests:
+                    try:
+                        spawn_location = request.get('spawn_location')  # (lat, lon)
+                        destination = request.get('destination_location')  # (lat, lon)
+                        route_id = request.get('assigned_route')
+                        priority = request.get('priority', 3)
+                        
+                        if not all([spawn_location, destination, route_id]):
+                            self.logger.debug(f"Skipping incomplete spawn request: spawn={spawn_location}, dest={destination}, route={route_id}")
+                            continue
+                        
+                        # Find nearest depot to spawn location
+                        nearest_depot = self._find_nearest_depot(spawn_location)
+                        
+                        if nearest_depot:
+                            # Get depot coordinates
+                            depot_lat = nearest_depot.latitude if nearest_depot.latitude is not None else nearest_depot.location.get('lat')
+                            depot_lon = nearest_depot.longitude if nearest_depot.longitude is not None else nearest_depot.location.get('lon')
+                            
+                            # Ensure coordinates are floats
+                            if isinstance(depot_lat, str):
+                                depot_lat = float(depot_lat)
+                            if isinstance(depot_lon, str):
+                                depot_lon = float(depot_lon)
+                            
+                            # Spawn commuter at depot
+                            await self.spawn_commuter(
+                                depot_id=nearest_depot.depot_id,
+                                route_id=route_id,
+                                depot_location=(depot_lat, depot_lon),
+                                destination=destination,
+                                priority=priority
+                            )
+                        
+                    except Exception as e:
+                        self.logger.error(f"Failed to process spawn request: {e}", exc_info=True)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"Error in spawning loop: {e}")
+    
+    def _normalize_location(self, location) -> tuple[float, float]:
+        """
+        Convert location to (lat, lon) tuple of floats.
+        Handles dict {'lat': x, 'lon': y}, tuple/list (x, y), with string or numeric values.
+        """
+        if isinstance(location, dict):
+            lat = location.get('lat') or location.get('latitude')
+            lon = location.get('lon') or location.get('longitude')
+            if lat is None or lon is None:
+                raise ValueError(f"Invalid dict location format: {location}")
+            return (float(lat), float(lon))
+        elif isinstance(location, (tuple, list)) and len(location) == 2:
+            return (float(location[0]), float(location[1]))
+        else:
+            raise ValueError(f"Unexpected location format: {location} (type: {type(location)})")
+    
+    def _find_nearest_depot(self, location: tuple[float, float]) -> Optional[DepotData]:
+        """Find the nearest depot to a given location using Haversine distance"""
+        from math import radians, sin, cos, sqrt, atan2
+        
+        if not self.depots:
+            return None
+        
+        # Normalize location to (float, float) tuple
+        lat1, lon1 = self._normalize_location(location)
+        min_distance = float('inf')
+        nearest_depot = None
+        
+        for depot in self.depots:
+            depot_lat = depot.latitude or (depot.location.get('lat') if depot.location else None)
+            depot_lon = depot.longitude or (depot.location.get('lon') if depot.location else None)
+            
+            if not depot_lat or not depot_lon:
+                continue
+            
+            # Ensure coordinates are floats (might be strings from API)
+            lat2 = float(depot_lat) if isinstance(depot_lat, str) else depot_lat
+            lon2 = float(depot_lon) if isinstance(depot_lon, str) else depot_lon
+            
+            # Haversine distance
+            R = 6371000  # Earth radius in meters
+            dlat = radians(lat2 - lat1)
+            dlon = radians(lon2 - lon1)
+            a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+            c = 2 * atan2(sqrt(a), sqrt(1-a))
+            distance = R * c
+            
+            if distance < min_distance:
+                min_distance = distance
+                nearest_depot = depot
+        
+        return nearest_depot
+    
+    def _get_location_name(self, location: tuple[float, float]) -> str:
+        """Get location name from coordinates using GeoJSON data"""
+        from math import radians, sin, cos, sqrt, atan2
+        
+        if not hasattr(self, 'poisson_spawner') or not self.poisson_spawner:
+            return "Unknown Location"
+        
+        # Normalize location to (float, float) tuple
+        lat, lon = self._normalize_location(location)
+        min_distance = float('inf')
+        nearest_name = "Unknown Location"
+        
+        # Check amenity zones (POIs and Places)
+        for zone in self.poisson_spawner.geojson_loader.amenity_zones:
+            zone_lat, zone_lon = zone.center_point
+            
+            # Simple distance calculation
+            R = 6371000  # Earth radius in meters
+            dlat = radians(zone_lat - lat)
+            dlon = radians(zone_lon - lon)
+            a = sin(dlat/2)**2 + cos(radians(lat)) * cos(radians(zone_lat)) * sin(dlon/2)**2
+            c = 2 * atan2(sqrt(a), sqrt(1-a))
+            distance = R * c
+            
+            if distance < min_distance and distance < 100:  # Within 100m
+                min_distance = distance
+                nearest_name = f"{zone.zone_type.title()} ({zone.zone_id.replace('poi_', '').replace('_', ' ')})"
+        
+        return nearest_name
     
     async def _expiration_loop(self):
         """Background task to expire old commuters"""

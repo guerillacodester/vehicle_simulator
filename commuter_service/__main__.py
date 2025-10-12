@@ -8,16 +8,20 @@ Usage:
     python -m commuter_service
     python -m commuter_service --depot-only
     python -m commuter_service --route-only
-    python -m commuter_service --socketio-url http://localhost:1337 --strapi-url http://localhost:1337/api
+    python -m commuter_service --socketio-url http://localhost:1337 --strapi-url http://localhost:1337
 """
 import asyncio
 import argparse
 import logging
+import os
 from typing import Optional
+from dotenv import load_dotenv
 
 from commuter_service.depot_reservoir import DepotReservoir
 from commuter_service.route_reservoir import RouteReservoir
 
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -28,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 async def run_commuter_service(
-    socketio_url: str = "http://localhost:1337",
-    strapi_url: str = "http://localhost:1337/api",
+    socketio_url: str = None,
+    strapi_url: str = None,
     depot_only: bool = False,
     route_only: bool = False
 ):
@@ -37,11 +41,16 @@ async def run_commuter_service(
     Run the commuter service with depot and/or route reservoirs
     
     Args:
-        socketio_url: Socket.IO server URL
-        strapi_url: Strapi API base URL (for database persistence)
+        socketio_url: Socket.IO server URL (from env ARKNET_API_URL or default)
+        strapi_url: Strapi API base URL (from env ARKNET_API_URL or default)
         depot_only: Only run depot reservoir
         route_only: Only run route reservoir
     """
+    # Get URLs from environment or use defaults
+    base_url = os.getenv('ARKNET_API_URL', 'http://localhost:1337')
+    socketio_url = socketio_url or base_url
+    strapi_url = strapi_url or base_url
+    
     logger.info("🚀 Starting Commuter Service...")
     logger.info(f"   Socket.IO: {socketio_url}")
     logger.info(f"   Strapi API: {strapi_url}")
@@ -126,18 +135,21 @@ async def run_commuter_service(
 
 def main():
     """Main entrypoint"""
+    # Get default URL from environment
+    default_url = os.getenv('ARKNET_API_URL', 'http://localhost:1337')
+    
     parser = argparse.ArgumentParser(
         description="Commuter Service - Passenger Spawning Engine"
     )
     parser.add_argument(
         '--socketio-url',
-        default='http://localhost:1337',
-        help='Socket.IO server URL (default: http://localhost:1337)'
+        default=default_url,
+        help=f'Socket.IO server URL (default: {default_url})'
     )
     parser.add_argument(
         '--strapi-url',
-        default='http://localhost:1337/api',
-        help='Strapi API base URL (default: http://localhost:1337/api)'
+        default=default_url,
+        help=f'Strapi API base URL (default: {default_url})'
     )
     parser.add_argument(
         '--depot-only',

@@ -355,6 +355,8 @@ class PoissonGeoJSONSpawner:
         spawn_requests = []
         current_hour = current_time.hour
         
+        logging.debug(f"🎲 Spawning for hour {current_hour}: {len(self.geojson_loader.population_zones)} population zones, {len(self.geojson_loader.amenity_zones)} amenity zones")
+        
         # Process population zones
         for zone in self.geojson_loader.population_zones:
             spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes)
@@ -370,6 +372,7 @@ class PoissonGeoJSONSpawner:
                     spawn_requests.extend(requests)
         
         # Process amenity zones
+        amenity_spawn_count = 0
         for zone in self.geojson_loader.amenity_zones:
             spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes)
             
@@ -377,12 +380,18 @@ class PoissonGeoJSONSpawner:
                 passenger_count = np.random.poisson(spawn_rate)
                 
                 if passenger_count > 0:
+                    amenity_spawn_count += 1
+                    if amenity_spawn_count <= 3:
+                        logging.debug(f"  🎯 Amenity spawn: {zone.zone_type} (rate={spawn_rate:.3f}, count={passenger_count})")
                     requests = await self._create_zone_spawn_requests(
                         zone, passenger_count, current_time
                     )
                     spawn_requests.extend(requests)
         
-        logging.info(f"🎲 Generated {len(spawn_requests)} Poisson-based spawn requests")
+        if amenity_spawn_count > 0:
+            logging.info(f"🎲 Generated {len(spawn_requests)} Poisson-based spawn requests ({amenity_spawn_count} from amenities)")
+        else:
+            logging.info(f"🎲 Generated {len(spawn_requests)} Poisson-based spawn requests")
         return spawn_requests
     
     def _calculate_poisson_rate(self, zone: PopulationZone, hour: int, time_window_minutes: int) -> float:

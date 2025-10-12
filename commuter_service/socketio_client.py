@@ -22,8 +22,8 @@ import json
 
 class CommuterDirection(Enum):
     """Travel direction"""
-    INBOUND = "inbound"
-    OUTBOUND = "outbound"
+    INBOUND = "INBOUND"
+    OUTBOUND = "OUTBOUND"
 
 
 class ReservoirType(Enum):

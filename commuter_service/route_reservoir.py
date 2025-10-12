@@ -31,6 +31,8 @@ from commuter_service.socketio_client import (
 from commuter_service.location_aware_commuter import LocationAwareCommuter
 from commuter_service.commuter_config import CommuterBehaviorConfig, CommuterConfigLoader
 from commuter_service.passenger_db import PassengerDatabase
+from commuter_service.strapi_api_client import StrapiApiClient, DepotData, RouteData
+from commuter_service.poisson_geojson_spawner import PoissonGeoJSONSpawner
 
 
 def get_grid_cell(lat: float, lon: float, cell_size: float = 0.01) -> Tuple[int, int]:
@@ -171,6 +173,7 @@ class RouteReservoir:
         strapi_url: Optional[str] = None
     ):
         self.socketio_url = socketio_url
+        self.strapi_url = strapi_url or "http://localhost:1337"
         self.config = config or CommuterConfigLoader.get_default_config()
         self.grid_cell_size = grid_cell_size
         self.logger = logger or logging.getLogger(__name__)
@@ -190,9 +193,19 @@ class RouteReservoir:
         # Database client for passenger persistence
         self.db = PassengerDatabase(strapi_url)
         
+        # Strapi API client for depot/route data
+        self.api_client: Optional[StrapiApiClient] = None
+        
+        # Poisson spawner for statistical passenger generation
+        self.poisson_spawner: Optional[PoissonGeoJSONSpawner] = None
+        
+        # Route data from API
+        self.routes: List[RouteData] = []
+        
         # Background tasks
         self.running = False
         self.expiration_task: Optional[asyncio.Task] = None
+        self.spawning_task: Optional[asyncio.Task] = None
         
         # Statistics
         self.stats = {
@@ -215,6 +228,27 @@ class RouteReservoir:
         # Connect to database
         await self.db.connect()
         
+        # Initialize Strapi API client and load route data
+        # Strip /api suffix if present (StrapiApiClient adds it internally)
+        api_base_url = self.strapi_url.rstrip('/api').rstrip('/')
+        self.api_client = StrapiApiClient(api_base_url)
+        await self.api_client.connect()
+        
+        self.logger.info("📡 Loading routes from Strapi API...")
+        self.routes = await self.api_client.get_all_routes()
+        
+        self.logger.info(f"✅ Loaded {len(self.routes)} routes from database")
+        
+        # Initialize Poisson spawner with GeoJSON population data
+        self.logger.info("🌍 Initializing Poisson GeoJSON spawner with population data...")
+        self.poisson_spawner = PoissonGeoJSONSpawner(self.api_client)
+        await self.poisson_spawner.initialize(country_code="BB")  # Barbados ISO code
+        
+        # Initialize route segments from loaded routes
+        for route in self.routes:
+            if route.geometry_coordinates:
+                self._create_route_segments(route.short_name, route.geometry_coordinates)
+        
         # Connect to Socket.IO
         self.client = create_route_client(
             url=self.socketio_url,
@@ -231,15 +265,87 @@ class RouteReservoir:
         self.logger.info("=" * 80)
         self.logger.info("📊 ROUTE RESERVOIR - INITIALIZATION COMPLETE")
         self.logger.info("=" * 80)
-        self.logger.info(f"🗺️  Grid Cell Size: {self.grid_cell_size}° (~1km)")
+        self.logger.info(f"� Active Routes: {len(self.routes)}")
+        for route in self.routes[:5]:  # Show first 5
+            self.logger.info(f"   • {route.short_name}: {route.long_name} ({route.coordinate_count} points)")
+        if len(self.routes) > 5:
+            self.logger.info(f"   ... and {len(self.routes) - 5} more")
+        self.logger.info(f"�🗺️  Grid Cell Size: {self.grid_cell_size}° (~1km)")
         self.logger.info(f"🔄 Active Grid Cells: {len(self.grid)}")
         self.logger.info(f"👥 Active Commuters: {len(self.active_commuters)}")
         self.logger.info("=" * 80)
         
         # Start background tasks
         self.expiration_task = asyncio.create_task(self._expiration_loop())
+        self.spawning_task = asyncio.create_task(self._spawning_loop())
         
         self.logger.info("Route reservoir service started successfully")
+    
+    def _create_route_segments(self, route_id: str, coordinates: List[List[float]]):
+        """Create route segments from GPS coordinates and add to spatial grid"""
+        if not coordinates or len(coordinates) < 2:
+            return
+        
+        for i in range(len(coordinates) - 1):
+            lat1, lon1 = coordinates[i]
+            lat2, lon2 = coordinates[i + 1]
+            
+            # Add segment to grid cell
+            cell = get_grid_cell(lat1, lon1, self.grid_cell_size)
+            segment_id = f"{route_id}_seg_{i}"
+            
+            if route_id not in self.grid[cell]:
+                self.grid[cell][route_id] = RouteSegment(
+                    route_id=route_id,
+                    segment_id=segment_id,
+                    grid_cell=cell
+                )
+    
+    def _normalize_location(self, location) -> tuple[float, float]:
+        """
+        Convert location to (lat, lon) tuple of floats.
+        Handles dict {'lat': x, 'lon': y}, tuple/list (x, y), with string or numeric values.
+        """
+        if isinstance(location, dict):
+            lat = location.get('lat') or location.get('latitude')
+            lon = location.get('lon') or location.get('longitude')
+            if lat is None or lon is None:
+                raise ValueError(f"Invalid dict location format: {location}")
+            return (float(lat), float(lon))
+        elif isinstance(location, (tuple, list)) and len(location) == 2:
+            return (float(location[0]), float(location[1]))
+        else:
+            raise ValueError(f"Unexpected location format: {location} (type: {type(location)})")
+    
+    def _get_location_name(self, location: tuple[float, float]) -> str:
+        """Get location name from coordinates using GeoJSON data"""
+        from math import radians, sin, cos, sqrt, atan2
+        
+        if not hasattr(self, 'poisson_spawner') or not self.poisson_spawner:
+            return "Unknown Location"
+        
+        # Normalize location to (float, float) tuple
+        lat, lon = self._normalize_location(location)
+        min_distance = float('inf')
+        nearest_name = "Unknown Location"
+        
+        # Check amenity zones (POIs and Places)
+        for zone in self.poisson_spawner.geojson_loader.amenity_zones:
+            zone_lat, zone_lon = zone.center_point
+            
+            # Simple distance calculation
+            R = 6371000  # Earth radius in meters
+            dlat = radians(zone_lat - lat)
+            dlon = radians(zone_lon - lon)
+            a = sin(dlat/2)**2 + cos(radians(lat)) * cos(radians(zone_lat)) * sin(dlon/2)**2
+            c = 2 * atan2(sqrt(a), sqrt(1-a))
+            distance = R * c
+            
+            if distance < min_distance and distance < 100:  # Within 100m
+                min_distance = distance
+                nearest_name = f"{zone.zone_type.title()} ({zone.zone_id.replace('poi_', '').replace('_', ' ')})"
+        
+        return nearest_name
     
     async def stop(self):
         """Stop the route reservoir service"""
@@ -254,6 +360,13 @@ class RouteReservoir:
             self.expiration_task.cancel()
             try:
                 await self.expiration_task
+            except asyncio.CancelledError:
+                pass
+        
+        if self.spawning_task:
+            self.spawning_task.cancel()
+            try:
+                await self.spawning_task
             except asyncio.CancelledError:
                 pass
         
@@ -277,7 +390,7 @@ class RouteReservoir:
             vehicle_location = data.get("vehicle_location", {})
             vehicle_lat = vehicle_location.get("lat")
             vehicle_lon = vehicle_location.get("lon")
-            direction_str = data.get("direction", "outbound")
+            direction_str = data.get("direction", "OUTBOUND").upper()
             max_distance = data.get("search_radius", 1000)
             max_count = data.get("available_seats", 5)
             
@@ -286,7 +399,7 @@ class RouteReservoir:
                 return
             
             # Parse direction
-            direction = CommuterDirection.INBOUND if direction_str == "inbound" else CommuterDirection.OUTBOUND
+            direction = CommuterDirection.INBOUND if direction_str == "INBOUND" else CommuterDirection.OUTBOUND
             
             # Query commuters
             commuters = self.query_commuters_sync(
@@ -355,6 +468,10 @@ class RouteReservoir:
         Returns:
             LocationAwareCommuter instance
         """
+        # Normalize locations to (float, float) tuples
+        current_location = self._normalize_location(current_location)
+        destination = self._normalize_location(destination)
+        
         # Get grid cell for location
         grid_cell = get_grid_cell(
             current_location[0],
@@ -414,27 +531,56 @@ class RouteReservoir:
         await self.db.insert_passenger(
             passenger_id=commuter.commuter_id,
             route_id=route_id,
-            lat=current_location[0],
-            lon=current_location[1],
+            latitude=current_location[0],
+            longitude=current_location[1],
             destination_lat=destination[0],
             destination_lon=destination[1],
             destination_name="Destination",
             depot_id=None,  # Route spawns don't have depot
             direction=direction.value,
-            priority=priority,
-            expires_minutes=self.config.max_wait_time_minutes
+            priority=max(1, min(5, int(priority * 5) + 1)),  # Convert float (0.0-1.0) to int (1-5)
+            expires_minutes=30  # Default 30 minute expiration for route spawns
         )
+        
+        
+        # Get location names
+        spawn_location_name = self._get_location_name(current_location)
+        dest_location_name = self._get_location_name(destination)
         
         # Log spawn details
         self.logger.info(
             f"✅ ROUTE SPAWN #{self.stats['total_spawned']} | "
-            f"ID: {commuter.commuter_id} | "
+            f"ID: {commuter.commuter_id[:8]}... | "
             f"Route: {route_id} | "
-            f"Location: ({current_location[0]:.4f}, {current_location[1]:.4f}) | "
-            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) | "
+            f"Spawn: ({current_location[0]:.4f}, {current_location[1]:.4f}) → {spawn_location_name} | "
+            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) → {dest_location_name} | "
             f"Direction: {direction.value} | "
             f"Priority: {priority} | "
             f"Grid: {grid_cell}"
+        )
+        
+        # Emit spawn event via Socket.IO
+        await self.client.emit_message(
+            "commuter:spawned",
+            {
+                "passenger_id": commuter.commuter_id,
+                "route_id": route_id,
+                "spawn_location": {
+                    "lat": current_location[0],
+                    "lon": current_location[1],
+                    "name": spawn_location_name
+                },
+                "destination": {
+                    "lat": destination[0],
+                    "lon": destination[1],
+                    "name": dest_location_name
+                },
+                "direction": direction.value,
+                "priority": priority,
+                "grid_cell": grid_cell,
+                "spawn_time": commuter.spawn_time.isoformat(),
+                "type": "route"
+            }
         )
         
         return commuter
@@ -581,6 +727,61 @@ class RouteReservoir:
             target=target,
             correlation_id=correlation_id
         )
+    
+    async def _spawning_loop(self):
+        """Background task for automatic Poisson-based passenger spawning using GeoJSON population data"""
+        self.logger.info("🚀 Starting automatic route passenger spawning loop (using real GeoJSON population data)")
+        
+        while self.running:
+            try:
+                # Wait before next spawn cycle (30 seconds for demo)
+                await asyncio.sleep(30)  # 30-second intervals for testing
+                
+                current_time = datetime.now()
+                
+                # Generate spawn requests from Poisson spawner using GeoJSON population zones
+                spawn_requests = await self.poisson_spawner.generate_poisson_spawn_requests(
+                    current_time=current_time,
+                    time_window_minutes=5
+                )
+                
+                self.logger.info(f"🎲 Poisson spawner generated {len(spawn_requests)} route spawn requests for hour {current_time.hour}")
+                
+                # Process spawn requests
+                for request in spawn_requests:
+                    try:
+                        spawn_location = request.get('spawn_location')  # (lat, lon)
+                        destination = request.get('destination_location')  # (lat, lon)
+                        route_id = request.get('assigned_route')
+                        priority = request.get('priority', 3)
+                        direction = request.get('direction', 'OUTBOUND').upper()
+                        
+                        if not all([spawn_location, destination, route_id]):
+                            self.logger.debug(f"Skipping incomplete route spawn request: spawn={spawn_location}, dest={destination}, route={route_id}")
+                            continue
+                        
+                        # Convert direction string to enum
+                        commuter_direction = (
+                            CommuterDirection.INBOUND if direction == 'INBOUND' 
+                            else CommuterDirection.OUTBOUND
+                        )
+                        
+                        # Spawn commuter at route location
+                        await self.spawn_commuter(
+                            route_id=route_id,
+                            current_location=spawn_location,
+                            destination=destination,
+                            direction=commuter_direction,
+                            priority=priority
+                        )
+                        
+                    except Exception as e:
+                        self.logger.error(f"Failed to process route spawn request: {e}", exc_info=True)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"Error in route spawning loop: {e}")
     
     async def _expiration_loop(self):
         """Background task to expire old commuters"""

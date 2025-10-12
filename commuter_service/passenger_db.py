@@ -25,7 +25,8 @@ class PassengerDatabase:
             strapi_url: Strapi base URL (default: http://localhost:1337)
             api_token: Strapi API token for authentication
         """
-        self.strapi_url = strapi_url or "http://localhost:1337"
+        self.strapi_url = (strapi_url or "http://localhost:1337").rstrip('/api')  # Remove trailing /api if present
+        print(f"🔍 PassengerDatabase initialized with URL: {self.strapi_url}")
         self.api_token = api_token
         self.session: Optional[aiohttp.ClientSession] = None
         self.headers = {
@@ -102,15 +103,24 @@ class PassengerDatabase:
         }
         
         try:
+            # Ensure proper headers for JSON POST
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+            
             async with self.session.post(
                 f"{self.strapi_url}/api/active-passengers",
-                json=data
+                json=data,
+                headers=headers
             ) as response:
                 if response.status in (200, 201):
                     return True
                 else:
                     error_text = await response.text()
-                    print(f"❌ Error inserting passenger {passenger_id}: {response.status} - {error_text}")
+                    print(f"❌ Error inserting passenger {passenger_id}: {response.status} - {response.reason}")
+                    print(f"   URL: {self.strapi_url}/api/active-passengers")
+                    print(f"   Response: {error_text[:200]}")
                     return False
         except Exception as e:
             print(f"❌ Error inserting passenger {passenger_id}: {e}")
