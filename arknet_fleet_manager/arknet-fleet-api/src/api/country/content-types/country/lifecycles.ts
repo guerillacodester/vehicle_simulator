@@ -15,6 +15,538 @@ interface LanduseMapping {
   [key: string]: string;
 }
 
+// ============================================================================
+// HELPER FUNCTIONS - Must be defined BEFORE export to preserve async context
+// ============================================================================
+
+/**
+ * Map amenity type from OSM tag to our categorization
+ */
+const mapAmenityType = (amenity: string): string => {
+  const mapping: AmenityMapping = {
+    'restaurant': 'food_beverage',
+    'cafe': 'food_beverage',
+    'fast_food': 'food_beverage',
+    'pub': 'food_beverage',
+    'bar': 'food_beverage',
+    'bank': 'financial',
+    'atm': 'financial',
+    'hospital': 'healthcare',
+    'clinic': 'healthcare',
+    'pharmacy': 'healthcare',
+    'school': 'education',
+    'university': 'education',
+    'college': 'education',
+    'library': 'education',
+    'police': 'public_service',
+    'fire_station': 'public_service',
+    'post_office': 'public_service',
+    'parking': 'transport',
+    'fuel': 'transport',
+    'bus_station': 'transport',
+    'place_of_worship': 'religious',
+    'church': 'religious',
+    'mosque': 'religious',
+    'temple': 'religious',
+    'supermarket': 'retail',
+    'convenience': 'retail',
+    'marketplace': 'retail',
+    'hotel': 'accommodation',
+    'guesthouse': 'accommodation',
+    'hostel': 'accommodation'
+  };
+  
+  const key = amenity.toLowerCase().trim();
+  return mapping[key] || 'other';
+};
+
+/**
+ * Map landuse type from OSM tag to our categorization
+ */
+const mapLanduseType = (landuse: string): string => {
+  const mapping: LanduseMapping = {
+    'residential': 'residential',
+    'commercial': 'commercial',
+    'industrial': 'industrial',
+    'retail': 'commercial',
+    'farmland': 'agricultural',
+    'farm': 'agricultural',
+    'forest': 'natural',
+    'meadow': 'natural',
+    'grass': 'natural',
+    'recreation_ground': 'recreational',
+    'park': 'recreational',
+    'cemetery': 'other',
+    'military': 'other',
+    'quarry': 'industrial',
+    'construction': 'other'
+  };
+  
+  const key = landuse.toLowerCase().trim();
+  return mapping[key] || 'other';
+};
+
+/**
+ * Map region type based on admin level
+ */
+const mapRegionType = (adminLevel: number | string): string => {
+  const level = typeof adminLevel === 'string' ? parseInt(adminLevel) : adminLevel;
+  
+  if (level <= 2) return 'country';
+  if (level <= 4) return 'state';
+  if (level <= 6) return 'county';
+  if (level <= 8) return 'municipality';
+  if (level <= 10) return 'district';
+  return 'other';
+};
+
+/**
+ * Process POIs GeoJSON file and import to database
+ */
+const processPOIsGeoJSON = async (country: any) => {
+  debugger; // BREAKPOINT: POI processing started
+  const file = country.pois_geojson_file;
+  
+  if (!file) {
+    console.log('[Country] No POIs GeoJSON file to process');
+    return;
+  }
+  
+  // Read file from uploads directory
+  const filePath = path.join(strapi.dirs.static.public, file.url);
+  
+  if (!existsSync(filePath)) {
+    throw new Error(`POIs GeoJSON file not found: ${filePath}`);
+  }
+  
+  const fileContent = readFileSync(filePath, 'utf-8');
+  const geojson = JSON.parse(fileContent);
+  
+  if (!geojson.features || !Array.isArray(geojson.features)) {
+    throw new Error('Invalid GeoJSON: No features array found');
+  }
+  
+  console.log(`[Country] Processing ${geojson.features.length} POI features...`);
+  
+  // Clear existing POIs for this country
+  const existingPOIs = await strapi.entityService.findMany('api::poi.poi' as any, {
+    filters: { country: country.id }
+  }) as any[];
+  
+  console.log(`[Country] Deleting ${existingPOIs.length} existing POIs and their shapes...`);
+  
+  let shapesDeletedCount = 0;
+  for (const poi of existingPOIs) {
+    try {
+      // Find all shape IDs linked to this POI via junction table
+      const shapeLinks = await strapi.db.query('api::poi-shape.poi-shape').findMany({
+        where: { poi: poi.id },
+        select: ['id']
+      });
+      
+      // Delete each shape record
+      for (const shape of shapeLinks) {
+        await strapi.db.query('api::poi-shape.poi-shape').delete({
+          where: { id: shape.id }
+        });
+        shapesDeletedCount++;
+      }
+    } catch (err) {
+      console.error(`[Country] Error deleting shapes for POI ${poi.id}:`, err);
+    }
+    
+    // Then delete the POI parent record
+    await strapi.entityService.delete('api::poi.poi' as any, poi.id);
+  }
+  
+  console.log(`[Country] ✅ Deleted ${existingPOIs.length} POIs with ${shapesDeletedCount} shapes`);
+  
+  // Import POIs in chunks (to avoid timeout)
+  const CHUNK_SIZE = 100;
+  let importedCount = 0;
+  
+  for (let i = 0; i < geojson.features.length; i += CHUNK_SIZE) {
+    const chunk = geojson.features.slice(i, i + CHUNK_SIZE);
+    
+    for (const feature of chunk) {
+      let lat, lon;
+      let geometryType = feature.geometry?.type;
+      
+      // Handle different geometry types
+      if (feature.geometry?.type === 'Point') {
+        [lon, lat] = feature.geometry.coordinates;
+      } else if (feature.geometry?.type === 'Polygon') {
+        // Calculate centroid of polygon
+        const coordinates = feature.geometry.coordinates[0]; // Outer ring
+        lon = coordinates.reduce((sum: number, p: any) => sum + p[0], 0) / coordinates.length;
+        lat = coordinates.reduce((sum: number, p: any) => sum + p[1], 0) / coordinates.length;
+      } else if (feature.geometry?.type === 'MultiPolygon') {
+        // Calculate centroid of first polygon in multipolygon
+        const coordinates = feature.geometry.coordinates[0][0];
+        lon = coordinates.reduce((sum: number, p: any) => sum + p[0], 0) / coordinates.length;
+        lat = coordinates.reduce((sum: number, p: any) => sum + p[1], 0) / coordinates.length;
+      } else {
+        console.warn(`[Country] Skipping POI with unsupported geometry type: ${feature.geometry?.type}`);
+        continue;
+      }
+      
+      const props = feature.properties || {};
+      const amenity = props.amenity || props.type || 'other';
+      const name = props.name || `${amenity} at ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      
+      // Create the POI parent record
+      const createdPOI = await strapi.entityService.create('api::poi.poi' as any, {
+        data: {
+          name,
+          amenity_type: mapAmenityType(amenity),
+          original_amenity_tag: amenity,
+          latitude: lat,
+          longitude: lon,
+          osm_id: props.id || props.osm_id,
+          address: props.address || props['addr:full'],
+          country: country.id,
+          is_active: true,
+          publishedAt: new Date()
+        }
+      }) as any;
+      
+      // Create POI shape records to store the full geometry
+      if (feature.geometry) {
+        // Store the complete GeoJSON geometry as a single shape record
+        await strapi.db.query('api::poi-shape.poi-shape').create({
+          data: {
+            poi: createdPOI.id,
+            geometry_geojson: JSON.stringify(feature.geometry),
+            geometry_type: geometryType,
+            publishedAt: new Date()
+          }
+        });
+      }
+      
+      importedCount++;
+    }
+    
+    if (chunk.length > 0) {
+      console.log(`[Country] POI import progress: ${importedCount}/${geojson.features.length}`);
+    }
+  }
+  
+  console.log(`[Country] ✅ Successfully imported ${importedCount} POIs`);
+  
+  return importedCount;
+};
+
+/**
+ * Process Landuse GeoJSON file and import to database
+ */
+const processLanduseGeoJSON = async (country: any) => {
+  const file = country.landuse_geojson_file;
+  
+  if (!file?.url) {
+    console.log('[Country] No Landuse GeoJSON file to process');
+    return;
+  }
+  
+  const filePath = path.join(strapi.dirs.static.public, file.url);
+  
+  if (!existsSync(filePath)) {
+    throw new Error(`Landuse GeoJSON file not found: ${filePath}`);
+  }
+  
+  const fileContent = readFileSync(filePath, 'utf-8');
+  const geojson = JSON.parse(fileContent);
+  
+  if (!geojson.features || !Array.isArray(geojson.features)) {
+    throw new Error('Invalid GeoJSON: No features array found');
+  }
+  
+  console.log(`[Country] Processing ${geojson.features.length} Landuse features...`);
+  
+  // Clear existing Landuse zones for this country
+  const existingZones = await strapi.entityService.findMany('api::landuse-zone.landuse-zone' as any, {
+    filters: { country: country.id }
+  }) as any[];
+  
+  console.log(`[Country] Deleting ${existingZones.length} existing Landuse zones...`);
+  
+  for (const zone of existingZones) {
+    await strapi.entityService.delete('api::landuse-zone.landuse-zone' as any, zone.id);
+  }
+  
+  // Import Landuse zones
+  const CHUNK_SIZE = 50;
+  let importedCount = 0;
+  
+  for (let i = 0; i < geojson.features.length; i += CHUNK_SIZE) {
+    const chunk = geojson.features.slice(i, i + CHUNK_SIZE);
+    
+    for (const feature of chunk) {
+      if (!feature.geometry || (feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon')) {
+        console.warn(`[Country] Skipping Landuse with unsupported geometry type: ${feature.geometry?.type}`);
+        continue;
+      }
+      
+      const props = feature.properties || {};
+      const landuse = props.landuse || props.type || 'other';
+      const name = props.name || `${landuse} zone ${i}`;
+      
+      // Calculate centroid
+      let lat, lon;
+      if (feature.geometry.type === 'Polygon') {
+        const coordinates = feature.geometry.coordinates[0];
+        lon = coordinates.reduce((sum: number, p: any) => sum + p[0], 0) / coordinates.length;
+        lat = coordinates.reduce((sum: number, p: any) => sum + p[1], 0) / coordinates.length;
+      } else {
+        const coordinates = feature.geometry.coordinates[0][0];
+        lon = coordinates.reduce((sum: number, p: any) => sum + p[0], 0) / coordinates.length;
+        lat = coordinates.reduce((sum: number, p: any) => sum + p[1], 0) / coordinates.length;
+      }
+      
+      await strapi.entityService.create('api::landuse-zone.landuse-zone' as any, {
+        data: {
+          name,
+          landuse_type: mapLanduseType(landuse),
+          original_landuse_tag: landuse,
+          centroid_latitude: lat,
+          centroid_longitude: lon,
+          osm_id: props.id || props.osm_id,
+          country: country.id,
+          is_active: true,
+          publishedAt: new Date()
+        }
+      });
+      
+      importedCount++;
+    }
+    
+    if (chunk.length > 0) {
+      console.log(`[Country] Landuse import progress: ${importedCount}/${geojson.features.length}`);
+    }
+  }
+  
+  console.log(`[Country] ✅ Successfully imported ${importedCount} Landuse zones`);
+  
+  return importedCount;
+};
+
+/**
+ * Process Regions GeoJSON file and import to database
+ */
+const processRegionsGeoJSON = async (country: any) => {
+  const file = country.regions_geojson_file;
+  
+  if (!file?.url) {
+    console.log('[Country] No Regions GeoJSON file to process');
+    return;
+  }
+  
+  const filePath = path.join(strapi.dirs.static.public, file.url);
+  
+  if (!existsSync(filePath)) {
+    throw new Error(`Regions GeoJSON file not found: ${filePath}`);
+  }
+  
+  const fileContent = readFileSync(filePath, 'utf-8');
+  const geojson = JSON.parse(fileContent);
+  
+  if (!geojson.features || !Array.isArray(geojson.features)) {
+    throw new Error('Invalid GeoJSON: No features array found');
+  }
+  
+  console.log(`[Country] Processing ${geojson.features.length} Region features...`);
+  
+  // Clear existing Regions for this country
+  const existingRegions = await strapi.entityService.findMany('api::region.region' as any, {
+    filters: { country: country.id }
+  }) as any[];
+  
+  console.log(`[Country] Deleting ${existingRegions.length} existing Regions...`);
+  
+  for (const region of existingRegions) {
+    await strapi.entityService.delete('api::region.region' as any, region.id);
+  }
+  
+  // Import Regions
+  let importedCount = 0;
+  
+  for (const feature of geojson.features) {
+    if (!feature.geometry || (feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon')) {
+      console.warn(`[Country] Skipping Region with unsupported geometry type: ${feature.geometry?.type}`);
+      continue;
+    }
+    
+    const props = feature.properties || {};
+    const name = props.name || props.NAME || `Region ${importedCount}`;
+    const adminLevel = props.admin_level || props.ADMIN_LEVEL || 8;
+    
+    // Calculate centroid
+    let lat, lon;
+    if (feature.geometry.type === 'Polygon') {
+      const coordinates = feature.geometry.coordinates[0];
+      lon = coordinates.reduce((sum: number, p: any) => sum + p[0], 0) / coordinates.length;
+      lat = coordinates.reduce((sum: number, p: any) => sum + p[1], 0) / coordinates.length;
+    } else {
+      const coordinates = feature.geometry.coordinates[0][0];
+      lon = coordinates.reduce((sum: number, p: any) => sum + p[0], 0) / coordinates.length;
+      lat = coordinates.reduce((sum: number, p: any) => sum + p[1], 0) / coordinates.length;
+    }
+    
+    await strapi.entityService.create('api::region.region' as any, {
+      data: {
+        name,
+        region_type: mapRegionType(adminLevel),
+        admin_level: parseInt(adminLevel),
+        centroid_latitude: lat,
+        centroid_longitude: lon,
+        osm_id: props.id || props.osm_id,
+        country: country.id,
+        is_active: true,
+        publishedAt: new Date()
+      }
+    });
+    
+    importedCount++;
+    
+    if (importedCount % 10 === 0) {
+      console.log(`[Country] Region import progress: ${importedCount}/${geojson.features.length}`);
+    }
+  }
+  
+  console.log(`[Country] ✅ Successfully imported ${importedCount} Regions`);
+  
+  return importedCount;
+};
+
+/**
+ * Process Highways GeoJSON file and import to database
+ */
+const processHighwaysGeoJSON = async (country: any) => {
+  const file = country.highways_geojson_file;
+  
+  if (!file?.url) {
+    console.log('[Country] No Highways GeoJSON file to process');
+    return;
+  }
+  
+  const filePath = path.join(strapi.dirs.static.public, file.url);
+  
+  if (!existsSync(filePath)) {
+    throw new Error(`Highways GeoJSON file not found: ${filePath}`);
+  }
+  
+  const fileContent = readFileSync(filePath, 'utf-8');
+  const geojson = JSON.parse(fileContent);
+  
+  if (!geojson.features || !Array.isArray(geojson.features)) {
+    throw new Error('Invalid GeoJSON: No features array found');
+  }
+  
+  console.log(`[Country] Processing ${geojson.features.length} Highway features...`);
+  
+  // Clear existing Highways and their shapes for this country
+  const existingHighways = await strapi.db.query('api::highway.highway').findMany({
+    where: { country: country.id }
+  });
+  
+  console.log(`[Country] Deleting ${existingHighways.length} existing Highways and their shapes...`);
+  
+  for (const highway of existingHighways) {
+    // Delete shapes first
+    await strapi.db.query('api::highway-shape.highway-shape').deleteMany({
+      where: { highway: highway.id }
+    });
+    // Then delete highway
+    await strapi.db.query('api::highway.highway').delete({
+      where: { id: highway.id }
+    });
+  }
+  
+  // Haversine distance calculation
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+  
+  // Import Highways in chunks
+  const CHUNK_SIZE = 50;
+  let importedCount = 0;
+  
+  for (let i = 0; i < geojson.features.length; i += CHUNK_SIZE) {
+    const chunk = geojson.features.slice(i, i + CHUNK_SIZE);
+    
+    for (const feature of chunk) {
+      if (feature.geometry?.type !== 'LineString') {
+        console.warn(`[Country] Skipping Highway with unsupported geometry type: ${feature.geometry?.type}`);
+        continue;
+      }
+      
+      const props = feature.properties || {};
+      const name = props.name || props.ref || `Highway ${importedCount}`;
+      const highwayType = props.highway || 'road';
+      
+      // Create highway parent record
+      const highway = await strapi.entityService.create('api::highway.highway' as any, {
+        data: {
+          name,
+          highway_type: highwayType,
+          osm_id: props.id || props.osm_id,
+          ref: props.ref,
+          country: country.id,
+          is_active: true,
+          publishedAt: new Date()
+        }
+      });
+      
+      // Create highway-shape records for each coordinate
+      const coords = feature.geometry.coordinates;
+      let cumulativeDistance = 0;
+      
+      for (let j = 0; j < coords.length; j++) {
+        const [lon, lat] = coords[j];
+        
+        // Calculate distance from previous point
+        if (j > 0) {
+          const [prevLon, prevLat] = coords[j - 1];
+          cumulativeDistance += calculateDistance(prevLat, prevLon, lat, lon);
+        }
+        
+        // Create highway-shape record
+        await strapi.entityService.create('api::highway-shape.highway-shape' as any, {
+          data: {
+            shape_pt_lat: lat,
+            shape_pt_lon: lon,
+            shape_pt_sequence: j,
+            shape_dist_traveled: cumulativeDistance,
+            highway: highway.id,
+            is_active: true,
+            publishedAt: new Date()
+          }
+        });
+      }
+      
+      importedCount++;
+    }
+    
+    if (chunk.length > 0) {
+      console.log(`[Country] Highways import progress: ${importedCount}/${geojson.features.length}`);
+    }
+  }
+  
+  console.log(`[Country] ✅ Successfully imported ${importedCount} Highways with their shape points`);
+  
+  return importedCount;
+};
+
+// ============================================================================
+// LIFECYCLE HOOKS EXPORT
+// ============================================================================
+
 export default {
   /**
    * Cascade delete: Remove all related geographic data when country is deleted
@@ -25,14 +557,34 @@ export default {
     console.log(`[Country] Deleting country ${countryId} - cleaning up all related data...`);
     
     try {
-      // Delete POIs (cascade will delete poi_shapes via relation)
+      // Delete POIs and their shapes explicitly
       const pois = await strapi.entityService.findMany('api::poi.poi' as any, {
         filters: { country: countryId }
       }) as any[];
       console.log(`[Country] Deleting ${pois.length} POIs and their shapes...`);
+      let shapesDeletedCount = 0;
       for (const poi of pois) {
+        try {
+          // Find all shape IDs linked to this POI via junction table
+          const shapeLinks = await strapi.db.query('api::poi-shape.poi-shape').findMany({
+            where: { poi: poi.id },
+            select: ['id']
+          });
+          
+          // Delete each shape record
+          for (const shape of shapeLinks) {
+            await strapi.db.query('api::poi-shape.poi-shape').delete({
+              where: { id: shape.id }
+            });
+            shapesDeletedCount++;
+          }
+        } catch (err) {
+          console.error(`[Country] Error deleting shapes for POI ${poi.id}:`, err);
+        }
+        // Then delete POI parent
         await strapi.entityService.delete('api::poi.poi' as any, poi.id);
       }
+      console.log(`[Country] ✅ Deleted ${pois.length} POIs with ${shapesDeletedCount} shapes`);
       
       // Delete Landuse Zones (cascade will delete landuse_shapes via relation)
       const zones = await strapi.entityService.findMany('api::landuse-zone.landuse-zone' as any, {
@@ -72,19 +624,34 @@ export default {
    * Track which GeoJSON files have changed
    */
   async beforeUpdate(event: any) {
-    debugger; // BREAKPOINT: Country beforeUpdate triggered
-    const { data, where } = event.params;
+    try {
+      debugger; // BREAKPOINT: Country beforeUpdate triggered
+      const { data, where } = event.params;
+      
+      console.log('[Country] ===== BEFORE UPDATE DEBUG =====');
+      console.log('[Country] Incoming data keys:', Object.keys(data));
+      console.log('[Country] POI file in data:', data.hasOwnProperty('pois_geojson_file') ? data.pois_geojson_file : 'NOT IN DATA');
+      console.log('[Country] Places file in data:', data.hasOwnProperty('place_names_geojson_file') ? data.place_names_geojson_file : 'NOT IN DATA');
+      console.log('[Country] Landuse file in data:', data.hasOwnProperty('landuse_geojson_file') ? data.landuse_geojson_file : 'NOT IN DATA');
+      console.log('[Country] Regions file in data:', data.hasOwnProperty('regions_geojson_file') ? data.regions_geojson_file : 'NOT IN DATA');
+      
+      // DEBUG: Check relation field formats
+      console.log('[Country] DEBUG - Relation field types:');
+      console.log('  pois type:', typeof data.pois, 'isArray:', Array.isArray(data.pois), 'value:', data.pois);
+      console.log('  landuse_zones type:', typeof data.landuse_zones, 'isArray:', Array.isArray(data.landuse_zones), 'value:', data.landuse_zones);
+      console.log('  regions type:', typeof data.regions, 'isArray:', Array.isArray(data.regions), 'value:', data.regions);
+      console.log('  highways type:', typeof data.highways, 'isArray:', Array.isArray(data.highways), 'value:', data.highways);
     
-    console.log('[Country] ===== BEFORE UPDATE DEBUG =====');
-    console.log('[Country] Incoming data keys:', Object.keys(data));
-    console.log('[Country] POI file in data:', data.hasOwnProperty('pois_geojson_file') ? data.pois_geojson_file : 'NOT IN DATA');
-    console.log('[Country] Places file in data:', data.hasOwnProperty('place_names_geojson_file') ? data.place_names_geojson_file : 'NOT IN DATA');
-    console.log('[Country] Landuse file in data:', data.hasOwnProperty('landuse_geojson_file') ? data.landuse_geojson_file : 'NOT IN DATA');
-    console.log('[Country] Regions file in data:', data.hasOwnProperty('regions_geojson_file') ? data.regions_geojson_file : 'NOT IN DATA');
+      console.log('[Country] Attempting to fetch current country with where:', where);
     
     // Get the current country record to compare file states
-    const currentCountry = await strapi.entityService.findOne('api::country.country' as any, where.id, {
-      populate: ['pois_geojson_file', 'place_names_geojson_file', 'landuse_geojson_file', 'regions_geojson_file', 'highways_geojson_file']
+    // In Strapi v5, use documentId instead of id
+    const countryId = where.documentId || where.id;
+    console.log('[Country] Using country identifier:', countryId);
+    
+    const currentCountry = await strapi.documents('api::country.country').findOne({
+      documentId: countryId,
+      populate: '*' as any
     }) as any;
     
     console.log('[Country] Current POI file:', currentCountry?.pois_geojson_file?.id || 'NONE', '(full object exists:', !!currentCountry?.pois_geojson_file, ')');
@@ -94,11 +661,15 @@ export default {
     console.log('[Country] Current Highways file:', currentCountry?.highways_geojson_file?.id || 'NONE', '(full object exists:', !!currentCountry?.highways_geojson_file, ')');
     
     // Check if there are actually POIs/Landuse/etc in the database for this country
+    // Use the internal ID for database queries, not documentId
+    const internalId = currentCountry?.id;
+    console.log('[Country] Country internal ID for DB queries:', internalId);
+    
     try {
-      const existingPOIsCount = await strapi.db.query('api::poi.poi').count({ where: { country: where.id } });
-      const existingLanduseCount = await strapi.db.query('api::landuse-zone.landuse-zone').count({ where: { country: where.id } });
-      const existingRegionsCount = await strapi.db.query('api::region.region').count({ where: { country: where.id } });
-      const existingHighwaysCount = await strapi.db.query('api::highway.highway').count({ where: { country: where.id } });
+      const existingPOIsCount = await strapi.db.query('api::poi.poi').count({ where: { country: internalId } });
+      const existingLanduseCount = await strapi.db.query('api::landuse-zone.landuse-zone').count({ where: { country: internalId } });
+      const existingRegionsCount = await strapi.db.query('api::region.region').count({ where: { country: internalId } });
+      const existingHighwaysCount = await strapi.db.query('api::highway.highway').count({ where: { country: internalId } });
       
       console.log('[Country] Existing data in DB - POIs:', existingPOIsCount, 'Landuse:', existingLanduseCount, 'Regions:', existingRegionsCount, 'Highways:', existingHighwaysCount);
     } catch (error: any) {
@@ -144,18 +715,30 @@ export default {
     console.log('[Country] File changes detected:', event.state.filesChanged);
     console.log('[Country] File removals detected:', event.state.filesRemoved);
     console.log('[Country] ===== END DEBUG =====');
+    } catch (error: any) {
+      console.error('[Country] ❌ ERROR in beforeUpdate:', error);
+      console.error('[Country] Error stack:', error?.stack);
+      throw error;
+    }
   },
 
   /**
    * Process all uploaded GeoJSON files
    */
   async afterUpdate(event: any) {
+    console.log('[Country] ===== AFTER UPDATE STARTED =====');
     debugger; // BREAKPOINT: Country afterUpdate triggered
-    const { result } = event;
-    const filesChanged = event.state?.filesChanged || {};
-    const filesRemoved = event.state?.filesRemoved || {};
     
-    const importResults = [];
+    try {
+      const { result } = event;
+      const filesChanged = event.state?.filesChanged || {};
+      const filesRemoved = event.state?.filesRemoved || {};
+      
+      console.log('[Country] AfterUpdate - filesChanged:', filesChanged);
+      console.log('[Country] AfterUpdate - filesRemoved:', filesRemoved);
+      console.log('[Country] AfterUpdate - result ID:', result.id);
+      
+      const importResults = [];
     
     // Delete POIs if file was removed OR if file is set to null and POIs exist
     const shouldDeletePOIs = filesRemoved.pois || (filesChanged.pois && !result.pois_geojson_file);
@@ -168,20 +751,44 @@ export default {
         });
         
         if (existingPOIs.length > 0) {
-          console.log(`[Country] Found ${existingPOIs.length} existing POIs - deleting them...`);
+          console.log(`[Country] Found ${existingPOIs.length} existing POIs - deleting them and their shapes...`);
           
-          // Use bulk delete for efficiency and transaction safety
-          const deletedCount = await strapi.db.query('api::poi.poi').deleteMany({
+          // Delete POI shapes via junction table - get all shape IDs linked to these POIs
+          let shapesDeletedCount = 0;
+          for (const poi of existingPOIs) {
+            try {
+              // Find all shape IDs linked to this POI via junction table
+              const shapeLinks = await strapi.db.query('api::poi-shape.poi-shape').findMany({
+                where: { poi: poi.id },
+                select: ['id']
+              });
+              
+              // Delete each shape record
+              for (const shape of shapeLinks) {
+                await strapi.db.query('api::poi-shape.poi-shape').delete({
+                  where: { id: shape.id }
+                });
+                shapesDeletedCount++;
+              }
+            } catch (err) {
+              console.error(`[Country] Error deleting shapes for POI ${poi.id}:`, err);
+            }
+          }
+          console.log(`[Country] Deleted ${shapesDeletedCount} POI shapes`);
+          
+          // Then bulk delete POIs (parent records)
+          await strapi.db.query('api::poi.poi').deleteMany({
             where: { country: result.id }
           });
           
-          console.log(`[Country] ✅ Deleted ${deletedCount} POIs`);
-          importResults.push(`🗑️ Deleted ${deletedCount} POIs`);
+          console.log(`[Country] ✅ Deleted ${existingPOIs.length} POIs with their shapes`);
+          importResults.push(`🗑️ Deleted ${existingPOIs.length} POIs`);
         } else {
           console.log('[Country] No POIs found for this country - nothing to delete');
         }
       } catch (error: any) {
         console.error('[Country] Error deleting POIs:', error);
+        console.error('[Country] Error stack:', error?.stack);
         importResults.push(`❌ POI deletion failed: ${error?.message || 'Unknown error'}`);
       }
     }
@@ -197,19 +804,44 @@ export default {
         });
         
         if (existingLanduse.length > 0) {
-          console.log(`[Country] Found ${existingLanduse.length} existing Landuse zones - deleting them...`);
+          console.log(`[Country] Found ${existingLanduse.length} existing Landuse zones - deleting them and their shapes...`);
           
-          const deletedCount = await strapi.db.query('api::landuse-zone.landuse-zone').deleteMany({
+          // Delete Landuse shapes via junction table
+          let shapesDeletedCount = 0;
+          for (const zone of existingLanduse) {
+            try {
+              // Find all shape IDs linked to this Landuse zone via junction table
+              const shapeLinks = await strapi.db.query('api::landuse-shape.landuse-shape').findMany({
+                where: { landuse_zone: zone.id },
+                select: ['id']
+              });
+              
+              // Delete each shape record
+              for (const shape of shapeLinks) {
+                await strapi.db.query('api::landuse-shape.landuse-shape').delete({
+                  where: { id: shape.id }
+                });
+                shapesDeletedCount++;
+              }
+            } catch (err) {
+              console.error(`[Country] Error deleting shapes for Landuse zone ${zone.id}:`, err);
+            }
+          }
+          console.log(`[Country] Deleted ${shapesDeletedCount} Landuse shapes`);
+          
+          // Then bulk delete Landuse zones (parent records)
+          await strapi.db.query('api::landuse-zone.landuse-zone').deleteMany({
             where: { country: result.id }
           });
           
-          console.log(`[Country] ✅ Deleted ${deletedCount} Landuse zones`);
-          importResults.push(`🗑️ Deleted ${deletedCount} Landuse zones`);
+          console.log(`[Country] ✅ Deleted ${existingLanduse.length} Landuse zones with their shapes`);
+          importResults.push(`🗑️ Deleted ${existingLanduse.length} Landuse zones`);
         } else {
           console.log('[Country] No Landuse zones found for this country - nothing to delete');
         }
       } catch (error: any) {
         console.error('[Country] Error deleting Landuse zones:', error);
+        console.error('[Country] Error stack:', error?.stack);
         importResults.push(`❌ Landuse deletion failed: ${error?.message || 'Unknown error'}`);
       }
     }
@@ -225,19 +857,44 @@ export default {
         });
         
         if (existingRegions.length > 0) {
-          console.log(`[Country] Found ${existingRegions.length} existing Regions - deleting them...`);
+          console.log(`[Country] Found ${existingRegions.length} existing Regions - deleting them and their shapes...`);
           
-          const deletedCount = await strapi.db.query('api::region.region').deleteMany({
+          // Delete Region shapes via junction table
+          let shapesDeletedCount = 0;
+          for (const region of existingRegions) {
+            try {
+              // Find all shape IDs linked to this Region via junction table
+              const shapeLinks = await strapi.db.query('api::region-shape.region-shape').findMany({
+                where: { region: region.id },
+                select: ['id']
+              });
+              
+              // Delete each shape record
+              for (const shape of shapeLinks) {
+                await strapi.db.query('api::region-shape.region-shape').delete({
+                  where: { id: shape.id }
+                });
+                shapesDeletedCount++;
+              }
+            } catch (err) {
+              console.error(`[Country] Error deleting shapes for Region ${region.id}:`, err);
+            }
+          }
+          console.log(`[Country] Deleted ${shapesDeletedCount} Region shapes`);
+          
+          // Then bulk delete Regions (parent records)
+          await strapi.db.query('api::region.region').deleteMany({
             where: { country: result.id }
           });
           
-          console.log(`[Country] ✅ Deleted ${deletedCount} Regions`);
-          importResults.push(`🗑️ Deleted ${deletedCount} Regions`);
+          console.log(`[Country] ✅ Deleted ${existingRegions.length} Regions with their shapes`);
+          importResults.push(`🗑️ Deleted ${existingRegions.length} Regions`);
         } else {
           console.log('[Country] No Regions found for this country - nothing to delete');
         }
       } catch (error: any) {
         console.error('[Country] Error deleting Regions:', error);
+        console.error('[Country] Error stack:', error?.stack);
         importResults.push(`❌ Region deletion failed: ${error?.message || 'Unknown error'}`);
       }
     }
@@ -255,25 +912,42 @@ export default {
         if (existingHighways.length > 0) {
           console.log(`[Country] Found ${existingHighways.length} existing Highways - deleting them and their shapes...`);
           
-          // Delete highway-shapes first (child records)
+          // Delete Highway shapes via junction table
+          let shapesDeletedCount = 0;
           for (const highway of existingHighways) {
-            await strapi.db.query('api::highway-shape.highway-shape').deleteMany({
-              where: { highway: highway.id }
-            });
+            try {
+              // Find all shape IDs linked to this Highway via junction table
+              const shapeLinks = await strapi.db.query('api::highway-shape.highway-shape').findMany({
+                where: { highway: highway.id },
+                select: ['id']
+              });
+              
+              // Delete each shape record
+              for (const shape of shapeLinks) {
+                await strapi.db.query('api::highway-shape.highway-shape').delete({
+                  where: { id: shape.id }
+                });
+                shapesDeletedCount++;
+              }
+            } catch (err) {
+              console.error(`[Country] Error deleting shapes for Highway ${highway.id}:`, err);
+            }
           }
+          console.log(`[Country] Deleted ${shapesDeletedCount} Highway shapes`);
           
-          // Then delete highways (parent records)
-          const deletedCount = await strapi.db.query('api::highway.highway').deleteMany({
+          // Then bulk delete Highways (parent records)
+          await strapi.db.query('api::highway.highway').deleteMany({
             where: { country: result.id }
           });
           
-          console.log(`[Country] ✅ Deleted ${deletedCount} Highways and their shapes`);
-          importResults.push(`🗑️ Deleted ${deletedCount} Highways and their shapes`);
+          console.log(`[Country] ✅ Deleted ${existingHighways.length} Highways with their shapes`);
+          importResults.push(`🗑️ Deleted ${existingHighways.length} Highways`);
         } else {
           console.log('[Country] No Highways found for this country - nothing to delete');
         }
       } catch (error: any) {
         console.error('[Country] Error deleting Highways:', error);
+        console.error('[Country] Error stack:', error?.stack);
         importResults.push(`❌ Highway deletion failed: ${error?.message || 'Unknown error'}`);
       }
     }
@@ -335,619 +1009,12 @@ export default {
         } as any
       });
     }
+      
+      console.log('[Country] ===== AFTER UPDATE COMPLETED =====');
+    } catch (error: any) {
+      console.error('[Country] ❌ FATAL ERROR in afterUpdate:', error);
+      console.error('[Country] Error stack:', error?.stack);
+      throw error; // Re-throw to let Strapi handle it
+    }
   }
 };
-
-/**
- * Process POIs GeoJSON file and import to database
- */
-async function processPOIsGeoJSON(country: any) {
-  debugger; // BREAKPOINT: POI processing started
-  const file = country.pois_geojson_file;
-  
-  if (!file) {
-    console.log('[Country] No POIs GeoJSON file to process');
-    return;
-  }
-  
-  // Read file from uploads directory
-  const filePath = path.join(strapi.dirs.static.public, file.url);
-  
-  if (!existsSync(filePath)) {
-    throw new Error(`POIs GeoJSON file not found: ${filePath}`);
-  }
-  
-  const fileContent = readFileSync(filePath, 'utf-8');
-  const geojson = JSON.parse(fileContent);
-  
-  if (!geojson.features || !Array.isArray(geojson.features)) {
-    throw new Error('Invalid GeoJSON: No features array found');
-  }
-  
-  console.log(`[Country] Processing ${geojson.features.length} POI features...`);
-  
-  // Clear existing POIs for this country
-  const existingPOIs = await strapi.entityService.findMany('api::poi.poi' as any, {
-    filters: { country: country.id }
-  }) as any[];
-  
-  console.log(`[Country] Deleting ${existingPOIs.length} existing POIs...`);
-  
-  for (const poi of existingPOIs) {
-    await strapi.entityService.delete('api::poi.poi' as any, poi.id);
-  }
-  
-  // Import POIs in chunks (to avoid timeout)
-  const CHUNK_SIZE = 100;
-  let importedCount = 0;
-  
-  for (let i = 0; i < geojson.features.length; i += CHUNK_SIZE) {
-    const chunk = geojson.features.slice(i, i + CHUNK_SIZE);
-    const poisToCreate = [];
-    
-    for (const feature of chunk) {
-      let lat, lon;
-      
-      // Handle different geometry types
-      if (feature.geometry?.type === 'Point') {
-        [lon, lat] = feature.geometry.coordinates;
-      } else if (feature.geometry?.type === 'Polygon') {
-        // Calculate centroid of polygon
-        const coordinates = feature.geometry.coordinates[0]; // Outer ring
-        lon = coordinates.reduce((sum: number, p: any) => sum + p[0], 0) / coordinates.length;
-        lat = coordinates.reduce((sum: number, p: any) => sum + p[1], 0) / coordinates.length;
-      } else if (feature.geometry?.type === 'MultiPolygon') {
-        // Calculate centroid of first polygon in multipolygon
-        const firstPolygon = feature.geometry.coordinates[0][0]; // First polygon, outer ring
-        lon = firstPolygon.reduce((sum: number, p: any) => sum + p[0], 0) / firstPolygon.length;
-        lat = firstPolygon.reduce((sum: number, p: any) => sum + p[1], 0) / firstPolygon.length;
-      } else {
-        // Skip unsupported geometry types
-        continue;
-      }
-      
-      const props = feature.properties || {};
-      
-      // Validate coordinates
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        console.warn(`[Country] Invalid coordinates: [${lon}, ${lat}]`);
-        continue;
-      }
-      
-      // Map OSM amenity to POI type
-      const poiType = mapAmenityType(props.amenity);
-      
-      // Debug: Log the mapping for troubleshooting
-      if (props.amenity && poiType === 'other') {
-        console.log(`[Country] DEBUG: Unmapped amenity type "${props.amenity}" -> defaulting to "other"`);
-      }
-      
-      poisToCreate.push({
-        name: props.name || props.amenity || 'Unnamed POI',
-        poi_type: poiType,
-        latitude: lat,
-        longitude: lon,
-        osm_id: props.osm_id || props.id,
-        amenity: props.amenity,
-        tags: props.tags ? JSON.stringify(props.tags) : null,
-        spawn_weight: 1.0,
-        peak_hour_multiplier: 1.0,
-        off_peak_multiplier: 1.0,
-        is_active: true,
-        country: country.id,
-        publishedAt: new Date()
-      });
-    }
-    
-    // Bulk create chunk using entityService to properly handle relations
-    if (poisToCreate.length > 0) {
-      // NOTE: createMany() bypasses Strapi's ORM and doesn't populate junction tables
-      // We must use entityService.create() for each POI to establish the country relationship
-      for (const poiData of poisToCreate) {
-        await strapi.entityService.create('api::poi.poi' as any, {
-          data: poiData
-        });
-      }
-      
-      importedCount += poisToCreate.length;
-      console.log(`[Country] POI import progress: ${importedCount}/${geojson.features.length}`);
-    }
-  }
-  
-  console.log(`[Country] ✅ Successfully imported ${importedCount} POIs`);
-  
-  return importedCount;
-}
-
-/**
- * Helper: Map OSM amenity to POI type
- */
-function mapAmenityType(amenity: string): string {
-  const mapping: AmenityMapping = {
-    // Transit
-    'bus_station': 'bus_station',
-    'bus_stop': 'bus_station',
-    'ferry_terminal': 'ferry_terminal',
-    'airport': 'airport',
-    
-    // Commercial
-    'marketplace': 'marketplace',
-    'market': 'marketplace',
-    'shopping_centre': 'shopping_center',
-    'shopping_center': 'shopping_center',
-    'mall': 'shopping_center',
-    'supermarket': 'shopping_center',
-    'shop': 'shopping_center',
-    
-    // Healthcare
-    'hospital': 'hospital',
-    'clinic': 'clinic',
-    'doctors': 'clinic',
-    'pharmacy': 'clinic',
-    'dentist': 'clinic',
-    
-    // Education
-    'school': 'school',
-    'college': 'university',
-    'university': 'university',
-    'kindergarten': 'school',
-    
-    // Religious
-    'place_of_worship': 'church',
-    'church': 'church',
-    'mosque': 'church',
-    'temple': 'church',
-    'synagogue': 'church',
-    
-    // Government/Public
-    'police': 'government',
-    'fire_station': 'government',
-    'post_office': 'government',
-    'townhall': 'government',
-    'courthouse': 'government',
-    'embassy': 'government',
-    'library': 'government',
-    
-    // Business
-    'bank': 'office',
-    'office': 'office',
-    'company': 'office',
-    
-    // Hospitality
-    'restaurant': 'restaurant',
-    'cafe': 'restaurant',
-    'fast_food': 'restaurant',
-    'food_court': 'restaurant',
-    'bar': 'restaurant',
-    'pub': 'restaurant',
-    'hotel': 'hotel',
-    'motel': 'hotel',
-    'guesthouse': 'hotel',
-    'hostel': 'hotel',
-    
-    // Recreation
-    'park': 'park',
-    'playground': 'park',
-    'sports_centre': 'park',
-    'stadium': 'park',
-    'beach': 'beach',
-    
-    // Residential/Industrial areas
-    'residential': 'residential',
-    'industrial': 'industrial',
-    'commercial': 'office',
-    
-    // Fuel and services
-    'fuel': 'other',
-    'parking': 'other',
-    'atm': 'other',
-    'community_centre': 'other',
-    'social_facility': 'other'
-  };
-  
-  if (!amenity) {
-    return 'other';
-  }
-  
-  const key = amenity.toLowerCase().trim();
-  return mapping[key] || 'other';
-}
-
-/**
- * Process Landuse GeoJSON file and import to database
- */
-async function processLanduseGeoJSON(country: any) {
-  const file = country.landuse_geojson_file;
-  
-  if (!file?.url) {
-    console.warn('[Country] No Landuse GeoJSON file URL found');
-    return 0;
-  }
-  
-  console.log(`[Country] Reading Landuse GeoJSON from: ${file.url}`);
-  
-  // Read and parse GeoJSON
-  const filePath = path.join(strapi.dirs.static.public, file.url);
-  const content = await fs.readFile(filePath, 'utf-8');
-  const geojson = JSON.parse(content);
-  
-  if (!geojson.features || !Array.isArray(geojson.features)) {
-    throw new Error('Invalid GeoJSON: missing features array');
-  }
-  
-  console.log(`[Country] Processing ${geojson.features.length} landuse features...`);
-  
-  // Delete existing landuse zones for this country
-  await strapi.db.query('api::landuse-zone.landuse-zone').deleteMany({
-    where: { country: country.id }
-  });
-  
-  let importedCount = 0;
-  const chunkSize = 100;
-  
-  // Process in chunks
-  for (let i = 0; i < geojson.features.length; i += chunkSize) {
-    const chunk = geojson.features.slice(i, i + chunkSize);
-    const zonesToCreate = [];
-    
-    for (const feature of chunk) {
-      const props = feature.properties || {};
-      const coords = feature.geometry?.coordinates;
-      
-      if (!coords) continue;
-      
-      // Calculate centroid for polygon/multipolygon
-      let lat, lon;
-      
-      if (feature.geometry.type === 'Polygon' && coords[0]?.length > 0) {
-        // Simple centroid: average of all points in outer ring
-        const ring = coords[0];
-        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
-      } else if (feature.geometry.type === 'MultiPolygon' && coords[0]?.[0]?.length > 0) {
-        // Use first polygon's outer ring
-        const ring = coords[0][0];
-        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
-      } else if (feature.geometry.type === 'Point') {
-        [lon, lat] = coords;
-      } else {
-        console.warn(`[Country] Unsupported geometry type: ${feature.geometry.type}`);
-        continue;
-      }
-      
-      // Validate coordinates
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        console.warn(`[Country] Invalid coordinates: [${lon}, ${lat}]`);
-        continue;
-      }
-      
-      // Map OSM landuse to zone type
-      const zoneType = mapLanduseType(props.landuse || props.type);
-      
-      // Store full geometry as GeoJSON string
-      const geometryGeoJSON = JSON.stringify(feature.geometry);
-      
-      zonesToCreate.push({
-        name: props.name || `${zoneType} Zone`,
-        zone_type: zoneType,
-        center_latitude: lat,
-        center_longitude: lon,
-        geometry_geojson: geometryGeoJSON,
-        osm_id: props.osm_id || props.id,
-        tags: props.tags ? JSON.stringify(props.tags) : null,
-        spawn_weight: 1.0,
-        peak_hour_multiplier: 1.0,
-        off_peak_multiplier: 1.0,
-        is_active: true,
-        country: country.id,
-        publishedAt: new Date()
-      });
-    }
-    
-    // Create zones individually to establish relationships properly
-    // We must use entityService.create() for each zone to establish the country relationship
-    for (const zoneData of zonesToCreate) {
-      await strapi.entityService.create('api::landuse-zone.landuse-zone' as any, {
-        data: zoneData
-      });
-      
-      importedCount++;
-    }
-    
-    if (zonesToCreate.length > 0) {
-      console.log(`[Country] Landuse import progress: ${importedCount}/${geojson.features.length}`);
-    }
-  }
-  
-  console.log(`[Country] ✅ Successfully imported ${importedCount} Landuse Zones`);
-  
-  return importedCount;
-}
-
-/**
- * Helper: Map OSM landuse to zone type
- */
-function mapLanduseType(landuse: string): string {
-  const mapping: LanduseMapping = {
-    'residential': 'residential',
-    'commercial': 'commercial',
-    'industrial': 'industrial',
-    'retail': 'commercial',
-    'education': 'institutional',        // Map education to institutional
-    'institutional': 'institutional',
-    'recreation_ground': 'recreation',
-    'park': 'recreation',
-    'grass': 'forest',                   // Map grass to forest (closest match)
-    'forest': 'forest',
-    'farmland': 'farmland',              // Map to farmland (allowed value)
-    'agricultural': 'farmland',          // Map agricultural to farmland
-    'construction': 'mixed_use',
-    'brownfield': 'mixed_use'
-  };
-  
-  const key = landuse?.toLowerCase();
-  return (key && mapping[key]) ? mapping[key] : 'other';  // Use 'other' as fallback
-}
-
-/**
- * Process Regions GeoJSON file and import to database
- */
-async function processRegionsGeoJSON(country: any) {
-  const file = country.regions_geojson_file;
-  
-  if (!file?.url) {
-    console.warn('[Country] No Regions GeoJSON file URL found');
-    return 0;
-  }
-  
-  console.log(`[Country] Reading Regions GeoJSON from: ${file.url}`);
-  
-  // Read and parse GeoJSON
-  const filePath = path.join(strapi.dirs.static.public, file.url);
-  const content = await fs.readFile(filePath, 'utf-8');
-  const geojson = JSON.parse(content);
-  
-  if (!geojson.features || !Array.isArray(geojson.features)) {
-    throw new Error('Invalid GeoJSON: missing features array');
-  }
-  
-  console.log(`[Country] Processing ${geojson.features.length} region features...`);
-  
-  // Delete existing regions for this country
-  await strapi.db.query('api::region.region').deleteMany({
-    where: { country: country.id }
-  });
-  
-  let importedCount = 0;
-  const chunkSize = 50; // Smaller chunks for regions (larger geometries)
-  
-  // Process in chunks
-  for (let i = 0; i < geojson.features.length; i += chunkSize) {
-    const chunk = geojson.features.slice(i, i + chunkSize);
-    const regionsToCreate = [];
-    
-    for (const feature of chunk) {
-      const props = feature.properties || {};
-      const coords = feature.geometry?.coordinates;
-      
-      if (!coords) continue;
-      
-      // Calculate centroid
-      let lat, lon;
-      
-      if (feature.geometry.type === 'Polygon' && coords[0]?.length > 0) {
-        const ring = coords[0];
-        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
-      } else if (feature.geometry.type === 'MultiPolygon' && coords[0]?.[0]?.length > 0) {
-        const ring = coords[0][0];
-        lat = ring.reduce((sum: number, p: any) => sum + p[1], 0) / ring.length;
-        lon = ring.reduce((sum: number, p: any) => sum + p[0], 0) / ring.length;
-      } else {
-        console.warn(`[Country] Unsupported geometry type for region: ${feature.geometry.type}`);
-        continue;
-      }
-      
-      // Validate coordinates
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        console.warn(`[Country] Invalid coordinates: [${lon}, ${lat}]`);
-        continue;
-      }
-      
-      // Map admin_level to region type
-      const regionType = mapRegionType(props.admin_level);
-      
-      // Store full geometry as GeoJSON string
-      const geometryGeoJSON = JSON.stringify(feature.geometry);
-      
-      regionsToCreate.push({
-        name: props.name || `Region ${props.osm_id}`,
-        region_type: regionType,
-        center_lat: lat,
-        center_lon: lon,
-        geometry_geojson: geometryGeoJSON,
-        osm_id: props.osm_id || props.id,
-        admin_level: props.admin_level ? parseInt(props.admin_level) : null,
-        population: props.population ? parseInt(props.population) : null,
-        tags: props.tags ? JSON.stringify(props.tags) : null,
-        country: country.id,
-        publishedAt: new Date()
-      });
-    }
-    
-    // Bulk create chunk
-    if (regionsToCreate.length > 0) {
-      await strapi.db.query('api::region.region').createMany({
-        data: regionsToCreate
-      });
-      
-      importedCount += regionsToCreate.length;
-      console.log(`[Country] Regions import progress: ${importedCount}/${geojson.features.length}`);
-    }
-  }
-  
-  console.log(`[Country] ✅ Successfully imported ${importedCount} Regions`);
-  
-  return importedCount;
-}
-
-/**
- * Helper: Map admin_level to region type
- */
-function mapRegionType(adminLevel: number | string): string {
-  const level = typeof adminLevel === 'string' ? parseInt(adminLevel) : adminLevel;
-  
-  if (level <= 2) return 'country';
-  if (level <= 4) return 'state_province';
-  if (level <= 6) return 'district';
-  if (level <= 8) return 'municipality';
-  if (level <= 10) return 'neighborhood';
-  
-  return 'other';
-}
-
-/**
- * Process Highways GeoJSON file and import to database
- */
-async function processHighwaysGeoJSON(country: any) {
-  const file = country.highways_geojson_file;
-  
-  if (!file?.url) {
-    console.warn('[Country] No Highways GeoJSON file URL found');
-    return 0;
-  }
-  
-  console.log(`[Country] Reading Highways GeoJSON from: ${file.url}`);
-  
-  // Read and parse GeoJSON
-  const filePath = path.join(strapi.dirs.static.public, file.url);
-  const content = await fs.readFile(filePath, 'utf-8');
-  const geojson = JSON.parse(content);
-  
-  if (!geojson.features || !Array.isArray(geojson.features)) {
-    throw new Error('Invalid GeoJSON: missing features array');
-  }
-  
-  console.log(`[Country] Processing ${geojson.features.length} highway features...`);
-  
-  // Delete existing highways and highway-shapes for this country
-  const existingHighways = await strapi.db.query('api::highway.highway').findMany({
-    where: { country: country.id }
-  });
-  
-  // Delete highway-shapes first (child records)
-  for (const highway of existingHighways) {
-    await strapi.db.query('api::highway-shape.highway-shape').deleteMany({
-      where: { highway: highway.id }
-    });
-  }
-  
-  // Delete highways (parent records)
-  await strapi.db.query('api::highway.highway').deleteMany({
-    where: { country: country.id }
-  });
-  
-  let importedCount = 0;
-  const chunkSize = 50; // Process highways in smaller chunks due to shape complexity
-  
-  // Helper function to calculate distance between two points (Haversine formula)
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371000; // Earth's radius in meters
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    
-    return R * c;
-  };
-  
-  // Process in chunks
-  for (let i = 0; i < geojson.features.length; i += chunkSize) {
-    const chunk = geojson.features.slice(i, i + chunkSize);
-    
-    for (const feature of chunk) {
-      const props = feature.properties || {};
-      const coords = feature.geometry?.coordinates;
-      
-      if (!coords || feature.geometry?.type !== 'LineString') {
-        console.warn(`[Country] Skipping non-LineString highway feature: ${props.full_id || 'unknown'}`);
-        continue;
-      }
-      
-      if (!Array.isArray(coords) || coords.length === 0) {
-        console.warn(`[Country] Skipping highway with no coordinates: ${props.full_id || 'unknown'}`);
-        continue;
-      }
-      
-      // Create the highway parent record
-      // Note: highway_id is a UID field that auto-generates from name, so we don't set it manually
-      // Provide a fallback name for unnamed highways using full_id or index
-      const highwayName = props.name || `Highway ${props.full_id || `unnamed_${i}`}`;
-      
-      const highway = await strapi.entityService.create('api::highway.highway' as any, {
-        data: {
-          name: highwayName,
-          highway_type: props.highway || 'unclassified',
-          osm_id: props.osm_id || null,
-          full_id: props.full_id || null,
-          surface: props.surface || null,
-          lanes: props.lanes ? parseInt(props.lanes) : null,
-          maxspeed: props.maxspeed || null,
-          oneway: props.oneway === 'yes' ? true : false,
-          is_active: true,
-          country: country.id,
-          region: null, // Could be populated later based on geometry
-          publishedAt: new Date()
-        }
-      }) as any;
-      
-      // Create highway-shape records for each point in the LineString
-      let cumulativeDistance = 0;
-      
-      for (let j = 0; j < coords.length; j++) {
-        const [lon, lat] = coords[j];
-        
-        // Validate coordinates
-        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-          console.warn(`[Country] Invalid coordinates for highway ${props.full_id}: [${lon}, ${lat}]`);
-          continue;
-        }
-        
-        // Calculate distance from previous point
-        if (j > 0) {
-          const [prevLon, prevLat] = coords[j - 1];
-          cumulativeDistance += calculateDistance(prevLat, prevLon, lat, lon);
-        }
-        
-        // Create highway-shape record
-        await strapi.entityService.create('api::highway-shape.highway-shape' as any, {
-          data: {
-            shape_pt_lat: lat,
-            shape_pt_lon: lon,
-            shape_pt_sequence: j,
-            shape_dist_traveled: cumulativeDistance,
-            highway: highway.id,
-            is_active: true,
-            publishedAt: new Date()
-          }
-        });
-      }
-      
-      importedCount++;
-    }
-    
-    if (chunk.length > 0) {
-      console.log(`[Country] Highways import progress: ${importedCount}/${geojson.features.length}`);
-    }
-  }
-  
-  console.log(`[Country] ✅ Successfully imported ${importedCount} Highways with their shape points`);
-  
-  return importedCount;
-}
