@@ -64,6 +64,16 @@ def update_country(field_name, file_id):
     
     if response.status_code == 200:
         print(f"✅ Updated")
+        
+        # Trigger processing with a second update (workaround for file change detection)
+        print(f"[UPDATE] Triggering import processing...")
+        response2 = session.put(
+            f"{API_URL}/countries/{country_id}",
+            json={"data": {field_name: file_id}},
+            headers={"Authorization": f"Bearer {API_TOKEN}"}
+        )
+        if response2.status_code == 200:
+            print(f"✅ Import triggered")
         return True
     print(f"❌ Failed: {response.status_code}")
     return False

@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "name": "barbados_highway_sample10",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    { "type": "Feature", "properties": { "full_id": "w5172465", "name": "Tom Adams Highway" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.4905666, 13.0806199 ], [ -59.4907817, 13.0805011 ], [ -59.4908547, 13.08045 ], [ -59.4909147, 13.0803978 ], [ -59.4909658, 13.0803229 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179386", "name": "Highway 4" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.5837687, 13.1133304 ], [ -59.5837109, 13.1134134 ], [ -59.5836887, 13.1135693 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179417", "name": "3rd Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.6016112, 13.094666 ], [ -59.601658, 13.0946683 ], [ -59.601976, 13.0946925 ], [ -59.6023336, 13.0947197 ], [ -59.6035321, 13.0947601 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179421", "name": "4th Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.6015067, 13.0953675 ], [ -59.6015561, 13.0953693 ], [ -59.6022548, 13.0954079 ], [ -59.6032035, 13.0954602 ], [ -59.6032592, 13.0954633 ], [ -59.6035071, 13.095477 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179427", "name": "5th Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.6014121, 13.0960562 ], [ -59.6014616, 13.0960582 ], [ -59.602058, 13.09608 ], [ -59.6034915, 13.0961471 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179428", "name": "6th Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.6013051, 13.0968143 ], [ -59.6013491, 13.096816 ], [ -59.6016161, 13.0968288 ], [ -59.6018303, 13.0968391 ], [ -59.6023764, 13.0968619 ], [ -59.6034664, 13.0968977 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179429", "name": "7th Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.6011787, 13.0976827 ], [ -59.6012185, 13.0976821 ], [ -59.6028804, 13.0977249 ], [ -59.603446, 13.0977265 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179430", "name": "8th Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.6010769, 13.0983597 ], [ -59.6011157, 13.0983605 ], [ -59.6034222, 13.0984231 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179431", "name": "9th Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.6010092, 13.0988523 ], [ -59.6010515, 13.0988526 ], [ -59.603412, 13.0989372 ] ] } },
+    { "type": "Feature", "properties": { "full_id": "w5179432", "name": "10th Avenue" }, "geometry": { "type": "LineString", "coordinates": [ [ -59.600941, 13.0993453 ], [ -59.6009689, 13.0993465 ], [ -59.6034043, 13.099411 ] ] } }
+  ]
+}

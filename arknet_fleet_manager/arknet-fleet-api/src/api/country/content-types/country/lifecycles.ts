@@ -526,40 +526,19 @@ const processHighwaysGeoJSON = async (country: any) => {
   
   console.log(`[Country] Processing ${geojson.features.length} Highway features...`);
   
-  // Clear existing Highways and their shapes for this country
-  const existingHighways = await strapi.db.query('api::highway.highway').findMany({
-    where: { country: country.id }
-  });
+  // Check if highways already imported
+  const existingCount = await strapi.db.connection('highways')
+    .join('highways_country_lnk', 'highways.id', 'highways_country_lnk.highway_id')
+    .where('highways_country_lnk.country_id', country.id)
+    .count('* as count')
+    .first();
   
-  console.log(`[Country] Deleting ${existingHighways.length} existing Highways and their shapes...`);
-  
-  let shapesDeletedCount = 0;
-  for (const highway of existingHighways) {
-    try {
-      // Find all shape IDs linked to this Highway via junction table
-      const shapeLinks = await strapi.db.query('api::highway-shape.highway-shape').findMany({
-        where: { highway: highway.id },
-        select: ['id']
-      });
-      
-      // Delete each shape record
-      for (const shape of shapeLinks) {
-        await strapi.db.query('api::highway-shape.highway-shape').delete({
-          where: { id: shape.id }
-        });
-        shapesDeletedCount++;
-      }
-    } catch (err) {
-      console.error(`[Country] Error deleting shapes for Highway ${highway.id}:`, err);
-    }
+  if (existingCount && existingCount.count >= geojson.features.length) {
+    console.log(`[Country] ⚠️ ${existingCount.count} highways already exist for this country. Skipping import to avoid duplicates.`);
+    return existingCount.count;
   }
   
-  // Then bulk delete Highways
-  await strapi.db.query('api::highway.highway').deleteMany({
-    where: { country: country.id }
-  });
-  
-  console.log(`[Country] ✅ Deleted ${existingHighways.length} Highways with ${shapesDeletedCount} shapes`);
+  console.log(`[Country] Found ${existingCount?.count || 0} existing highways - will perform fresh import`);
   
   // Haversine distance calculation
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -573,73 +552,146 @@ const processHighwaysGeoJSON = async (country: any) => {
     return R * c;
   };
   
-  // Import Highways in chunks
-  const CHUNK_SIZE = 50;
-  let importedCount = 0;
+  // FULLY OPTIMIZED: Bulk DB insert for highways, shapes, and link tables
+  // This avoids EntityService overhead and ensures IDs are consistent
+  console.log('[Country] Processing highways (fully optimized bulk approach)...');
   
-  for (let i = 0; i < geojson.features.length; i += CHUNK_SIZE) {
-    const chunk = geojson.features.slice(i, i + CHUNK_SIZE);
+  const BATCH_SIZE = 100;
+  let importedCount = 0;
+  const timestamp = new Date();
+  
+  for (let i = 0; i < geojson.features.length; i += BATCH_SIZE) {
+    const batch = geojson.features.slice(i, i + BATCH_SIZE);
     
-    for (const feature of chunk) {
-      if (feature.geometry?.type !== 'LineString') {
-        console.warn(`[Country] Skipping Highway with unsupported geometry type: ${feature.geometry?.type}`);
-        continue;
-      }
+    const highwaysToInsert: any[] = [];
+    const coordsByIndex: any[] = [];
+    
+    // Prepare highway records
+    for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
+      const feature = batch[batchIndex];
+      if (feature.geometry?.type !== 'LineString') continue;
       
+      const featureIndex = i + batchIndex;
       const props = feature.properties || {};
-      const name = props.name || props.ref || `Highway ${importedCount}`;
-      const highwayType = props.highway || 'road';
+      const highwayType = props.highway || 'other';
+      const name = props.name || props.ref || `${highwayType}_${featureIndex}`;
       
-      // Create highway parent record
-      const highway = await strapi.entityService.create('api::highway.highway' as any, {
-        data: {
-          name,
-          highway_type: highwayType,
-          osm_id: props.id || props.osm_id,
-          ref: props.ref,
-          country: country.id,
-          is_active: true,
-          publishedAt: new Date()
-        }
+      const validHighwayType = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 
+                                'residential', 'service', 'unclassified', 'track', 'path', 
+                                'footway', 'cycleway', 'steps', 'pedestrian', 'living_street']
+                                .includes(highwayType) ? highwayType : 'other';
+      
+      const highway_id = `${name}_${featureIndex}_${Date.now()}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .substring(0, 255);
+      
+      const documentId = `hw_${Date.now()}_${featureIndex}`.substring(0, 36);
+      
+      highwaysToInsert.push({
+        document_id: documentId,
+        highway_id,
+        name: name.substring(0, 255),
+        highway_type: validHighwayType,
+        osm_id: props.id || props.osm_id,
+        full_id: props.full_id,
+        ref: props.ref ? props.ref.substring(0, 50) : null,
+        is_active: true,
+        created_at: timestamp,
+        updated_at: timestamp,
+        published_at: timestamp,
+        created_by_id: null,
+        updated_by_id: null,
+        locale: null
       });
       
-      // Create highway-shape records for each coordinate
-      const coords = feature.geometry.coordinates;
-      let cumulativeDistance = 0;
+      coordsByIndex.push({ coords: feature.geometry.coordinates, documentId });
+    }
+    
+    // Bulk insert highways
+    const insertedHighways = await strapi.db.connection('highways')
+      .insert(highwaysToInsert)
+      .returning(['id', 'document_id']);
+    
+    console.log(`[Country] Inserted ${insertedHighways.length} highways in batch`);
+    
+    // Create document_id to numeric id map
+    const docIdToNumericId: Record<string, number> = {};
+    for (const hw of insertedHighways) {
+      docIdToNumericId[hw.document_id] = hw.id;
+    }
+    
+    // Bulk insert country link table entries for highways
+    const countryLinks = insertedHighways.map(hw => ({
+      highway_id: hw.id,
+      country_id: country.id
+    }));
+    await strapi.db.connection('highways_country_lnk').insert(countryLinks);
+    
+    // Prepare shapes
+    const shapesToInsert: any[] = [];
+    const linksToInsert: any[] = [];
+    
+    for (const { coords, documentId } of coordsByIndex) {
+      const numericId = docIdToNumericId[documentId];
+      if (!numericId) continue;
       
       for (let j = 0; j < coords.length; j++) {
         const [lon, lat] = coords[j];
+        const shapeDocId = `hs_${numericId}_${j}`.substring(0, 36);
         
-        // Calculate distance from previous point
-        if (j > 0) {
-          const [prevLon, prevLat] = coords[j - 1];
-          cumulativeDistance += calculateDistance(prevLat, prevLon, lat, lon);
-        }
-        
-        // Create highway-shape record
-        await strapi.entityService.create('api::highway-shape.highway-shape' as any, {
-          data: {
-            shape_pt_lat: lat,
-            shape_pt_lon: lon,
-            shape_pt_sequence: j,
-            shape_dist_traveled: cumulativeDistance,
-            highway: highway.id,
-            is_active: true,
-            publishedAt: new Date()
-          }
+        shapesToInsert.push({
+          document_id: shapeDocId,
+          shape_pt_lat: lat,
+          shape_pt_lon: lon,
+          shape_pt_sequence: j,
+          published_at: timestamp,
+          created_at: timestamp,
+          updated_at: timestamp,
+          created_by_id: null,
+          updated_by_id: null,
+          locale: null
         });
       }
-      
-      importedCount++;
     }
     
-    if (chunk.length > 0) {
-      console.log(`[Country] Highways import progress: ${importedCount}/${geojson.features.length}`);
+    // Bulk insert shapes
+    if (shapesToInsert.length > 0) {
+      const insertedShapes = await strapi.db.connection('highway_shapes')
+        .insert(shapesToInsert)
+        .returning(['id', 'document_id']);
+      
+      console.log(`[Country] Inserted ${insertedShapes.length} shapes`);
+      
+      // Create link table entries
+      for (const { documentId } of coordsByIndex) {
+        const numericId = docIdToNumericId[documentId];
+        if (!numericId) continue;
+        
+        const highwayShapes = insertedShapes.filter(s => 
+          s.document_id.startsWith(`hs_${numericId}_`)
+        );
+        
+        for (const shape of highwayShapes) {
+          linksToInsert.push({
+            highway_shape_id: shape.id,
+            highway_id: numericId
+          });
+        }
+      }
+      
+      // Bulk insert link table entries
+      if (linksToInsert.length > 0) {
+        await strapi.db.connection('highway_shapes_highway_lnk').insert(linksToInsert);
+        console.log(`[Country] Inserted ${linksToInsert.length} link table entries`);
+      }
     }
+    
+    importedCount += insertedHighways.length;
+    console.log(`[Country] Highway import progress: ${importedCount}/${geojson.features.length}`);
   }
   
-  console.log(`[Country] ✅ Successfully imported ${importedCount} Highways with their shape points`);
-  
+  console.log(`[Country] ✅ Successfully imported ${importedCount} Highways`);
   return importedCount;
 };
 
@@ -722,18 +774,24 @@ export default {
       let highwayShapesDeletedCount = 0;
       for (const highway of highways) {
         try {
-          // Query shapes related to this highway through the junction table
-          const shapeLinks = await strapi.db.query('api::highway-shape.highway-shape').findMany({
-            where: { highway: highway.id },
-            select: ['id']
-          });
+          // Find shape IDs from link table
+          const shapeLinks = await strapi.db.connection('highway_shapes_highway_lnk')
+            .select('highway_shape_id')
+            .where('highway_id', highway.id);
           
-          // Delete each shape record
-          for (const shape of shapeLinks) {
-            await strapi.db.query('api::highway-shape.highway-shape').delete({
-              where: { id: shape.id }
-            });
-            highwayShapesDeletedCount++;
+          const shapeIds = shapeLinks.map(link => link.highway_shape_id);
+          
+          if (shapeIds.length > 0) {
+            // Delete shapes
+            await strapi.db.connection('highway_shapes')
+              .whereIn('id', shapeIds)
+              .del();
+            highwayShapesDeletedCount += shapeIds.length;
+            
+            // Delete link table entries
+            await strapi.db.connection('highway_shapes_highway_lnk')
+              .where('highway_id', highway.id)
+              .del();
           }
         } catch (err) {
           console.error(`[Country] Error deleting shapes for Highway ${highway.id}:`, err);
@@ -792,6 +850,7 @@ export default {
       console.log('[Country] Places file in data:', data.hasOwnProperty('place_names_geojson_file') ? data.place_names_geojson_file : 'NOT IN DATA');
       console.log('[Country] Landuse file in data:', data.hasOwnProperty('landuse_geojson_file') ? data.landuse_geojson_file : 'NOT IN DATA');
       console.log('[Country] Regions file in data:', data.hasOwnProperty('regions_geojson_file') ? data.regions_geojson_file : 'NOT IN DATA');
+      console.log('[Country] Highways file in data:', data.hasOwnProperty('highways_geojson_file') ? data.highways_geojson_file : 'NOT IN DATA');
       
       // DEBUG: Check relation field formats
       console.log('[Country] DEBUG - Relation field types:');
@@ -844,25 +903,43 @@ export default {
     const currentHighwaysFileId = currentCountry?.highways_geojson_file?.id;
     
     // Extract new file IDs - handle both object and direct ID
-    const newPoiFileId = typeof data.pois_geojson_file === 'object' && data.pois_geojson_file !== null ? data.pois_geojson_file.id : data.pois_geojson_file;
-    const newLanduseFileId = typeof data.landuse_geojson_file === 'object' && data.landuse_geojson_file !== null ? data.landuse_geojson_file.id : data.landuse_geojson_file;
-    const newRegionsFileId = typeof data.regions_geojson_file === 'object' && data.regions_geojson_file !== null ? data.regions_geojson_file.id : data.regions_geojson_file;
-    const newHighwaysFileId = typeof data.highways_geojson_file === 'object' && data.highways_geojson_file !== null ? data.highways_geojson_file.id : data.highways_geojson_file;
+    // Only extract if field is present in the update data
+    const newPoiFileId = data.hasOwnProperty('pois_geojson_file') 
+      ? (typeof data.pois_geojson_file === 'object' && data.pois_geojson_file !== null ? data.pois_geojson_file.id : data.pois_geojson_file)
+      : currentPoiFileId; // If field not in update, assume no change
+    
+    const newLanduseFileId = data.hasOwnProperty('landuse_geojson_file')
+      ? (typeof data.landuse_geojson_file === 'object' && data.landuse_geojson_file !== null ? data.landuse_geojson_file.id : data.landuse_geojson_file)
+      : currentLanduseFileId;
+    
+    const newRegionsFileId = data.hasOwnProperty('regions_geojson_file')
+      ? (typeof data.regions_geojson_file === 'object' && data.regions_geojson_file !== null ? data.regions_geojson_file.id : data.regions_geojson_file)
+      : currentRegionsFileId;
+    
+    const newHighwaysFileId = data.hasOwnProperty('highways_geojson_file')
+      ? (typeof data.highways_geojson_file === 'object' && data.highways_geojson_file !== null ? data.highways_geojson_file.id : data.highways_geojson_file)
+      : currentHighwaysFileId;
+    
+    console.log('[Country] DEBUG - New file ID extraction:');
+    console.log('  pois_geojson_file in data?', data.hasOwnProperty('pois_geojson_file'));
+    console.log('  landuse_geojson_file in data?', data.hasOwnProperty('landuse_geojson_file'));
+    console.log('  regions_geojson_file in data?', data.hasOwnProperty('regions_geojson_file'));
+    console.log('  highways_geojson_file in data?', data.hasOwnProperty('highways_geojson_file'));
     
     event.state.filesChanged = {
-      pois: currentPoiFileId !== newPoiFileId,
-      landuse: currentLanduseFileId !== newLanduseFileId,
-      regions: currentRegionsFileId !== newRegionsFileId,
-      highways: currentHighwaysFileId !== newHighwaysFileId
+      pois: data.hasOwnProperty('pois_geojson_file') && currentPoiFileId !== newPoiFileId,
+      landuse: data.hasOwnProperty('landuse_geojson_file') && currentLanduseFileId !== newLanduseFileId,
+      regions: data.hasOwnProperty('regions_geojson_file') && currentRegionsFileId !== newRegionsFileId,
+      highways: data.hasOwnProperty('highways_geojson_file') && currentHighwaysFileId !== newHighwaysFileId
     };
     
     // Track which files are being removed
-    // File is removed if: new value is null AND there was a previous file
+    // File is removed if: field is in update data AND new value is null AND there was a previous file
     event.state.filesRemoved = {
-      pois: newPoiFileId === null && currentPoiFileId !== null && currentPoiFileId !== undefined,
-      landuse: newLanduseFileId === null && currentLanduseFileId !== null && currentLanduseFileId !== undefined,
-      regions: newRegionsFileId === null && currentRegionsFileId !== null && currentRegionsFileId !== undefined,
-      highways: newHighwaysFileId === null && currentHighwaysFileId !== null && currentHighwaysFileId !== undefined
+      pois: data.hasOwnProperty('pois_geojson_file') && newPoiFileId === null && currentPoiFileId !== null && currentPoiFileId !== undefined,
+      landuse: data.hasOwnProperty('landuse_geojson_file') && newLanduseFileId === null && currentLanduseFileId !== null && currentLanduseFileId !== undefined,
+      regions: data.hasOwnProperty('regions_geojson_file') && newRegionsFileId === null && currentRegionsFileId !== null && currentRegionsFileId !== undefined,
+      highways: data.hasOwnProperty('highways_geojson_file') && newHighwaysFileId === null && currentHighwaysFileId !== null && currentHighwaysFileId !== undefined
     };
     
     console.log('[Country] File ID comparison:');
@@ -904,6 +981,27 @@ export default {
         documentId: result.documentId,
         populate: ['pois_geojson_file', 'landuse_geojson_file', 'regions_geojson_file', 'highways_geojson_file'] as any
       }) as any;
+
+      // Diagnostic: write a debug file so we can inspect what afterUpdate saw at runtime
+      try {
+        const debugPayload = {
+          ts: new Date().toISOString(),
+          result: { id: result.id, documentId: result.documentId },
+          filesChanged,
+          filesRemoved,
+          countryWithFiles: {
+            id: countryWithFiles?.id,
+            documentId: countryWithFiles?.documentId,
+            highways_geojson_file_id: countryWithFiles?.highways_geojson_file?.id || null,
+            highways_geojson_file_obj: countryWithFiles?.highways_geojson_file ? true : false
+          }
+        };
+        const debugPath = path.join(strapi.dirs.static.public, 'import_debug_highways.json');
+        await fs.writeFile(debugPath, JSON.stringify(debugPayload, null, 2), 'utf-8');
+        console.log('[Country] Wrote debug file to', debugPath);
+      } catch (dbgErr: any) {
+        console.warn('[Country] Failed to write debug file:', dbgErr?.message || dbgErr);
+      }
       
       console.log('[Country] Re-fetched country with files:');
       console.log('  POI file:', countryWithFiles?.pois_geojson_file?.id || 'NONE');
@@ -1088,22 +1186,28 @@ export default {
         if (existingHighways.length > 0) {
           console.log(`[Country] Found ${existingHighways.length} existing Highways - deleting them and their shapes...`);
           
-          // Delete Highway shapes via junction table
+          // Delete Highway shapes using link table
           let shapesDeletedCount = 0;
           for (const highway of existingHighways) {
             try {
-              // Find all shape IDs linked to this Highway via junction table
-              const shapeLinks = await strapi.db.query('api::highway-shape.highway-shape').findMany({
-                where: { highway: highway.id },
-                select: ['id']
-              });
+              // Find shape IDs from link table
+              const shapeLinks = await strapi.db.connection('highway_shapes_highway_lnk')
+                .select('highway_shape_id')
+                .where('highway_id', highway.id);
               
-              // Delete each shape record
-              for (const shape of shapeLinks) {
-                await strapi.db.query('api::highway-shape.highway-shape').delete({
-                  where: { id: shape.id }
-                });
-                shapesDeletedCount++;
+              const shapeIds = shapeLinks.map(link => link.highway_shape_id);
+              
+              if (shapeIds.length > 0) {
+                // Delete shapes
+                await strapi.db.connection('highway_shapes')
+                  .whereIn('id', shapeIds)
+                  .del();
+                shapesDeletedCount += shapeIds.length;
+                
+                // Delete link table entries
+                await strapi.db.connection('highway_shapes_highway_lnk')
+                  .where('highway_id', highway.id)
+                  .del();
               }
             } catch (err) {
               console.error(`[Country] Error deleting shapes for Highway ${highway.id}:`, err);
@@ -1145,9 +1249,8 @@ export default {
       console.log('[Country] SKIPPING POI processing - filesChanged.pois:', filesChanged.pois, ', has file:', !!countryData.pois_geojson_file);
     }
     
-    // Process Landuse (process if file changed OR if file exists but no zones in DB)
-    if ((filesChanged.landuse && countryData.landuse_geojson_file) || 
-        (countryData.landuse_geojson_file && !filesChanged.landuse)) {
+    // Process Landuse (only if file actually changed)
+    if (filesChanged.landuse && countryData.landuse_geojson_file) {
       console.log('[Country] ===== PROCESSING LANDUSE =====');
       console.log('[Country] filesChanged.landuse:', filesChanged.landuse);
       console.log('[Country] countryData.landuse_geojson_file:', countryData.landuse_geojson_file);
@@ -1175,9 +1278,11 @@ export default {
       }
     }
     
-    // Process Highways (process if file changed OR if file exists but no highways in DB)
-    if ((filesChanged.highways && countryData.highways_geojson_file) || 
-        (countryData.highways_geojson_file && !filesChanged.highways)) {
+    // Process Highways (only if file changed - consistent with POI/Landuse behavior)
+    if (filesChanged.highways && countryData.highways_geojson_file) {
+      console.log('[Country] ===== PROCESSING HIGHWAYS =====');
+      console.log('[Country] filesChanged.highways:', filesChanged.highways);
+      console.log('[Country] countryData.highways_geojson_file:', countryData.highways_geojson_file);
       console.log('[Country] Processing Highways GeoJSON file...');
       try {
         await processHighwaysGeoJSON(countryData);
@@ -1186,6 +1291,8 @@ export default {
         console.error('[Country] Error processing Highways:', error);
         importResults.push(`❌ Highways: ${error?.message || 'Unknown error'}`);
       }
+    } else {
+      console.log('[Country] SKIPPING Highways processing - filesChanged.highways:', filesChanged.highways, ', has file:', !!countryData.highways_geojson_file);
     }
     
     // Update import status if any files were processed

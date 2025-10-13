@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test Landuse CRUD operations
+Test Highway CRUD operations (sample 10 features)
 """
 
 import requests
@@ -12,10 +12,11 @@ STRAPI_URL = "http://localhost:1337"
 API_URL = f"{STRAPI_URL}/api"
 API_TOKEN = "b127418caf99e995d561f1c787005e328c8b9168e7fcc313460e43e032259a2b26d209b260b1dd8c0ca5dced2f20db90823984a50e2ec7429070552acad2b81f94bcad87ddf09e3314ded62538163e55e7f11a8909de45f67dd95890311211f5c1af76b86452a9e4f585ea9e4d3832e434c6cb46b97823c103801323a0214442"
 
-LANDUSE_FILE = "E:/projects/github/vehicle_simulator/commuter_service/geojson_data/barbados_landuse.json"
+HIGHWAY_FILE = "E:/projects/github/vehicle_simulator/commuter_service/geojson_data/barbados_highway_sample10.json"
 
 session = requests.Session()
 country_id = None
+
 
 def find_country():
     global country_id
@@ -35,6 +36,7 @@ def find_country():
     print(f"❌ Failed to find country")
     return False
 
+
 def upload_file(file_path):
     filename = file_path.split('/')[-1]
     print(f"\n[UPLOAD] Uploading {filename}...")
@@ -52,7 +54,9 @@ def upload_file(file_path):
         print(f"✅ Uploaded (ID: {file_id})")
         return file_id
     print(f"❌ Upload failed: {response.status_code}")
+    print(response.text)
     return None
+
 
 def update_country(field_name, file_id):
     print(f"\n[UPDATE] Setting {field_name} to file {file_id}...")
@@ -76,7 +80,9 @@ def update_country(field_name, file_id):
             print(f"✅ Import triggered")
         return True
     print(f"❌ Failed: {response.status_code}")
+    print(response.text)
     return False
+
 
 def count_entities(entity_type):
     response = session.get(
@@ -92,7 +98,9 @@ def count_entities(entity_type):
         count = response.json()["meta"]["pagination"]["total"]
         print(f"  {entity_type}: {count}")
         return count
+    print(response.status_code, response.text)
     return -1
+
 
 def count_shapes(shape_type):
     response = session.get(
@@ -105,7 +113,9 @@ def count_shapes(shape_type):
         count = response.json()["meta"]["pagination"]["total"]
         print(f"  {shape_type}: {count}")
         return count
+    print(response.status_code, response.text)
     return -1
+
 
 def remove_file(field_name):
     print(f"\n[REMOVE] Removing {field_name}...")
@@ -119,22 +129,24 @@ def remove_file(field_name):
         print(f"✅ Removed")
         return True
     print(f"❌ Failed: {response.status_code}")
+    print(response.text)
     return False
+
 
 def main():
     print("="*60)
-    print("LANDUSE CRUD TEST")
+    print("HIGHWAY CRUD SAMPLE-10 TEST")
     print("="*60)
     
     if not find_country():
         return False
     
-    # Upload and create landuse zones
-    file_id = upload_file(LANDUSE_FILE)
+    # Upload and create highways
+    file_id = upload_file(HIGHWAY_FILE)
     if not file_id:
         return False
     
-    if not update_country("landuse_geojson_file", file_id):
+    if not update_country("highways_geojson_file", file_id):
         return False
     
     print("\n[WAIT] Waiting 10 seconds for processing...")
@@ -142,17 +154,17 @@ def main():
     
     # Verify creation
     print("\n[COUNT] Counting entities after upload:")
-    zone_count = count_entities("landuse-zones")
-    shape_count = count_shapes("landuse-shapes")
+    highway_count = count_entities("highways")
+    shape_count = count_shapes("highway-shapes")
     
-    if zone_count == 0:
-        print("\n❌ TEST FAILED - No landuse zones created")
+    if highway_count == 0:
+        print("\n❌ TEST FAILED - No highways created")
         return False
     
-    print(f"\n✅ Created {zone_count} landuse zones with {shape_count} shapes")
+    print(f"\n✅ Created {highway_count} highways with {shape_count} shapes")
     
-    # Delete landuse zones
-    if not remove_file("landuse_geojson_file"):
+    # Delete highways
+    if not remove_file("highways_geojson_file"):
         return False
     
     print("\n[WAIT] Waiting 10 seconds for deletion...")
@@ -160,15 +172,15 @@ def main():
     
     # Verify deletion
     print("\n[COUNT] Counting entities after deletion:")
-    zone_count = count_entities("landuse-zones")
-    shape_count = count_shapes("landuse-shapes")
+    highway_count = count_entities("highways")
+    shape_count = count_shapes("highway-shapes")
     
-    if zone_count != 0 or shape_count != 0:
-        print(f"\n❌ TEST FAILED - Deletion incomplete (Zones: {zone_count}, Shapes: {shape_count})")
+    if highway_count != 0 or shape_count != 0:
+        print(f"\n❌ TEST FAILED - Deletion incomplete (Highways: {highway_count}, Shapes: {shape_count})")
         return False
     
-    print("\n✅ All landuse zones and shapes deleted successfully")
-    print("\n🎉 LANDUSE CRUD TEST PASSED!")
+    print("\n✅ All highways and shapes deleted successfully")
+    print("\n🎉 HIGHWAY CRUD SAMPLE-10 TEST PASSED!")
     return True
 
 if __name__ == "__main__":
