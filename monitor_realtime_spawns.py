@@ -138,17 +138,26 @@ class SpawnMonitor:
         
         return True
     
+    def _normalize_location(self, location):
+        """Convert location to dict format {lat: x, lon: y}"""
+        if isinstance(location, dict):
+            return location
+        elif isinstance(location, (tuple, list)) and len(location) >= 2:
+            return {'lat': location[0], 'lon': location[1]}
+        else:
+            return {'lat': 0, 'lon': 0}
+    
     async def handle_depot_spawn(self, data):
         """Handle depot spawn event"""
         self.stats['depot_spawns'] += 1
         self.stats['total_spawns'] += 1
         
-        # Extract spawn data (matching the actual emitted structure)
-        commuter_id = data.get('passenger_id', 'unknown')
+        # Extract spawn data (handle both formats: passenger_id/spawn_location OR commuter_id/current_location)
+        commuter_id = data.get('passenger_id') or data.get('commuter_id', 'unknown')
         depot_id = data.get('depot_id', 'unknown')
         route_id = data.get('route_id', 'unknown')
-        location = data.get('spawn_location', {})
-        destination = data.get('destination', {})
+        location = self._normalize_location(data.get('spawn_location') or data.get('current_location', {}))
+        destination = self._normalize_location(data.get('destination', {}))
         priority = data.get('priority', 3)
         
         # Get depot info
@@ -177,11 +186,11 @@ class SpawnMonitor:
         self.stats['route_spawns'] += 1
         self.stats['total_spawns'] += 1
         
-        # Extract spawn data (matching the actual emitted structure)
-        commuter_id = data.get('passenger_id', 'unknown')
+        # Extract spawn data (handle both formats: passenger_id/spawn_location OR commuter_id/current_location)
+        commuter_id = data.get('passenger_id') or data.get('commuter_id', 'unknown')
         route_id = data.get('route_id', 'unknown')
-        location = data.get('spawn_location', {})
-        destination = data.get('destination', {})
+        location = self._normalize_location(data.get('spawn_location') or data.get('current_location', {}))
+        destination = self._normalize_location(data.get('destination', {}))
         direction = data.get('direction', 'OUTBOUND')
         priority = data.get('priority', 3)
         
