@@ -1,14 +1,14 @@
 {
-  "ts": "2025-10-13T17:37:06.340Z",
+  "ts": "2025-10-13T17:58:12.018Z",
   "result": {
     "id": 29,
     "documentId": "y5qsd8a1it9bfxmlpg6gvt4c"
   },
   "filesChanged": {
-    "pois": true,
-    "landuse": true,
-    "regions": true,
-    "highways": true
+    "pois": false,
+    "landuse": false,
+    "regions": false,
+    "highways": false
   },
   "filesRemoved": {
     "pois": false,
@@ -19,7 +19,7 @@
   "countryWithFiles": {
     "id": 29,
     "documentId": "y5qsd8a1it9bfxmlpg6gvt4c",
-    "highways_geojson_file_id": 95,
+    "highways_geojson_file_id": 99,
     "highways_geojson_file_obj": true
   }
 }

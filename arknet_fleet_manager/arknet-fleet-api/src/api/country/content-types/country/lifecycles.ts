@@ -526,19 +526,40 @@ const processHighwaysGeoJSON = async (country: any) => {
   
   console.log(`[Country] Processing ${geojson.features.length} Highway features...`);
   
-  // Check if highways already imported
+  // Check if highways already exist and delete them first
   const existingCount = await strapi.db.connection('highways')
     .join('highways_country_lnk', 'highways.id', 'highways_country_lnk.highway_id')
     .where('highways_country_lnk.country_id', country.id)
     .count('* as count')
-    .first();
+    .first() as any;
   
-  if (existingCount && existingCount.count >= geojson.features.length) {
-    console.log(`[Country] ⚠️ ${existingCount.count} highways already exist for this country. Skipping import to avoid duplicates.`);
-    return existingCount.count;
+  if (existingCount && Number(existingCount.count) > 0) {
+    console.log(`[Country] Found ${existingCount.count} existing highways - deleting before fresh import...`);
+    
+    // Delete in correct order to respect foreign keys
+    await strapi.db.connection.raw(`
+      DELETE FROM highway_shapes_highway_lnk 
+      WHERE highway_id IN (
+        SELECT highway_id FROM highways_country_lnk WHERE country_id = ?
+      )
+    `, [country.id]);
+    
+    await strapi.db.connection.raw(`
+      DELETE FROM highway_shapes 
+      WHERE id NOT IN (SELECT highway_shape_id FROM highway_shapes_highway_lnk)
+    `);
+    
+    await strapi.db.connection.raw(`
+      DELETE FROM highways 
+      WHERE id IN (SELECT highway_id FROM highways_country_lnk WHERE country_id = ?)
+    `, [country.id]);
+    
+    await strapi.db.connection('highways_country_lnk')
+      .where('country_id', country.id)
+      .del();
+    
+    console.log(`[Country] ✅ Deleted ${existingCount.count} existing highways`);
   }
-  
-  console.log(`[Country] Found ${existingCount?.count || 0} existing highways - will perform fresh import`);
   
   // Haversine distance calculation
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -967,8 +988,16 @@ export default {
     
     try {
       const { result } = event;
-      const filesChanged = event.state?.filesChanged || {};
-      const filesRemoved = event.state?.filesRemoved || {};
+      
+      // CRITICAL: Only process if beforeUpdate set the state
+      // This prevents processing on read operations or other non-update events
+      if (!event.state || !event.state.filesChanged) {
+        console.log('[Country] ⚠️ No filesChanged state found - skipping afterUpdate processing (likely a read operation)');
+        return;
+      }
+      
+      const filesChanged = event.state.filesChanged;
+      const filesRemoved = event.state.filesRemoved || {};
       
       console.log('[Country] AfterUpdate - filesChanged:', filesChanged);
       console.log('[Country] AfterUpdate - filesRemoved:', filesRemoved);
@@ -1016,6 +1045,7 @@ export default {
     
     // Delete POIs if file was removed OR if file is set to null and POIs exist
     const shouldDeletePOIs = filesRemoved.pois || (filesChanged.pois && !countryData.pois_geojson_file);
+    console.log('[Country] shouldDeletePOIs:', shouldDeletePOIs, '(filesRemoved.pois:', filesRemoved.pois, ', filesChanged.pois:', filesChanged.pois, ', has file:', !!countryData.pois_geojson_file, ')');
     if (shouldDeletePOIs) {
       console.log('[Country] POIs GeoJSON file removed or set to null - checking for existing POIs...');
       try {
