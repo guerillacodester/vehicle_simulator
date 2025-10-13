@@ -225,51 +225,61 @@ class GeoJSONDataLoader:
             except Exception as e:
                 logging.debug(f"Skipping invalid bus stop feature: {e}")
     
-    def _estimate_population_density(self, landuse_type: str, properties: Dict) -> float:
-        """Estimate population density per km² based on land use type"""
+    def _estimate_population_density(self, landuse_type: str) -> float:
+        """Estimate population density based on land use type
+        
+        ADJUSTED DENSITIES (2024-10-13): Reduced by ~18x (6x * 3x) for realistic spawn rates.
+        These represent effective transit-using population, not total population.
+        Target: 90-180 passengers/hour total at 8 PM
+        """
         density_map = {
-            'residential': 2000.0,
-            'urban': 3000.0,
-            'suburban': 1000.0,
-            'rural': 100.0,
-            'village': 800.0,
-            'town': 1500.0,
-            'city': 4000.0,
-            'commercial': 500.0,  # Workers during day
-            'industrial': 200.0,  # Workers during day
-            'mixed': 1500.0,
-            'retail': 800.0,
-            'office': 1200.0
+            'residential': 120.0,   # Was 350.0 (orig 2000.0) - not everyone uses transit
+            'urban': 170.0,         # Was 500.0 (orig 3000.0)
+            'suburban': 60.0,       # Was 180.0 (orig 1000.0) - lower transit usage
+            'rural': 7.0,           # Was 20.0 (orig 100.0) - minimal transit
+            'village': 48.0,        # Was 140.0 (orig 800.0)
+            'town': 85.0,           # Was 250.0 (orig 1500.0)
+            'city': 240.0,          # Was 700.0 (orig 4000.0)
+            'commercial': 34.0,     # Was 100.0 (orig 500.0) - workers during day
+            'industrial': 14.0,     # Was 40.0 (orig 200.0) - shift workers
+            'mixed': 95.0,          # Was 280.0 (orig 1500.0)
+            'retail': 50.0,         # Was 150.0 (orig 800.0)
+            'office': 75.0          # Was 220.0 (orig 1200.0)
         }
         
-        return density_map.get(landuse_type.lower(), 50.0)  # Default low density
+        return density_map.get(landuse_type.lower(), 3.0)  # Default low density (was 10.0)
     
     def _estimate_activity_level(self, amenity_type: str, properties: Dict) -> float:
-        """Estimate activity level (spawn rate) for amenities"""
+        """Estimate activity level (spawn rate) for amenities
+        
+        ADJUSTED RATES (2024-10-13): Reduced by ~18x (6x * 3x) for realistic evening spawn rates.
+        Base rates assume peak activity - will be multiplied by temporal and zone modifiers.
+        Target: 90-180 passengers/hour total at 8 PM (60-120 depot + 30-60 route)
+        """
         activity_map = {
-            'school': 3.0,
-            'university': 5.0,
-            'hospital': 2.0,
-            'clinic': 1.5,
-            'shopping': 4.0,
-            'mall': 6.0,
-            'market': 3.5,
-            'restaurant': 2.0,
-            'cafe': 1.0,
-            'bank': 1.5,
-            'post_office': 1.0,
-            'government': 2.0,
-            'church': 0.8,
-            'mosque': 0.8,
-            'temple': 0.8,
-            'park': 0.5,
-            'beach': 1.2,
-            'tourist': 2.5,
-            'hotel': 1.8,
-            'fuel': 0.8
+            'school': 0.17,         # Was 0.5 (orig 3.0) - schools have burst activity during commute hours only
+            'university': 0.27,     # Was 0.8 (orig 5.0) - universities have more distributed activity
+            'hospital': 0.17,       # Was 0.5 (orig 2.0) - steady but lower than expected
+            'clinic': 0.10,         # Was 0.3 (orig 1.5)
+            'shopping': 0.23,       # Was 0.7 (orig 4.0) - high activity but reduced base
+            'mall': 0.34,           # Was 1.0 (orig 6.0) - highest activity amenity
+            'market': 0.20,         # Was 0.6 (orig 3.5)
+            'restaurant': 0.13,     # Was 0.4 (orig 2.0) - clustered around meal times
+            'cafe': 0.07,           # Was 0.2 (orig 1.0)
+            'bank': 0.10,           # Was 0.3 (orig 1.5)
+            'post_office': 0.07,    # Was 0.2 (orig 1.0)
+            'government': 0.13,     # Was 0.4 (orig 2.0)
+            'church': 0.05,         # Was 0.15 (orig 0.8) - mainly weekend activity
+            'mosque': 0.05,         # Was 0.15 (orig 0.8)
+            'temple': 0.05,         # Was 0.15 (orig 0.8)
+            'park': 0.03,           # Was 0.1 (orig 0.5)
+            'beach': 0.08,          # Was 0.25 (orig 1.2) - leisure activity
+            'tourist': 0.17,        # Was 0.5 (orig 2.5)
+            'hotel': 0.12,          # Was 0.35 (orig 1.8)
+            'fuel': 0.05            # Was 0.15 (orig 0.8)
         }
         
-        return activity_map.get(amenity_type.lower(), 0.5)  # Default low activity
+        return activity_map.get(amenity_type.lower(), 0.03)  # Default low activity (was 0.1)
     
     def _get_peak_hours(self, zone_type: str) -> List[int]:
         """Get peak hours for different zone types"""
@@ -414,14 +424,20 @@ class PoissonGeoJSONSpawner:
         return max(0.0, time_window_rate)
     
     def _get_zone_modifier(self, zone_type: str, hour: int) -> float:
-        """Get zone-specific modifier based on time of day"""
+        """Get zone-specific modifier based on time of day
+        
+        TEMPORAL MULTIPLIERS (2024-10-13): Applied to base spawn rates for realistic patterns.
+        These multipliers reflect actual transit usage patterns throughout the day.
+        """
         if zone_type in ['residential', 'urban', 'suburban']:
-            if 7 <= hour <= 9:  # Morning commute
+            if 7 <= hour <= 9:  # Morning commute peak
                 return 3.0
-            elif 17 <= hour <= 19:  # Evening commute
+            elif 17 <= hour <= 19:  # Evening commute peak
                 return 2.5
+            elif 20 <= hour <= 21:  # Evening (current test time ~8 PM)
+                return 0.8  # Reduced evening activity
             elif 22 <= hour or hour <= 6:  # Night
-                return 0.2
+                return 0.1  # Minimal night activity
             else:
                 return 1.0
         
@@ -430,21 +446,71 @@ class PoissonGeoJSONSpawner:
                 return 2.0
             elif hour in [8, 18]:  # Start/end of business
                 return 1.5
+            elif 19 <= hour <= 21:  # Evening shopping
+                return 1.2  # Some retail stays open
             elif 22 <= hour or hour <= 7:  # Closed
-                return 0.1
+                return 0.05  # Nearly zero activity
             else:
                 return 1.0
         
         elif zone_type in ['school', 'university']:
-            if hour in [7, 8, 15, 16]:  # School hours
+            if hour in [7, 8, 15, 16]:  # School commute hours
                 return 4.0
             elif 9 <= hour <= 14:  # During classes
-                return 0.5
+                return 0.3  # Minimal spawning during classes
+            elif 17 <= hour <= 23:  # After school hours - universities may have evening classes
+                return 0.1 if zone_type == 'school' else 0.5  # Schools closed, universities minimal
             else:
+                return 0.05  # Nearly zero overnight
+        
+        elif zone_type in ['restaurant', 'cafe']:
+            if 12 <= hour <= 13:  # Lunch peak
+                return 3.0
+            elif 18 <= hour <= 21:  # Dinner peak
+                return 2.5
+            elif 7 <= hour <= 9:  # Breakfast
+                return 1.5
+            elif 22 <= hour or hour <= 6:  # Closed/very quiet
                 return 0.1
+            else:
+                return 1.0
+        
+        elif zone_type in ['shopping', 'mall', 'market']:
+            if 10 <= hour <= 13:  # Midday shopping
+                return 2.0
+            elif 17 <= hour <= 20:  # Evening shopping
+                return 2.5
+            elif 21 <= hour or hour <= 8:  # Closed
+                return 0.05
+            else:
+                return 1.0
+        
+        elif zone_type in ['hospital', 'clinic']:
+            if 8 <= hour <= 17:  # Regular hours
+                return 2.0
+            elif 18 <= hour <= 22:  # Evening reduced
+                return 0.8
+            else:
+                return 0.5  # Emergency only overnight
+        
+        elif zone_type in ['beach', 'park', 'tourist']:
+            if 10 <= hour <= 16:  # Daytime leisure
+                return 2.0
+            elif 17 <= hour <= 19:  # Evening visits
+                return 1.0
+            elif 20 <= hour or hour <= 7:  # Closed/dark
+                return 0.1
+            else:
+                return 0.8
         
         else:
-            return 1.0  # Default modifier
+            # Default pattern for unknown types
+            if 8 <= hour <= 18:
+                return 1.5
+            elif 19 <= hour <= 21:
+                return 0.8
+            else:
+                return 0.3
     
     async def _create_zone_spawn_requests(self, zone: PopulationZone, 
                                         passenger_count: int, 
