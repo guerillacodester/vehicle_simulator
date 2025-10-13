@@ -18,9 +18,9 @@ export default factories.createCoreController('api::geofence.geofence' as any, (
           return ctx.badRequest('Invalid parameters: lat, lon, and distance must be valid numbers');
         }
 
-        // Query the database directly using plain SQL
+        // Query the database directly using plain SQL (optimized version)
         const query = `
-          SELECT * FROM find_nearby_features(${latitude}, ${longitude}, ${distanceMeters})
+          SELECT * FROM find_nearby_features_fast(${latitude}, ${longitude}, ${distanceMeters})
         `;
         
         const result = await strapi.db.connection.raw(query);
@@ -52,27 +52,70 @@ export default factories.createCoreController('api::geofence.geofence' as any, (
 
         // Find the closest named highway (not starting with "other_")
         const namedHighways = highways.filter(h => !h.name.startsWith('other_'));
-        const closestNamedHighway = namedHighways.length > 0 
+        let closestNamedHighway = namedHighways.length > 0 
           ? namedHighways.reduce((closest, current) => 
               current.distance_meters < closest.distance_meters ? current : closest
             )
           : null;
 
         // Find the closest POI
-        const closestPoi = pois.length > 0
+        let closestPoi = pois.length > 0
           ? pois.reduce((closest, current) => 
               current.distance_meters < closest.distance_meters ? current : closest
             )
           : null;
 
+        // If either feature is missing, do ONE expanded search (500m) for both
+        if (!closestNamedHighway || !closestPoi) {
+          const expandedQuery = `
+            SELECT * FROM find_nearby_features_fast(${latitude}, ${longitude}, 500)
+          `;
+          const expandedResult = await strapi.db.connection.raw(expandedQuery);
+          const expandedRows = expandedResult.rows || expandedResult[0] || [];
+          
+          if (!closestNamedHighway) {
+            const expandedHighways = expandedRows
+              .filter((row: any) => row.feature_type === 'highway')
+              .map((row: any) => ({
+                name: row.feature_name,
+                distance_meters: row.distance_meters
+              }))
+              .filter((h: any) => !h.name.startsWith('other_'));
+            
+            if (expandedHighways.length > 0) {
+              closestNamedHighway = expandedHighways.reduce((closest: any, current: any) => 
+                current.distance_meters < closest.distance_meters ? current : closest
+              );
+            }
+          }
+          
+          if (!closestPoi) {
+            const expandedPois = expandedRows
+              .filter((row: any) => row.feature_type === 'poi')
+              .map((row: any) => ({
+                name: row.feature_name,
+                distance_meters: row.distance_meters
+              }));
+            
+            if (expandedPois.length > 0) {
+              closestPoi = expandedPois.reduce((closest: any, current: any) => 
+                current.distance_meters < closest.distance_meters ? current : closest
+              );
+            }
+          }
+        }
+
         return {
-          location: { latitude, longitude },
-          search_radius_meters: distanceMeters,
-          closest_named_highway: closestNamedHighway,
-          closest_poi: closestPoi,
-          nearby_highways: highways,
-          nearby_pois: pois,
-          total_count: highways.length + pois.length
+          latitude,
+          longitude,
+          highway: closestNamedHighway ? {
+            name: closestNamedHighway.name,
+            distance_meters: closestNamedHighway.distance_meters
+          } : null,
+          poi: closestPoi ? {
+            name: closestPoi.name,
+            distance_meters: closestPoi.distance_meters
+          } : null
         };
       } catch (error) {
         strapi.log.error('Error finding nearby features:', error);
