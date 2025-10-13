@@ -10,12 +10,12 @@ export default {
       const countries = await strapi.entityService.findMany('api::country.country' as any, {
         filters: {
           $or: [
-            { pois_geojson_file: fileId },
-            { place_names_geojson_file: fileId },
-            { landuse_geojson_file: fileId },
-            { regions_geojson_file: fileId }
+            { pois_geojson_file: { id: fileId } },
+            { place_names_geojson_file: { id: fileId } },
+            { landuse_geojson_file: { id: fileId } },
+            { regions_geojson_file: { id: fileId } }
           ]
-        },
+        } as any,
         populate: ['pois_geojson_file', 'place_names_geojson_file', 'landuse_geojson_file', 'regions_geojson_file']
       }) as any[];
       

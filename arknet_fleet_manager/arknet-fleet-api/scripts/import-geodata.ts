@@ -21,7 +21,7 @@ async function importGeoData() {
   // Step 1: Get Barbados country record
   console.log('📍 Finding Barbados country record...');
   const countries = await strapi.entityService.findMany('api::country.country' as any, {
-    filters: { code: 'BB' }
+    filters: { code: 'BB' } as any
   }) as any[];
   
   if (!countries || countries.length === 0) {
