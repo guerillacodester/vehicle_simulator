@@ -1,4 +1,5 @@
 # Vehicle Integration - Critical Implementation Details
+
 **Date:** October 14, 2025  
 **Topic:** Intermediate Stop Behavior & Communication Architecture
 
@@ -25,6 +26,7 @@
    - ✅ Signals driver to stop/start
 
 2. **Passenger Detection**
+
    ```python
    # From conductor.py
    pickup_radius_km: float = 0.2  # 200m radius
@@ -34,6 +36,7 @@
    ```
 
 3. **Stop Duration Calculation**
+
    ```python
    # The conductor calculates stop time based on passenger count
    min_stop_duration_seconds: float = 15.0
@@ -55,6 +58,7 @@
 #### ❌ **WHAT NEEDS TO BE BUILT**
 
 1. **Automatic Stop Detection**
+
    ```python
    # NEEDED: Conductor continuously checks route ahead
    async def _monitor_route_ahead(self):
@@ -68,6 +72,7 @@
    ```
 
 2. **Proximity-Based Stop Triggers**
+
    ```python
    # NEEDED: Stop when within 50m of passenger
    if haversine_distance(vehicle_pos, passenger_pos) < 50:
@@ -75,6 +80,7 @@
    ```
 
 3. **Resume Journey Logic**
+
    ```python
    # NEEDED: After boarding/alighting complete
    async def complete_stop_operation(self):
@@ -89,7 +95,7 @@
 
 ### **Scenario: Passenger at Intermediate Stop**
 
-```
+```text
 T=0:00   🚗 Vehicle traveling on Route 1A
          📍 Current: Point 15/88 (13.1234, -59.6123)
          👥 Onboard: 3 passengers
@@ -167,6 +173,7 @@ async def _broadcast_location_loop(self) -> None:
 #### 🎯 **GPS BEHAVIOR DURING STOPS**
 
 **✅ GPS CONTINUES DURING STOPS:**
+
 - GPS device stays ON when engine stops
 - Position updates continue broadcasting
 - Server receives stationary position updates
@@ -174,6 +181,7 @@ async def _broadcast_location_loop(self) -> None:
 - Heading maintained from last movement
 
 **Code Evidence:**
+
 ```python
 # From conductor.py - stop operation preserves GPS
 self.preserved_gps_position: Optional[Tuple[float, float]] = None
@@ -184,7 +192,7 @@ self.preserved_gps_position: Optional[Tuple[float, float]] = None
 
 #### 📊 **GPS TRANSMISSION TIMELINE**
 
-```
+```text
 T=0:00   📡 GPS broadcasting @ 5s interval
          📍 (13.0965, -59.6086) | Speed: 45 km/h
 
@@ -228,7 +236,8 @@ T=0:40   📡 GPS update
 
 #### ✅ **IMPLEMENTED CHANNELS**
 
-**1. Conductor → Driver (Stop Requests)**
+**1. Conductor → Driver (Stop Requests)*
+
 ```python
 # From vehicle_driver.py line 142
 @self.sio.on('conductor:request:stop')
@@ -247,7 +256,8 @@ async def on_stop_request(data):
         self.logger.info(f"Stop duration complete, waiting for conductor signal")
 ```
 
-**2. Conductor → Driver (Ready to Depart)**
+**2. Conductor → Driver (Ready to Depart)*
+
 ```python
 # From vehicle_driver.py line 159
 @self.sio.on('conductor:ready:depart')
@@ -261,7 +271,8 @@ async def on_ready_to_depart(data):
         self.logger.info(f"Engine restarted, resuming journey")
 ```
 
-**3. Driver → Conductor (Position Updates)**
+**3. Driver → Conductor (Position Updates)*
+
 ```python
 # From vehicle_driver.py line 182
 # Driver broadcasts position every 5 seconds
@@ -272,7 +283,7 @@ await self.sio.emit('driver:location:update', location_data)
 
 #### 📊 **COMMUNICATION PROTOCOL DIAGRAM**
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │                    SOCKET.IO SERVER                          │
 │                 (http://localhost:1337)                      │
@@ -299,6 +310,7 @@ await self.sio.emit('driver:location:update', location_data)
 #### 📡 **MESSAGE FORMAT EXAMPLES**
 
 **Conductor Requests Stop:**
+
 ```json
 {
   "event": "conductor:request:stop",
@@ -315,6 +327,7 @@ await self.sio.emit('driver:location:update', location_data)
 ```
 
 **Driver Acknowledges & Stops:**
+
 ```json
 {
   "event": "driver:stopped",
@@ -332,6 +345,7 @@ await self.sio.emit('driver:location:update', location_data)
 ```
 
 **Conductor Signals Ready:**
+
 ```json
 {
   "event": "conductor:ready:depart",
@@ -345,6 +359,7 @@ await self.sio.emit('driver:location:update', location_data)
 ```
 
 **Driver Resumes Journey:**
+
 ```json
 {
   "event": "driver:departed",
