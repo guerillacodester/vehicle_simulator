@@ -19,7 +19,6 @@ from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
 
-from .simple_commuter import SimpleCommuter
 from .commuter_config import get_commuter_config, CommuterBehaviorConfig, explain_priority
 
 
