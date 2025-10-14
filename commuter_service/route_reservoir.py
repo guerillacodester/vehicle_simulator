@@ -823,7 +823,15 @@ class RouteReservoir:
                     self.logger.debug(f"Expired commuter {commuter_id}")
                 
                 if expired_ids:
-                    self.logger.info(f"Expired {len(expired_ids)} commuters")
+                    self.logger.info(f"Expired {len(expired_ids)} commuters from memory")
+                    
+                    # 🆕 FIX: Delete expired passengers from database
+                    try:
+                        deleted_count = await self.db.delete_expired()
+                        if deleted_count > 0:
+                            self.logger.info(f"🗑️  Deleted {deleted_count} expired passengers from database")
+                    except Exception as e:
+                        self.logger.error(f"Error deleting expired passengers from database: {e}")
                     
             except asyncio.CancelledError:
                 break
