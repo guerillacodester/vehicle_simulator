@@ -641,20 +641,29 @@ class PoissonGeoJSONSpawner:
         return self._find_random_destination(route)
     
     def _find_random_destination(self, route: RouteData) -> Dict[str, float]:
-        """Find random destination along route"""
+        """Find random destination along route with better distribution"""
         if route.geometry_coordinates and len(route.geometry_coordinates) > 0:
-            # Select from different thirds of the route for better distribution
             total_points = len(route.geometry_coordinates)
             
             # Randomly choose from beginning (0-33%), middle (33-66%), or end (66-100%)
             section = random.choice(['start', 'middle', 'end'])
             
-            if section == 'start':
-                index = random.randint(0, max(0, total_points // 3 - 1))
+            if total_points < 3:
+                # If route has fewer than 3 points, just pick randomly
+                index = random.randint(0, total_points - 1)
+            elif section == 'start':
+                # First third
+                end_idx = max(1, total_points // 3)
+                index = random.randint(0, end_idx - 1)
             elif section == 'middle':
-                index = random.randint(total_points // 3, max(total_points // 3, 2 * total_points // 3 - 1))
+                # Middle third
+                start_idx = total_points // 3
+                end_idx = max(start_idx + 1, 2 * total_points // 3)
+                index = random.randint(start_idx, end_idx - 1)
             else:  # end
-                index = random.randint(2 * total_points // 3, total_points - 1)
+                # Last third
+                start_idx = 2 * total_points // 3
+                index = random.randint(start_idx, total_points - 1)
             
             coord = route.geometry_coordinates[index]
             return {'lat': coord[1], 'lon': coord[0]}
