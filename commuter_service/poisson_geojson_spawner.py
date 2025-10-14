@@ -642,8 +642,21 @@ class PoissonGeoJSONSpawner:
     
     def _find_random_destination(self, route: RouteData) -> Dict[str, float]:
         """Find random destination along route"""
-        if route.geometry_coordinates:
-            coord = random.choice(route.geometry_coordinates)
+        if route.geometry_coordinates and len(route.geometry_coordinates) > 0:
+            # Select from different thirds of the route for better distribution
+            total_points = len(route.geometry_coordinates)
+            
+            # Randomly choose from beginning (0-33%), middle (33-66%), or end (66-100%)
+            section = random.choice(['start', 'middle', 'end'])
+            
+            if section == 'start':
+                index = random.randint(0, max(0, total_points // 3 - 1))
+            elif section == 'middle':
+                index = random.randint(total_points // 3, max(total_points // 3, 2 * total_points // 3 - 1))
+            else:  # end
+                index = random.randint(2 * total_points // 3, total_points - 1)
+            
+            coord = route.geometry_coordinates[index]
             return {'lat': coord[1], 'lon': coord[0]}
         
         return {'lat': 13.1939, 'lon': -59.5432}  # Default Barbados location

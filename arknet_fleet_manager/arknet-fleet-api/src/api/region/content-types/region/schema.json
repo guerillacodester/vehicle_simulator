@@ -81,6 +81,12 @@
       "target": "api::poi.poi",
       "mappedBy": "region"
     },
+    "places": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::place.place",
+      "mappedBy": "region"
+    },
     "landuse_zones": {
       "type": "relation",
       "relation": "oneToMany",

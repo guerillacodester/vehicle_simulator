@@ -84,6 +84,12 @@
       "target": "api::region.region",
       "mappedBy": "country"
     },
+    "places": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::place.place",
+      "mappedBy": "country"
+    },
     "highways": {
       "type": "relation",
       "relation": "oneToMany",

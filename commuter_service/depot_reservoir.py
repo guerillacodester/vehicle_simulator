@@ -9,14 +9,19 @@ Features:
 - Proximity-based commuter queries for vehicles
 - Real-time commuter spawning and expiration
 - Socket.IO integration for event notifications
+
+Refactored Architecture (SRP compliance):
+- Uses DepotQueue for queue management
+- Uses LocationNormalizer for location format conversion
+- Uses ReservoirStatistics for thread-safe statistics tracking
+- Uses ExpirationManager for background expiration tasks
+- Uses SpawningCoordinator for automatic passenger spawning
 """
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Set
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional
 from datetime import datetime, timedelta
-from collections import deque
 import uuid
 
 from commuter_service.socketio_client import (
@@ -32,77 +37,12 @@ from commuter_service.passenger_db import PassengerDatabase
 from commuter_service.strapi_api_client import StrapiApiClient, DepotData, RouteData
 from commuter_service.poisson_geojson_spawner import PoissonGeoJSONSpawner
 
-
-@dataclass
-class DepotQueue:
-    """Queue of commuters waiting at a specific depot"""
-    depot_id: str
-    depot_location: tuple[float, float]  # (lat, lon)
-    route_id: str
-    commuters: deque = field(default_factory=deque)
-    total_spawned: int = 0
-    total_picked_up: int = 0
-    total_expired: int = 0
-    created_at: datetime = field(default_factory=datetime.now)
-    
-    def __len__(self) -> int:
-        return len(self.commuters)
-    
-    def add_commuter(self, commuter: LocationAwareCommuter):
-        """Add commuter to end of queue (FIFO)"""
-        self.commuters.append(commuter)
-        self.total_spawned += 1
-    
-    def remove_commuter(self, commuter_id: str) -> Optional[LocationAwareCommuter]:
-        """Remove specific commuter from queue"""
-        for i, commuter in enumerate(self.commuters):
-            if commuter.commuter_id == commuter_id:
-                removed = self.commuters[i]
-                del self.commuters[i]
-                return removed
-        return None
-    
-    def get_available_commuters(
-        self,
-        vehicle_location: tuple[float, float],
-        max_distance: float,
-        max_count: int
-    ) -> List[LocationAwareCommuter]:
-        """Get available commuters within distance threshold"""
-        available = []
-        
-        for commuter in self.commuters:
-            # Calculate distance between commuter and vehicle
-            from math import radians, sin, cos, sqrt, atan2
-            lat1, lon1 = commuter.current_position
-            lat2, lon2 = vehicle_location
-            
-            # Haversine distance
-            R = 6371000  # Earth radius in meters
-            dlat = radians(lat2 - lat1)
-            dlon = radians(lon2 - lon1)
-            a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
-            c = 2 * atan2(sqrt(a), sqrt(1-a))
-            distance = R * c
-            
-            if distance <= max_distance:
-                available.append(commuter)
-                if len(available) >= max_count:
-                    break
-        
-        return available
-    
-    def get_stats(self) -> Dict:
-        """Get queue statistics"""
-        return {
-            "depot_id": self.depot_id,
-            "route_id": self.route_id,
-            "waiting_count": len(self.commuters),
-            "total_spawned": self.total_spawned,
-            "total_picked_up": self.total_picked_up,
-            "total_expired": self.total_expired,
-            "uptime_seconds": (datetime.now() - self.created_at).total_seconds(),
-        }
+# Extracted modules (SRP compliance)
+from commuter_service.depot_queue import DepotQueue
+from commuter_service.location_normalizer import LocationNormalizer
+from commuter_service.reservoir_statistics import ReservoirStatistics
+from commuter_service.expiration_manager import ReservoirExpirationManager
+from commuter_service.spawning_coordinator import SpawningCoordinator
 
 
 class DepotReservoir:
@@ -173,16 +113,11 @@ class DepotReservoir:
         
         # Background tasks
         self.running = False
-        self.expiration_task: Optional[asyncio.Task] = None
-        self.spawning_task: Optional[asyncio.Task] = None
         
-        # Statistics
-        self.stats = {
-            "total_spawned": 0,
-            "total_picked_up": 0,
-            "total_expired": 0,
-            "start_time": None,
-        }
+        # Extracted module instances (SRP compliance)
+        self.statistics = ReservoirStatistics(name="DepotReservoir")
+        self.expiration_manager: Optional[ReservoirExpirationManager] = None
+        self.spawning_coordinator: Optional[SpawningCoordinator] = None
     
     async def start(self):
         """Start the depot reservoir service"""
@@ -192,7 +127,7 @@ class DepotReservoir:
         
         self.logger.info("Starting depot reservoir service...")
         self.running = True
-        self.stats["start_time"] = datetime.now()
+        # Note: start_time is tracked in ReservoirStatistics.created_at
         
         # Connect to database
         await self.db.connect()
@@ -260,11 +195,29 @@ class DepotReservoir:
             self.logger.info(f"   ... and {len(self.routes) - 5} more")
         self.logger.info("=" * 80)
         
-        # Start background tasks
-        self.expiration_task = asyncio.create_task(self._expiration_loop())
-        self.spawning_task = asyncio.create_task(self._spawning_loop())
+        # Initialize ExpirationManager for background expiration task
+        self.expiration_manager = ReservoirExpirationManager(
+            get_commuters=lambda: self.active_commuters,
+            on_expire=self._expire_commuter,
+            check_interval=10.0,
+            expiration_timeout=1800.0,  # 30 minutes
+            logger=self.logger
+        )
         
-        self.logger.info("Depot reservoir service started successfully")
+        # Initialize SpawningCoordinator for automatic passenger spawning
+        self.spawning_coordinator = SpawningCoordinator(
+            spawner=self.poisson_spawner,
+            spawn_interval=30.0,  # 30-second intervals for spawning
+            time_window_minutes=5.0,
+            on_spawn_callback=self._process_spawn_request,
+            logger=self.logger
+        )
+        
+        # Start background managers
+        await self.expiration_manager.start()
+        await self.spawning_coordinator.start()
+        
+        self.logger.info("Depot reservoir service started successfully with automatic spawning")
     
     async def stop(self):
         """Stop the depot reservoir service"""
@@ -274,20 +227,12 @@ class DepotReservoir:
         self.logger.info("Stopping depot reservoir service...")
         self.running = False
         
-        # Stop background tasks
-        if self.expiration_task:
-            self.expiration_task.cancel()
-            try:
-                await self.expiration_task
-            except asyncio.CancelledError:
-                pass
+        # Stop background managers
+        if self.expiration_manager:
+            await self.expiration_manager.stop()
         
-        if self.spawning_task:
-            self.spawning_task.cancel()
-            try:
-                await self.spawning_task
-            except asyncio.CancelledError:
-                pass
+        if self.spawning_coordinator:
+            await self.spawning_coordinator.stop()
         
         # Disconnect from database
         await self.db.disconnect()
@@ -386,9 +331,9 @@ class DepotReservoir:
         Returns:
             LocationAwareCommuter instance
         """
-        # Normalize locations to (float, float) tuples
-        depot_location = self._normalize_location(depot_location)
-        destination = self._normalize_location(destination)
+        # Normalize locations using LocationNormalizer
+        depot_location = LocationNormalizer.normalize(depot_location)
+        destination = LocationNormalizer.normalize(destination)
         
         # Get or create queue
         queue = self._get_or_create_queue(depot_id, route_id, depot_location)
@@ -412,7 +357,9 @@ class DepotReservoir:
         # Add to queue
         queue.add_commuter(commuter)
         self.active_commuters[commuter.commuter_id] = commuter
-        self.stats["total_spawned"] += 1
+        
+        # Update statistics using ReservoirStatistics
+        await self.statistics.increment_spawned()
         
         # Emit spawn event
         if self.client:
@@ -459,9 +406,13 @@ class DepotReservoir:
         # Get depot name
         depot_name = next((d.name for d in self.depots if d.depot_id == depot_id), depot_id)
         
+        # Get total spawned count from statistics
+        stats = await self.statistics.get_stats()
+        total_spawned = stats['total_spawned']
+        
         # Log spawn details
         self.logger.info(
-            f"✅ DEPOT SPAWN #{self.stats['total_spawned']} | "
+            f"✅ DEPOT SPAWN #{total_spawned} | "
             f"ID: {commuter.commuter_id[:8]}... | "
             f"Depot: {depot_name} @ ({depot_location[0]:.4f}, {depot_location[1]:.4f}) | "
             f"Near: {spawn_location_name} | "
@@ -547,7 +498,9 @@ class DepotReservoir:
             removed = queue.remove_commuter(commuter_id)
             if removed:
                 queue.total_picked_up += 1
-                self.stats["total_picked_up"] += 1
+                
+                # Update statistics using ReservoirStatistics
+                await self.statistics.increment_picked_up()
                 
                 # Update database status
                 await self.db.mark_boarded(commuter_id)
@@ -603,83 +556,112 @@ class DepotReservoir:
             correlation_id=correlation_id
         )
     
-    async def _spawning_loop(self):
-        """Background task for automatic Poisson-based passenger spawning using GeoJSON population data"""
-        self.logger.info("🚀 Starting automatic passenger spawning loop (using real GeoJSON population data)")
-        
-        while self.running:
-            try:
-                # Wait before next spawn cycle (30 seconds for demo)
-                await asyncio.sleep(30)  # 30-second intervals for testing
-                
-                current_time = datetime.now()
-                
-                # Generate spawn requests from Poisson spawner using GeoJSON population zones
-                spawn_requests = await self.poisson_spawner.generate_poisson_spawn_requests(
-                    current_time=current_time,
-                    time_window_minutes=5
-                )
-                
-                self.logger.info(f"🎲 Poisson spawner generated {len(spawn_requests)} spawn requests for hour {current_time.hour}")
-                
-                # Process spawn requests
-                for request in spawn_requests:
-                    try:
-                        spawn_location = request.get('spawn_location')  # (lat, lon)
-                        destination = request.get('destination_location')  # (lat, lon)
-                        route_id = request.get('assigned_route')
-                        priority = request.get('priority', 3)
-                        
-                        if not all([spawn_location, destination, route_id]):
-                            self.logger.debug(f"Skipping incomplete spawn request: spawn={spawn_location}, dest={destination}, route={route_id}")
-                            continue
-                        
-                        # Find nearest depot to spawn location
-                        nearest_depot = self._find_nearest_depot(spawn_location)
-                        
-                        if nearest_depot:
-                            # Get depot coordinates
-                            depot_lat = nearest_depot.latitude if nearest_depot.latitude is not None else nearest_depot.location.get('lat')
-                            depot_lon = nearest_depot.longitude if nearest_depot.longitude is not None else nearest_depot.location.get('lon')
-                            
-                            # Ensure coordinates are floats
-                            if isinstance(depot_lat, str):
-                                depot_lat = float(depot_lat)
-                            if isinstance(depot_lon, str):
-                                depot_lon = float(depot_lon)
-                            
-                            # Spawn commuter at depot
-                            await self.spawn_commuter(
-                                depot_id=nearest_depot.depot_id,
-                                route_id=route_id,
-                                depot_location=(depot_lat, depot_lon),
-                                destination=destination,
-                                priority=priority
-                            )
-                        
-                    except Exception as e:
-                        self.logger.error(f"Failed to process spawn request: {e}", exc_info=True)
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self.logger.error(f"Error in spawning loop: {e}")
+    # ========================================================================
+    # Callback Methods for Extracted Managers (SRP compliance)
+    # ========================================================================
+    # Callback Methods for Extracted Managers (SRP compliance)
+    # ========================================================================
     
-    def _normalize_location(self, location) -> tuple[float, float]:
+    async def _get_active_commuters_for_expiration(self) -> List[tuple[str, LocationAwareCommuter]]:
         """
-        Convert location to (lat, lon) tuple of floats.
-        Handles dict {'lat': x, 'lon': y}, tuple/list (x, y), with string or numeric values.
+        Callback for ExpirationManager to get active commuters.
+        
+        Returns:
+            List of (commuter_id, commuter) tuples
         """
-        if isinstance(location, dict):
-            lat = location.get('lat') or location.get('latitude')
-            lon = location.get('lon') or location.get('longitude')
-            if lat is None or lon is None:
-                raise ValueError(f"Invalid dict location format: {location}")
-            return (float(lat), float(lon))
-        elif isinstance(location, (tuple, list)) and len(location) == 2:
-            return (float(location[0]), float(location[1]))
-        else:
-            raise ValueError(f"Unexpected location format: {location} (type: {type(location)})")
+        return list(self.active_commuters.items())
+    
+    async def _expire_commuter(self, commuter_id: str, commuter: LocationAwareCommuter):
+        """
+        Callback for ExpirationManager to expire a commuter.
+        
+        Args:
+            commuter_id: Commuter identifier
+            commuter: LocationAwareCommuter instance
+        """
+        # Remove from active commuters
+        self.active_commuters.pop(commuter_id, None)
+        
+        # Remove from queue
+        for queue in self.queues.values():
+            removed = queue.remove_commuter(commuter_id)
+            if removed:
+                queue.total_expired += 1
+        
+        # Update statistics
+        await self.statistics.increment_expired()
+        
+        # Delete from database
+        try:
+            deleted_count = await self.db.delete_expired()
+            if deleted_count > 0:
+                self.logger.debug(f"Deleted {deleted_count} expired passengers from database")
+        except Exception as e:
+            self.logger.error(f"Error deleting expired passengers: {e}")
+        
+        # Emit expiration event
+        if self.client:
+            await self.client.emit_message(
+                EventTypes.COMMUTER_EXPIRED,
+                {"commuter_id": commuter_id}
+            )
+    
+    async def _generate_spawn_requests(self) -> List[Dict]:
+        """
+        Callback for SpawningCoordinator to generate spawn requests.
+        
+        Returns:
+            List of spawn request dicts from Poisson spawner
+        """
+        current_time = datetime.now()
+        spawn_requests = await self.poisson_spawner.generate_poisson_spawn_requests(
+            current_time=current_time,
+            time_window_minutes=5
+        )
+        return spawn_requests
+    
+    async def _process_spawn_request(self, spawn_request: Dict):
+        """
+        Callback for SpawningCoordinator to process a spawn request.
+        
+        Args:
+            spawn_request: Spawn request dict with location/destination/route info
+        """
+        spawn_location = spawn_request.get('spawn_location')  # (lat, lon)
+        destination = spawn_request.get('destination_location')  # (lat, lon)
+        route_id = spawn_request.get('assigned_route')
+        priority = spawn_request.get('priority', 3)
+        
+        if not all([spawn_location, destination, route_id]):
+            self.logger.debug(f"Skipping incomplete spawn request")
+            return
+        
+        # Find nearest depot to spawn location
+        nearest_depot = self._find_nearest_depot(spawn_location)
+        
+        if nearest_depot:
+            # Get depot coordinates
+            depot_lat = nearest_depot.latitude if nearest_depot.latitude is not None else nearest_depot.location.get('lat')
+            depot_lon = nearest_depot.longitude if nearest_depot.longitude is not None else nearest_depot.location.get('lon')
+            
+            # Ensure coordinates are floats
+            if isinstance(depot_lat, str):
+                depot_lat = float(depot_lat)
+            if isinstance(depot_lon, str):
+                depot_lon = float(depot_lon)
+            
+            # Spawn commuter at depot
+            await self.spawn_commuter(
+                depot_id=nearest_depot.depot_id,
+                route_id=route_id,
+                depot_location=(depot_lat, depot_lon),
+                destination=destination,
+                priority=priority
+            )
+    
+    # ========================================================================
+    # Helper Methods
+    # ========================================================================
     
     def _find_nearest_depot(self, location: tuple[float, float]) -> Optional[DepotData]:
         """Find the nearest depot to a given location using Haversine distance"""
@@ -688,8 +670,8 @@ class DepotReservoir:
         if not self.depots:
             return None
         
-        # Normalize location to (float, float) tuple
-        lat1, lon1 = self._normalize_location(location)
+        # Normalize location using LocationNormalizer
+        lat1, lon1 = LocationNormalizer.normalize(location)
         min_distance = float('inf')
         nearest_depot = None
         
@@ -725,8 +707,8 @@ class DepotReservoir:
         if not hasattr(self, 'poisson_spawner') or not self.poisson_spawner:
             return "Unknown Location"
         
-        # Normalize location to (float, float) tuple
-        lat, lon = self._normalize_location(location)
+        # Normalize location using LocationNormalizer
+        lat, lon = LocationNormalizer.normalize(location)
         min_distance = float('inf')
         nearest_name = "Unknown Location"
         
@@ -748,75 +730,21 @@ class DepotReservoir:
         
         return nearest_name
     
-    async def _expiration_loop(self):
-        """Background task to expire old commuters"""
-        while self.running:
-            try:
-                await asyncio.sleep(10)  # Check every 10 seconds
-                
-                now = datetime.now()
-                expired_ids = []
-                
-                # Find expired commuters (default 30 minutes)
-                max_age = timedelta(minutes=30)
-                
-                for commuter_id, commuter in self.active_commuters.items():
-                    age = now - commuter.spawn_time
-                    if age > max_age:
-                        expired_ids.append(commuter_id)
-                
-                # Remove expired commuters
-                for commuter_id in expired_ids:
-                    commuter = self.active_commuters.pop(commuter_id)
-                    
-                    # Remove from queue
-                    for queue in self.queues.values():
-                        removed = queue.remove_commuter(commuter_id)
-                        if removed:
-                            queue.total_expired += 1
-                            self.stats["total_expired"] += 1
-                    
-                    # Emit expiration event
-                    if self.client:
-                        await self.client.emit_message(
-                            EventTypes.COMMUTER_EXPIRED,
-                            {"commuter_id": commuter_id}
-                        )
-                    
-                    self.logger.debug(f"Expired commuter {commuter_id}")
-                
-                if expired_ids:
-                    self.logger.info(f"Expired {len(expired_ids)} commuters from memory")
-                    
-                    # 🆕 FIX: Delete expired passengers from database
-                    try:
-                        deleted_count = await self.db.delete_expired()
-                        if deleted_count > 0:
-                            self.logger.info(f"🗑️  Deleted {deleted_count} expired passengers from database")
-                    except Exception as e:
-                        self.logger.error(f"Error deleting expired passengers from database: {e}")
-                    
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self.logger.error(f"Error in expiration loop: {e}")
-    
-    def get_stats(self) -> Dict:
+    async def get_stats(self) -> Dict:
         """Get depot reservoir statistics"""
-        uptime = None
-        if self.stats["start_time"]:
-            uptime = (datetime.now() - self.stats["start_time"]).total_seconds()
+        # Get statistics from ReservoirStatistics
+        stats = await self.statistics.get_stats()
         
         queue_stats = [q.get_stats() for q in self.queues.values()]
         
         return {
             "service": "depot-reservoir",
             "running": self.running,
-            "uptime_seconds": uptime,
+            "uptime_seconds": stats['uptime_seconds'],
             "total_queues": len(self.queues),
             "total_active_commuters": len(self.active_commuters),
-            "total_spawned": self.stats["total_spawned"],
-            "total_picked_up": self.stats["total_picked_up"],
-            "total_expired": self.stats["total_expired"],
+            "total_spawned": stats['total_spawned'],
+            "total_picked_up": stats['total_picked_up'],
+            "total_expired": stats['total_expired'],
             "queues": queue_stats,
         }
