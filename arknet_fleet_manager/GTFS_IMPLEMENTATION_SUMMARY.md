@@ -13,17 +13,21 @@ Successfully added all missing GTFS (General Transit Feed Specification) tables 
 ## Implementation Approach
 
 ### Strapi Content Types Created
+
 Each GTFS table was implemented as a full Strapi content type with:
+
 - **Schema**: JSON schema definition in `/src/api/{content-type}/content-types/{content-type}/schema.json`
 - **Controller**: TypeScript controller in `/src/api/{content-type}/controllers/{content-type}.ts`
 - **Service**: TypeScript service in `/src/api/{content-type}/services/{content-type}.ts`
 - **Routes**: TypeScript routes in `/src/api/{content-type}/routes/{content-type}.ts`
 
 ### SQL Migration
+
 A comprehensive SQL migration file was created at:
 `/database/migrations/add_missing_gtfs_tables.sql`
 
 This migration:
+
 - Creates all 8 missing GTFS tables with proper Strapi fields
 - Adds junction tables for Strapi relations
 - Adds the missing `route_type` column to routes table
@@ -35,9 +39,11 @@ This migration:
 ## New GTFS Tables
 
 ### 1. ✅ **agency** (Required)
+
 **Location:** `/src/api/agency/`
 
 **GTFS Fields:**
+
 - `agency_id` - Agency identifier
 - `agency_name` - Full agency name (required)
 - `agency_url` - Agency website URL (required)
@@ -48,10 +54,12 @@ This migration:
 - `agency_email` - Contact email
 
 **Relations:**
+
 - `routes` (manyToMany) - Routes operated by this agency
 
 **Default Record:**
-```
+
+```text
 agency_id: "arknet"
 agency_name: "ArkNet Transit"
 agency_timezone: "America/Barbados"
@@ -60,9 +68,11 @@ agency_timezone: "America/Barbados"
 ---
 
 ### 2. ✅ **stop_times** (CRITICAL - Required)
+
 **Location:** `/src/api/stop-time/`
 
 **GTFS Fields:**
+
 - `trip` (relation) - Link to trip
 - `stop` (relation) - Link to stop
 - `arrival_time` - Arrival time at stop
@@ -77,11 +87,13 @@ agency_timezone: "America/Barbados"
 - `timepoint` - Exact vs approximate times (0=approx, 1=exact)
 
 **Relations:**
+
 - `trip` (manyToOne) - Parent trip
 - `stop` (manyToOne) - Stop location
 
 **Importance:**
 This is the MOST CRITICAL missing table. Without it, you cannot define:
+
 - Stop sequences along routes
 - Arrival/departure times at each stop
 - Trip schedules
@@ -89,19 +101,23 @@ This is the MOST CRITICAL missing table. Without it, you cannot define:
 ---
 
 ### 3. ✅ **calendar_dates** (Optional - Service Exceptions)
+
 **Location:** `/src/api/calendar-date/`
 
 **GTFS Fields:**
+
 - `service` (relation) - Link to service
 - `date` - Specific date for exception (required)
 - `exception_type` - 1=Added service, 2=Removed service (required)
 - `description` - Custom field explaining the exception
 
 **Relations:**
+
 - `service` (manyToOne) - Parent service calendar
 
 **Use Case:**
 Define service exceptions like:
+
 - Holidays (no service)
 - Special events (extra service)
 - Weather closures
@@ -109,9 +125,11 @@ Define service exceptions like:
 ---
 
 ### 4. ✅ **fare_attributes** (Optional - Fare Pricing)
+
 **Location:** `/src/api/fare-attribute/`
 
 **GTFS Fields:**
+
 - `fare_id` - Fare identifier (required, unique)
 - `price` - Fare price in currency (required)
 - `currency_type` - ISO 4217 code (required, default: "BBD")
@@ -121,15 +139,18 @@ Define service exceptions like:
 - `agency` (relation) - Link to agency
 
 **Relations:**
+
 - `agency` (manyToOne) - Operating agency
 - `fare_rules` (oneToMany) - Associated fare rules
 
 ---
 
 ### 5. ✅ **fare_rules** (Optional - Fare Application)
+
 **Location:** `/src/api/fare-rule/`
 
 **GTFS Fields:**
+
 - `fare_attribute` (relation) - Link to fare
 - `route` (relation) - Apply to specific route
 - `origin_id` - Origin zone ID
@@ -137,6 +158,7 @@ Define service exceptions like:
 - `contains_id` - Contains zone ID
 
 **Relations:**
+
 - `fare_attribute` (manyToOne) - Parent fare
 - `route` (manyToOne) - Route to apply fare
 
@@ -146,9 +168,11 @@ Define which fares apply to which routes/zones
 ---
 
 ### 6. ✅ **frequencies** (Optional - Headway-based Service)
+
 **Location:** `/src/api/frequency/`
 
 **GTFS Fields:**
+
 - `trip` (relation) - Link to trip
 - `start_time` - Service start time (required)
 - `end_time` - Service end time (required)
@@ -156,6 +180,7 @@ Define which fares apply to which routes/zones
 - `exact_times` - 0=Frequency-based, 1=Schedule-based
 
 **Relations:**
+
 - `trip` (manyToOne) - Parent trip
 
 **Use Case:**
@@ -164,15 +189,18 @@ Define routes that run every X minutes instead of fixed schedules (e.g., "Every 
 ---
 
 ### 7. ✅ **transfers** (Optional - Transfer Rules)
+
 **Location:** `/src/api/transfer/`
 
 **GTFS Fields:**
+
 - `from_stop` (relation) - Origin stop
 - `to_stop` (relation) - Destination stop
 - `transfer_type` - 0=Recommended, 1=Timed, 2=Min time required, 3=Not possible (required)
 - `min_transfer_time` - Minimum transfer time in seconds
 
 **Relations:**
+
 - `from_stop` (manyToOne) - Origin stop
 - `to_stop` (manyToOne) - Destination stop
 
@@ -182,9 +210,11 @@ Define transfer rules between stops (timed transfers, minimum walk times, prohib
 ---
 
 ### 8. ✅ **feed_info** (Optional - Feed Metadata)
+
 **Location:** `/src/api/feed-info/`
 
 **GTFS Fields:**
+
 - `feed_publisher_name` - Publisher name (required)
 - `feed_publisher_url` - Publisher website (required)
 - `feed_lang` - Primary language (required, default: "en")
@@ -196,7 +226,8 @@ Define transfer rules between stops (timed transfers, minimum walk times, prohib
 - `feed_contact_url` - Support website
 
 **Default Record:**
-```
+
+```text
 feed_publisher_name: "ArkNet Transit"
 feed_publisher_url: "https://arknet.transit"
 feed_lang: "en"
@@ -208,7 +239,9 @@ feed_version: "1.0.0"
 ## Updated Existing Tables
 
 ### routes table
+
 **Added Column:**
+
 - `route_type` (integer) - GTFS route type:
   - 0 = Tram
   - 1 = Subway/Metro
@@ -220,19 +253,26 @@ feed_version: "1.0.0"
   - 7 = Funicular
 
 **Added Relation:**
+
 - `agencies` (manyToMany) - Agencies operating this route
 
 ### trips table
+
 **Added Relations:**
+
 - `stop_times` (oneToMany) - Stop times for this trip
 - `frequencies` (oneToMany) - Frequency schedules for this trip
 
 ### stops table
+
 **Added Relation:**
+
 - `stop_times` (oneToMany) - Stop times at this stop
 
 ### services table
+
 **Added Relation:**
+
 - `calendar_dates` (oneToMany) - Service exceptions for this calendar
 
 ---
@@ -240,6 +280,7 @@ feed_version: "1.0.0"
 ## Strapi Integration
 
 All tables include standard Strapi CMS fields:
+
 - `id` - Auto-increment primary key
 - `document_id` - UUID-like document identifier
 - `created_at` - Creation timestamp
@@ -255,10 +296,12 @@ All tables include standard Strapi CMS fields:
 ## Database Indexes Created
 
 ### agency
+
 - `idx_agency_document_id` on `document_id`
 - `idx_agency_agency_id` on `agency_id`
 
 ### stop_times
+
 - `idx_stop_times_document_id` on `document_id`
 - `idx_stop_times_trip_id` on `trip_id`
 - `idx_stop_times_stop_id` on `stop_id`
@@ -266,31 +309,37 @@ All tables include standard Strapi CMS fields:
 - `idx_stop_times_trip_stop` on `(trip_id, stop_sequence)` - Composite for efficient lookups
 
 ### calendar_dates
+
 - `idx_calendar_dates_document_id` on `document_id`
 - `idx_calendar_dates_service_id` on `service_id`
 - `idx_calendar_dates_date` on `date`
 - `idx_calendar_dates_service_date` UNIQUE on `(service_id, date)` - Prevents duplicates
 
 ### fare_attributes
+
 - `idx_fare_attributes_document_id` on `document_id`
 - `idx_fare_attributes_fare_id` on `fare_id`
 
 ### fare_rules
+
 - `idx_fare_rules_document_id` on `document_id`
 - `idx_fare_rules_fare_id` on `fare_id`
 - `idx_fare_rules_route_id` on `route_id`
 
 ### frequencies
+
 - `idx_frequencies_document_id` on `document_id`
 - `idx_frequencies_trip_id` on `trip_id`
 
 ### transfers
+
 - `idx_transfers_document_id` on `document_id`
 - `idx_transfers_from_stop` on `from_stop_id`
 - `idx_transfers_to_stop` on `to_stop_id`
 - `idx_transfers_stops` UNIQUE on `(from_stop_id, to_stop_id)` - Prevents duplicate transfer rules
 
 ### feed_info
+
 - `idx_feed_info_document_id` on `document_id`
 
 ---
@@ -309,7 +358,9 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ## GTFS Conformance Status
 
 ### Before Implementation: 57% Conformant
+
 **Present:**
+
 - ✅ routes (90% - missing route_type)
 - ✅ stops (100%)
 - ✅ trips (100%)
@@ -317,11 +368,14 @@ Strapi automatically manages these junction tables for many-to-many relations:
 - ✅ services/calendar (100%)
 
 **Missing:**
+
 - ❌ agency (0%)
 - ❌ stop_times (0% - CRITICAL)
 
 ### After Implementation: 100% Core GTFS Conformant ✅
+
 **All Required Tables:**
+
 - ✅ routes (100% - added route_type)
 - ✅ stops (100%)
 - ✅ trips (100%)
@@ -331,6 +385,7 @@ Strapi automatically manages these junction tables for many-to-many relations:
 - ✅ stop_times (100%) ⭐ NEW
 
 **All Optional Tables:**
+
 - ✅ calendar_dates ⭐ NEW
 - ✅ fare_attributes ⭐ NEW
 - ✅ fare_rules ⭐ NEW
@@ -343,7 +398,8 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ## Files Created/Modified
 
 ### New Directories (8 content types × 1 directory each)
-```
+
+```text
 /src/api/agency/
 /src/api/stop-time/
 /src/api/calendar-date/
@@ -355,7 +411,8 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ```
 
 ### New Schema Files (8)
-```
+
+```text
 /src/api/agency/content-types/agency/schema.json
 /src/api/stop-time/content-types/stop-time/schema.json
 /src/api/calendar-date/content-types/calendar-date/schema.json
@@ -367,7 +424,8 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ```
 
 ### New Controller Files (8)
-```
+
+```text
 /src/api/agency/controllers/agency.ts
 /src/api/stop-time/controllers/stop-time.ts
 /src/api/calendar-date/controllers/calendar-date.ts
@@ -379,7 +437,8 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ```
 
 ### New Service Files (8)
-```
+
+```text
 /src/api/agency/services/agency.ts
 /src/api/stop-time/services/stop-time.ts
 /src/api/calendar-date/services/calendar-date.ts
@@ -391,7 +450,8 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ```
 
 ### New Route Files (8)
-```
+
+```text
 /src/api/agency/routes/agency.ts
 /src/api/stop-time/routes/stop-time.ts
 /src/api/calendar-date/routes/calendar-date.ts
@@ -403,7 +463,8 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ```
 
 ### Modified Schema Files (4)
-```
+
+```text
 /src/api/route/content-types/route/schema.json - Added route_type, agencies relation
 /src/api/trip/content-types/trip/schema.json - Added stop_times, frequencies relations
 /src/api/stop/content-types/stop/schema.json - Added stop_times relation
@@ -411,7 +472,8 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ```
 
 ### New Migration File (1)
-```
+
+```text
 /database/migrations/add_missing_gtfs_tables.sql
 ```
 
@@ -422,18 +484,21 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ## Next Steps
 
 ### Immediate (Data Population)
+
 1. **Create Agency Record** - Define ArkNet Transit agency in Strapi admin
 2. **Add Route Types** - Update existing routes with proper GTFS route_type values (likely 3=Bus)
 3. **Create Stop Times** - Define arrival/departure times for each trip at each stop
 4. **Test GTFS Export** - Verify the database can generate valid GTFS feed files
 
 ### Short-term (Optional Features)
+
 1. **Add Calendar Dates** - Define holidays and service exceptions
 2. **Create Fare System** - If needed, define fares and fare rules
 3. **Add Frequencies** - For routes that run on headways instead of fixed schedules
 4. **Define Transfers** - Add transfer rules between stops if needed
 
 ### Long-term (Integration)
+
 1. **GTFS Export API** - Create endpoint to generate GTFS .zip files
 2. **GTFS Import** - Allow importing existing GTFS feeds
 3. **Schedule Validation** - Validate that stop times are logical and consistent
@@ -444,6 +509,7 @@ Strapi automatically manages these junction tables for many-to-many relations:
 ## Verification Commands
 
 ### Check All Tables Exist
+
 ```powershell
 $env:PGPASSWORD='Ga25w123!'; psql -U david -d arknettransit -h localhost -c "
 SELECT table_name 
@@ -454,16 +520,19 @@ ORDER BY table_name;"
 ```
 
 ### Check route_type Column
+
 ```powershell
 $env:PGPASSWORD='Ga25w123!'; psql -U david -d arknettransit -h localhost -c "\d routes" | Select-String "route_type"
 ```
 
 ### View Agency Table Structure
+
 ```powershell
 $env:PGPASSWORD='Ga25w123!'; psql -U david -d arknettransit -h localhost -c "\d agency"
 ```
 
 ### View Stop Times Table Structure
+
 ```powershell
 $env:PGPASSWORD='Ga25w123!'; psql -U david -d arknettransit -h localhost -c "\d stop_times"
 ```

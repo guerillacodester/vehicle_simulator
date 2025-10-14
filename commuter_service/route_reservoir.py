@@ -749,7 +749,8 @@ class RouteReservoir:
         current_time = datetime.now()
         spawn_requests = await self.poisson_spawner.generate_poisson_spawn_requests(
             current_time=current_time,
-            time_window_minutes=5
+            time_window_minutes=5,
+            spawn_context="route"  # Route spawning pattern
         )
         return spawn_requests
     

@@ -8,12 +8,14 @@
 We use **TWO DIFFERENT PATTERNS** for storing geometric data:
 
 ### Pattern 1: GTFS Routes (Shared Shapes Table)
-```
+
+```text
 routes → route_shapes (junction) → shapes (shared coordinate storage)
 trips → trips_shape_lnk (junction) → shapes (shared coordinate storage)
 ```
 
 **Tables:** 3 per entity
+
 - Entity table (routes, trips)
 - Junction table (route_shapes, trips_shape_lnk)
 - Shared shapes table (shapes)
@@ -21,7 +23,8 @@ trips → trips_shape_lnk (junction) → shapes (shared coordinate storage)
 **Use Case:** Multiple routes can share the same physical shape
 
 ### Pattern 2: GeoJSON Entities (Dedicated Shapes Tables)
-```
+
+```text
 pois → poi_shapes (dedicated coordinate storage)
 landuse_zones → landuse_shapes (dedicated coordinate storage)
 regions → region_shapes (dedicated coordinate storage)
@@ -29,6 +32,7 @@ highways → highway_shapes (dedicated coordinate storage)
 ```
 
 **Tables:** 2 per entity
+
 - Parent entity table (metadata + centroid lat/lon)
 - Dedicated shapes table (full geometry coordinates)
 
@@ -71,6 +75,7 @@ highways → highway_shapes (dedicated coordinate storage)
 ### Place Content Type - DELETED ❌
 
 **Reason:** The `places` table (8,283 records) contained highway/street data wrongly categorized as "localities":
+
 - Examples: "Tom Adams Highway", "Highway 4", "3rd Avenue", "4th Avenue"
 - This was duplicate of highways data
 - Deleted to avoid confusion and duplication
@@ -108,6 +113,7 @@ Previous centroid-only storage made these queries impossible.
 ## Migration Status
 
 ### ✅ Completed
+
 - Created all 4 dedicated shapes table schemas
 - Updated parent entity schemas with inverse relations
 - Removed Place content type (duplicate of highways)
@@ -116,6 +122,7 @@ Previous centroid-only storage made these queries impossible.
 - Database schema created by Strapi
 
 ### ❌ Pending
+
 - Remove Place references from lifecycle processing
 - Refactor processPOIsGeoJSON to store full geometries
 - Refactor processLanduseGeoJSON to store full geometries

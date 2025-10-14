@@ -25,6 +25,7 @@ class DepotData:
     longitude: Optional[float]  # Direct longitude field
     capacity: int
     is_active: bool
+    activity_level: float = 1.0  # Activity multiplier (0.5-2.0, default 1.0)
 
 
 @dataclass
@@ -40,6 +41,7 @@ class RouteData:
     geometry_coordinates: List[List[float]]  # GPS coordinates from GTFS shapes
     route_length_km: float
     coordinate_count: int
+    activity_level: float = 1.0  # Activity multiplier (0.5-2.0, default 1.0)
 
 
 class StrapiApiClient:
@@ -122,7 +124,8 @@ class StrapiApiClient:
                     latitude=depot_data.get('latitude'),
                     longitude=depot_data.get('longitude'),
                     capacity=depot_data.get('capacity', 50),
-                    is_active=depot_data.get('is_active', True)
+                    is_active=depot_data.get('is_active', True),
+                    activity_level=float(depot_data.get('activity_level', 1.0))
                 )
                 depots.append(depot)
             

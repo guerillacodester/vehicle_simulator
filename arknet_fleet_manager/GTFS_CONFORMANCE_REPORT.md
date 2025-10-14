@@ -17,9 +17,11 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ### ✅ PRESENT - Required Files
 
 #### 1. **routes.txt** → `routes` table
+
 **Status:** ✅ Conformant with extensions
 
 **GTFS Required Fields:**
+
 - ✅ `route_id` - Mapped to `document_id`
 - ✅ `route_short_name` - Present as `short_name`
 - ✅ `route_long_name` - Present as `long_name`
@@ -27,6 +29,7 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 - ⚠️ `route_color` - Present as `color`
 
 **Additional Fields (Strapi/Custom):**
+
 - `id` (auto-increment primary key)
 - `parishes` (custom - geographic coverage)
 - `description` (GTFS optional)
@@ -41,15 +44,18 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ---
 
 #### 2. **stops.txt** → `stops` table
+
 **Status:** ✅ Fully Conformant
 
 **GTFS Required Fields:**
+
 - ✅ `stop_id` - Present
 - ✅ `stop_name` - Mapped to `name`
 - ✅ `stop_lat` - Mapped to `latitude`
 - ✅ `stop_lon` - Mapped to `longitude`
 
 **GTFS Optional Fields:**
+
 - ✅ `stop_code` - Present
 - ✅ `stop_desc` - Mapped to `description`
 - ✅ `zone_id` - Present
@@ -60,6 +66,7 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 - ✅ `platform_code` - Present
 
 **Additional Fields:**
+
 - `location` (jsonb - likely GeoJSON)
 - `is_active` (custom status)
 
@@ -68,14 +75,17 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ---
 
 #### 3. **trips.txt** → `trips` table
+
 **Status:** ✅ Conformant with proper relations
 
 **GTFS Required Fields:**
+
 - ✅ `route_id` - Via `trips_route_lnk` junction table
 - ✅ `service_id` - Via `trips_service_lnk` junction table
 - ✅ `trip_id` - Present
 
 **GTFS Optional Fields:**
+
 - ✅ `trip_headsign` - Present
 - ✅ `trip_short_name` - Present
 - ✅ `direction_id` - Present
@@ -85,6 +95,7 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 - ✅ `bikes_allowed` - Present
 
 **Relations:**
+
 - `trips_route_lnk` - Links trips to routes
 - `trips_service_lnk` - Links trips to service schedules
 - `trips_shape_lnk` - Links trips to shapes
@@ -94,15 +105,18 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ---
 
 #### 4. **calendar.txt** → `services` table
+
 **Status:** ✅ Fully Conformant
 
 **GTFS Required Fields:**
+
 - ✅ `service_id` - Present
 - ✅ `monday` through `sunday` - All 7 days present as booleans
 - ✅ `start_date` - Present
 - ✅ `end_date` - Present
 
 **Additional Fields:**
+
 - `service_name` (helpful custom field)
 - `is_active` (custom status)
 
@@ -111,21 +125,26 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ---
 
 #### 5. **shapes.txt** → `shapes` table
+
 **Status:** ✅ Fully Conformant
 
 **GTFS Required Fields:**
+
 - ✅ `shape_id` - Present
 - ✅ `shape_pt_lat` - Present (double precision)
 - ✅ `shape_pt_lon` - Present (double precision)
 - ✅ `shape_pt_sequence` - Present (integer)
 
 **GTFS Optional Fields:**
+
 - ✅ `shape_dist_traveled` - Present (numeric 10,2)
 
 **Relations:**
+
 - `trips_shape_lnk` - Links trips to shapes
 
 **Additional:**
+
 - `route_shapes` junction table links routes to shapes for route variants
 
 **VERDICT:** ✅ Excellent GTFS conformance with route-level support
@@ -135,9 +154,11 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ### ❌ MISSING - Required Files
 
 #### 1. **agency.txt** → ❌ No `agency` table
+
 **Impact:** HIGH - Required by GTFS specification
 
 **Required Fields:**
+
 - `agency_id` (conditionally required)
 - `agency_name` (required)
 - `agency_url` (required)
@@ -148,9 +169,11 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ---
 
 #### 2. **stop_times.txt** → ❌ No `stop_times` table
+
 **Impact:** CRITICAL - Core GTFS functionality missing
 
 **Required Fields:**
+
 - `trip_id` (required)
 - `arrival_time` (required)
 - `departure_time` (required)
@@ -158,6 +181,7 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 - `stop_sequence` (required)
 
 **Impact:** Without this table, you cannot define:
+
 - Trip schedules
 - Stop sequences along routes
 - Arrival/departure times at each stop
@@ -169,21 +193,27 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ### ⚠️ MISSING - Optional Files
 
 #### 1. **calendar_dates.txt** → No table
+
 **Impact:** MEDIUM - Cannot handle service exceptions (holidays, special events)
 
 #### 2. **fare_attributes.txt** → No table
+
 **Impact:** LOW - Fare information not modeled
 
 #### 3. **fare_rules.txt** → No table
+
 **Impact:** LOW - Fare rules not modeled
 
 #### 4. **frequencies.txt** → No table
+
 **Impact:** MEDIUM - Cannot model headway-based schedules
 
 #### 5. **transfers.txt** → No table
+
 **Impact:** MEDIUM - Transfer rules not modeled
 
 #### 6. **feed_info.txt** → No table
+
 **Impact:** LOW - Feed metadata not modeled
 
 ---
@@ -191,6 +221,7 @@ The database implements a **Strapi-enhanced GTFS model** with additional fields 
 ## Custom Extensions (Non-GTFS)
 
 ### Geographic/GeoJSON Entities
+
 These are custom additions for spatial analysis and reverse geocoding:
 
 1. **POIs** + `poi_shapes` - Points of interest with full geometries
@@ -199,7 +230,9 @@ These are custom additions for spatial analysis and reverse geocoding:
 4. **Regions** + `region_shapes` - Administrative boundaries
 
 ### Strapi CMS Fields
+
 All tables include:
+
 - `id` (auto-increment primary key)
 - `document_id` (UUID-like identifier)
 - `created_at`, `updated_at`, `published_at`
@@ -208,6 +241,7 @@ All tables include:
 - `is_active` (soft delete / status flag)
 
 ### Operational Extensions
+
 - **blocks** table - For block assignments (referenced by trips)
 - **vehicles** table - Fleet management
 - **drivers** table - Crew management
@@ -219,6 +253,7 @@ All tables include:
 ## GTFS Conformance Score
 
 ### Core Required Components
+
 - ✅ Routes: 90% (missing route_type)
 - ✅ Stops: 100%
 - ✅ Trips: 100%
@@ -230,6 +265,7 @@ All tables include:
 ### Overall Score: **57% Conformant**
 
 **Breakdown:**
+
 - 5/7 required files present (71%)
 - Stop Times missing is critical (-30%)
 - Agency missing is significant (-14%)
@@ -243,6 +279,7 @@ All tables include:
 **Problem:** Cannot define trip schedules without stop_times
 
 **Recommendation:**
+
 ```sql
 CREATE TABLE stop_times (
     id SERIAL PRIMARY KEY,
@@ -274,6 +311,7 @@ CREATE TABLE stop_times (
 **Problem:** GTFS requires agency information
 
 **Recommendation:**
+
 ```sql
 CREATE TABLE agency (
     id SERIAL PRIMARY KEY,
@@ -301,6 +339,7 @@ CREATE TABLE agency (
 **Problem:** GTFS requires route_type to identify mode of transport
 
 **Recommendation:**
+
 ```sql
 ALTER TABLE routes ADD COLUMN route_type INTEGER;
 -- Values: 0=Tram, 1=Subway, 2=Rail, 3=Bus, 4=Ferry, 5=Cable, 6=Gondola, 7=Funicular
@@ -315,22 +354,26 @@ ALTER TABLE routes ADD COLUMN route_type INTEGER;
 ## Unique Strengths
 
 ### 1. **Enhanced Shapes Architecture**
+
 - Uses `route_shapes` junction table for route variants
 - Each route can have multiple shape variants (e.g., Route 1A, 1B)
 - `variant_code` and `is_default` support multiple service patterns
 
 ### 2. **GeoJSON Integration**
+
 - Stores full geometries for spatial analysis
 - Dedicated shapes tables for POIs, landuse, highways, regions
 - Enables reverse geocoding and spatial queries
 
 ### 3. **CMS Integration**
+
 - Full Strapi CMS capabilities
 - Versioning, publishing workflow
 - Multi-language support (locale)
 - User tracking (created_by, updated_by)
 
 ### 4. **Operational Extensions**
+
 - Vehicle and driver management
 - Depot assignments
 - Passenger spawning simulation

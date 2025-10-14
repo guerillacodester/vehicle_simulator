@@ -13,18 +13,20 @@
 | **Lines of code** | 814 | 750 | **-64 lines (-8%)** |
 | **Responsibilities** | 8 mixed | 3 orchestration | **-5 extracted** |
 | **Inline classes** | 1 (DepotQueue) | 0 | **Removed** |
-| **Background loops** | 2 (_expiration, _spawning) | 0 | **Extracted** |
+| **Background loops** | 2 (_expiration,_spawning) | 0 | **Extracted** |
 
 ---
 
 ## Refactoring Changes
 
 ### 1. **Removed Inline DepotQueue Class** (lines 36-108)
+
 - **Before:** 73-line inline class definition
 - **After:** Imported from `commuter_service.depot_queue`
 - **Benefit:** Reusable, independently tested (24 unit tests)
 
 ### 2. **Replaced LocationNormalizer Method**
+
 - **Before:** `_normalize_location()` method (16 lines)
 - **After:** `LocationNormalizer.normalize()` static method
 - **Usage:** Updated in 3 places:
@@ -34,6 +36,7 @@
 - **Benefit:** Centralized location format handling (31 unit tests)
 
 ### 3. **Replaced Statistics Dict with ReservoirStatistics**
+
 - **Before:** `self.stats` dict with manual tracking
 - **After:** `self.statistics` ReservoirStatistics instance
 - **Changes:**
@@ -45,6 +48,7 @@
 - **Benefit:** Thread-safe async statistics (26 unit tests)
 
 ### 4. **Replaced Expiration Loop with ExpirationManager**
+
 - **Before:** `_expiration_loop()` method (45 lines) + asyncio task management
 - **After:** `ReservoirExpirationManager` with callbacks
 - **Callbacks implemented:**
@@ -57,6 +61,7 @@
   - Separation of concerns
 
 ### 5. **Replaced Spawning Loop with SpawningCoordinator**
+
 - **Before:** `_spawning_loop()` method (62 lines) + asyncio task management
 - **After:** `SpawningCoordinator` with callbacks
 - **Callbacks implemented:**
@@ -69,6 +74,7 @@
   - Clear separation between generation and processing
 
 ### 6. **Updated Lifecycle Methods**
+
 - **`start()` method:**
   - Removed: `asyncio.create_task(self._expiration_loop())`
   - Removed: `asyncio.create_task(self._spawning_loop())`
@@ -86,6 +92,7 @@
 ## Architecture Improvements
 
 ### **Before (SRP Violations):**
+
 ```
 DepotReservoir:
   1. Queue management (DepotQueue class)
@@ -99,6 +106,7 @@ DepotReservoir:
 ```
 
 ### **After (SRP Compliant):**
+
 ```
 DepotReservoir (Orchestration):
   1. Socket.IO event handling
@@ -118,6 +126,7 @@ Extracted Modules:
 ## Testing Impact
 
 ### **Extracted Module Tests:**
+
 - ✅ DepotQueue: 24 tests passing
 - ✅ LocationNormalizer: 31 tests passing
 - ✅ ReservoirStatistics: 26 tests passing
@@ -126,6 +135,7 @@ Extracted Modules:
 - **Total:** 126 tests covering extracted functionality
 
 ### **Integration Testing:**
+
 - ⏭️ TODO: Test depot_reservoir with extracted modules
 - ⏭️ TODO: Verify Socket.IO event handling still works
 - ⏭️ TODO: Verify Poisson spawning integration
@@ -189,26 +199,31 @@ The remaining code is **appropriate orchestration logic**:
 ## Benefits Realized
 
 ### **1. Single Responsibility Principle** ✅
+
 - Each module has ONE job
 - DepotReservoir focuses on orchestration
 - Easy to understand and modify
 
 ### **2. Don't Repeat Yourself** ✅
+
 - Shared utilities (LocationNormalizer, DepotQueue, etc.)
 - No code duplication with RouteReservoir (will use same modules)
 - Reusable across the codebase
 
 ### **3. Dependency Inversion** ✅
+
 - Managers depend on callbacks (abstractions)
 - Easy to mock for testing
 - Loose coupling
 
 ### **4. Open/Closed Principle** ✅
+
 - Can change expiration strategy without modifying DepotReservoir
 - Can change spawning strategy without touching orchestration
 - Extension through configuration
 
 ### **5. Testability** ✅
+
 - 126 unit tests for extracted modules
 - Easier integration testing (fewer moving parts)
 - Better code coverage
@@ -223,12 +238,12 @@ The remaining code is **appropriate orchestration logic**:
    - Use ReservoirStatistics
    - Use ExpirationManager
    - Use SpawningCoordinator
-   
+
 2. ⏭️ **Integration Testing**
    - Test depot_reservoir with all modules
    - Verify end-to-end spawning and pickup
    - Test Socket.IO event flow
-   
+
 3. ⏭️ **Documentation**
    - Update architecture diagrams
    - Document callback interfaces
@@ -237,4 +252,3 @@ The remaining code is **appropriate orchestration logic**:
 ---
 
 **Status:** ✅ depot_reservoir.py successfully refactored to use extracted modules
-

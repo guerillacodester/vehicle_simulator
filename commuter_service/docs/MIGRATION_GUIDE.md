@@ -37,6 +37,7 @@ This guide documents the refactoring patterns used to transform two large, monol
 ### Applicable To
 
 These patterns can be applied to any large class with multiple responsibilities:
+
 - Controllers with business logic
 - Services with data access
 - Managers with background tasks
@@ -49,6 +50,7 @@ These patterns can be applied to any large class with multiple responsibilities:
 ### Pattern 1: Extract Data Structure
 
 **When to Use:**
+
 - Class contains inline data structure definitions (Queue, List, Dict wrappers)
 - Data structure has its own methods and behavior
 - Data structure could be reused elsewhere
@@ -56,7 +58,8 @@ These patterns can be applied to any large class with multiple responsibilities:
 **Example:**
 
 **Before:**
-```python
+
+```textpython
 class DepotReservoir:
     def __init__(self):
         # Inline data structure (73 lines)
@@ -71,10 +74,11 @@ class DepotReservoir:
                 return self._queue.popleft() if self._queue else None
         
         self.depot_queue = DepotQueue()
-```
+```text
 
 **After:**
-```python
+
+```textpython
 # commuter_service/depot_queue.py (separate file)
 from collections import deque
 
@@ -96,9 +100,10 @@ from commuter_service.depot_queue import DepotQueue
 class DepotReservoir:
     def __init__(self):
         self.depot_queue = DepotQueue()
-```
+```text
 
 **Benefits:**
+
 - ✅ Testable in isolation (24 unit tests created)
 - ✅ Reusable across multiple classes
 - ✅ Single responsibility (queue management only)
@@ -109,6 +114,7 @@ class DepotReservoir:
 ### Pattern 2: Extract Utility Function/Class
 
 **When to Use:**
+
 - Method performs a pure transformation (input → output)
 - Method has no side effects
 - Method could be useful in other contexts
@@ -117,7 +123,8 @@ class DepotReservoir:
 **Example:**
 
 **Before:**
-```python
+
+```textpython
 class DepotReservoir:
     def _normalize_location(self, location):
         """Convert various location formats to (lat, lon) tuple."""
@@ -136,10 +143,11 @@ class RouteReservoir:
     def _normalize_location(self, location):
         """DUPLICATE CODE - exact same implementation"""
         # ... same 16 lines ...
-```
+```text
 
 **After:**
-```python
+
+```textpython
 # commuter_service/location_normalizer.py (separate file)
 class LocationNormalizer:
     """Standardizes location data formats to (lat, lon) tuples."""
@@ -163,9 +171,10 @@ from commuter_service.location_normalizer import LocationNormalizer
 
 # In both classes:
 lat, lon = LocationNormalizer.normalize(location)
-```
+```text
 
 **Benefits:**
+
 - ✅ Eliminates code duplication (16 lines × 2 = 32 lines saved)
 - ✅ Single source of truth for location normalization
 - ✅ Testable with 31 focused unit tests
@@ -176,6 +185,7 @@ lat, lon = LocationNormalizer.normalize(location)
 ### Pattern 3: Extract Statistics/Metrics Tracking
 
 **When to Use:**
+
 - Class manually manages a `self.stats` dictionary
 - Multiple methods increment/decrement counters
 - Statistics logic mixed with business logic
@@ -183,7 +193,8 @@ lat, lon = LocationNormalizer.normalize(location)
 **Example:**
 
 **Before:**
-```python
+
+```textpython
 class DepotReservoir:
     def __init__(self):
         self.stats = {
@@ -216,10 +227,11 @@ class DepotReservoir:
                 else 0.0
             )
         }
-```
+```text
 
 **After:**
-```python
+
+```textpython
 # commuter_service/reservoir_statistics.py (separate file)
 class ReservoirStatistics:
     """Centralized statistics tracking for reservoir operations."""
@@ -270,9 +282,10 @@ class DepotReservoir:
         # Business logic...
         self.statistics.increment("total_commuters_removed")
         self.statistics.decrement("current_active_commuters")
-```
+```text
 
 **Benefits:**
+
 - ✅ Cleaner business logic (no dict manipulation)
 - ✅ Type-safe metric operations
 - ✅ Calculated metrics in one place
@@ -284,6 +297,7 @@ class DepotReservoir:
 ### Pattern 4: Extract Background Task Manager (Callback Pattern)
 
 **When to Use:**
+
 - Class has background asyncio loops
 - Loop logic could be reused
 - Loop timing separate from business logic
@@ -292,7 +306,8 @@ class DepotReservoir:
 **Example:**
 
 **Before:**
-```python
+
+```textpython
 class DepotReservoir:
     def __init__(self):
         self.expiration_task = None
@@ -321,10 +336,11 @@ class DepotReservoir:
                         "commuter_id": commuter.id,
                         "reason": "inactivity"
                     })
-```
+```text
 
 **After:**
-```python
+
+```textpython
 # commuter_service/expiration_manager.py (separate file)
 import asyncio
 import time
@@ -399,9 +415,10 @@ class DepotReservoir:
             "commuter_id": commuter_id,
             "reason": "inactivity"
         })
-```
+```text
 
 **Benefits:**
+
 - ✅ Timing logic separated from business logic
 - ✅ Manager reusable across both reservoirs
 - ✅ Easy to test timing independently (22 unit tests)
@@ -409,6 +426,7 @@ class DepotReservoir:
 - ✅ Follows Dependency Inversion Principle
 
 **Callback Pattern Benefits:**
+
 1. **Loose Coupling:** Manager doesn't know about reservoir internals
 2. **Testability:** Mock callbacks for unit testing
 3. **Flexibility:** Different reservoirs can provide different implementations
@@ -424,7 +442,7 @@ class DepotReservoir:
 
 Run through the class and list all distinct responsibilities:
 
-```python
+```textpython
 # Example analysis for DepotReservoir:
 # 
 # RESPONSIBILITIES FOUND:
@@ -436,9 +454,10 @@ Run through the class and list all distinct responsibilities:
 # 6. Socket.IO event handling                     ← Keep (core)
 # 7. Database interaction                         ← Keep (core)
 # 8. Orchestration/coordination                   ← Keep (core)
-```
+```text
 
 **Rule of Thumb:**
+
 - If responsibility is a **noun** (Queue, Statistics) → Extract to class
 - If responsibility is a **utility** (normalize) → Extract to function/static method
 - If responsibility is a **background task** → Extract to manager with callbacks
@@ -448,14 +467,14 @@ Run through the class and list all distinct responsibilities:
 
 Search for duplicate code across similar classes:
 
-```bash
+```textbash
 # Find duplicate methods
 grep -n "def _normalize_location" commuter_service/*.py
 
 # Result:
 # depot_reservoir.py:145:    def _normalize_location(self, location):
 # route_reservoir.py:162:    def _normalize_location(self, location):
-```
+```text
 
 **Action:** Extract duplicated code first (highest ROI)
 
@@ -463,7 +482,7 @@ grep -n "def _normalize_location" commuter_service/*.py
 
 For each extraction candidate, estimate:
 
-```
+```text
 Module: DepotQueue
 ├─ Lines to extract: 73
 ├─ Used by: 1 class (DepotReservoir)
@@ -481,9 +500,10 @@ Module: ExpirationManager
 ├─ Used by: 2 classes (similar code)
 ├─ Reusability: High (timing logic reusable)
 └─ Priority: HIGH
-```
+```text
 
 **Prioritization:**
+
 1. **High duplication** (LocationNormalizer, managers)
 2. **Clear boundaries** (DepotQueue, RouteSegment)
 3. **Statistics/metrics** (ReservoirStatistics)
@@ -496,7 +516,7 @@ Module: ExpirationManager
 
 **Template Process:**
 
-```
+```text
 For each module to extract:
 
 1. Create new file: commuter_service/[module_name].py
@@ -508,11 +528,11 @@ For each module to extract:
 7. Update parent class to import module
 8. Run integration tests
 9. Commit with clear message
-```
+```text
 
 **Example: Extracting DepotQueue**
 
-```bash
+```textbash
 # 1. Create file
 touch commuter_service/depot_queue.py
 
@@ -546,13 +566,13 @@ git commit -m "refactor: extract DepotQueue to separate module
 - Add 24 comprehensive unit tests
 - Update DepotReservoir to use imported class
 - No functionality changes"
-```
+```text
 
 #### Step 2.2: Extract Shared Utilities
 
 **For utilities used by multiple classes:**
 
-```python
+```textpython
 # STEP 1: Create utility module
 # File: commuter_service/location_normalizer.py
 
@@ -597,13 +617,13 @@ class DepotReservoir:
 
 # STEP 4: Verify both classes work
 pytest tests/test_depot_reservoir.py tests/test_route_reservoir.py -v
-```
+```text
 
 #### Step 2.3: Extract Background Task Managers
 
 **Using Callback Pattern:**
 
-```python
+```textpython
 # STEP 1: Design callback interface
 # What does the manager need from the parent class?
 #
@@ -701,7 +721,7 @@ async def test_expiration_loop_calls_callbacks():
     # Verify callbacks were called
     assert len(get_active_called) > 0
     assert len(expire_called) > 0
-```
+```text
 
 ---
 
@@ -711,7 +731,7 @@ async def test_expiration_loop_calls_callbacks():
 
 After extracting modules, create integration tests to verify everything works together:
 
-```python
+```textpython
 # File: commuter_service/tests/integration/test_refactored_reservoirs.py
 
 import ast
@@ -755,11 +775,11 @@ def test_file_size_reduction():
     # Original sizes: depot=814, route=872
     assert depot_lines < 814, f"DepotReservoir should be smaller (was 814, now {depot_lines})"
     assert route_lines < 872, f"RouteReservoir should be smaller (was 872, now {route_lines})"
-```
+```text
 
 #### Step 3.2: Run Full Test Suite
 
-```bash
+```textbash
 # Run all unit tests
 pytest commuter_service/tests/unit/ -v
 
@@ -782,11 +802,11 @@ pytest commuter_service/tests/integration/ -v
 # Run existing reservoir tests (if any)
 pytest tests/test_depot_reservoir.py -v
 pytest tests/test_route_reservoir.py -v
-```
+```text
 
 #### Step 3.3: Syntax Validation
 
-```bash
+```textbash
 # Python syntax check
 python -m py_compile commuter_service/depot_reservoir.py
 python -m py_compile commuter_service/route_reservoir.py
@@ -802,7 +822,7 @@ python -m py_compile commuter_service/spawning_coordinator.py
 # If using mypy for type checking
 mypy commuter_service/depot_reservoir.py --strict
 mypy commuter_service/route_reservoir.py --strict
-```
+```text
 
 ---
 
@@ -810,7 +830,7 @@ mypy commuter_service/route_reservoir.py --strict
 
 ### Template 1: Extract Data Structure Class
 
-```python
+```textpython
 # ============================================================================
 # BEFORE: Inline data structure
 # ============================================================================
@@ -869,11 +889,11 @@ class TestDataStructure:
     def test_get_empty_returns_none(self):
         ds = DataStructure()
         assert ds.get() is None
-```
+```text
 
 ### Template 2: Extract Utility Function
 
-```python
+```textpython
 # ============================================================================
 # BEFORE: Duplicated utility method
 # ============================================================================
@@ -930,11 +950,11 @@ class TestUtilities:
     def test_utility_method_invalid_input(self):
         with pytest.raises(ValueError):
             Utilities.utility_method(invalid_input)
-```
+```text
 
 ### Template 3: Extract Statistics Tracking
 
-```python
+```textpython
 # ============================================================================
 # BEFORE: Manual dict management
 # ============================================================================
@@ -1027,11 +1047,11 @@ class TestStatisticsTracker:
         tracker.increment("total_requests", 10)
         tracker.increment("successful_requests", 8)
         assert tracker.get_all()["success_rate"] == 80.0
-```
+```text
 
 ### Template 4: Extract Background Task Manager (Callback Pattern)
 
-```python
+```textpython
 # ============================================================================
 # BEFORE: Background task mixed with business logic
 # ============================================================================
@@ -1158,7 +1178,7 @@ async def test_background_loop_calls_callbacks():
     assert len(get_items_calls) >= 1
     assert 1 in process_item_calls
     assert 2 in process_item_calls
-```
+```text
 
 ---
 
@@ -1169,7 +1189,8 @@ async def test_background_loop_calls_callbacks():
 **Goal:** 100% test coverage for each extracted module
 
 **Structure:**
-```
+
+```text
 tests/
 └── unit/
     ├── test_depot_queue.py (24 tests)
@@ -1178,10 +1199,11 @@ tests/
     ├── test_reservoir_statistics.py (26 tests)
     ├── test_expiration_manager.py (22 tests)
     └── test_spawning_coordinator.py (23 tests)
-```
+```text
 
 **Template Test File:**
-```python
+
+```textpython
 # File: tests/unit/test_module_name.py
 
 import pytest
@@ -1230,18 +1252,19 @@ class TestModuleName:
         module.operation2()
         result = module.operation3()
         assert result == expected_final_result
-```
+```text
 
 ### Integration Testing
 
 **Goal:** Verify extracted modules work together with parent classes
 
 **Structure:**
-```
+
+```text
 tests/
 └── integration/
     └── test_refactored_reservoirs.py
-```
+```text
 
 **Test Types:**
 
@@ -1258,7 +1281,8 @@ tests/
 ### Pitfall 1: Breaking Circular Dependencies
 
 **Problem:**
-```python
+
+```textpython
 # module_a.py
 from module_b import ModuleB
 
@@ -1272,10 +1296,11 @@ from module_a import ModuleA  # ← CIRCULAR!
 class ModuleB:
     def __init__(self):
         self.a = ModuleA()
-```
+```text
 
 **Solution:** Use callback pattern or dependency injection
-```python
+
+```textpython
 # module_a.py
 class ModuleA:
     def __init__(self, b_instance=None):
@@ -1288,12 +1313,13 @@ class ModuleB:
 # main.py
 b = ModuleB()
 a = ModuleA(b_instance=b)
-```
+```text
 
 ### Pitfall 2: Forgetting to Remove Old Code
 
 **Problem:**
-```python
+
+```textpython
 # depot_reservoir.py (after extraction)
 from depot_queue import DepotQueue
 
@@ -1304,29 +1330,32 @@ class DepotReservoir:
     # FORGOT TO REMOVE:
     class DepotQueue:  # ← Still here! Now duplicated!
         pass
-```
+```text
 
 **Solution:** Always search and remove:
-```bash
+
+```textbash
 # Before committing, search for old code
 grep -n "class DepotQueue" commuter_service/depot_reservoir.py
 
 # If found, remove it
-```
+```text
 
 ### Pitfall 3: Not Testing Callbacks
 
 **Problem:**
-```python
+
+```textpython
 # Only testing manager, not callback integration
 def test_manager():
     manager = TaskManager(...)
     # Test manager logic only
     # ❌ Didn't test that callbacks actually work!
-```
+```text
 
 **Solution:** Test callback integration:
-```python
+
+```textpython
 def test_manager_with_real_callbacks():
     calls = []
     
@@ -1337,17 +1366,19 @@ def test_manager_with_real_callbacks():
     await manager.run()
     
     assert len(calls) > 0  # Verify callback was called
-```
+```text
 
 ### Pitfall 4: Extracting Too Much Too Fast
 
 **Problem:**
+
 - Extract 5 modules simultaneously
 - Can't identify source of bugs
 - Hard to rollback
 
 **Solution:** Extract one module at a time:
-```
+
+```text
 1. Extract Module A
 2. Test thoroughly
 3. Commit
@@ -1355,12 +1386,13 @@ def test_manager_with_real_callbacks():
 5. Test thoroughly
 6. Commit
 ... repeat
-```
+```text
 
 ### Pitfall 5: Losing Type Information
 
 **Problem:**
-```python
+
+```textpython
 # Before extraction (with type hints)
 def _normalize_location(self, location: LocationInput) -> Tuple[float, float]:
     pass
@@ -1369,10 +1401,11 @@ def _normalize_location(self, location: LocationInput) -> Tuple[float, float]:
 @staticmethod
 def normalize(location):  # ← Lost type information!
     pass
-```
+```text
 
 **Solution:** Preserve or improve type hints:
-```python
+
+```textpython
 from typing import Tuple, Union, Dict
 
 LocationInput = Union[Tuple[float, float], Dict[str, float], object]
@@ -1381,13 +1414,14 @@ class LocationNormalizer:
     @staticmethod
     def normalize(location: LocationInput) -> Tuple[float, float]:
         pass
-```
+```text
 
 ---
 
 ## Migration Checklist
 
 ### Pre-Refactoring
+
 - [ ] Identify all responsibilities in target class
 - [ ] List code duplications across similar classes
 - [ ] Prioritize extractions (high duplication first)
@@ -1396,6 +1430,7 @@ class LocationNormalizer:
 - [ ] Document current behavior
 
 ### During Refactoring (Per Module)
+
 - [ ] Create new module file
 - [ ] Write comprehensive docstring
 - [ ] Copy/move code to new module
@@ -1410,6 +1445,7 @@ class LocationNormalizer:
 - [ ] Commit with clear message
 
 ### Post-Refactoring
+
 - [ ] All unit tests passing (target: 149+ tests)
 - [ ] All integration tests passing
 - [ ] Syntax validation clean
@@ -1422,6 +1458,7 @@ class LocationNormalizer:
 - [ ] Background tasks functioning
 
 ### Quality Gates
+
 - [ ] Total lines reduced by ≥5%
 - [ ] Unit test coverage ≥90%
 - [ ] No SRP violations
@@ -1440,12 +1477,14 @@ Based on the patterns applied to the reservoir classes, here are other candidate
 **Current State:** Large class with multiple responsibilities
 
 **Potential Extractions:**
+
 1. **HTTPClient** - Reusable HTTP request handling
 2. **QueryBuilder** - Build Strapi query parameters
 3. **ResponseParser** - Parse API responses
 4. **CacheManager** - Cache management logic
 
 **Estimated Impact:**
+
 - Lines reduced: 100-150
 - Modules created: 4
 - Reusability: High (HTTP client used elsewhere)
@@ -1455,12 +1494,14 @@ Based on the patterns applied to the reservoir classes, here are other candidate
 **Current State:** Mixes API interaction with spawning logic
 
 **Potential Extractions:**
+
 1. **RouteDataFetcher** - Fetch route/depot data
 2. **PoissonSpawnCalculator** - Spawn rate calculations
 3. **SpawnRequestBuilder** - Build spawn requests
 4. **GeoJSONParser** - Parse GeoJSON structures
 
 **Estimated Impact:**
+
 - Lines reduced: 80-120
 - Modules created: 4
 - Reusability: Medium-High
@@ -1470,12 +1511,14 @@ Based on the patterns applied to the reservoir classes, here are other candidate
 **Current State:** Event handlers mixed with business logic
 
 **Potential Extractions:**
+
 1. **EventValidator** - Validate incoming event data
 2. **EventRouter** - Route events to handlers
 3. **EventLogger** - Log all events
 4. **EventSerializer** - Serialize/deserialize events
 
 **Estimated Impact:**
+
 - Lines reduced: 60-100
 - Modules created: 4
 - Reusability: High
@@ -1496,6 +1539,7 @@ Based on the patterns applied to the reservoir classes, here are other candidate
 ### Success Metrics
 
 This refactoring achieved:
+
 - ✅ 117 lines removed (7% reduction)
 - ✅ 6 reusable modules created
 - ✅ 149 comprehensive unit tests

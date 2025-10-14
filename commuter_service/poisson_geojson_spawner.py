@@ -357,19 +357,28 @@ class PoissonGeoJSONSpawner:
             return False
     
     async def generate_poisson_spawn_requests(self, current_time: datetime, 
-                                            time_window_minutes: int = 5) -> List[Dict[str, Any]]:
-        """Generate spawn requests using Poisson distribution"""
+                                            time_window_minutes: int = 5,
+                                            spawn_context: str = "depot") -> List[Dict[str, Any]]:
+        """Generate spawn requests using Poisson distribution
+        
+        Args:
+            current_time: Current simulation time
+            time_window_minutes: Time window for Poisson calculation
+            spawn_context: "depot" or "route" - affects temporal patterns
+                          depot: peaks at rush hours (journey starts)
+                          route: builds throughout day (people already out)
+        """
         if not self._initialized:
             raise RuntimeError("Spawner not initialized")
         
         spawn_requests = []
         current_hour = current_time.hour
         
-        logging.debug(f"🎲 Spawning for hour {current_hour}: {len(self.geojson_loader.population_zones)} population zones, {len(self.geojson_loader.amenity_zones)} amenity zones")
+        logging.debug(f"🎲 Spawning [{spawn_context}] for hour {current_hour}: {len(self.geojson_loader.population_zones)} population zones, {len(self.geojson_loader.amenity_zones)} amenity zones")
         
         # Process population zones
         for zone in self.geojson_loader.population_zones:
-            spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes)
+            spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes, spawn_context)
             
             if spawn_rate > 0:
                 # Use Poisson distribution for passenger count
@@ -384,7 +393,7 @@ class PoissonGeoJSONSpawner:
         # Process amenity zones
         amenity_spawn_count = 0
         for zone in self.geojson_loader.amenity_zones:
-            spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes)
+            spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes, spawn_context)
             
             if spawn_rate > 0:
                 passenger_count = np.random.poisson(spawn_rate)
@@ -399,13 +408,25 @@ class PoissonGeoJSONSpawner:
                     spawn_requests.extend(requests)
         
         if amenity_spawn_count > 0:
-            logging.info(f"🎲 Generated {len(spawn_requests)} Poisson-based spawn requests ({amenity_spawn_count} from amenities)")
+            logging.info(f"🎲 [{spawn_context.upper()}] Generated {len(spawn_requests)} Poisson-based spawn requests ({amenity_spawn_count} from amenities)")
         else:
-            logging.info(f"🎲 Generated {len(spawn_requests)} Poisson-based spawn requests")
+            logging.info(f"🎲 [{spawn_context.upper()}] Generated {len(spawn_requests)} Poisson-based spawn requests")
         return spawn_requests
     
-    def _calculate_poisson_rate(self, zone: PopulationZone, hour: int, time_window_minutes: int) -> float:
-        """Calculate Poisson lambda (mean) rate for a zone"""
+    def _calculate_poisson_rate(self, zone: PopulationZone, hour: int, 
+                                time_window_minutes: int, spawn_context: str = "depot",
+                                route: Optional[RouteData] = None,
+                                depot: Optional['DepotData'] = None) -> float:
+        """Calculate Poisson lambda (mean) rate for a zone
+        
+        Args:
+            zone: Population zone to calculate rate for
+            hour: Current hour (0-23)
+            time_window_minutes: Time window for calculation
+            spawn_context: "depot" or "route" - affects temporal multipliers
+            route: Optional route data for route-specific activity multiplier
+            depot: Optional depot data for depot-specific activity multiplier
+        """
         base_rate = zone.spawn_rate_per_hour
         
         # Apply peak hour multiplier
@@ -414,103 +435,195 @@ class PoissonGeoJSONSpawner:
         else:
             peak_multiplier = 1.0
         
-        # Apply zone type modifiers
-        zone_modifier = self._get_zone_modifier(zone.zone_type, hour)
+        # Apply zone type modifiers WITH spawn context
+        zone_modifier = self._get_zone_modifier(zone.zone_type, hour, spawn_context)
+        
+        # Apply route/depot activity multiplier
+        activity_multiplier = 1.0
+        if spawn_context == "route" and route:
+            activity_multiplier = self._get_route_activity_multiplier(route)
+        elif spawn_context == "depot" and depot:
+            activity_multiplier = self._get_depot_activity_multiplier(depot)
         
         # Convert to time window rate
-        hourly_rate = base_rate * peak_multiplier * zone_modifier
+        hourly_rate = base_rate * peak_multiplier * zone_modifier * activity_multiplier
         time_window_rate = hourly_rate * (time_window_minutes / 60.0)
         
         return max(0.0, time_window_rate)
     
-    def _get_zone_modifier(self, zone_type: str, hour: int) -> float:
-        """Get zone-specific modifier based on time of day
+    def _get_context_multiplier(self, hour: int, spawn_context: str) -> float:
+        """Calculate spawn rate multiplier based on context (depot vs route)
         
-        TEMPORAL MULTIPLIERS (2024-10-13): Applied to base spawn rates for realistic patterns.
-        These multipliers reflect actual transit usage patterns throughout the day.
+        DEPOT Pattern (Journey Starts):
+        - High: 7-9am (morning rush), 5-7pm (evening rush)
+        - Medium: 10am-4pm (some travel)  
+        - Low: 8-10pm (evening wind-down)
+        - Very Low: 11pm-6am (night)
+        
+        ROUTE Pattern (Already Out):
+        - Builds throughout day as people go out
+        - Peaks: 12pm-5pm (lunch, afternoon activities)
+        - Medium: 7-11am (morning activities)
+        - Lower: 6-7pm (rush hour - people going TO depots)
+        - Low: 8pm-11pm (evening)
+        - Very Low: 12am-6am (night)
         """
-        if zone_type in ['residential', 'urban', 'suburban']:
-            if 7 <= hour <= 9:  # Morning commute peak
-                return 3.0
-            elif 17 <= hour <= 19:  # Evening commute peak
+        if spawn_context == "depot":
+            # Depot spawning - journey starts
+            if 7 <= hour <= 9:  # Morning rush peak
                 return 2.5
-            elif 20 <= hour <= 21:  # Evening (current test time ~8 PM)
-                return 0.8  # Reduced evening activity
-            elif 22 <= hour or hour <= 6:  # Night
-                return 0.1  # Minimal night activity
-            else:
-                return 1.0
-        
-        elif zone_type in ['commercial', 'retail', 'office']:
-            if 9 <= hour <= 17:  # Business hours
+            elif 17 <= hour <= 19:  # Evening rush peak
                 return 2.0
-            elif hour in [8, 18]:  # Start/end of business
-                return 1.5
-            elif 19 <= hour <= 21:  # Evening shopping
-                return 1.2  # Some retail stays open
-            elif 22 <= hour or hour <= 7:  # Closed
-                return 0.05  # Nearly zero activity
-            else:
-                return 1.0
-        
-        elif zone_type in ['school', 'university']:
-            if hour in [7, 8, 15, 16]:  # School commute hours
-                return 4.0
-            elif 9 <= hour <= 14:  # During classes
-                return 0.3  # Minimal spawning during classes
-            elif 17 <= hour <= 23:  # After school hours - universities may have evening classes
-                return 0.1 if zone_type == 'school' else 0.5  # Schools closed, universities minimal
-            else:
-                return 0.05  # Nearly zero overnight
-        
-        elif zone_type in ['restaurant', 'cafe']:
-            if 12 <= hour <= 13:  # Lunch peak
-                return 3.0
-            elif 18 <= hour <= 21:  # Dinner peak
-                return 2.5
-            elif 7 <= hour <= 9:  # Breakfast
-                return 1.5
-            elif 22 <= hour or hour <= 6:  # Closed/very quiet
-                return 0.1
-            else:
-                return 1.0
-        
-        elif zone_type in ['shopping', 'mall', 'market']:
-            if 10 <= hour <= 13:  # Midday shopping
-                return 2.0
-            elif 17 <= hour <= 20:  # Evening shopping
-                return 2.5
-            elif 21 <= hour or hour <= 8:  # Closed
+            elif 10 <= hour <= 16:  # Mid-day moderate
+                return 0.7
+            elif 20 <= hour <= 22:  # Evening wind-down
+                return 0.3
+            elif 23 <= hour or hour <= 6:  # Night minimal
                 return 0.05
             else:
                 return 1.0
         
+        else:  # "route" context
+            # Route spawning - people already out
+            if 12 <= hour <= 16:  # Afternoon peak (people out for lunch, errands, activities)
+                return 1.8
+            elif 10 <= hour <= 11:  # Late morning build-up
+                return 1.3
+            elif 7 <= hour <= 9:  # Morning activities
+                return 1.0
+            elif 17 <= hour <= 18:  # Early evening (people heading to depots)
+                return 0.6
+            elif 19 <= hour <= 22:  # Evening (fewer people out)
+                return 0.4
+            elif 23 <= hour or hour <= 6:  # Night minimal
+                return 0.05
+            else:
+                return 1.0
+    
+    def _get_route_activity_multiplier(self, route: RouteData) -> float:
+        """Get activity multiplier from route database field
+        
+        Returns the activity_level from the database (0.5-2.0, default 1.0).
+        This allows operators to configure route importance/activity without code changes.
+        
+        Examples:
+        - 0.5-0.7: Low activity routes (local shuttles, off-peak routes)
+        - 0.8-1.2: Normal activity routes (standard service)
+        - 1.3-2.0: High activity routes (main trunk routes, express services)
+        """
+        return route.activity_level
+    
+    def _get_depot_activity_multiplier(self, depot: 'DepotData') -> float:
+        """Get activity multiplier from depot database field
+        
+        Returns the activity_level from the database (0.5-2.0, default 1.0).
+        This allows operators to configure depot importance/activity without code changes.
+        
+        Examples:
+        - 0.5-0.7: Low activity depots (small satellite depots, low ridership areas)
+        - 0.8-1.2: Normal activity depots (standard terminals)
+        - 1.3-2.0: High activity depots (major city terminals, transfer hubs)
+        """
+        return depot.activity_level
+    
+    def _get_zone_modifier(self, zone_type: str, hour: int, spawn_context: str = "depot") -> float:
+        """Get zone-specific modifier based on time of day and spawn context
+        
+        TEMPORAL MULTIPLIERS with Context Awareness:
+        - DEPOT spawning: People starting journeys (peaks at rush hours, low mid-day/night)
+        - ROUTE spawning: People already out and about (builds through day, peaks afternoon)
+        
+        Args:
+            zone_type: Type of zone (residential, commercial, etc.)
+            hour: Current hour (0-23)
+            spawn_context: "depot" or "route"
+        """
+        # Context multiplier applied on top of zone patterns
+        context_mult = self._get_context_multiplier(hour, spawn_context)
+        
+        if zone_type in ['residential', 'urban', 'suburban']:
+            if 7 <= hour <= 9:  # Morning commute peak
+                return 3.0 * context_mult
+            elif 17 <= hour <= 19:  # Evening commute peak
+                return 2.5 * context_mult
+            elif 20 <= hour <= 21:  # Evening
+                return 0.8 * context_mult
+            elif 22 <= hour or hour <= 6:  # Night
+                return 0.1 * context_mult
+            else:
+                return 1.0 * context_mult
+        
+        elif zone_type in ['commercial', 'retail', 'office']:
+            if 9 <= hour <= 17:  # Business hours
+                return 2.0 * context_mult
+            elif hour in [8, 18]:  # Start/end of business
+                return 1.5 * context_mult
+            elif 19 <= hour <= 21:  # Evening shopping
+                return 1.2 * context_mult
+            elif 22 <= hour or hour <= 7:  # Closed
+                return 0.05 * context_mult
+            else:
+                return 1.0 * context_mult
+        
+        elif zone_type in ['school', 'university']:
+            if hour in [7, 8, 15, 16]:  # School commute hours
+                return 4.0 * context_mult
+            elif 9 <= hour <= 14:  # During classes
+                return 0.3 * context_mult
+            elif 17 <= hour <= 23:  # After school hours - universities may have evening classes
+                mult = 0.1 if zone_type == 'school' else 0.5
+                return mult * context_mult
+            else:
+                return 0.05 * context_mult
+        
+        elif zone_type in ['restaurant', 'cafe']:
+            if 12 <= hour <= 13:  # Lunch peak
+                return 3.0 * context_mult
+            elif 18 <= hour <= 21:  # Dinner peak
+                return 2.5 * context_mult
+            elif 7 <= hour <= 9:  # Breakfast
+                return 1.5 * context_mult
+            elif 22 <= hour or hour <= 6:  # Closed/very quiet
+                return 0.1 * context_mult
+            else:
+                return 1.0 * context_mult
+        
+        elif zone_type in ['shopping', 'mall', 'market']:
+            if 10 <= hour <= 13:  # Midday shopping
+                return 2.0 * context_mult
+            elif 17 <= hour <= 20:  # Evening shopping
+                return 2.5 * context_mult
+            elif 21 <= hour or hour <= 8:  # Closed
+                return 0.05 * context_mult
+            else:
+                return 1.0 * context_mult
+        
         elif zone_type in ['hospital', 'clinic']:
             if 8 <= hour <= 17:  # Regular hours
-                return 2.0
+                return 2.0 * context_mult
             elif 18 <= hour <= 22:  # Evening reduced
-                return 0.8
+                return 0.8 * context_mult
             else:
-                return 0.5  # Emergency only overnight
+                return 0.5 * context_mult
         
         elif zone_type in ['beach', 'park', 'tourist']:
             if 10 <= hour <= 16:  # Daytime leisure
-                return 2.0
+                return 2.0 * context_mult
             elif 17 <= hour <= 19:  # Evening visits
-                return 1.0
+                return 1.0 * context_mult
             elif 20 <= hour or hour <= 7:  # Closed/dark
-                return 0.1
+                return 0.1 * context_mult
             else:
-                return 0.8
+                return 0.8 * context_mult
         
         else:
             # Default pattern for unknown types
             if 8 <= hour <= 18:
-                return 1.5
+                return 1.5 * context_mult
             elif 19 <= hour <= 21:
-                return 0.8
+                return 0.8 * context_mult
             else:
-                return 0.3
+                return 0.3 * context_mult
     
     async def _create_zone_spawn_requests(self, zone: PopulationZone, 
                                         passenger_count: int, 
@@ -602,43 +715,92 @@ class PoissonGeoJSONSpawner:
     
     def _find_commercial_destination(self, route: RouteData) -> Dict[str, float]:
         """Find destination in commercial/business areas"""
-        # Look for commercial zones along route
-        for amenity_zone in self.geojson_loader.amenity_zones:
-            if amenity_zone.zone_type in ['commercial', 'office', 'shopping']:
-                if self._is_zone_near_route(amenity_zone, route):
-                    return {
-                        'lat': amenity_zone.center_point[0],
-                        'lon': amenity_zone.center_point[1]
-                    }
-        
+        # Collect commercial zones near the route
+        candidate_zones = [z for z in self.geojson_loader.amenity_zones
+                           if z.zone_type in ['commercial', 'office', 'shopping']
+                           and self._is_zone_near_route(z, route)]
+
+        if candidate_zones:
+            # Use log-normal distance-based selection to pick a realistic destination
+            spawn_loc = self._approx_route_spawn_point(route)
+            selected = self._select_destination_by_log_normal_distance(candidate_zones, spawn_loc)
+            if selected:
+                return selected
+
         # Fallback to random point along route
         return self._find_random_destination(route)
     
     def _find_residential_destination(self, route: RouteData) -> Dict[str, float]:
         """Find destination in residential areas"""
-        for pop_zone in self.geojson_loader.population_zones:
-            if pop_zone.zone_type in ['residential', 'suburban']:
-                if self._is_zone_near_route(pop_zone, route):
-                    return {
-                        'lat': pop_zone.center_point[0],
-                        'lon': pop_zone.center_point[1]
-                    }
-        
+        candidate_zones = [z for z in self.geojson_loader.population_zones
+                           if z.zone_type in ['residential', 'suburban']
+                           and self._is_zone_near_route(z, route)]
+
+        if candidate_zones:
+            spawn_loc = self._approx_route_spawn_point(route)
+            selected = self._select_destination_by_log_normal_distance(candidate_zones, spawn_loc)
+            if selected:
+                return selected
+
         return self._find_random_destination(route)
     
     def _find_mixed_destination(self, route: RouteData) -> Dict[str, float]:
         """Find mixed destination (residential or commercial)"""
         all_zones = self.geojson_loader.population_zones + self.geojson_loader.amenity_zones
         nearby_zones = [z for z in all_zones if self._is_zone_near_route(z, route)]
-        
+
         if nearby_zones:
-            chosen_zone = random.choice(nearby_zones)
-            return {
-                'lat': chosen_zone.center_point[0],
-                'lon': chosen_zone.center_point[1]
-            }
-        
+            spawn_loc = self._approx_route_spawn_point(route)
+            selected = self._select_destination_by_log_normal_distance(nearby_zones, spawn_loc)
+            if selected:
+                return selected
+
         return self._find_random_destination(route)
+
+    def _approx_route_spawn_point(self, route: RouteData) -> Tuple[float, float]:
+        """Approximate a spawn location on the route to compute distances.
+
+        This picks a random point along the route (latitude, longitude) to act
+        as the passenger spawn location when calculating destination distances.
+        Using a random point is a reasonable approximation since spawn locations
+        are already sampled within source zones.
+        """
+        if route.geometry_coordinates and len(route.geometry_coordinates) > 0:
+            coord = random.choice(route.geometry_coordinates)
+            return (coord[1], coord[0])
+        # Default fallback (center of Barbados)
+        return (13.1939, -59.5432)
+
+    def _select_destination_by_log_normal_distance(self, zones: List[PopulationZone],
+                                                   spawn_location: Tuple[float, float],
+                                                   mu: float = 1.5,
+                                                   sigma: float = 0.7) -> Optional[Dict[str, float]]:
+        """Select a destination zone using a log-normal desired trip distance.
+
+        - samples a desired trip distance in kilometers from a log-normal
+          distribution (parameters mu, sigma)
+        - computes distances from spawn_location to each candidate zone
+        - selects the zone whose distance is closest to the sampled distance
+
+        Returns a dict with 'lat' and 'lon', or None if zones list is empty.
+        """
+        if not zones:
+            return None
+
+        # Compute distances for candidate zones
+        zone_distances = []  # tuples of (zone, distance_km)
+        for z in zones:
+            dest = (z.center_point[0], z.center_point[1])
+            dist_km = geodesic(spawn_location, dest).kilometers
+            zone_distances.append((z, dist_km))
+
+        # Sample desired trip distance from log-normal distribution
+        desired_km = float(np.random.lognormal(mean=mu, sigma=sigma))
+
+        # Choose the zone whose distance is closest to desired_km
+        best_zone, best_dist = min(zone_distances, key=lambda x: abs(x[1] - desired_km))
+
+        return {'lat': best_zone.center_point[0], 'lon': best_zone.center_point[1]}
     
     def _find_random_destination(self, route: RouteData) -> Dict[str, float]:
         """Find random destination along route with better distribution"""

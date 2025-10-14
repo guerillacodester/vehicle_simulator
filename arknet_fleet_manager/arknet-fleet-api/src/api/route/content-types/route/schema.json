@@ -42,6 +42,13 @@
       "required": true,
       "default": true
     },
+    "activity_level": {
+      "type": "decimal",
+      "required": false,
+      "default": 1.0,
+      "min": 0.5,
+      "max": 2.0
+    },
     "valid_from": {
       "type": "date",
       "required": false
