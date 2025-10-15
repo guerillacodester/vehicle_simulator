@@ -290,3 +290,66 @@ class PassengerDatabase:
         except Exception as e:
             print(f"❌ Error getting passenger count: {e}")
             return 0
+    
+    async def get_eligible_passengers(
+        self,
+        vehicle_lat: float,
+        vehicle_lon: float,
+        route_id: str,
+        pickup_radius_km: float = 0.2,
+        max_results: int = 50
+    ) -> List[Dict]:
+        """
+        Find eligible passengers near vehicle location.
+        
+        Args:
+            vehicle_lat: Vehicle latitude
+            vehicle_lon: Vehicle longitude
+            route_id: Route the vehicle is serving
+            pickup_radius_km: Search radius in kilometers (default: 0.2km = 200m)
+            max_results: Maximum passengers to return
+            
+        Returns:
+            List of passenger records sorted by priority (high to low)
+        """
+        if not self.session:
+            print("❌ Session not connected, call connect() first")
+            return []
+        
+        try:
+            # Calculate bounding box for spatial query
+            # ~111km per degree latitude, adjusted for longitude
+            lat_delta = pickup_radius_km / 111.0
+            lon_delta = pickup_radius_km / (111.0 * math.cos(math.radians(vehicle_lat)))
+            
+            # Build Strapi query filters
+            params = {
+                "filters[route_id][$eq]": route_id,
+                "filters[status][$eq]": "WAITING",
+                "filters[latitude][$gte]": vehicle_lat - lat_delta,
+                "filters[latitude][$lte]": vehicle_lat + lat_delta,
+                "filters[longitude][$gte]": vehicle_lon - lon_delta,
+                "filters[longitude][$lte]": vehicle_lon + lon_delta,
+                "sort": "priority:desc",  # High priority first
+                "pagination[limit]": max_results
+            }
+            
+            async with self.session.get(
+                f"{self.strapi_url}/api/active-passengers",
+                params=params
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    passengers = data.get('data', [])
+                    print(f"✅ Found {len(passengers)} eligible passengers for route {route_id}")
+                    return passengers
+                else:
+                    error_text = await response.text()
+                    print(f"❌ Error fetching passengers: HTTP {response.status} - {error_text[:200]}")
+                    return []
+                    
+        except Exception as e:
+            print(f"❌ Error fetching eligible passengers: {e}")
+            import traceback
+            traceback.print_exc()
+            return []

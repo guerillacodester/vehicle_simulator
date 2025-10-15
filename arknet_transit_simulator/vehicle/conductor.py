@@ -116,7 +116,8 @@ class Conductor(BasePerson):
         tick_time: float = 1.0,
         config: ConductorConfig = None,
         sio_url: str = "http://localhost:3000",
-        use_socketio: bool = True
+        use_socketio: bool = True,
+        passenger_db = None  # Optional: PassengerDatabase instance
     ):
         # Initialize BasePerson with PersonState
         super().__init__(conductor_id, "Conductor", conductor_name)
@@ -126,6 +127,10 @@ class Conductor(BasePerson):
         self.capacity = capacity
         self.tick_time = tick_time
         self.config = config or ConductorConfig()
+        
+        # Passenger database integration
+        self.passenger_db = passenger_db
+        self.boarded_passengers: List[str] = []  # Track individual passenger IDs
         
         # Basic passenger state (existing functionality)
         self.passengers_on_board = 0
@@ -708,6 +713,68 @@ class Conductor(BasePerson):
                 
         return True
     
+    async def board_passengers_by_id(self, passenger_ids: List[str]) -> int:
+        """
+        Board specific passengers onto vehicle (async with database updates).
+        
+        Args:
+            passenger_ids: List of passenger IDs to board
+            
+        Returns:
+            Number of passengers successfully boarded
+        """
+        if not passenger_ids:
+            logger.debug(f"Conductor {self.vehicle_id}: No passenger IDs provided")
+            return 0
+        
+        # Check capacity
+        available_seats = self.capacity - self.passengers_on_board
+        if len(passenger_ids) > available_seats:
+            logger.warning(
+                f"Conductor {self.vehicle_id}: Not enough seats - "
+                f"{len(passenger_ids)} passengers, {available_seats} seats available"
+            )
+            # Take only what we can fit
+            passenger_ids = passenger_ids[:available_seats]
+        
+        if not passenger_ids:
+            return 0
+        
+        # Mark each passenger as boarded in database
+        boarded_count = 0
+        if self.passenger_db:
+            for passenger_id in passenger_ids:
+                try:
+                    success = await self.passenger_db.mark_boarded(passenger_id)
+                    if success:
+                        self.boarded_passengers.append(passenger_id)
+                        boarded_count += 1
+                    else:
+                        logger.warning(f"Conductor {self.vehicle_id}: Failed to mark {passenger_id} as boarded")
+                except Exception as e:
+                    logger.error(f"Conductor {self.vehicle_id}: Error boarding {passenger_id}: {e}")
+        else:
+            # No database - just track locally
+            self.boarded_passengers.extend(passenger_ids)
+            boarded_count = len(passenger_ids)
+        
+        # Update counts
+        self.passengers_on_board += boarded_count
+        self.seats_available = self.capacity - self.passengers_on_board
+        
+        logger.info(
+            f"Conductor {self.vehicle_id}: Boarded {boarded_count} passengers "
+            f"({self.passengers_on_board}/{self.capacity})"
+        )
+        
+        # Check if full
+        if self.is_full():
+            logger.info(f"Conductor {self.vehicle_id}: VEHICLE FULL! Signaling driver to depart")
+            if self.on_full_callback:
+                self.on_full_callback()
+        
+        return boarded_count
+    
     def alight_passengers(self, count: int = None) -> int:
         """
         Passengers alighting (getting off)
@@ -740,6 +807,80 @@ class Conductor(BasePerson):
     def is_empty(self) -> bool:
         """Check if vehicle has no passengers"""
         return self.passengers_on_board == 0
+    
+    async def check_for_passengers(
+        self,
+        vehicle_lat: float,
+        vehicle_lon: float,
+        route_id: str = None
+    ) -> int:
+        """
+        Check for eligible passengers at current location and board them.
+        
+        Args:
+            vehicle_lat: Current vehicle latitude
+            vehicle_lon: Current vehicle longitude
+            route_id: Route being served (defaults to assigned_route_id)
+            
+        Returns:
+            Number of passengers boarded
+        """
+        if not self.passenger_db:
+            logger.warning(f"Conductor {self.vehicle_id}: No passenger database configured")
+            return 0
+        
+        if self.is_full():
+            logger.debug(f"Conductor {self.vehicle_id}: Vehicle full, not checking for passengers")
+            return 0
+        
+        route = route_id or self.assigned_route_id
+        
+        try:
+            # Query database for eligible passengers
+            logger.info(
+                f"Conductor {self.vehicle_id}: Checking for passengers "
+                f"(route={route}, capacity={self.seats_available})"
+            )
+            
+            eligible = await self.passenger_db.get_eligible_passengers(
+                vehicle_lat=vehicle_lat,
+                vehicle_lon=vehicle_lon,
+                route_id=route,
+                pickup_radius_km=self.config.pickup_radius_km,
+                max_results=self.seats_available  # Only get what we can take
+            )
+            
+            if not eligible:
+                logger.debug(f"Conductor {self.vehicle_id}: No eligible passengers at this location")
+                return 0
+            
+            # Extract passenger IDs (handle both nested attributes and flat structure)
+            passenger_ids = []
+            for p in eligible:
+                # Try flat structure first (Strapi v5)
+                pid = p.get('passenger_id')
+                if not pid:
+                    # Try nested attributes (Strapi v4)
+                    attrs = p.get('attributes', {})
+                    pid = attrs.get('passenger_id')
+                if pid:
+                    passenger_ids.append(pid)
+            
+            if not passenger_ids:
+                logger.warning(f"Conductor {self.vehicle_id}: Found passengers but couldn't extract IDs")
+                return 0
+            
+            logger.info(f"Conductor {self.vehicle_id}: Found {len(passenger_ids)} eligible passengers")
+            
+            # Board them
+            boarded = await self.board_passengers_by_id(passenger_ids)
+            return boarded
+            
+        except Exception as e:
+            logger.error(f"Conductor {self.vehicle_id}: Error checking for passengers: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
         
     def has_seats_available(self) -> bool:
         """Check if vehicle has available seats"""
