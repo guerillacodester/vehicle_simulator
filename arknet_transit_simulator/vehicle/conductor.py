@@ -173,6 +173,9 @@ class Conductor(BasePerson):
         self.passenger_service_callback: Optional[Callable] = None
         self.depot_callback: Optional[Callable[[str], List]] = None
         
+        # Auto-wire on_full_callback to signal driver
+        self.enable_auto_depart_on_full()
+        
         # Threading and async tasks
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -268,6 +271,45 @@ class Conductor(BasePerson):
         @self.sio.event
         async def connect_error(data):
             self.logger.error(f"[{self.component_id}] Socket.IO connection error: {data}")
+    
+    def enable_auto_depart_on_full(self):
+        """
+        Enable automatic driver signal when vehicle becomes full.
+        Wires on_full_callback to signal driver via Socket.IO.
+        """
+        def trigger_depart_signal():
+            """Sync wrapper for async signal method"""
+            # Schedule the async signal in the event loop
+            if self._running:
+                try:
+                    # Try to get running loop (works if called from async context)
+                    loop = asyncio.get_running_loop()
+                    asyncio.create_task(self._signal_driver_continue())
+                except RuntimeError:
+                    # Not in async context, try to schedule it
+                    try:
+                        loop = asyncio.get_event_loop()
+                        asyncio.run_coroutine_threadsafe(
+                            self._signal_driver_continue(),
+                            loop
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Conductor {self.vehicle_id}: Failed to signal driver - {e}"
+                        )
+            else:
+                logger.warning(
+                    f"Conductor {self.vehicle_id}: Vehicle full but cannot signal driver "
+                    "(conductor not running)"
+                )
+        
+        self.on_full_callback = trigger_depart_signal
+        logger.info(f"Conductor {self.vehicle_id}: Auto-depart on full ENABLED")
+    
+    def disable_auto_depart_on_full(self):
+        """Disable automatic driver signal when vehicle becomes full."""
+        self.on_full_callback = None
+        logger.info(f"Conductor {self.vehicle_id}: Auto-depart on full DISABLED")
             
     async def _connect_socketio(self) -> None:
         """Connect to Socket.IO server (Priority 2)."""
