@@ -110,9 +110,9 @@ class Conductor(BasePerson):
         self, 
         conductor_id: str, 
         conductor_name: str, 
-        vehicle_id: str, 
+        vehicle_id: str,
+        capacity: int,  # REQUIRED: Must come from database
         assigned_route_id: str = None,
-        capacity: int = 40, 
         tick_time: float = 1.0,
         config: ConductorConfig = None,
         sio_url: str = "http://localhost:3000",
@@ -173,10 +173,11 @@ class Conductor(BasePerson):
     
     @classmethod
     def from_config(
-        cls, 
-        conductor_id: str, 
-        conductor_name: str, 
-        vehicle_id: str, 
+        cls,
+        conductor_id: str,
+        conductor_name: str,
+        vehicle_id: str,
+        capacity: int,  # REQUIRED: Must be provided from database
         route_id: str, 
         config_path: str = None
     ) -> 'Conductor':
@@ -187,6 +188,7 @@ class Conductor(BasePerson):
             conductor_id: Unique conductor identifier
             conductor_name: Human-readable name
             vehicle_id: Assigned vehicle ID
+            capacity: Vehicle passenger capacity (from database)
             route_id: Assigned route ID
             config_path: Path to config.ini file
             
@@ -211,18 +213,13 @@ class Conductor(BasePerson):
                 conductor_config.monitoring_interval_seconds = float(conductor_section.get('monitoring_interval_seconds', 2.0))
                 conductor_config.driver_response_timeout_seconds = float(conductor_section.get('driver_response_timeout_seconds', 30.0))
                 conductor_config.passenger_boarding_timeout_seconds = float(conductor_section.get('passenger_boarding_timeout_seconds', 120.0))
-            
-            # Get vehicle capacity from config
-            capacity = 40
-            if 'vehicle_defaults' in config_data:
-                capacity = int(config_data['vehicle_defaults'].get('passengers', 40))
                 
             return cls(
                 conductor_id=conductor_id,
                 conductor_name=conductor_name,
                 vehicle_id=vehicle_id,
+                capacity=capacity,  # Use provided capacity (from database)
                 assigned_route_id=route_id,
-                capacity=capacity,
                 config=conductor_config
             )
             
