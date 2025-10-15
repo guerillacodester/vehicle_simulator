@@ -109,6 +109,10 @@ class VehicleDriver(BasePerson):
         self.current_segment = 0
         self.distance_into_segment = 0.0
         self.last_position: Optional[Tuple[float, float]] = None
+        
+        # Waypoint tracking for passenger checks (Phase 3.2)
+        self.visited_waypoints = set()  # Track which route points we've visited
+        self.waypoint_proximity_threshold_km = 0.05  # 50 meters
 
         # Worker
         self._running = False
@@ -189,17 +193,23 @@ class VehicleDriver(BasePerson):
                     telemetry = self.step()
                     
                     if telemetry:
+                        lat = telemetry.get('lat', 0)
+                        lon = telemetry.get('lon', 0)
+                        
                         location_data = {
                             'vehicle_id': self.vehicle_id,
                             'driver_id': self.component_id,
-                            'latitude': telemetry.get('latitude', 0),
-                            'longitude': telemetry.get('longitude', 0),
+                            'latitude': lat,
+                            'longitude': lon,
                             'speed': telemetry.get('speed', 0),
-                            'heading': telemetry.get('heading', 0),
+                            'heading': telemetry.get('bearing', 0),
                             'timestamp': datetime.now().isoformat()
                         }
                         
                         await self.sio.emit('driver:location:update', location_data)
+                        
+                        # Check if we've arrived at a waypoint (Phase 3.2)
+                        await self._check_waypoint_arrival(lat, lon)
                 
                 # Broadcast every 5 seconds
                 await asyncio.sleep(5.0)
@@ -412,6 +422,52 @@ class VehicleDriver(BasePerson):
                 return loop.run_until_complete(self.stop())
         except RuntimeError:
             return asyncio.run(self.stop())
+    
+    async def _check_waypoint_arrival(self, current_lat: float, current_lon: float) -> None:
+        """
+        Check if vehicle has arrived at a route waypoint and emit event for conductor.
+        
+        This enables Phase 3.2: Driver triggers conductor to check for passengers at stops.
+        
+        Args:
+            current_lat: Current vehicle latitude
+            current_lon: Current vehicle longitude
+        """
+        if not self.use_socketio or not self.sio_connected:
+            return
+        
+        # Check each waypoint in the route
+        for waypoint_index, (wp_lon, wp_lat) in enumerate(self.route):
+            # Skip if already visited
+            if waypoint_index in self.visited_waypoints:
+                continue
+            
+            # Calculate distance to waypoint
+            distance_km = math.haversine(current_lat, current_lon, wp_lat, wp_lon)
+            
+            # If within proximity threshold, mark as arrived
+            if distance_km <= self.waypoint_proximity_threshold_km:
+                self.visited_waypoints.add(waypoint_index)
+                
+                # Emit arrival event for conductor
+                arrival_data = {
+                    'vehicle_id': self.vehicle_id,
+                    'driver_id': self.component_id,
+                    'waypoint_index': waypoint_index,
+                    'latitude': wp_lat,
+                    'longitude': wp_lon,
+                    'route_id': self.route_name,
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+                try:
+                    await self.sio.emit('driver:arrived:waypoint', arrival_data)
+                    self.logger.info(
+                        f"[{self.person_name}] Arrived at waypoint {waypoint_index} "
+                        f"({wp_lat:.4f}, {wp_lon:.4f})"
+                    )
+                except Exception as e:
+                    self.logger.error(f"Failed to emit waypoint arrival: {e}")
 
     def _worker(self):
         while self._running:

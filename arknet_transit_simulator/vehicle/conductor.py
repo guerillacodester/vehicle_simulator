@@ -271,6 +271,47 @@ class Conductor(BasePerson):
         @self.sio.event
         async def connect_error(data):
             self.logger.error(f"[{self.component_id}] Socket.IO connection error: {data}")
+        
+        @self.sio.on('driver:arrived:waypoint')
+        async def on_waypoint_arrival(data):
+            """
+            Handle waypoint arrival event from driver (Phase 3.2).
+            Triggers passenger check at the waypoint location.
+            """
+            self.logger.info(f"[{self.component_id}] Driver arrived at waypoint: {data}")
+            
+            # Extract waypoint data
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            route_id = data.get('route_id')
+            waypoint_index = data.get('waypoint_index')
+            
+            # Check if we have passenger database integration
+            if self.passenger_db and latitude and longitude:
+                try:
+                    # Update conductor position for hardware events
+                    self.update_position(latitude, longitude)
+                    
+                    # Check for passengers at this waypoint
+                    self.logger.info(
+                        f"[{self.component_id}] Checking for passengers at waypoint {waypoint_index} "
+                        f"({latitude:.4f}, {longitude:.4f})"
+                    )
+                    
+                    await self.check_for_passengers(
+                        latitude=latitude,
+                        longitude=longitude,
+                        route_id=route_id or self.assigned_route_id,
+                        radius_km=0.2  # 200 meters pickup radius
+                    )
+                    
+                except Exception as e:
+                    self.logger.error(f"Error checking for passengers at waypoint: {e}")
+            else:
+                self.logger.debug(
+                    f"[{self.component_id}] Skipping passenger check "
+                    "(no passenger_db or missing coordinates)"
+                )
     
     def enable_auto_depart_on_full(self):
         """
