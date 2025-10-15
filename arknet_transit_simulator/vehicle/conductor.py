@@ -117,7 +117,8 @@ class Conductor(BasePerson):
         config: ConductorConfig = None,
         sio_url: str = "http://localhost:3000",
         use_socketio: bool = True,
-        passenger_db = None  # Optional: PassengerDatabase instance
+        passenger_db = None,  # Optional: PassengerDatabase instance
+        hardware_client = None  # Optional: HardwareEventClient for event reporting
     ):
         # Initialize BasePerson with PersonState
         super().__init__(conductor_id, "Conductor", conductor_name)
@@ -131,6 +132,13 @@ class Conductor(BasePerson):
         # Passenger database integration
         self.passenger_db = passenger_db
         self.boarded_passengers: List[str] = []  # Track individual passenger IDs
+        
+        # Hardware event client (for both simulation and real hardware)
+        self.hardware_client = hardware_client
+        
+        # Current vehicle position (needed for hardware events)
+        self.current_latitude: float = 0.0
+        self.current_longitude: float = 0.0
         
         # Basic passenger state (existing functionality)
         self.passengers_on_board = 0
@@ -715,7 +723,13 @@ class Conductor(BasePerson):
     
     async def board_passengers_by_id(self, passenger_ids: List[str]) -> int:
         """
-        Board specific passengers onto vehicle (async with database updates).
+        Board specific passengers onto vehicle (async with database updates + hardware events).
+        
+        This method:
+        1. Updates passenger status in database (via PassengerDatabase)
+        2. Emits hardware events (for real hardware or simulation logging)
+        3. Tracks individual passenger IDs
+        4. Signals driver when vehicle is full
         
         Args:
             passenger_ids: List of passenger IDs to board
@@ -740,23 +754,55 @@ class Conductor(BasePerson):
         if not passenger_ids:
             return 0
         
-        # Mark each passenger as boarded in database
+        # Open doors (hardware event)
+        if self.hardware_client:
+            try:
+                await self.hardware_client.door_event(
+                    door_id="front",
+                    action="opened",
+                    latitude=self.current_latitude,
+                    longitude=self.current_longitude
+                )
+            except Exception as e:
+                logger.warning(f"Conductor {self.vehicle_id}: Door event failed: {e}")
+        
+        # Board each passenger
         boarded_count = 0
-        if self.passenger_db:
-            for passenger_id in passenger_ids:
-                try:
+        for passenger_id in passenger_ids:
+            try:
+                # Method 1: Update via PassengerDatabase (direct Strapi API)
+                if self.passenger_db:
                     success = await self.passenger_db.mark_boarded(passenger_id)
-                    if success:
-                        self.boarded_passengers.append(passenger_id)
-                        boarded_count += 1
-                    else:
-                        logger.warning(f"Conductor {self.vehicle_id}: Failed to mark {passenger_id} as boarded")
-                except Exception as e:
-                    logger.error(f"Conductor {self.vehicle_id}: Error boarding {passenger_id}: {e}")
-        else:
-            # No database - just track locally
-            self.boarded_passengers.extend(passenger_ids)
-            boarded_count = len(passenger_ids)
+                    if not success:
+                        logger.warning(f"Conductor {self.vehicle_id}: DB update failed for {passenger_id}")
+                
+                # Method 2: Emit hardware event (simulates RFID tap or manual confirmation)
+                # This would trigger hardware notification if connected
+                if self.hardware_client:
+                    await self.hardware_client.rfid_tap(
+                        card_id=passenger_id,
+                        tap_type="board",
+                        latitude=self.current_latitude,
+                        longitude=self.current_longitude
+                    )
+                
+                # Track locally
+                self.boarded_passengers.append(passenger_id)
+                boarded_count += 1
+                
+            except Exception as e:
+                logger.error(f"Conductor {self.vehicle_id}: Error boarding {passenger_id}: {e}")
+        
+        # Update passenger count (hardware event for IR sensors)
+        if self.hardware_client and boarded_count > 0:
+            try:
+                await self.hardware_client.update_passenger_count(
+                    count_in=boarded_count,
+                    count_out=0,
+                    total_onboard=self.passengers_on_board + boarded_count
+                )
+            except Exception as e:
+                logger.warning(f"Conductor {self.vehicle_id}: Count update event failed: {e}")
         
         # Update counts
         self.passengers_on_board += boarded_count
@@ -766,6 +812,18 @@ class Conductor(BasePerson):
             f"Conductor {self.vehicle_id}: Boarded {boarded_count} passengers "
             f"({self.passengers_on_board}/{self.capacity})"
         )
+        
+        # Close doors (hardware event)
+        if self.hardware_client:
+            try:
+                await self.hardware_client.door_event(
+                    door_id="front",
+                    action="closed",
+                    latitude=self.current_latitude,
+                    longitude=self.current_longitude
+                )
+            except Exception as e:
+                logger.warning(f"Conductor {self.vehicle_id}: Door event failed: {e}")
         
         # Check if full
         if self.is_full():
@@ -807,6 +865,18 @@ class Conductor(BasePerson):
     def is_empty(self) -> bool:
         """Check if vehicle has no passengers"""
         return self.passengers_on_board == 0
+    
+    def update_position(self, latitude: float, longitude: float):
+        """
+        Update conductor's current position (called by driver/GPS).
+        Needed for hardware event reporting.
+        
+        Args:
+            latitude: Current vehicle latitude
+            longitude: Current vehicle longitude
+        """
+        self.current_latitude = latitude
+        self.current_longitude = longitude
     
     async def check_for_passengers(
         self,
