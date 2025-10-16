@@ -63,21 +63,32 @@ Migrate from hardcoded configuration values to API-driven configuration system w
 
 ## 📋 NEXT STEPS (When Resuming)
 
-### **STEP 3: REST API Endpoints** ⏳
-Create FastAPI endpoints to expose configuration service:
+### **STEP 3: REST API Endpoints** ✅ **SIMPLIFIED - USING STRAPI ONLY**
 
-**Endpoints to Create:**
-- `GET /api/config/operational` - Get all configurations
-- `GET /api/config/operational/{section}` - Get section configs
-- `GET /api/config/operational/{section}/{parameter}` - Get specific param
-- `PATCH /api/config/operational/{section}/{parameter}` - Update param
-- `PUT /api/config/operational` - Bulk update
+**Architecture Decision:** Use Strapi as single source of truth for REST/GraphQL APIs.
 
-**File to Create:**
-- `arknet_fleet_manager/config_api.py`
+**Why:**
+- ✅ Strapi already provides complete REST API
+- ✅ GraphQL plugin available (enable when needed)
+- ✅ Single server to manage (simpler operations)
+- ✅ Built-in auth, permissions, filtering, pagination
+- ✅ Admin UI for manual configuration management
+- ❌ No need for separate FastAPI server
 
-**Test File:**
-- `test_step3_config_api.py`
+**Strapi Endpoints (Already Working):**
+- `GET /api/operational-configurations` - Get all configurations
+- `GET /api/operational-configurations?filters[section][$eq]=conductor.proximity` - Get section
+- `GET /api/operational-configurations/:documentId` - Get specific config
+- `PUT /api/operational-configurations/:documentId` - Update config
+- `POST /api/operational-configurations` - Create new config
+- `DELETE /api/operational-configurations/:documentId` - Delete config
+
+**Access Pattern:**
+- **Python components** → Use `ConfigurationService` (cached, typed interface)
+- **External clients** → Use Strapi REST API directly (http://localhost:1337)
+- **Future GraphQL** → Enable Strapi GraphQL plugin
+
+**Step 3 Status:** ✅ COMPLETE (using Strapi)
 
 ### **STEP 4: Update Components** ⏳
 Replace hardcoded values with config service calls:
