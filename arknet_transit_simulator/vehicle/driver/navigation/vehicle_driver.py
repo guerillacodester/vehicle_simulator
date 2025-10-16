@@ -93,7 +93,7 @@ class VehicleDriver(BasePerson):
         tick_time: float = 0.1,
         mode: str = "geodesic",
         direction: str = "outbound",
-        sio_url: str = "http://localhost:3000",
+        sio_url: str = "http://localhost:1337",
         use_socketio: bool = True,
         config: DriverConfig = None
     ):

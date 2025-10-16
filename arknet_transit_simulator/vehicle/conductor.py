@@ -191,7 +191,7 @@ class Conductor(BasePerson):
         assigned_route_id: str = None,
         tick_time: float = 1.0,
         config: ConductorConfig = None,
-        sio_url: str = "http://localhost:3000",
+        sio_url: str = "http://localhost:1337",
         use_socketio: bool = True,
         passenger_db = None,  # Optional: PassengerDatabase instance
         hardware_client = None  # Optional: HardwareEventClient for event reporting

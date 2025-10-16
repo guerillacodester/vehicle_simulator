@@ -313,7 +313,6 @@ class CleanVehicleSimulator:
     
     async def _create_and_start_driver(self, vehicle_assignment, driver_assignment):
         """Create and start a vehicle driver with GPS device."""
-        logger.info(f"🔧 _create_and_start_driver called for {vehicle_assignment.vehicle_id} with driver {driver_assignment.driver_name}")
         try:
             from arknet_transit_simulator.vehicle.driver.navigation.vehicle_driver import VehicleDriver
             from arknet_transit_simulator.vehicle.gps_device.device import GPSDevice
@@ -419,8 +418,47 @@ class CleanVehicleSimulator:
             # Set vehicle components for this driver
             driver.set_vehicle_components(engine=engine, gps_device=gps_device)
             
+            # Create Conductor for passenger management
+            try:
+                from arknet_transit_simulator.vehicle.conductor import Conductor
+                from arknet_transit_simulator.services.vehicle_performance import VehiclePerformanceService
+                
+                # Get vehicle capacity from database
+                try:
+                    performance = await VehiclePerformanceService.get_performance_async(vehicle_assignment.vehicle_id)
+                    vehicle_capacity = performance.capacity
+                    logger.info(f"[CONDUCTOR] Retrieved vehicle capacity from database: {vehicle_capacity} passengers")
+                except Exception as perf_error:
+                    logger.warning(f"[CONDUCTOR] Failed to get capacity from database: {perf_error}, using default 40")
+                    vehicle_capacity = 40  # Fallback to standard minibus capacity
+                
+                conductor = Conductor(
+                    conductor_id=f"COND-{driver_assignment.driver_id}",
+                    conductor_name=f"Conductor-{driver_assignment.driver_name}",
+                    vehicle_id=vehicle_assignment.vehicle_id,
+                    assigned_route_id=vehicle_assignment.route_id,
+                    capacity=vehicle_capacity
+                )
+                
+                # Attach conductor to driver for future integration
+                driver.conductor = conductor
+                
+                # Start conductor's Socket.IO connection
+                await conductor.start()
+            except Exception as e:
+                logger.error(f"[CONDUCTOR] Failed to initialize: {e}")
+                import traceback
+                traceback.print_exc()
+                # Continue without conductor for now
+                driver.conductor = None
+            
             # Start driver (this should board vehicle and start GPS)
             logger.info(f"🔧 Driver {driver_assignment.driver_name} boarding vehicle {vehicle_assignment.vehicle_id}")
+            
+            # Log conductor status
+            if hasattr(driver, 'conductor') and driver.conductor:
+                logger.info(f"[Conductor] {driver.conductor.person_name} ready for vehicle {vehicle_assignment.vehicle_id} - Capacity: {driver.conductor.capacity} passengers")
+            
             await driver.start()
             
             # Check driver status after starting

@@ -304,6 +304,8 @@ class StatusOnlyFilter(logging.Filter):
             'Driver present but IDLE:',
             'Idle driver',
             'Cannot connect to telemetry server',
+            # Conductor status
+            'Conductor',
             # GPS device status
             'GPSDevice for',
             'started successfully',

@@ -26,7 +26,7 @@ class PassengerDatabase:
             api_token: Strapi API token for authentication
         """
         self.strapi_url = (strapi_url or "http://localhost:1337").rstrip('/api')  # Remove trailing /api if present
-        print(f"🔍 PassengerDatabase initialized with URL: {self.strapi_url}")
+        print(f"[PassengerDatabase] Initialized with URL: {self.strapi_url}")
         self.api_token = api_token
         self.session: Optional[aiohttp.ClientSession] = None
         self.headers = {

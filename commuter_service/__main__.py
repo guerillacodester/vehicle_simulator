@@ -51,7 +51,7 @@ async def run_commuter_service(
     socketio_url = socketio_url or base_url
     strapi_url = strapi_url or base_url
     
-    logger.info("🚀 Starting Commuter Service...")
+    logger.info("[START] Starting Commuter Service...")
     logger.info(f"   Socket.IO: {socketio_url}")
     logger.info(f"   Strapi API: {strapi_url}")
     
@@ -61,25 +61,25 @@ async def run_commuter_service(
     try:
         # Start depot reservoir (outbound passengers)
         if not route_only:
-            logger.info("📍 Starting Depot Reservoir (Outbound Passengers)...")
+            logger.info("[DEPOT] Starting Depot Reservoir (Outbound Passengers)...")
             depot_reservoir = DepotReservoir(
                 socketio_url=socketio_url,
                 strapi_url=strapi_url
             )
             await depot_reservoir.start()
-            logger.info("✅ Depot Reservoir started")
+            logger.info("[OK] Depot Reservoir started")
         
         # Start route reservoir (bidirectional passengers)
         if not depot_only:
-            logger.info("🛤️  Starting Route Reservoir (Route Passengers)...")
+            logger.info("[ROUTE] Starting Route Reservoir (Route Passengers)...")
             route_reservoir = RouteReservoir(
                 socketio_url=socketio_url,
                 strapi_url=strapi_url
             )
             await route_reservoir.start()
-            logger.info("✅ Route Reservoir started")
+            logger.info("[OK] Route Reservoir started")
         
-        logger.info("🎉 Commuter Service fully operational!")
+        logger.info("[READY] Commuter Service fully operational!")
         logger.info("   Press Ctrl+C to stop")
         
         # Keep running and print periodic statistics
@@ -93,13 +93,13 @@ async def run_commuter_service(
             current_time = asyncio.get_event_loop().time()
             if current_time - last_stats_time >= stats_interval:
                 logger.info("=" * 80)
-                logger.info("📊 SYSTEM STATISTICS")
+                logger.info("[STATS] SYSTEM STATISTICS")
                 logger.info("=" * 80)
                 
                 if depot_reservoir:
                     depot_stats = depot_reservoir.stats
                     total_active = sum(len(q.commuters) for q in depot_reservoir.queues.values())
-                    logger.info(f"🏢 DEPOT RESERVOIR:")
+                    logger.info(f"[DEPOT] DEPOT RESERVOIR:")
                     logger.info(f"   • Total Spawned: {depot_stats['total_spawned']}")
                     logger.info(f"   • Total Picked Up: {depot_stats['total_picked_up']}")
                     logger.info(f"   • Total Expired: {depot_stats['total_expired']}")
@@ -108,7 +108,7 @@ async def run_commuter_service(
                 
                 if route_reservoir:
                     route_stats = route_reservoir.stats
-                    logger.info(f"🛤️  ROUTE RESERVOIR:")
+                    logger.info(f"[ROUTE] ROUTE RESERVOIR:")
                     logger.info(f"   • Total Spawned: {route_stats['total_spawned']}")
                     logger.info(f"   • Total Picked Up: {route_stats['total_picked_up']}")
                     logger.info(f"   • Total Expired: {route_stats['total_expired']}")
@@ -119,9 +119,9 @@ async def run_commuter_service(
                 last_stats_time = current_time
             
     except KeyboardInterrupt:
-        logger.info("\n⏸️  Shutting down Commuter Service...")
+        logger.info("\n[SHUTDOWN] Shutting down Commuter Service...")
     except Exception as e:
-        logger.error(f"❌ Error in Commuter Service: {e}", exc_info=True)
+        logger.error(f"[ERROR] Error in Commuter Service: {e}", exc_info=True)
     finally:
         # Cleanup
         if depot_reservoir:
@@ -130,7 +130,7 @@ async def run_commuter_service(
         if route_reservoir:
             logger.info("Stopping Route Reservoir...")
             await route_reservoir.stop()
-        logger.info("✅ Commuter Service stopped cleanly")
+        logger.info("[OK] Commuter Service stopped cleanly")
 
 
 def main():

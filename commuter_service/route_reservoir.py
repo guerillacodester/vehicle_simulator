@@ -193,13 +193,13 @@ class RouteReservoir:
         self.api_client = StrapiApiClient(api_base_url)
         await self.api_client.connect()
         
-        self.logger.info("📡 Loading routes from Strapi API...")
+        self.logger.info("[API] Loading routes from Strapi API...")
         self.routes = await self.api_client.get_all_routes()
         
-        self.logger.info(f"✅ Loaded {len(self.routes)} routes from database")
+        self.logger.info(f"[OK] Loaded {len(self.routes)} routes from database")
         
         # Initialize Poisson spawner with GeoJSON population data
-        self.logger.info("🌍 Initializing Poisson GeoJSON spawner with population data...")
+        self.logger.info("[INIT] Initializing Poisson GeoJSON spawner with population data...")
         self.poisson_spawner = PoissonGeoJSONSpawner(self.api_client)
         await self.poisson_spawner.initialize(country_code="BB")  # Barbados ISO code
         
@@ -222,16 +222,16 @@ class RouteReservoir:
         
         # Log startup statistics
         self.logger.info("=" * 80)
-        self.logger.info("📊 ROUTE RESERVOIR - INITIALIZATION COMPLETE")
+        self.logger.info("[STATS] ROUTE RESERVOIR - INITIALIZATION COMPLETE")
         self.logger.info("=" * 80)
-        self.logger.info(f"� Active Routes: {len(self.routes)}")
+        self.logger.info(f"[ROUTE] Active Routes: {len(self.routes)}")
         for route in self.routes[:5]:  # Show first 5
             self.logger.info(f"   • {route.short_name}: {route.long_name} ({route.coordinate_count} points)")
         if len(self.routes) > 5:
             self.logger.info(f"   ... and {len(self.routes) - 5} more")
-        self.logger.info(f"�🗺️  Grid Cell Size: {self.grid_cell_size}° (~1km)")
-        self.logger.info(f"🔄 Active Grid Cells: {len(self.grid)}")
-        self.logger.info(f"👥 Active Commuters: {len(self.active_commuters)}")
+        self.logger.info(f"[GRID] Grid Cell Size: {self.grid_cell_size}° (~1km)")
+        self.logger.info(f"[GRID] Active Grid Cells: {len(self.grid)}")
+        self.logger.info(f"[COMMUTER] Active Commuters: {len(self.active_commuters)}")
         self.logger.info("=" * 80)
         
         # Initialize ExpirationManager for background expiration task
@@ -508,7 +508,7 @@ class RouteReservoir:
         
         # Log spawn details
         self.logger.info(
-            f"✅ ROUTE SPAWN #{total_spawned} | "
+            f"[SPAWN] ROUTE SPAWN #{total_spawned} | "
             f"ID: {commuter.commuter_id[:8]}... | "
             f"Route: {route_id} | "
             f"Spawn: ({current_location[0]:.4f}, {current_location[1]:.4f}) → {spawn_location_name} | "

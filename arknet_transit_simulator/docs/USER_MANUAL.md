@@ -18,7 +18,7 @@
 
 ## Overview
 
-e.g. execute: python -m world.arknet_transit_simulator --mode depot --duration 60 --debug
+e.g. execute: python -m arknet_transit_simulator --mode depot --duration 60 --debug
 
 The Vehicle Simulator is a comprehensive system designed to simulate vehicle operations, GPS telemetry transmission, and fleet management scenarios. Built with a modern **plugin architecture**, it provides realistic vehicle behavior simulation with real-time GPS data transmission capabilities, making it ideal for testing, development, and demonstration of transportation management systems.
 

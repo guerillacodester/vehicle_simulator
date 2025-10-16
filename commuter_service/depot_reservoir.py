@@ -138,14 +138,14 @@ class DepotReservoir:
         self.api_client = StrapiApiClient(api_base_url)
         await self.api_client.connect()
         
-        self.logger.info("📡 Loading depots and routes from Strapi API...")
+        self.logger.info("[API] Loading depots and routes from Strapi API...")
         self.depots = await self.api_client.get_all_depots()
         self.routes = await self.api_client.get_all_routes()
         
-        self.logger.info(f"✅ Loaded {len(self.depots)} depots and {len(self.routes)} routes")
+        self.logger.info(f"[OK] Loaded {len(self.depots)} depots and {len(self.routes)} routes")
         
         # Initialize Poisson spawner with GeoJSON population data
-        self.logger.info("🌍 Initializing Poisson GeoJSON spawner with population data...")
+        self.logger.info("[INIT] Initializing Poisson GeoJSON spawner with population data...")
         self.poisson_spawner = PoissonGeoJSONSpawner(self.api_client)
         await self.poisson_spawner.initialize(country_code="BB")  # Barbados ISO code
         
@@ -180,15 +180,15 @@ class DepotReservoir:
         
         # Log startup statistics
         self.logger.info("=" * 80)
-        self.logger.info("📊 DEPOT RESERVOIR - INITIALIZATION COMPLETE")
+        self.logger.info("[STATS] DEPOT RESERVOIR - INITIALIZATION COMPLETE")
         self.logger.info("=" * 80)
-        self.logger.info(f"🏢 Active Depots: {len(self.depots)}")
+        self.logger.info(f"[DEPOT] Active Depots: {len(self.depots)}")
         for depot in self.depots:
             depot_lat = depot.latitude or (depot.location.get('lat') if depot.location else None)
             depot_lon = depot.longitude or (depot.location.get('lon') if depot.location else None)
             if depot_lat and depot_lon:
                 self.logger.info(f"   • {depot.depot_id} ({depot.name}) @ ({depot_lat:.4f}, {depot_lon:.4f})")
-        self.logger.info(f"🚌 Active Routes: {len(self.routes)}")
+        self.logger.info(f"[ROUTE] Active Routes: {len(self.routes)}")
         for route in self.routes[:5]:  # Show first 5
             self.logger.info(f"   • {route.short_name}: {route.long_name}")
         if len(self.routes) > 5:
@@ -412,7 +412,7 @@ class DepotReservoir:
         
         # Log spawn details
         self.logger.info(
-            f"✅ DEPOT SPAWN #{total_spawned} | "
+            f"[SPAWN] DEPOT SPAWN #{total_spawned} | "
             f"ID: {commuter.commuter_id[:8]}... | "
             f"Depot: {depot_name} @ ({depot_location[0]:.4f}, {depot_location[1]:.4f}) | "
             f"Near: {spawn_location_name} | "

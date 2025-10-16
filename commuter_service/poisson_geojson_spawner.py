@@ -64,7 +64,7 @@ class GeoJSONDataLoader:
                 return False
             
             self.country_id = country_data['id']
-            logging.info(f"🌍 Loading geographic data for {country_data['name']} (ID: {self.country_id})")
+            logging.info(f"[INIT] Loading geographic data for {country_data['name']} (ID: {self.country_id})")
             
             # Load different types of GeoJSON data from API
             await self._load_landuse_data_from_api()
@@ -72,12 +72,12 @@ class GeoJSONDataLoader:
             await self._load_places_data_from_api()
             await self._load_regions_data_from_api()
             
-            logging.info(f"✅ Loaded GeoJSON data from API: {len(self.population_zones)} population zones, "
+            logging.info(f"[OK] Loaded GeoJSON data from API: {len(self.population_zones)} population zones, "
                         f"{len(self.amenity_zones)} amenity zones, {len(self.transport_hubs)} transport hubs")
             return True
             
         except Exception as e:
-            logging.error(f"❌ Failed to load GeoJSON data from API: {e}")
+            logging.error(f"[ERROR] Failed to load GeoJSON data from API: {e}")
             return False
     
     async def _load_landuse_data_from_api(self):
@@ -87,7 +87,7 @@ class GeoJSONDataLoader:
             return
             
         landuse_zones = await self.api_client.get_landuse_zones_by_country(self.country_id)
-        logging.info(f"📊 Loading {len(landuse_zones)} landuse zones from API")
+        logging.info(f"[LANDUSE] Loading {len(landuse_zones)} landuse zones from API")
         
         for zone_data in landuse_zones:
             try:
@@ -127,7 +127,7 @@ class GeoJSONDataLoader:
             return
             
         pois = await self.api_client.get_pois_by_country(self.country_id)
-        logging.info(f"🎯 Loading {len(pois)} POIs from API")
+        logging.info(f"[POI] Loading {len(pois)} POIs from API")
         
         for poi_data in pois:
             try:
@@ -167,7 +167,7 @@ class GeoJSONDataLoader:
             return
             
         places = await self.api_client.get_places_by_country(self.country_id)
-        logging.info(f"📍 Loading {len(places)} places from API")
+        logging.info(f"[PLACE] Loading {len(places)} places from API")
         
         # Use places data to enhance existing zones with better identification
         for place_data in places:
@@ -201,7 +201,7 @@ class GeoJSONDataLoader:
             return
             
         regions = await self.api_client.get_regions_by_country(self.country_id)
-        logging.info(f"🗺️ Loading {len(regions)} regions from API")
+        logging.info(f"[REGION] Loading {len(regions)} regions from API")
         
         for region_data in regions:
             try:
@@ -401,7 +401,7 @@ class PoissonGeoJSONSpawner:
                 if passenger_count > 0:
                     amenity_spawn_count += 1
                     if amenity_spawn_count <= 3:
-                        logging.debug(f"  🎯 Amenity spawn: {zone.zone_type} (rate={spawn_rate:.3f}, count={passenger_count})")
+                        logging.debug(f"  [AMENITY] Amenity spawn: {zone.zone_type} (rate={spawn_rate:.3f}, count={passenger_count})")
                     requests = await self._create_zone_spawn_requests(
                         zone, passenger_count, current_time
                     )

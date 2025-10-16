@@ -76,14 +76,14 @@ class StrapiApiClient:
             response = await self.session.get(f"{self.base_url}/api/countries", timeout=5.0)
             if response.status_code == 200:
                 self._connection_tested = True
-                logging.info(f"✅ Strapi API client connected to {self.base_url}")
+                logging.info(f"[OK] Strapi API client connected to {self.base_url}")
                 return True
             else:
-                logging.error(f"❌ Strapi API connection failed: HTTP {response.status_code}")
+                logging.error(f"[ERROR] Strapi API connection failed: HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            logging.error(f"❌ Failed to connect to Strapi API: {e}")
+            logging.error(f"[ERROR] Failed to connect to Strapi API: {e}")
             return False
     
     async def close(self):
@@ -115,25 +115,35 @@ class StrapiApiClient:
             
             depots = []
             for depot_data in data.get('data', []):
+                # Strapi v4 uses 'attributes' object
+                attrs = depot_data.get('attributes', depot_data)
+                
+                # Handle activity_level safely
+                activity_level = attrs.get('activity_level')
+                if activity_level is None:
+                    activity_level = 1.0
+                else:
+                    activity_level = float(activity_level)
+                
                 depot = DepotData(
                     id=depot_data['id'],
-                    depot_id=depot_data['depot_id'],
-                    name=depot_data['name'],
-                    address=depot_data.get('address'),
-                    location=depot_data.get('location'),
-                    latitude=depot_data.get('latitude'),
-                    longitude=depot_data.get('longitude'),
-                    capacity=depot_data.get('capacity', 50),
-                    is_active=depot_data.get('is_active', True),
-                    activity_level=float(depot_data.get('activity_level', 1.0))
+                    depot_id=attrs.get('depot_id', f"DEPOT_{depot_data['id']}"),
+                    name=attrs.get('name', f"Depot {depot_data['id']}"),
+                    address=attrs.get('address'),
+                    location=attrs.get('location'),
+                    latitude=attrs.get('latitude'),
+                    longitude=attrs.get('longitude'),
+                    capacity=attrs.get('capacity', 50),
+                    is_active=attrs.get('is_active', True),
+                    activity_level=activity_level
                 )
                 depots.append(depot)
             
-            logging.info(f"✅ Retrieved {len(depots)} depots from Strapi")
+            logging.info(f"[OK] Retrieved {len(depots)} depots from Strapi")
             return depots
             
         except Exception as e:
-            logging.error(f"❌ Failed to get depots: {e}")
+            logging.error(f"[ERROR] Failed to get depots: {e}")
             return []
     
     async def get_all_routes(self) -> List[RouteData]:
@@ -170,11 +180,11 @@ class StrapiApiClient:
                 )
                 routes.append(route)
             
-            logging.info(f"✅ Retrieved {len(routes)} routes with geometry from Strapi")
+            logging.info(f"[OK] Retrieved {len(routes)} routes with geometry from Strapi")
             return routes
             
         except Exception as e:
-            logging.error(f"❌ Failed to get routes: {e}")
+            logging.error(f"[ERROR] Failed to get routes: {e}")
             return []
     
     async def _load_route_geometry(self, route_code: str) -> tuple[List[List[float]], float]:
@@ -234,11 +244,11 @@ class StrapiApiClient:
             # Calculate route length
             route_length = self._calculate_route_length(coordinates) if coordinates else 0.0
             
-            logging.debug(f"✅ Loaded {len(coordinates)} coordinates for route {route_code}, length: {route_length:.1f}km")
+            logging.debug(f"[OK] Loaded {len(coordinates)} coordinates for route {route_code}, length: {route_length:.1f}km")
             return coordinates, route_length
             
         except Exception as e:
-            logging.error(f"❌ Failed to load geometry for route {route_code}: {e}")
+            logging.error(f"[ERROR] Failed to load geometry for route {route_code}: {e}")
             return [], 0.0
     
     def _calculate_route_length(self, coordinates: List[List[float]]) -> float:
@@ -283,11 +293,11 @@ class StrapiApiClient:
             response.raise_for_status()
             data = response.json()
             
-            logging.debug(f"✅ Retrieved {len(data.get('data', []))} countries")
+            logging.debug(f"[OK] Retrieved {len(data.get('data', []))} countries")
             return data.get('data', [])
             
         except Exception as e:
-            logging.error(f"❌ Failed to get countries: {e}")
+            logging.error(f"[ERROR] Failed to get countries: {e}")
             return []
     
     async def get_passenger_plugin_config(self, country_code: str) -> Optional[Dict[str, Any]]:
@@ -307,7 +317,7 @@ class StrapiApiClient:
                 data = response.json()
                 configs = data.get('data', [])
                 if configs:
-                    logging.info(f"✅ Retrieved plugin config for country {country_code}")
+                    logging.info(f"[OK] Retrieved plugin config for country {country_code}")
                     return configs[0]
                 else:
                     logging.warning(f"No plugin config found for country {country_code}")
@@ -339,11 +349,11 @@ class StrapiApiClient:
             data = response.json()
             
             pois = data.get('data', [])
-            logging.info(f"✅ Retrieved {len(pois)} POIs for country {country_id}")
+            logging.info(f"[OK] Retrieved {len(pois)} POIs for country {country_id}")
             return pois
             
         except Exception as e:
-            logging.error(f"❌ Failed to get POIs for country {country_id}: {e}")
+            logging.error(f"[ERROR] Failed to get POIs for country {country_id}: {e}")
             return []
     
     async def get_places_by_country(self, country_id: int) -> List[Dict[str, Any]]:
@@ -363,11 +373,11 @@ class StrapiApiClient:
             data = response.json()
             
             places = data.get('data', [])
-            logging.info(f"✅ Retrieved {len(places)} Places for country {country_id}")
+            logging.info(f"[OK] Retrieved {len(places)} Places for country {country_id}")
             return places
             
         except Exception as e:
-            logging.error(f"❌ Failed to get Places for country {country_id}: {e}")
+            logging.error(f"[ERROR] Failed to get Places for country {country_id}: {e}")
             return []
     
     async def get_landuse_zones_by_country(self, country_id: int) -> List[Dict[str, Any]]:
@@ -387,11 +397,11 @@ class StrapiApiClient:
             data = response.json()
             
             zones = data.get('data', [])
-            logging.info(f"✅ Retrieved {len(zones)} Landuse zones for country {country_id}")
+            logging.info(f"[OK] Retrieved {len(zones)} Landuse zones for country {country_id}")
             return zones
             
         except Exception as e:
-            logging.error(f"❌ Failed to get Landuse zones for country {country_id}: {e}")
+            logging.error(f"[ERROR] Failed to get Landuse zones for country {country_id}: {e}")
             return []
     
     async def get_regions_by_country(self, country_id: int) -> List[Dict[str, Any]]:
@@ -411,11 +421,11 @@ class StrapiApiClient:
             data = response.json()
             
             regions = data.get('data', [])
-            logging.info(f"✅ Retrieved {len(regions)} Regions for country {country_id}")
+            logging.info(f"[OK] Retrieved {len(regions)} Regions for country {country_id}")
             return regions
             
         except Exception as e:
-            logging.error(f"❌ Failed to get Regions for country {country_id}: {e}")
+            logging.error(f"[ERROR] Failed to get Regions for country {country_id}: {e}")
             return []
     
     async def get_country_by_code(self, country_code: str) -> Optional[Dict[str, Any]]:
@@ -435,7 +445,7 @@ class StrapiApiClient:
             
             countries = data.get('data', [])
             if countries:
-                logging.info(f"✅ Retrieved country info for {country_code}")
+                logging.info(f"[OK] Retrieved country info for {country_code}")
                 return countries[0]
             else:
                 logging.warning(f"No country found with code {country_code}")
