@@ -372,6 +372,14 @@ class VehicleDriver(BasePerson):
             self.current_state = DriverState.DISEMBARKING
             self.logger.info(f"Driver {self.person_name} disembarking from vehicle {self.vehicle_id}")
             
+            # Stop conductor first (if present)
+            if hasattr(self, 'conductor') and self.conductor:
+                self.logger.info(f"Driver {self.person_name} dismissing conductor for {self.vehicle_id}")
+                try:
+                    await self.conductor.stop()
+                except Exception as e:
+                    self.logger.warning(f"Error stopping conductor: {e}")
+            
             # Cancel location broadcasting (Priority 2)
             if self.location_broadcast_task:
                 self.location_broadcast_task.cancel()
