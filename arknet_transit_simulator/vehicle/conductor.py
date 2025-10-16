@@ -73,7 +73,12 @@ class StopOperation:
 
 @dataclass
 class ConductorConfig:
-    """Enhanced conductor configuration from config.ini."""
+    """
+    Enhanced conductor configuration - Now loaded dynamically from ConfigurationService.
+    
+    Default values are used as fallbacks if configuration service is unavailable.
+    Actual values are loaded from Strapi via ConfigurationService during initialization.
+    """
     # Proximity settings
     pickup_radius_km: float = 0.2
     boarding_time_window_minutes: float = 5.0
@@ -91,6 +96,77 @@ class ConductorConfig:
     # Communication timeouts
     driver_response_timeout_seconds: float = 30.0
     passenger_boarding_timeout_seconds: float = 120.0
+    
+    @classmethod
+    async def from_config_service(cls, config_service=None):
+        """
+        Load configuration from ConfigurationService.
+        
+        Args:
+            config_service: ConfigurationService instance (optional)
+        
+        Returns:
+            ConductorConfig instance with values from Strapi or defaults
+        """
+        if config_service is None:
+            # Try to get config service, fallback to defaults if not available
+            try:
+                from ..services.config_service import get_config_service
+                config_service = await get_config_service()
+            except Exception as e:
+                logger.warning(f"Could not load ConfigurationService, using defaults: {e}")
+                return cls()
+        
+        # Load all conductor configuration parameters
+        pickup_radius_km = await config_service.get(
+            "conductor.proximity.pickup_radius_km",
+            default=0.2
+        )
+        boarding_time_window_minutes = await config_service.get(
+            "conductor.proximity.boarding_time_window_minutes",
+            default=5.0
+        )
+        min_stop_duration_seconds = await config_service.get(
+            "conductor.stop_duration.min_seconds",
+            default=15.0
+        )
+        max_stop_duration_seconds = await config_service.get(
+            "conductor.stop_duration.max_seconds",
+            default=180.0
+        )
+        per_passenger_boarding_time = await config_service.get(
+            "conductor.stop_duration.per_passenger_boarding_time",
+            default=8.0
+        )
+        per_passenger_disembarking_time = await config_service.get(
+            "conductor.stop_duration.per_passenger_disembarking_time",
+            default=5.0
+        )
+        monitoring_interval_seconds = await config_service.get(
+            "conductor.operational.monitoring_interval_seconds",
+            default=2.0
+        )
+        gps_precision_meters = await config_service.get(
+            "conductor.operational.gps_precision_meters",
+            default=10.0
+        )
+        
+        logger.info(f"[ConductorConfig] Loaded from ConfigurationService:")
+        logger.info(f"  • pickup_radius_km: {pickup_radius_km}")
+        logger.info(f"  • boarding_time_window_minutes: {boarding_time_window_minutes}")
+        logger.info(f"  • min_stop_duration_seconds: {min_stop_duration_seconds}")
+        logger.info(f"  • monitoring_interval_seconds: {monitoring_interval_seconds}")
+        
+        return cls(
+            pickup_radius_km=pickup_radius_km,
+            boarding_time_window_minutes=boarding_time_window_minutes,
+            min_stop_duration_seconds=min_stop_duration_seconds,
+            max_stop_duration_seconds=max_stop_duration_seconds,
+            per_passenger_boarding_time=per_passenger_boarding_time,
+            per_passenger_disembarking_time=per_passenger_disembarking_time,
+            monitoring_interval_seconds=monitoring_interval_seconds,
+            gps_precision_meters=gps_precision_meters
+        )
 
 
 class Conductor(BasePerson):
@@ -186,6 +262,37 @@ class Conductor(BasePerson):
             f"Enhanced Conductor {conductor_name} initialized for vehicle {vehicle_id} "
             f"on route {self.assigned_route_id} (capacity: {capacity})"
         )
+    
+    async def initialize_config(self, config_service=None):
+        """
+        Initialize dynamic configuration from ConfigurationService.
+        Call this method after constructing the Conductor to load configuration from Strapi.
+        
+        Args:
+            config_service: Optional ConfigurationService instance. If None, will get global instance.
+        
+        Example:
+            conductor = Conductor(...)
+            await conductor.initialize_config()
+        """
+        try:
+            self.config = await ConductorConfig.from_config_service(config_service)
+            self.logger.info(
+                f"[{self.component_name}] Configuration loaded from ConfigurationService:\n"
+                f"  • pickup_radius_km: {self.config.pickup_radius_km}\n"
+                f"  • boarding_time_window_minutes: {self.config.boarding_time_window_minutes}\n"
+                f"  • min_stop_duration_seconds: {self.config.min_stop_duration_seconds}\n"
+                f"  • max_stop_duration_seconds: {self.config.max_stop_duration_seconds}\n"
+                f"  • per_passenger_boarding_time: {self.config.per_passenger_boarding_time}\n"
+                f"  • per_passenger_disembarking_time: {self.config.per_passenger_disembarking_time}\n"
+                f"  • monitoring_interval_seconds: {self.config.monitoring_interval_seconds}\n"
+                f"  • gps_precision_meters: {self.config.gps_precision_meters}"
+            )
+        except Exception as e:
+            self.logger.warning(
+                f"[{self.component_name}] Could not load config from ConfigurationService, "
+                f"using existing config: {e}"
+            )
     
     @classmethod
     def from_config(

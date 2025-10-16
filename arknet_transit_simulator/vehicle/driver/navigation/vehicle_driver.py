@@ -19,6 +19,8 @@ import time
 import threading
 import asyncio
 import socketio
+import logging
+from dataclasses import dataclass
 from typing import List, Tuple, Optional
 from datetime import datetime
 
@@ -26,6 +28,57 @@ from . import math
 from .telemetry_buffer import TelemetryBuffer
 from ...base_person import BasePerson
 from ....core.states import DriverState
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DriverConfig:
+    """
+    Enhanced driver configuration - Now loaded dynamically from ConfigurationService.
+    Default values are used as fallbacks if configuration service is unavailable.
+    """
+    waypoint_proximity_threshold_km: float = 0.05  # 50 meters - proximity to consider waypoint "reached"
+    broadcast_interval_seconds: float = 5.0  # How often to broadcast location via Socket.IO
+    
+    @classmethod
+    async def from_config_service(cls, config_service=None):
+        """
+        Load driver configuration from ConfigurationService with fallback to defaults.
+        
+        Args:
+            config_service: Optional ConfigurationService instance
+            
+        Returns:
+            DriverConfig instance with values from Strapi or defaults
+        """
+        if config_service is None:
+            try:
+                from ....services.config_service import get_config_service
+                config_service = await get_config_service()
+            except Exception as e:
+                logger.warning(f"Could not load ConfigurationService, using defaults: {e}")
+                return cls()
+        
+        # Load waypoint settings
+        waypoint_proximity_threshold_km = await config_service.get(
+            "driver.waypoints.proximity_threshold_km",
+            default=0.05
+        )
+        
+        broadcast_interval_seconds = await config_service.get(
+            "driver.waypoints.broadcast_interval_seconds",
+            default=5.0
+        )
+        
+        logger.info(f"[DriverConfig] Loaded from ConfigurationService:")
+        logger.info(f"  • waypoint_proximity_threshold_km: {waypoint_proximity_threshold_km}")
+        logger.info(f"  • broadcast_interval_seconds: {broadcast_interval_seconds}")
+        
+        return cls(
+            waypoint_proximity_threshold_km=waypoint_proximity_threshold_km,
+            broadcast_interval_seconds=broadcast_interval_seconds
+        )
 
 
 class VehicleDriver(BasePerson):
@@ -41,7 +94,8 @@ class VehicleDriver(BasePerson):
         mode: str = "geodesic",
         direction: str = "outbound",
         sio_url: str = "http://localhost:3000",
-        use_socketio: bool = True
+        use_socketio: bool = True,
+        config: DriverConfig = None
     ):
         """
         VehicleDriver that accepts route coordinates directly.
@@ -57,6 +111,7 @@ class VehicleDriver(BasePerson):
         :param direction: "outbound" (default) or "inbound" (reverse route)
         :param sio_url: Socket.IO server URL (Priority 2)
         :param use_socketio: Enable/disable Socket.IO (Priority 2)
+        :param config: DriverConfig instance (optional, uses defaults if not provided)
         """
         # Initialize BasePerson with PersonState, then override with DriverState
         super().__init__(driver_id, "VehicleDriver", driver_name)
@@ -73,6 +128,7 @@ class VehicleDriver(BasePerson):
         self.tick_time = tick_time
         self.mode = mode
         self.direction = direction
+        self.config = config or DriverConfig()  # Use provided config or defaults
         
         # References to vehicle components (to be set when boarding)
         self.vehicle_engine = None
@@ -112,11 +168,37 @@ class VehicleDriver(BasePerson):
         
         # Waypoint tracking for passenger checks (Phase 3.2)
         self.visited_waypoints = set()  # Track which route points we've visited
-        self.waypoint_proximity_threshold_km = 0.05  # 50 meters
+        # Proximity threshold now loaded from config (dynamically from Strapi)
+        # self.waypoint_proximity_threshold_km is accessed via self.config.waypoint_proximity_threshold_km
 
         # Worker
         self._running = False
         self._thread: Optional[threading.Thread] = None
+    
+    async def initialize_config(self, config_service=None):
+        """
+        Initialize dynamic configuration from ConfigurationService.
+        Call this method after constructing the VehicleDriver to load configuration from Strapi.
+        
+        Args:
+            config_service: Optional ConfigurationService instance. If None, will get global instance.
+        
+        Example:
+            driver = VehicleDriver(...)
+            await driver.initialize_config()
+        """
+        try:
+            self.config = await DriverConfig.from_config_service(config_service)
+            self.logger.info(
+                f"[{self.component_name}] Configuration loaded from ConfigurationService:\n"
+                f"  • waypoint_proximity_threshold_km: {self.config.waypoint_proximity_threshold_km}\n"
+                f"  • broadcast_interval_seconds: {self.config.broadcast_interval_seconds}"
+            )
+        except Exception as e:
+            self.logger.warning(
+                f"[{self.component_name}] Could not load config from ConfigurationService, "
+                f"using existing config: {e}"
+            )
     
     def _setup_socketio_handlers(self) -> None:
         """Set up Socket.IO event handlers (Priority 2)."""
@@ -445,8 +527,8 @@ class VehicleDriver(BasePerson):
             # Calculate distance to waypoint
             distance_km = math.haversine(current_lat, current_lon, wp_lat, wp_lon)
             
-            # If within proximity threshold, mark as arrived
-            if distance_km <= self.waypoint_proximity_threshold_km:
+            # If within proximity threshold (from dynamic config), mark as arrived
+            if distance_km <= self.config.waypoint_proximity_threshold_km:
                 self.visited_waypoints.add(waypoint_index)
                 
                 # Emit arrival event for conductor
