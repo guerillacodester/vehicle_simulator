@@ -51,7 +51,8 @@
         "description": "Current parameter value",
         "placeholder": "",
         "visible": true,
-        "editable": true
+        "editable": true,
+        "mainField": "value"
       },
       "list": {
         "label": "Value",
@@ -79,7 +80,8 @@
         "description": "Default value if not set",
         "placeholder": "",
         "visible": true,
-        "editable": true
+        "editable": true,
+        "mainField": "default_value"
       },
       "list": {
         "label": "Default",
@@ -93,7 +95,8 @@
         "description": "Validation constraints (min, max, etc.)",
         "placeholder": "",
         "visible": true,
-        "editable": true
+        "editable": true,
+        "mainField": "constraints"
       },
       "list": {
         "label": "Constraints",

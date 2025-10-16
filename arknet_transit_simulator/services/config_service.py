@@ -21,6 +21,7 @@ Example Usage:
 
 import asyncio
 import aiohttp
+import json
 import logging
 from typing import Any, Dict, Optional, Callable, List
 from datetime import datetime, timedelta
@@ -130,13 +131,24 @@ class ConfigurationService:
                         # In Strapi v5, attributes are at root level, not nested
                         section = config.get("section")
                         parameter = config.get("parameter")
-                        value = config.get("value")
+                        value_raw = config.get("value")
+                        value_type = config.get("value_type")
+                        
+                        # Parse value from JSON string to actual type
+                        try:
+                            value = json.loads(value_raw) if isinstance(value_raw, str) else value_raw
+                        except (json.JSONDecodeError, TypeError):
+                            value = value_raw
                         
                         if section and parameter:
-                            # Store in hierarchical cache
+                            # Store in hierarchical cache (with parsed value)
                             if section not in self._cache:
                                 self._cache[section] = {}
-                            self._cache[section][parameter] = config
+                            
+                            # Update the config with parsed value for storage
+                            config_copy = config.copy()
+                            config_copy["value"] = value
+                            self._cache[section][parameter] = config_copy
                             
                             # Store in flat cache
                             key = f"{section}.{parameter}"
