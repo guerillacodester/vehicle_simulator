@@ -829,49 +829,65 @@ class Conductor(BasePerson):
     async def _signal_driver_continue(self) -> None:
         """Signal driver to continue driving (Priority 2: Socket.IO + callback fallback)."""
         
-        # Prepare signal data (Socket.IO format)
-        signal_data = {
-            'vehicle_id': self.vehicle_id,
-            'conductor_id': self.component_id,
-            'passenger_count': self.passengers_on_board,
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        self.logger.info(f"Conductor {self.component_id} signaling driver to continue")
-        
-        # Try Socket.IO first (Priority 2)
-        if self.use_socketio and self.sio_connected:
-            try:
-                await self.sio.emit('conductor:ready:depart', signal_data)
-                self.logger.info(f"[{self.component_id}] Depart signal sent via Socket.IO")
-                return  # Success
-            except Exception as e:
-                self.logger.error(f"Socket.IO emit failed: {e}, falling back...")
-        
-        # Try driver callback (Priority 3)
-        if self.driver_callback:
-            self.logger.info(f"[{self.component_id}] Using driver callback")
-            callback_data = {
-                'action': 'continue_driving',
+        try:
+            # Prepare signal data (Socket.IO format)
+            signal_data = {
+                'vehicle_id': self.vehicle_id,
                 'conductor_id': self.component_id,
-                'restore_gps': True,
-                'gps_position': self.preserved_gps_position
+                'passenger_count': self.passengers_on_board,
+                'timestamp': datetime.now().isoformat()
             }
-            self.driver_callback(self.component_id, callback_data)
-            return  # Success
-        
-        # Final fallback: Direct driver method call (Priority 4)
-        if hasattr(self, 'driver') and self.driver:
-            self.logger.info(f"[{self.component_id}] Using direct driver method call")
-            try:
-                await self.driver.start_engine()
-                self.logger.info(f"[{self.component_id}] ✅ Driver engine started via direct call")
+            
+            self.logger.info(f"Conductor {self.component_id} signaling driver to continue")
+            
+            # Try Socket.IO first (Priority 2)
+            if self.use_socketio and self.sio_connected:
+                self.logger.info(f"[{self.component_id}] Attempting Socket.IO signal...")
+                try:
+                    await self.sio.emit('conductor:ready:depart', signal_data)
+                    self.logger.info(f"[{self.component_id}] Depart signal sent via Socket.IO")
+                    return  # Success
+                except Exception as e:
+                    self.logger.error(f"Socket.IO emit failed: {e}, falling back...")
+            else:
+                self.logger.info(f"[{self.component_id}] Socket.IO not available (connected={self.sio_connected})")
+            
+            # Try driver callback (Priority 3)
+            if self.driver_callback:
+                self.logger.info(f"[{self.component_id}] Using driver callback")
+                callback_data = {
+                    'action': 'continue_driving',
+                    'conductor_id': self.component_id,
+                    'restore_gps': True,
+                    'gps_position': self.preserved_gps_position
+                }
+                self.driver_callback(self.component_id, callback_data)
                 return  # Success
-            except Exception as e:
-                self.logger.error(f"[{self.component_id}] Failed to start engine: {e}")
+            else:
+                self.logger.info(f"[{self.component_id}] No driver callback available")
+            
+            # Final fallback: Direct driver method call (Priority 4)
+            self.logger.info(f"[{self.component_id}] Checking for direct driver reference...")
+            if hasattr(self, 'driver') and self.driver:
+                self.logger.info(f"[{self.component_id}] ✅ Found driver reference, calling start_engine()...")
+                try:
+                    await self.driver.start_engine()
+                    self.logger.info(f"[{self.component_id}] ✅ Driver engine started via direct call")
+                    return  # Success
+                except Exception as e:
+                    self.logger.error(f"[{self.component_id}] Failed to start engine: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                self.logger.warning(f"[{self.component_id}] No driver reference found (hasattr={hasattr(self, 'driver')})")
+            
+            # No communication method available
+            self.logger.error(f"[{self.component_id}] ⚠️⚠️⚠️ NO COMMUNICATION METHOD AVAILABLE TO SIGNAL DRIVER!")
         
-        # No communication method available
-        self.logger.warning(f"[{self.component_id}] ⚠️ No communication method available to signal driver!")
+        except Exception as e:
+            self.logger.error(f"[{self.component_id}] CRITICAL ERROR in _signal_driver_continue: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Reset state
         self.current_stop_operation = None
