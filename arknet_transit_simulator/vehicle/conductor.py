@@ -524,6 +524,14 @@ class Conductor(BasePerson):
             if self.use_socketio:
                 await self._disconnect_socketio()
             
+            # Disconnect PassengerDatabase
+            if self.passenger_db:
+                try:
+                    await self.passenger_db.disconnect()
+                    self.logger.info(f"[{self.component_id}] Disconnected from PassengerDatabase")
+                except Exception as e:
+                    self.logger.warning(f"[{self.component_id}] Error disconnecting PassengerDatabase: {e}")
+            
             # Stop basic operations
             self._running = False
             if self._thread:
@@ -572,8 +580,24 @@ class Conductor(BasePerson):
         """Background task to monitor passengers and manage operations."""
         try:
             while self._running and self.conductor_state != ConductorState.WAITING_FOR_DEPARTURE:
-                # Query depot for passengers matching our route
-                if self.depot_callback:
+                # Check for passengers via API if we have current position
+                if self.passenger_db and self.current_vehicle_position:
+                    try:
+                        lat, lon = self.current_vehicle_position
+                        self.logger.debug(
+                            f"[{self.component_id}] Checking for passengers at position "
+                            f"({lat:.6f}, {lon:.6f})"
+                        )
+                        await self.check_for_passengers(
+                            vehicle_lat=lat,
+                            vehicle_lon=lon,
+                            route_id=self.assigned_route_id
+                        )
+                    except Exception as e:
+                        self.logger.warning(f"[{self.component_id}] Error checking for passengers: {e}")
+                
+                # Legacy: Query depot callback if configured
+                elif self.depot_callback:
                     try:
                         route_passengers = self.depot_callback(self.assigned_route_id)
                         await self._evaluate_passengers(route_passengers)

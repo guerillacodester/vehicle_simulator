@@ -278,6 +278,10 @@ class VehicleDriver(BasePerson):
                         lat = telemetry.get('lat', 0)
                         lon = telemetry.get('lon', 0)
                         
+                        # Update conductor position if available
+                        if hasattr(self, 'conductor') and self.conductor:
+                            await self.conductor.update_vehicle_position(lat, lon)
+                        
                         location_data = {
                             'vehicle_id': self.vehicle_id,
                             'driver_id': self.component_id,

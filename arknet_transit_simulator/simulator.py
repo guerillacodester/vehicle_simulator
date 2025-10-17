@@ -422,6 +422,7 @@ class CleanVehicleSimulator:
             try:
                 from arknet_transit_simulator.vehicle.conductor import Conductor
                 from arknet_transit_simulator.services.vehicle_performance import VehiclePerformanceService
+                from commuter_service.passenger_db import PassengerDatabase
                 
                 # Get vehicle capacity from database
                 try:
@@ -432,12 +433,18 @@ class CleanVehicleSimulator:
                     logger.warning(f"[CONDUCTOR] Failed to get capacity from database: {perf_error}, using default 40")
                     vehicle_capacity = 40  # Fallback to standard minibus capacity
                 
+                # Create PassengerDatabase for accessing Strapi active-passengers API
+                passenger_db = PassengerDatabase(strapi_url="http://localhost:1337")
+                await passenger_db.connect()
+                logger.info(f"[CONDUCTOR] Connected to PassengerDatabase API at http://localhost:1337")
+                
                 conductor = Conductor(
                     conductor_id=f"COND-{driver_assignment.driver_id}",
                     conductor_name=f"Conductor-{driver_assignment.driver_name}",
                     vehicle_id=vehicle_assignment.vehicle_id,
                     assigned_route_id=vehicle_assignment.route_id,
-                    capacity=vehicle_capacity
+                    capacity=vehicle_capacity,
+                    passenger_db=passenger_db  # Wire API connection
                 )
                 
                 # Attach conductor to driver for future integration
