@@ -381,24 +381,41 @@ class StrapiApiClient:
             return []
     
     async def get_landuse_zones_by_country(self, country_id: int) -> List[Dict[str, Any]]:
-        """Get all Landuse zones for a specific country"""
+        """Get all Landuse zones for a specific country (handles pagination)"""
         self._ensure_connected()
         
+        all_zones = []
+        page = 1
+        page_size = 100  # Strapi's max page size
+        
         try:
-            response = await self.session.get(
-                f"{self.base_url}/api/landuse-zones",
-                params={
-                    "filters[country][id][$eq]": country_id,
-                    "pagination[pageSize]": 5000,  # Large limit for landuse zones
-                    "sort": "zone_type:asc"
-                }
-            )
-            response.raise_for_status()
-            data = response.json()
+            while True:
+                response = await self.session.get(
+                    f"{self.base_url}/api/landuse-zones",
+                    params={
+                        "filters[country][id][$eq]": country_id,
+                        "pagination[page]": page,
+                        "pagination[pageSize]": page_size,
+                        "sort": "zone_type:asc"
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                zones = data.get('data', [])
+                all_zones.extend(zones)
+                
+                # Check if there are more pages
+                pagination = data.get('meta', {}).get('pagination', {})
+                total_pages = pagination.get('pageCount', 1)
+                
+                if page >= total_pages:
+                    break
+                    
+                page += 1
             
-            zones = data.get('data', [])
-            logging.info(f"[OK] Retrieved {len(zones)} Landuse zones for country {country_id}")
-            return zones
+            logging.info(f"[OK] Retrieved {len(all_zones)} Landuse zones for country {country_id} ({page} pages)")
+            return all_zones
             
         except Exception as e:
             logging.error(f"[ERROR] Failed to get Landuse zones for country {country_id}: {e}")

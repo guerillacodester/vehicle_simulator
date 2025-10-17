@@ -20,6 +20,7 @@ from shapely.geometry import Point, Polygon, shape
 from shapely.ops import unary_union
 
 from .strapi_api_client import StrapiApiClient, DepotData, RouteData
+from .spatial_zone_cache import SpatialZoneCache
 
 
 @dataclass
@@ -91,18 +92,18 @@ class GeoJSONDataLoader:
         
         for zone_data in landuse_zones:
             try:
-                # Extract geometry from Strapi format
-                geometry_data = zone_data.get('geometry')
+                # Extract geometry from Strapi format (Strapi uses 'geometry_geojson' field)
+                geometry_data = zone_data.get('geometry_geojson') or zone_data.get('geometry')
                 if not geometry_data:
                     continue
                 
                 geometry = shape(geometry_data)
                 
-                # Extract landuse type
-                landuse_type = zone_data.get('landuse_type', 'unknown')
+                # Extract landuse type (database uses 'zone_type' field)
+                landuse_type = zone_data.get('zone_type', 'unknown')
                 
                 # Calculate population density based on land use
-                population_density = self._estimate_population_density(landuse_type, zone_data)
+                population_density = self._estimate_population_density(landuse_type)
                 
                 if population_density > 0:
                     # Create population zone
@@ -173,7 +174,7 @@ class GeoJSONDataLoader:
         for place_data in places:
             try:
                 # Create point geometry from lat/lon or use geometry if available
-                geometry_data = place_data.get('geometry')
+                geometry_data = place_data.get('geometry_geojson') or place_data.get('geometry')
                 lat = place_data.get('latitude')
                 lon = place_data.get('longitude')
                 
@@ -205,8 +206,8 @@ class GeoJSONDataLoader:
         
         for region_data in regions:
             try:
-                # Extract geometry from Strapi format
-                geometry_data = region_data.get('geometry')
+                # Extract geometry from Strapi format (Strapi uses 'geometry_geojson' field)
+                geometry_data = region_data.get('geometry_geojson') or region_data.get('geometry')
                 if not geometry_data:
                     continue
                 
@@ -330,23 +331,60 @@ class GeoJSONDataLoader:
 class PoissonGeoJSONSpawner:
     """Poisson-based passenger spawning using GeoJSON population data"""
     
-    def __init__(self, api_client: StrapiApiClient):
+    def __init__(self, api_client: StrapiApiClient, spatial_cache: Optional[SpatialZoneCache] = None):
         self.api_client = api_client
         self.geojson_loader = GeoJSONDataLoader(self.api_client)
+        self.spatial_cache = spatial_cache  # Optional spatial zone cache for performance
         self.routes: List[RouteData] = []
         self.depots: List[DepotData] = []
         self._initialized = False
+        self._using_cache = False
     
-    async def initialize(self, country_code: str = "barbados") -> bool:
-        """Initialize with GeoJSON and API data"""
+    async def initialize(self, country_code: str = "barbados", use_spatial_cache: bool = True) -> bool:
+        """Initialize with GeoJSON and API data
+        
+        Args:
+            country_code: Country code for geographic data
+            use_spatial_cache: If True and spatial_cache is set, use cached zones instead of loading all
+        """
         try:
-            # Load GeoJSON population data
-            if not await self.geojson_loader.load_geojson_data(country_code):
-                return False
-            
-            # Load API data
+            # Load API data (routes and depots)
             self.routes = await self.api_client.get_all_routes()
             self.depots = await self.api_client.get_all_depots()
+            
+            # Determine if we should use spatial cache
+            if use_spatial_cache and self.spatial_cache:
+                # Wait for spatial cache to load zones in background
+                logging.info("⏳ Waiting for spatial zone cache to load...")
+                loaded = await self.spatial_cache.wait_for_initial_load(timeout=30.0)
+                
+                if loaded:
+                    # Use cached zones instead of loading all
+                    population_zones, amenity_zones = await self.spatial_cache.get_cached_zones()
+                    
+                    # Convert cached zones to PopulationZone objects
+                    self.geojson_loader.population_zones = await self._convert_cached_zones(
+                        population_zones, is_amenity=False
+                    )
+                    self.geojson_loader.amenity_zones = await self._convert_cached_zones(
+                        amenity_zones, is_amenity=True
+                    )
+                    
+                    stats = self.spatial_cache.get_stats()
+                    logging.info(
+                        f"✅ Using spatial cache: {stats['population_zones']} population zones, "
+                        f"{stats['amenity_zones']} amenity zones (±{stats['buffer_km']}km buffer)"
+                    )
+                    self._using_cache = True
+                else:
+                    logging.warning("⚠️ Spatial cache timeout, falling back to full load")
+                    if not await self.geojson_loader.load_geojson_data(country_code):
+                        return False
+            else:
+                # Traditional full load (all zones, blocks main thread)
+                logging.info("📦 Loading all zones (no spatial filtering)...")
+                if not await self.geojson_loader.load_geojson_data(country_code):
+                    return False
             
             self._initialized = True
             logging.info(f"✅ Poisson GeoJSON spawner initialized for {country_code}")
@@ -355,6 +393,58 @@ class PoissonGeoJSONSpawner:
         except Exception as e:
             logging.error(f"❌ Failed to initialize Poisson spawner: {e}")
             return False
+    
+    async def _convert_cached_zones(
+        self,
+        cached_zones: List[Dict[str, Any]],
+        is_amenity: bool = False
+    ) -> List[PopulationZone]:
+        """Convert cached zone dictionaries to PopulationZone objects
+        
+        Args:
+            cached_zones: List of zone dictionaries from spatial cache
+            is_amenity: True if these are amenity zones
+        
+        Returns:
+            List of PopulationZone objects
+        """
+        zones = []
+        
+        for zone_data in cached_zones:
+            try:
+                # Extract geometry
+                geometry_data = zone_data.get('geometry_geojson') or zone_data.get('geometry')
+                if not geometry_data:
+                    continue
+                
+                geometry = shape(geometry_data)
+                
+                # Extract zone type
+                zone_type = zone_data.get('zone_type') or zone_data.get('amenity_type', 'unknown')
+                
+                # Calculate population density
+                if is_amenity:
+                    population_density = self.geojson_loader._estimate_amenity_activity(zone_type)
+                else:
+                    population_density = self.geojson_loader._estimate_population_density(zone_type)
+                
+                if population_density > 0:
+                    zone = PopulationZone(
+                        zone_id=f"{'amenity' if is_amenity else 'landuse'}_{zone_data['id']}",
+                        center_point=self.geojson_loader._get_geometry_center(geometry),
+                        geometry=geometry,
+                        base_population=int(geometry.area * 1000000 * population_density),
+                        zone_type=zone_type,
+                        spawn_rate_per_hour=population_density * 0.1,
+                        peak_hours=self.geojson_loader._get_peak_hours(zone_type)
+                    )
+                    zones.append(zone)
+                    
+            except Exception as e:
+                logging.warning(f"Failed to convert cached zone: {e}")
+                continue
+        
+        return zones
     
     async def generate_poisson_spawn_requests(self, current_time: datetime, 
                                             time_window_minutes: int = 5,
@@ -374,38 +464,64 @@ class PoissonGeoJSONSpawner:
         spawn_requests = []
         current_hour = current_time.hour
         
-        logging.debug(f"🎲 Spawning [{spawn_context}] for hour {current_hour}: {len(self.geojson_loader.population_zones)} population zones, {len(self.geojson_loader.amenity_zones)} amenity zones")
+        logging.info(f"🎲 [{spawn_context.upper()}] Starting spawn generation for hour {current_hour}: {len(self.geojson_loader.population_zones)} population zones, {len(self.geojson_loader.amenity_zones)} amenity zones")
         
-        # Process population zones
-        for zone in self.geojson_loader.population_zones:
-            spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes, spawn_context)
-            
-            if spawn_rate > 0:
-                # Use Poisson distribution for passenger count
-                passenger_count = np.random.poisson(spawn_rate)
-                
-                if passenger_count > 0:
-                    requests = await self._create_zone_spawn_requests(
-                        zone, passenger_count, current_time
-                    )
-                    spawn_requests.extend(requests)
+        # Process population zones with error handling
+        pop_zones_processed = 0
+        pop_zones_with_spawns = 0
+        try:
+            for zone in self.geojson_loader.population_zones:
+                try:
+                    spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes, spawn_context)
+                    
+                    if spawn_rate > 0:
+                        # Use Poisson distribution for passenger count
+                        passenger_count = np.random.poisson(spawn_rate)
+                        
+                        if passenger_count > 0:
+                            pop_zones_with_spawns += 1
+                            requests = await self._create_zone_spawn_requests(
+                                zone, passenger_count, current_time
+                            )
+                            spawn_requests.extend(requests)
+                    
+                    pop_zones_processed += 1
+                except Exception as e:
+                    logging.error(f"Error processing population zone {zone.zone_id}: {e}")
+                    continue
+        except Exception as e:
+            logging.error(f"Error in population zone loop: {e}")
         
-        # Process amenity zones
+        logging.info(f"🎲 [{spawn_context.upper()}] Processed {pop_zones_processed} population zones, {pop_zones_with_spawns} generated spawns")
+        
+        # Process amenity zones with error handling
+        amenity_zones_processed = 0
         amenity_spawn_count = 0
-        for zone in self.geojson_loader.amenity_zones:
-            spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes, spawn_context)
-            
-            if spawn_rate > 0:
-                passenger_count = np.random.poisson(spawn_rate)
-                
-                if passenger_count > 0:
-                    amenity_spawn_count += 1
-                    if amenity_spawn_count <= 3:
-                        logging.debug(f"  [AMENITY] Amenity spawn: {zone.zone_type} (rate={spawn_rate:.3f}, count={passenger_count})")
-                    requests = await self._create_zone_spawn_requests(
-                        zone, passenger_count, current_time
-                    )
-                    spawn_requests.extend(requests)
+        try:
+            for zone in self.geojson_loader.amenity_zones:
+                try:
+                    spawn_rate = self._calculate_poisson_rate(zone, current_hour, time_window_minutes, spawn_context)
+                    
+                    if spawn_rate > 0:
+                        passenger_count = np.random.poisson(spawn_rate)
+                        
+                        if passenger_count > 0:
+                            amenity_spawn_count += 1
+                            if amenity_spawn_count <= 3:
+                                logging.debug(f"  [AMENITY] Amenity spawn: {zone.zone_type} (rate={spawn_rate:.3f}, count={passenger_count})")
+                            requests = await self._create_zone_spawn_requests(
+                                zone, passenger_count, current_time
+                            )
+                            spawn_requests.extend(requests)
+                    
+                    amenity_zones_processed += 1
+                except Exception as e:
+                    logging.error(f"Error processing amenity zone {zone.zone_id}: {e}")
+                    continue
+        except Exception as e:
+            logging.error(f"Error in amenity zone loop: {e}")
+        
+        logging.info(f"🎲 [{spawn_context.upper()}] Processed {amenity_zones_processed} amenity zones, {amenity_spawn_count} with spawns")
         
         if amenity_spawn_count > 0:
             logging.info(f"🎲 [{spawn_context.upper()}] Generated {len(spawn_requests)} Poisson-based spawn requests ({amenity_spawn_count} from amenities)")

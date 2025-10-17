@@ -36,6 +36,7 @@ from commuter_service.commuter_config import CommuterBehaviorConfig, CommuterCon
 from commuter_service.passenger_db import PassengerDatabase
 from commuter_service.strapi_api_client import StrapiApiClient, DepotData, RouteData
 from commuter_service.poisson_geojson_spawner import PoissonGeoJSONSpawner
+from commuter_service.spatial_zone_cache import SpatialZoneCache
 
 # Extracted modules (SRP compliance)
 from commuter_service.depot_queue import DepotQueue
@@ -104,6 +105,9 @@ class DepotReservoir:
         # Poisson spawner for statistical passenger generation
         self.poisson_spawner: Optional[PoissonGeoJSONSpawner] = None
         
+        # Spatial zone cache for performance (loads zones in background)
+        self.spatial_cache: Optional[SpatialZoneCache] = None
+        
         # Depot and route data from API
         self.depots: List[DepotData] = []
         self.routes: List[RouteData] = []
@@ -144,10 +148,42 @@ class DepotReservoir:
         
         self.logger.info(f"[OK] Loaded {len(self.depots)} depots and {len(self.routes)} routes")
         
+        # Extract route coordinates and depot locations for spatial filtering
+        route_coordinates = []
+        for route in self.routes:
+            if route.geometry_coordinates:
+                route_coordinates.extend(route.geometry_coordinates)
+        
+        depot_locations = []
+        for depot in self.depots:
+            depot_lat = depot.latitude or (depot.location.get('lat') if depot.location else None)
+            depot_lon = depot.longitude or (depot.location.get('lon') if depot.location else None)
+            if depot_lat and depot_lon:
+                depot_locations.append((depot_lat, depot_lon))
+        
+        # Initialize spatial zone cache (loads zones in background thread)
+        self.logger.info(f"[SPATIAL] Initializing spatial zone cache with {len(route_coordinates)} route points and {len(depot_locations)} depots...")
+        self.spatial_cache = SpatialZoneCache(
+            api_client=self.api_client,
+            country_id=1,  # Barbados
+            buffer_km=5.0,  # Only load zones within 5km of routes/depots
+            cache_ttl_minutes=60,
+            logger=self.logger
+        )
+        
+        # Start background zone loading (non-blocking)
+        await self.spatial_cache.initialize_for_route(
+            route_coordinates=route_coordinates,
+            depot_locations=depot_locations
+        )
+        
         # Initialize Poisson spawner with GeoJSON population data
-        self.logger.info("[INIT] Initializing Poisson GeoJSON spawner with population data...")
-        self.poisson_spawner = PoissonGeoJSONSpawner(self.api_client)
-        await self.poisson_spawner.initialize(country_code="BB")  # Barbados ISO code
+        self.logger.info("[INIT] Initializing Poisson GeoJSON spawner with spatial cache...")
+        self.poisson_spawner = PoissonGeoJSONSpawner(
+            self.api_client,
+            spatial_cache=self.spatial_cache  # Pass spatial cache for background loading
+        )
+        await self.poisson_spawner.initialize(country_code="BB", use_spatial_cache=True)  # Barbados ISO code
         
         # Create depot queues for all depot-route combinations
         for depot in self.depots:
@@ -204,10 +240,28 @@ class DepotReservoir:
             logger=self.logger
         )
         
+        # Load spawn_interval from configuration service (database-driven)
+        spawn_interval = 30.0  # Default fallback
+        try:
+            from arknet_transit_simulator.services.config_service import get_config_service
+            config_service = await get_config_service()
+            spawn_interval = await config_service.get(
+                "commuter_service.spawning.depot_spawn_interval_seconds",
+                default=30.0
+            )
+            self.logger.info(
+                f"[CONFIG] Loaded spawn_interval from database: {spawn_interval}s "
+                "(configure via Strapi: commuter_service.spawning.depot_spawn_interval_seconds)"
+            )
+        except Exception as e:
+            self.logger.warning(
+                f"[CONFIG] Could not load spawn_interval from config service, using default {spawn_interval}s: {e}"
+            )
+        
         # Initialize SpawningCoordinator for automatic passenger spawning
         self.spawning_coordinator = SpawningCoordinator(
             spawner=self.poisson_spawner,
-            spawn_interval=30.0,  # 30-second intervals for spawning
+            spawn_interval=spawn_interval,  # Database-driven configuration
             time_window_minutes=5.0,
             on_spawn_callback=self._process_spawn_request,
             logger=self.logger
@@ -233,6 +287,9 @@ class DepotReservoir:
         
         if self.spawning_coordinator:
             await self.spawning_coordinator.stop()
+        
+        if self.spatial_cache:
+            await self.spatial_cache.shutdown()
         
         # Disconnect from database
         await self.db.disconnect()
