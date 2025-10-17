@@ -469,11 +469,18 @@ class DepotReservoir:
         # Get depot name
         depot_name = next((d.name for d in self.depots if d.depot_id == depot_id), depot_id)
         
+        # Calculate trip distance
+        from geodesy.geodesy import haversine
+        trip_distance_km = haversine(
+            depot_location[0], depot_location[1],
+            destination[0], destination[1]
+        )
+        
         # Get total spawned count from statistics
         stats = await self.statistics.get_stats()
         total_spawned = stats['total_spawned']
         
-        # Log spawn details
+        # Log spawn details with trip distance
         self.logger.info(
             f"[SPAWN] DEPOT SPAWN #{total_spawned} | "
             f"ID: {commuter.commuter_id[:8]}... | "
@@ -481,6 +488,7 @@ class DepotReservoir:
             f"Near: {spawn_location_name} | "
             f"Route: {route_id} | "
             f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) -> {dest_location_name} | "
+            f"Distance: {trip_distance_km:.2f} km | "
             f"Priority: {priority} | "
             f"Queue: {len(queue.commuters)} waiting"
         )

@@ -831,48 +831,23 @@ class PoissonGeoJSONSpawner:
             return self._find_random_destination(route)
     
     def _find_commercial_destination(self, route: RouteData) -> Dict[str, float]:
-        """Find destination in commercial/business areas"""
-        # Collect commercial zones near the route
-        candidate_zones = [z for z in self.geojson_loader.amenity_zones
-                           if z.zone_type in ['commercial', 'office', 'shopping']
-                           and self._is_zone_near_route(z, route)]
-
-        if candidate_zones:
-            # Use log-normal distance-based selection to pick a realistic destination
-            spawn_loc = self._approx_route_spawn_point(route)
-            selected = self._select_destination_by_log_normal_distance(candidate_zones, spawn_loc)
-            if selected:
-                return selected
-
-        # Fallback to random point along route
-        return self._find_random_destination(route)
+        """Find destination in commercial/business areas ALONG THE ROUTE"""
+        # For route spawns, destinations MUST be on the route itself
+        # We'll use route geometry instead of searching arbitrary zones
+        spawn_loc = self._approx_route_spawn_point(route)
+        return self._select_destination_along_route(route, spawn_loc, min_distance_km=0.5, max_distance_km=3.0)
     
     def _find_residential_destination(self, route: RouteData) -> Dict[str, float]:
-        """Find destination in residential areas"""
-        candidate_zones = [z for z in self.geojson_loader.population_zones
-                           if z.zone_type in ['residential', 'suburban']
-                           and self._is_zone_near_route(z, route)]
-
-        if candidate_zones:
-            spawn_loc = self._approx_route_spawn_point(route)
-            selected = self._select_destination_by_log_normal_distance(candidate_zones, spawn_loc)
-            if selected:
-                return selected
-
-        return self._find_random_destination(route)
+        """Find destination in residential areas ALONG THE ROUTE"""
+        # For route spawns, destinations MUST be on the route itself
+        spawn_loc = self._approx_route_spawn_point(route)
+        return self._select_destination_along_route(route, spawn_loc, min_distance_km=0.5, max_distance_km=3.0)
     
     def _find_mixed_destination(self, route: RouteData) -> Dict[str, float]:
-        """Find mixed destination (residential or commercial)"""
-        all_zones = self.geojson_loader.population_zones + self.geojson_loader.amenity_zones
-        nearby_zones = [z for z in all_zones if self._is_zone_near_route(z, route)]
-
-        if nearby_zones:
-            spawn_loc = self._approx_route_spawn_point(route)
-            selected = self._select_destination_by_log_normal_distance(nearby_zones, spawn_loc)
-            if selected:
-                return selected
-
-        return self._find_random_destination(route)
+        """Find mixed destination ALONG THE ROUTE"""
+        # For route spawns, destinations MUST be on the route itself
+        spawn_loc = self._approx_route_spawn_point(route)
+        return self._select_destination_along_route(route, spawn_loc, min_distance_km=0.5, max_distance_km=3.0)
 
     def _approx_route_spawn_point(self, route: RouteData) -> Tuple[float, float]:
         """Approximate a spawn location on the route to compute distances.
@@ -893,6 +868,12 @@ class PoissonGeoJSONSpawner:
                                                    mu: float = 1.5,
                                                    sigma: float = 0.7) -> Optional[Dict[str, float]]:
         """Select a destination zone using a log-normal desired trip distance.
+        
+        NOTE: This method is DEPRECATED for route spawns. Route spawns should use
+        _select_destination_along_route() instead to ensure destinations are ON the route.
+        
+        This method picks destinations from ANY zone, which can result in trips longer
+        than the route itself - a logical impossibility!
 
         - samples a desired trip distance in kilometers from a log-normal
           distribution (parameters mu, sigma)
@@ -919,7 +900,100 @@ class PoissonGeoJSONSpawner:
 
         return {'lat': best_zone.center_point[0], 'lon': best_zone.center_point[1]}
     
+    def _select_destination_along_route(self, route: RouteData, spawn_location: Tuple[float, float],
+                                       min_distance_km: float = 0.5,
+                                       max_distance_km: float = None) -> Dict[str, float]:
+        """Select a destination point ALONG the route geometry.
+        
+        This ensures passengers spawning on a route have destinations that are actually
+        reachable by that route. The destination will be a point from the route's shape.
+        
+        Args:
+            route: The route the passenger will travel on
+            spawn_location: Where the passenger is spawning (lat, lon)
+            min_distance_km: Minimum trip distance (default 0.5 km)
+            max_distance_km: Maximum trip distance (default: full route length)
+            
+        Returns:
+            Dict with 'lat' and 'lon' of a point along the route
+        """
+        if not route.geometry_coordinates or len(route.geometry_coordinates) < 2:
+            # Fallback if route has no geometry
+            return {'lat': 13.1939, 'lon': -59.5432}
+        
+        # Find the closest point on the route to the spawn location
+        min_spawn_dist = float('inf')
+        closest_spawn_idx = 0
+        
+        for i, coord in enumerate(route.geometry_coordinates):
+            route_point = (coord[1], coord[0])  # Convert to (lat, lon)
+            dist = geodesic(spawn_location, route_point).kilometers
+            if dist < min_spawn_dist:
+                min_spawn_dist = dist
+                closest_spawn_idx = i
+        
+        # Calculate cumulative distances along the route
+        cumulative_distances = [0.0]
+        for i in range(len(route.geometry_coordinates) - 1):
+            coord1 = route.geometry_coordinates[i]
+            coord2 = route.geometry_coordinates[i + 1]
+            point1 = (coord1[1], coord1[0])
+            point2 = (coord2[1], coord2[0])
+            segment_dist = geodesic(point1, point2).kilometers
+            cumulative_distances.append(cumulative_distances[-1] + segment_dist)
+        
+        total_route_length = cumulative_distances[-1]
+        
+        # Set max distance to route length if not specified
+        if max_distance_km is None:
+            max_distance_km = total_route_length
+        
+        spawn_distance_along_route = cumulative_distances[closest_spawn_idx]
+        
+        # Find candidate destination points that are within min/max distance
+        candidates = []
+        for i, cum_dist in enumerate(cumulative_distances):
+            trip_distance = abs(cum_dist - spawn_distance_along_route)
+            
+            if min_distance_km <= trip_distance <= max_distance_km:
+                coord = route.geometry_coordinates[i]
+                candidates.append({
+                    'index': i,
+                    'lat': coord[1],
+                    'lon': coord[0],
+                    'trip_distance': trip_distance
+                })
+        
+        # If no candidates found (route too short), pick the furthest point
+        if not candidates:
+            # Pick a point at least min_distance away, or the furthest point
+            best_idx = 0
+            best_dist = 0.0
+            for i, cum_dist in enumerate(cumulative_distances):
+                trip_dist = abs(cum_dist - spawn_distance_along_route)
+                if trip_dist > best_dist:
+                    best_dist = trip_dist
+                    best_idx = i
+            
+            coord = route.geometry_coordinates[best_idx]
+            return {'lat': coord[1], 'lon': coord[0]}
+        
+        # Randomly select from candidates (weighted towards longer trips)
+        # Use trip_distance as weight to prefer longer journeys
+        weights = [c['trip_distance'] for c in candidates]
+        total_weight = sum(weights)
+        
+        if total_weight > 0:
+            weights = [w / total_weight for w in weights]
+            selected = np.random.choice(len(candidates), p=weights)
+            dest = candidates[selected]
+        else:
+            dest = random.choice(candidates)
+        
+        return {'lat': dest['lat'], 'lon': dest['lon']}
+    
     def _find_random_destination(self, route: RouteData) -> Dict[str, float]:
+
         """Find random destination along route with better distribution"""
         if route.geometry_coordinates and len(route.geometry_coordinates) > 0:
             total_points = len(route.geometry_coordinates)

@@ -551,17 +551,25 @@ class RouteReservoir:
         spawn_location_name = self._get_location_name(current_location)
         dest_location_name = self._get_location_name(destination)
         
+        # Calculate trip distance
+        from geodesy.geodesy import haversine
+        trip_distance_km = haversine(
+            current_location[0], current_location[1],
+            destination[0], destination[1]
+        )
+        
         # Get total spawned count from statistics
         stats = await self.statistics.get_stats()
         total_spawned = stats['total_spawned']
         
-        # Log spawn details
+        # Log spawn details with trip distance
         self.logger.info(
             f"[SPAWN] ROUTE SPAWN #{total_spawned} | "
             f"ID: {commuter.commuter_id[:8]}... | "
             f"Route: {route_id} | "
             f"Spawn: ({current_location[0]:.4f}, {current_location[1]:.4f}) -> {spawn_location_name} | "
             f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) -> {dest_location_name} | "
+            f"Distance: {trip_distance_km:.2f} km | "
             f"Direction: {direction.value} | "
             f"Priority: {priority} | "
             f"Grid: {grid_cell}"
