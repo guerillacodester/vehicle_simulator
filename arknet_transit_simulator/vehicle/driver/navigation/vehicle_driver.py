@@ -267,10 +267,18 @@ class VehicleDriver(BasePerson):
     
     async def _broadcast_location_loop(self) -> None:
         """Background task to broadcast location via Socket.IO (Priority 2)."""
+        self.logger.info(f"[{self.person_name}] _broadcast_location_loop STARTED")
         
         while self._running and self.use_socketio:
             try:
-                if self.sio_connected and self.current_state == DriverState.ONBOARD:
+                self.logger.info(f"[{self.person_name}] Loop iteration: sio_connected={self.sio_connected}, state={self.current_state}, use_socketio={self.use_socketio}")
+                
+                # Broadcast location when ONBOARD (driving) or WAITING (at stop for passengers)
+                if self.sio_connected and self.current_state in (DriverState.ONBOARD, DriverState.WAITING):
+                    # Log state for debugging
+                    if self.current_state == DriverState.WAITING:
+                        self.logger.info(f"[{self.person_name}] Broadcasting in WAITING state - checking for passengers")
+                    
                     # Get current telemetry
                     telemetry = self.step()
                     
@@ -281,6 +289,8 @@ class VehicleDriver(BasePerson):
                         # Update conductor position if available
                         if hasattr(self, 'conductor') and self.conductor:
                             await self.conductor.update_vehicle_position(lat, lon)
+                            if self.current_state == DriverState.WAITING:
+                                self.logger.info(f"[{self.person_name}] Updated conductor position: ({lat:.6f}, {lon:.6f})")
                         
                         location_data = {
                             'vehicle_id': self.vehicle_id,
@@ -303,6 +313,36 @@ class VehicleDriver(BasePerson):
             except Exception as e:
                 self.logger.error(f"Location broadcast error: {e}")
                 await asyncio.sleep(5.0)  # Continue trying
+
+    async def _update_conductor_position_loop(self) -> None:
+        """Background task to update conductor position periodically (works without Socket.IO)."""
+        self.logger.info(f"[{self.person_name}] Conductor position update loop STARTED")
+        
+        while self._running:
+            try:
+                if hasattr(self, 'conductor') and self.conductor:
+                    # When WAITING (engine OFF): use static initial position
+                    if self.current_state == DriverState.WAITING:
+                        if self.route and len(self.route) > 0:
+                            initial_coord = self.route[0]  # [longitude, latitude]
+                            lat, lon = initial_coord[1], initial_coord[0]
+                            await self.conductor.update_vehicle_position(lat, lon)
+                            self.logger.debug(f"[{self.person_name}] Conductor position (stationary): ({lat:.6f}, {lon:.6f})")
+                    
+                    # When ONBOARD (engine ON): use real-time telemetry from engine
+                    elif self.current_state == DriverState.ONBOARD:
+                        telemetry = self.step()
+                        if telemetry:
+                            lat = telemetry.get('lat', 0)
+                            lon = telemetry.get('lon', 0)
+                            await self.conductor.update_vehicle_position(lat, lon)
+                            self.logger.debug(f"[{self.person_name}] Conductor position (moving): ({lat:.6f}, {lon:.6f})")
+                
+                await asyncio.sleep(2)  # Update every 2 seconds (matches conductor's polling interval)
+                    
+            except Exception as e:
+                self.logger.error(f"[{self.person_name}] Error updating conductor position: {e}")
+                await asyncio.sleep(2)
 
     async def _start_implementation(self) -> bool:
         """Driver boards vehicle and starts GPS device, but NOT the engine (real operations workflow)."""
@@ -354,7 +394,23 @@ class VehicleDriver(BasePerson):
             # Set state to WAITING after successful boarding (engine off, waiting for start trigger)
             self.current_state = DriverState.WAITING
             
-            # Start location broadcasting (Priority 2)
+            # Update conductor with initial position (even without Socket.IO)
+            if hasattr(self, 'conductor') and self.conductor:
+                self.logger.info(f"[{self.person_name}] Setting initial conductor position...")
+                # Use the initial route position (vehicle is stationary when engine is OFF)
+                if self.route and len(self.route) > 0:
+                    initial_coord = self.route[0]  # [longitude, latitude]
+                    lat, lon = initial_coord[1], initial_coord[0]
+                    await self.conductor.update_vehicle_position(lat, lon)
+                    self.logger.info(f"[{self.person_name}] ✅ Initial conductor position set: ({lat:.6f}, {lon:.6f})")
+                else:
+                    self.logger.warning(f"[{self.person_name}] No route coordinates available for conductor")
+                
+                # Start periodic position updates for conductor (without Socket.IO dependency)
+                self.conductor_update_task = asyncio.create_task(self._update_conductor_position_loop())
+                self.logger.info(f"[{self.person_name}] Conductor position update task started")
+            
+            # Start location broadcasting (Priority 2) - requires Socket.IO
             if self.use_socketio:
                 self.location_broadcast_task = asyncio.create_task(self._broadcast_location_loop())
                 self.logger.info(f"[{self.person_name}] Location broadcasting task started")

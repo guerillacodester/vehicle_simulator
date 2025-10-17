@@ -344,66 +344,65 @@ class CleanVehicleSimulator:
                 }
             )
             
-            # Create engine for vehicle ZR400 first (so we can pass engine_buffer to driver)
+            # Create engine for all active vehicles (not just ZR400)
             engine = None
             engine_buffer = None
-            logger.info(f"🚗 Checking if vehicle needs engine creation: vehicle_id='{vehicle_assignment.vehicle_id}'")
-            if vehicle_assignment.vehicle_id == "ZR400":
-                logger.info(f"✅ Creating engine for ZR400")
-                from arknet_transit_simulator.vehicle.engine.engine_block import Engine
-                from arknet_transit_simulator.vehicle.engine.engine_buffer import EngineBuffer
-                from arknet_transit_simulator.vehicle.engine import sim_speed_model
-                import os
+            logger.info(f"🚗 Creating engine for vehicle: vehicle_id='{vehicle_assignment.vehicle_id}'")
+            
+            from arknet_transit_simulator.vehicle.engine.engine_block import Engine
+            from arknet_transit_simulator.vehicle.engine.engine_buffer import EngineBuffer
+            from arknet_transit_simulator.vehicle.engine import sim_speed_model
+            import os
+            
+            # Create engine buffer
+            engine_buffer = EngineBuffer()
+            
+            # Check if physics kernel should be used
+            vehicle_id = vehicle_assignment.vehicle_id
+            physics_env = os.getenv("PHYSICS_KERNEL", "0")
+            use_physics = physics_env == "1" and vehicle_id == "ZR400"
+            logger.info(f"🧮 Physics check: PHYSICS_KERNEL='{physics_env}', vehicle_id='{vehicle_id}', use_physics={use_physics}")
+            
+            if use_physics:
+                # Physics kernel with database-driven performance characteristics
+                coords = route_info.geometry.get('coordinates', [])
                 
-                # Create engine buffer
-                engine_buffer = EngineBuffer()
+                # Get vehicle performance from database to set appropriate target speed
+                from arknet_transit_simulator.services.vehicle_performance import VehiclePerformanceService
+                try:
+                    logger.info(f"🔍 Looking up performance characteristics for {vehicle_id}")
+                    performance = VehiclePerformanceService.get_performance_by_reg_code(vehicle_id)
+                    target_speed_mps = performance.max_speed_kmh / 3.6  # Convert km/h to m/s
+                    logger.info(f"🎯 Setting target speed to {performance.max_speed_kmh} km/h ({target_speed_mps:.2f} m/s) for {vehicle_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to get performance for {vehicle_id}, using default: {e}")
+                    target_speed_mps = 25.0/3.6  # Fallback to 25 km/h
+                    logger.info(f"🎯 Using fallback target speed: 25.0 km/h ({target_speed_mps:.2f} m/s)")
                 
-                # Check if physics kernel should be used
-                vehicle_id = vehicle_assignment.vehicle_id
-                physics_env = os.getenv("PHYSICS_KERNEL", "0")
-                use_physics = physics_env == "1" and vehicle_id == "ZR400"
-                logger.info(f"🧮 Physics check: PHYSICS_KERNEL='{physics_env}', vehicle_id='{vehicle_id}', use_physics={use_physics}")
-                
-                if use_physics:
-                    # Physics kernel with database-driven performance characteristics
-                    coords = route_info.geometry.get('coordinates', [])
-                    
-                    # Get vehicle performance from database to set appropriate target speed
-                    from arknet_transit_simulator.services.vehicle_performance import VehiclePerformanceService
-                    try:
-                        logger.info(f"🔍 Looking up performance characteristics for {vehicle_id}")
-                        performance = VehiclePerformanceService.get_performance_by_reg_code(vehicle_id)
-                        target_speed_mps = performance.max_speed_kmh / 3.6  # Convert km/h to m/s
-                        logger.info(f"🎯 Setting target speed to {performance.max_speed_kmh} km/h ({target_speed_mps:.2f} m/s) for {vehicle_id}")
-                    except Exception as e:
-                        logger.warning(f"Failed to get performance for {vehicle_id}, using default: {e}")
-                        target_speed_mps = 25.0/3.6  # Fallback to 25 km/h
-                        logger.info(f"🎯 Using fallback target speed: 25.0 km/h ({target_speed_mps:.2f} m/s)")
-                    
-                    speed_model = sim_speed_model.load_speed_model(
-                        "physics", 
-                        route_coords=coords, 
-                        target_speed_mps=target_speed_mps, 
-                        dt=0.5,
-                        vehicle_reg_code=vehicle_id
-                    )
-                    logger.info(f"🧪 Physics kernel enabled for vehicle {vehicle_id} with database-driven performance")
-                else:
-                    # Standard fixed speed model
-                    speed_model = sim_speed_model.load_speed_model("fixed", speed=25.0)  # 25 km/h for testing
-                
-                # Create engine
-                engine = Engine(
-                    vehicle_id=vehicle_assignment.vehicle_id,
-                    model=speed_model,
-                    buffer=engine_buffer,
-                    tick_time=0.5  # Update every 0.5 seconds for testing
+                speed_model = sim_speed_model.load_speed_model(
+                    "physics", 
+                    route_coords=coords, 
+                    target_speed_mps=target_speed_mps, 
+                    dt=0.5,
+                    vehicle_reg_code=vehicle_id
                 )
-                
-                if use_physics:
-                    logger.info(f"🔧 Engine (physics) created for {driver_assignment.driver_name} - ready for advanced telemetry")
-                else:
-                    logger.info(f"🔧 Engine (standard) created for {driver_assignment.driver_name} - ready for telemetry testing")
+                logger.info(f"🧪 Physics kernel enabled for vehicle {vehicle_id} with database-driven performance")
+            else:
+                # Standard fixed speed model
+                speed_model = sim_speed_model.load_speed_model("fixed", speed=25.0)  # 25 km/h for testing
+            
+            # Create engine
+            engine = Engine(
+                vehicle_id=vehicle_assignment.vehicle_id,
+                model=speed_model,
+                buffer=engine_buffer,
+                tick_time=0.5  # Update every 0.5 seconds for testing
+            )
+            
+            if use_physics:
+                logger.info(f"🔧 Engine (physics) created for {driver_assignment.driver_name} - ready for advanced telemetry")
+            else:
+                logger.info(f"🔧 Engine (standard) created for {driver_assignment.driver_name} - ready for telemetry testing")
             
             # Create vehicle driver WITH engine_buffer so it can detect engine state
             driver = VehicleDriver(
@@ -449,6 +448,10 @@ class CleanVehicleSimulator:
                 
                 # Attach conductor to driver for future integration
                 driver.conductor = conductor
+                
+                # Attach driver to conductor for direct communication (fallback when Socket.IO unavailable)
+                conductor.driver = driver
+                logger.info(f"[CONDUCTOR] Linked conductor ↔ driver for direct communication")
                 
                 # Start conductor's Socket.IO connection
                 await conductor.start()

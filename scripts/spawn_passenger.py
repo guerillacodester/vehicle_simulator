@@ -2,13 +2,20 @@
 Spawn a test passenger via PassengerDatabase (Strapi API) for manual integration testing.
 
 Usage (PowerShell):
-    python .\scripts\spawn_passenger.py --route 1A --lat 13.319443 --lon -59.636900
+    python .\\scripts\\spawn_passenger.py --route 1A --lat 13.319443 --lon -59.636900
 
 By default this will create a passenger near the vehicle start location on route '1A'.
 """
 import asyncio
 import uuid
 import argparse
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from commuter_service.passenger_db import PassengerDatabase
 
 async def main():

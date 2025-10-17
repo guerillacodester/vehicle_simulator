@@ -584,7 +584,7 @@ class Conductor(BasePerson):
                 if self.passenger_db and self.current_vehicle_position:
                     try:
                         lat, lon = self.current_vehicle_position
-                        self.logger.debug(
+                        self.logger.info(
                             f"[{self.component_id}] Checking for passengers at position "
                             f"({lat:.6f}, {lon:.6f})"
                         )
@@ -595,6 +595,9 @@ class Conductor(BasePerson):
                         )
                     except Exception as e:
                         self.logger.warning(f"[{self.component_id}] Error checking for passengers: {e}")
+                elif self.passenger_db and not self.current_vehicle_position:
+                    # Log why we're not checking
+                    self.logger.warning(f"[{self.component_id}] No vehicle position available yet")
                 
                 # Legacy: Query depot callback if configured
                 elif self.depot_callback:
@@ -841,19 +844,13 @@ class Conductor(BasePerson):
             try:
                 await self.sio.emit('conductor:ready:depart', signal_data)
                 self.logger.info(f"[{self.component_id}] Depart signal sent via Socket.IO")
+                return  # Success
             except Exception as e:
-                self.logger.error(f"Socket.IO emit failed: {e}, falling back to callback")
-                # Fall through to callback
-                if self.driver_callback:
-                    callback_data = {
-                        'action': 'continue_driving',
-                        'conductor_id': self.component_id,
-                        'restore_gps': True,
-                        'gps_position': self.preserved_gps_position
-                    }
-                    self.driver_callback(self.component_id, callback_data)
-        elif self.driver_callback:
-            # Fallback to callback (existing mechanism)
+                self.logger.error(f"Socket.IO emit failed: {e}, falling back...")
+        
+        # Try driver callback (Priority 3)
+        if self.driver_callback:
+            self.logger.info(f"[{self.component_id}] Using driver callback")
             callback_data = {
                 'action': 'continue_driving',
                 'conductor_id': self.component_id,
@@ -861,8 +858,20 @@ class Conductor(BasePerson):
                 'gps_position': self.preserved_gps_position
             }
             self.driver_callback(self.component_id, callback_data)
-        else:
-            self.logger.warning(f"[{self.component_id}] No communication method available for driver!")
+            return  # Success
+        
+        # Final fallback: Direct driver method call (Priority 4)
+        if hasattr(self, 'driver') and self.driver:
+            self.logger.info(f"[{self.component_id}] Using direct driver method call")
+            try:
+                await self.driver.start_engine()
+                self.logger.info(f"[{self.component_id}] ✅ Driver engine started via direct call")
+                return  # Success
+            except Exception as e:
+                self.logger.error(f"[{self.component_id}] Failed to start engine: {e}")
+        
+        # No communication method available
+        self.logger.warning(f"[{self.component_id}] ⚠️ No communication method available to signal driver!")
         
         # Reset state
         self.current_stop_operation = None
