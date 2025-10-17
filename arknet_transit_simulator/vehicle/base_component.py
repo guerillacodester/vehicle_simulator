@@ -115,7 +115,9 @@ class BaseComponent(StateMachine, ABC):
             success = await self._start_implementation()
             
             if success:
-                await self.transition_to(DriverState.ONBOARD)
+                # Driver should be in WAITING state after boarding (engine OFF)
+                # Engine will be started later via start_engine() call
+                await self.transition_to(DriverState.WAITING)
             else:
                 await self.transition_to(DriverState.DISEMBARKED)
                 

@@ -580,8 +580,11 @@ class Conductor(BasePerson):
         """Background task to monitor passengers and manage operations."""
         try:
             while self._running and self.conductor_state != ConductorState.WAITING_FOR_DEPARTURE:
-                # Check for passengers via API if we have current position
-                if self.passenger_db and self.current_vehicle_position:
+                # Only check for passengers when boarding is explicitly active.
+                # This prevents the conductor from immediately boarding all nearby
+                # passengers as soon as the simulator starts and the driver/GPS
+                # reports an initial position.
+                if self.passenger_db and self.current_vehicle_position and self.boarding_active:
                     try:
                         lat, lon = self.current_vehicle_position
                         self.logger.info(
@@ -598,6 +601,9 @@ class Conductor(BasePerson):
                 elif self.passenger_db and not self.current_vehicle_position:
                     # Log why we're not checking
                     self.logger.warning(f"[{self.component_id}] No vehicle position available yet")
+                elif self.passenger_db and self.current_vehicle_position and not self.boarding_active:
+                    # Boarding not yet enabled - skip automatic boarding until explicitly enabled
+                    self.logger.debug(f"[{self.component_id}] Boarding not active yet; skipping passenger checks")
                 
                 # Legacy: Query depot callback if configured
                 elif self.depot_callback:
@@ -840,39 +846,16 @@ class Conductor(BasePerson):
             
             self.logger.info(f"Conductor {self.component_id} signaling driver to continue")
             
-            # Try Socket.IO first (Priority 2)
-            if self.use_socketio and self.sio_connected:
-                self.logger.info(f"[{self.component_id}] Attempting Socket.IO signal...")
-                try:
-                    await self.sio.emit('conductor:ready:depart', signal_data)
-                    self.logger.info(f"[{self.component_id}] Depart signal sent via Socket.IO")
-                    return  # Success
-                except Exception as e:
-                    self.logger.error(f"Socket.IO emit failed: {e}, falling back...")
-            else:
-                self.logger.info(f"[{self.component_id}] Socket.IO not available (connected={self.sio_connected})")
+            # DEPOT MODE: Skip Socket.IO, use direct driver call
+            # Socket.IO doesn't work reliably in depot mode - driver may not have handlers registered
             
-            # Try driver callback (Priority 3)
-            if self.driver_callback:
-                self.logger.info(f"[{self.component_id}] Using driver callback")
-                callback_data = {
-                    'action': 'continue_driving',
-                    'conductor_id': self.component_id,
-                    'restore_gps': True,
-                    'gps_position': self.preserved_gps_position
-                }
-                self.driver_callback(self.component_id, callback_data)
-                return  # Success
-            else:
-                self.logger.info(f"[{self.component_id}] No driver callback available")
-            
-            # Final fallback: Direct driver method call (Priority 4)
-            self.logger.info(f"[{self.component_id}] Checking for direct driver reference...")
+            # Final fallback: Direct driver method call (Priority 1 in depot mode)
+            self.logger.info(f"[{self.component_id}] Using direct driver.start_engine() call...")
             if hasattr(self, 'driver') and self.driver:
-                self.logger.info(f"[{self.component_id}] ✅ Found driver reference, calling start_engine()...")
+                self.logger.info(f"[{self.component_id}] ✅ Found driver reference")
                 try:
-                    await self.driver.start_engine()
-                    self.logger.info(f"[{self.component_id}] ✅ Driver engine started via direct call")
+                    result = await self.driver.start_engine()
+                    self.logger.info(f"[{self.component_id}] ✅ Driver engine started via direct call (result={result})")
                     return  # Success
                 except Exception as e:
                     self.logger.error(f"[{self.component_id}] Failed to start engine: {e}")

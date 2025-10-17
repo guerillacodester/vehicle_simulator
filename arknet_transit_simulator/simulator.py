@@ -451,7 +451,10 @@ class CleanVehicleSimulator:
                 
                 # Attach driver to conductor for direct communication (fallback when Socket.IO unavailable)
                 conductor.driver = driver
-                logger.info(f"[CONDUCTOR] Linked conductor ↔ driver for direct communication")
+                logger.info(f"[CONDUCTOR] ✅ Linked conductor ↔ driver for direct communication")
+                logger.info(f"[CONDUCTOR] conductor.driver = {conductor.driver}")
+                logger.info(f"[CONDUCTOR] hasattr(conductor, 'driver') = {hasattr(conductor, 'driver')}")
+                logger.info(f"[CONDUCTOR] Driver ID: {driver.component_id}, Name: {driver.person_name}")
                 
                 # Start conductor's Socket.IO connection
                 await conductor.start()
@@ -469,7 +472,14 @@ class CleanVehicleSimulator:
             if hasattr(driver, 'conductor') and driver.conductor:
                 logger.info(f"[Conductor] {driver.conductor.person_name} ready for vehicle {vehicle_assignment.vehicle_id} - Capacity: {driver.conductor.capacity} passengers")
             
-            await driver.start()
+            try:
+                await driver.start()
+                logger.info(f"⚡ Driver state after boarding: {driver.current_state.value}")
+            except Exception as e:
+                logger.error(f"❌ Exception during driver.start(): {e}")
+                import traceback
+                traceback.print_exc()
+                raise
             
             # Check driver status after starting
             driver_state = driver.current_state.value if hasattr(driver, 'current_state') else 'UNKNOWN'
@@ -481,6 +491,27 @@ class CleanVehicleSimulator:
                 logger.info(f"⏸️ Driver {driver_assignment.driver_name} is IDLE in vehicle {vehicle_assignment.vehicle_id}")
             else:
                 logger.info(f"📋 Driver {driver_assignment.driver_name} status: {driver_state}")
+
+            # By default do NOT enable automatic boarding here. Boarding must be
+            # explicitly enabled to avoid vehicles starting already full when the
+            # PassengerDatabase contains pre-existing waiting commuters.
+            if hasattr(driver, 'conductor') and driver.conductor:
+                logger.info(
+                    f"[Simulator] Conductor for vehicle {vehicle_assignment.vehicle_id} created; boarding is DISABLED by default."
+                )
+                logger.info(
+                    "To enable boarding at runtime call driver.conductor.start_boarding() or use the spawning scripts to add passengers after startup."
+                )
+                
+                # DEBUG: Enable boarding after 5 seconds for quick testing
+                # TODO: Remove this or make it a CLI flag --enable-boarding-after N
+                async def enable_boarding_after_delay():
+                    await asyncio.sleep(5)
+                    driver.conductor.start_boarding()
+                    logger.info(f"[DEBUG] Boarding ENABLED for {vehicle_assignment.vehicle_id} after 5-second delay")
+                
+                asyncio.create_task(enable_boarding_after_delay())
+                logger.info(f"[DEBUG] Boarding will auto-enable in 5 seconds for testing")
             return driver
             
         except Exception as e:
