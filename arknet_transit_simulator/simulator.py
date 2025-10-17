@@ -90,8 +90,9 @@ logger = logging.getLogger(__name__)
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: str = "http://localhost:1337") -> None:
+    def __init__(self, api_url: str = "http://localhost:1337", enable_boarding_after: float = None) -> None:
         self.api_url = api_url
+        self.enable_boarding_after = enable_boarding_after  # Delay in seconds before auto-enabling boarding
         self.dispatcher = None
         self.depot = None
         self._running = False
@@ -499,19 +500,26 @@ class CleanVehicleSimulator:
                 logger.info(
                     f"[Simulator] Conductor for vehicle {vehicle_assignment.vehicle_id} created; boarding is DISABLED by default."
                 )
-                logger.info(
-                    "To enable boarding at runtime call driver.conductor.start_boarding() or use the spawning scripts to add passengers after startup."
-                )
                 
-                # DEBUG: Enable boarding after 5 seconds for quick testing
-                # TODO: Remove this or make it a CLI flag --enable-boarding-after N
-                async def enable_boarding_after_delay():
-                    await asyncio.sleep(5)
-                    driver.conductor.start_boarding()
-                    logger.info(f"[DEBUG] Boarding ENABLED for {vehicle_assignment.vehicle_id} after 5-second delay")
-                
-                asyncio.create_task(enable_boarding_after_delay())
-                logger.info(f"[DEBUG] Boarding will auto-enable in 5 seconds for testing")
+                # If --enable-boarding-after N was specified, auto-enable after delay
+                if self.enable_boarding_after is not None:
+                    async def enable_boarding_after_delay():
+                        await asyncio.sleep(self.enable_boarding_after)
+                        driver.conductor.start_boarding()
+                        logger.info(
+                            f"[Simulator] Boarding ENABLED for {vehicle_assignment.vehicle_id} "
+                            f"after {self.enable_boarding_after:.1f} second delay"
+                        )
+                    
+                    asyncio.create_task(enable_boarding_after_delay())
+                    logger.info(
+                        f"[Simulator] Boarding will auto-enable in {self.enable_boarding_after:.1f} seconds"
+                    )
+                else:
+                    logger.info(
+                        "[Simulator] To enable boarding: call driver.conductor.start_boarding() "
+                        "or restart with --enable-boarding-after N"
+                    )
             return driver
             
         except Exception as e:

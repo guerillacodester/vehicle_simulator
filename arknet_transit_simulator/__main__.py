@@ -23,6 +23,8 @@ def parse_args(argv=None):
     p.add_argument('--duration', type=float, default=None, help='Duration in seconds (depot mode)')
     p.add_argument('--api-url', type=str, default='http://localhost:1337', help='API base URL (Strapi: 1337, FastAPI: 8000)')
     p.add_argument('--debug', action='store_true', help='Enable debug logging')
+    p.add_argument('--enable-boarding-after', type=float, default=None, 
+                   help='Auto-enable boarding after N seconds (for testing; default: manual control)')
     return p.parse_args(argv)
 
 
@@ -385,7 +387,7 @@ async def main_async(argv=None):
         return await run_status(args.api_url)
     
     # Full initialization for display and depot modes
-    sim = CleanVehicleSimulator(api_url=args.api_url)
+    sim = CleanVehicleSimulator(api_url=args.api_url, enable_boarding_after=args.enable_boarding_after)
     if not await sim.initialize():
         print("Initialization failed. Exiting.")
         return 1
