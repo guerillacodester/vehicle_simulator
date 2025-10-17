@@ -480,7 +480,7 @@ class DepotReservoir:
             f"Depot: {depot_name} @ ({depot_location[0]:.4f}, {depot_location[1]:.4f}) | "
             f"Near: {spawn_location_name} | "
             f"Route: {route_id} | "
-            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) → {dest_location_name} | "
+            f"Dest: ({destination[0]:.4f}, {destination[1]:.4f}) -> {dest_location_name} | "
             f"Priority: {priority} | "
             f"Queue: {len(queue.commuters)} waiting"
         )

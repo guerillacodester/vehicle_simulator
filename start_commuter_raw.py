@@ -4,15 +4,22 @@ Just to see the raw logs and find where it hangs
 """
 
 import asyncio
+import sys
 import logging
 
-# Configure logging to see everything
+# Force UTF-8 encoding for Windows console to support emojis 🎉
+if sys.platform == "win32":
+    import codecs
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+
+# Configure logging to see everything with UTF-8 encoding
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler('commuter_startup.log'),
-        logging.StreamHandler()
+        logging.FileHandler('commuter_startup.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)  # Will now use UTF-8
     ]
 )
 
