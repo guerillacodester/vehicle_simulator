@@ -36,7 +36,7 @@ from commuter_service.commuter_config import CommuterBehaviorConfig, CommuterCon
 from commuter_service.passenger_db import PassengerDatabase
 from commuter_service.strapi_api_client import StrapiApiClient, DepotData, RouteData
 from commuter_service.poisson_geojson_spawner import PoissonGeoJSONSpawner
-from commuter_service.spatial_zone_cache import SpatialZoneCache
+from commuter_service.simple_spatial_cache import SimpleSpatialZoneCache
 
 # Extracted modules (SRP compliance)
 from commuter_service.depot_queue import DepotQueue
@@ -105,8 +105,8 @@ class DepotReservoir:
         # Poisson spawner for statistical passenger generation
         self.poisson_spawner: Optional[PoissonGeoJSONSpawner] = None
         
-        # Spatial zone cache for performance (loads zones in background)
-        self.spatial_cache: Optional[SpatialZoneCache] = None
+        # Spatial zone cache for performance (loads zones async with filtering)
+        self.spatial_cache: Optional[SimpleSpatialZoneCache] = None
         
         # Depot and route data from API
         self.depots: List[DepotData] = []
@@ -129,26 +129,25 @@ class DepotReservoir:
             self.logger.warning("Depot reservoir already running")
             return
         
-        self.logger.info("Starting depot reservoir service...")
+        self.logger.info("[STEP 1/12] Starting depot reservoir service...")
         self.running = True
-        # Note: start_time is tracked in ReservoirStatistics.created_at
         
-        # Connect to database
+        self.logger.info("[STEP 2/12] Connecting to database...")
         await self.db.connect()
         
-        # Initialize Strapi API client and load depot/route data
-        # Strip /api suffix if present (StrapiApiClient adds it internally)
+        self.logger.info("[STEP 3/12] Initializing Strapi API client...")
         api_base_url = self.strapi_url.rstrip('/api').rstrip('/')
         self.api_client = StrapiApiClient(api_base_url)
         await self.api_client.connect()
         
-        self.logger.info("[API] Loading depots and routes from Strapi API...")
+        self.logger.info("[STEP 4/12] Loading depots and routes from API...")
         self.depots = await self.api_client.get_all_depots()
         self.routes = await self.api_client.get_all_routes()
         
-        self.logger.info(f"[OK] Loaded {len(self.depots)} depots and {len(self.routes)} routes")
+        self.logger.info(f"[STEP 5/12] Loaded {len(self.depots)} depots and {len(self.routes)} routes")
         
         # Extract route coordinates and depot locations for spatial filtering
+        self.logger.info("[STEP 6/12] Extracting route coordinates for spatial filtering...")
         route_coordinates = []
         for route in self.routes:
             if route.geometry_coordinates:
@@ -162,23 +161,23 @@ class DepotReservoir:
                 depot_locations.append((depot_lat, depot_lon))
         
         # Initialize spatial zone cache (loads zones in background thread)
-        self.logger.info(f"[SPATIAL] Initializing spatial zone cache with {len(route_coordinates)} route points and {len(depot_locations)} depots...")
-        self.spatial_cache = SpatialZoneCache(
+        self.logger.info(f"[STEP 7/12] Initializing spatial zone cache ({len(route_coordinates)} route points, {len(depot_locations)} depots)...")
+        self.spatial_cache = SimpleSpatialZoneCache(
             api_client=self.api_client,
-            country_id=1,  # Barbados
+            country_id=29,  # Barbados (ID in database)
             buffer_km=5.0,  # Only load zones within 5km of routes/depots
-            cache_ttl_minutes=60,
             logger=self.logger
         )
         
-        # Start background zone loading (non-blocking)
+        # Start zone loading (async, non-blocking)
+        self.logger.info("[STEP 8/12] Loading zones with spatial filtering...")
         await self.spatial_cache.initialize_for_route(
             route_coordinates=route_coordinates,
             depot_locations=depot_locations
         )
         
         # Initialize Poisson spawner with GeoJSON population data
-        self.logger.info("[INIT] Initializing Poisson GeoJSON spawner with spatial cache...")
+        self.logger.info("[STEP 9/12] Initializing Poisson GeoJSON spawner...")
         self.poisson_spawner = PoissonGeoJSONSpawner(
             self.api_client,
             spatial_cache=self.spatial_cache  # Pass spatial cache for background loading
@@ -186,6 +185,7 @@ class DepotReservoir:
         await self.poisson_spawner.initialize(country_code="BB", use_spatial_cache=True)  # Barbados ISO code
         
         # Create depot queues for all depot-route combinations
+        self.logger.info("[STEP 10/12] Creating depot queues...")
         for depot in self.depots:
             depot_lat = depot.latitude or (depot.location.get('lat') if depot.location else None)
             depot_lon = depot.longitude or (depot.location.get('lon') if depot.location else None)
@@ -203,6 +203,7 @@ class DepotReservoir:
                 )
         
         # Connect to Socket.IO
+        self.logger.info("[STEP 11/12] Connecting to Socket.IO...")
         self.client = create_depot_client(
             url=self.socketio_url,
             service_type=ServiceType.COMMUTER_SERVICE
@@ -212,7 +213,12 @@ class DepotReservoir:
         self._register_handlers()
         
         # Connect to Socket.IO hub
+        self.logger.info(f"   Attempting Socket.IO connection to {self.socketio_url}...")
         await self.client.connect()
+        self.logger.info("   Socket.IO connected!")
+        
+        # Log startup statistics
+        self.logger.info("[STEP 12/12] Starting background services...")
         
         # Log startup statistics
         self.logger.info("=" * 80)

@@ -39,7 +39,7 @@ from commuter_service.commuter_config import CommuterBehaviorConfig, CommuterCon
 from commuter_service.passenger_db import PassengerDatabase
 from commuter_service.strapi_api_client import StrapiApiClient, DepotData, RouteData
 from commuter_service.poisson_geojson_spawner import PoissonGeoJSONSpawner
-from commuter_service.spatial_zone_cache import SpatialZoneCache
+from commuter_service.simple_spatial_cache import SimpleSpatialZoneCache
 
 # Extracted modules (SRP compliance)
 from commuter_service.route_segment import RouteSegment
@@ -164,8 +164,8 @@ class RouteReservoir:
         # Poisson spawner for statistical passenger generation
         self.poisson_spawner: Optional[PoissonGeoJSONSpawner] = None
         
-        # Spatial zone cache for performance (loads zones in background)
-        self.spatial_cache: Optional[SpatialZoneCache] = None
+        # Spatial zone cache for performance (loads zones async with filtering)
+        self.spatial_cache: Optional[SimpleSpatialZoneCache] = None
         
         # Route data from API
         self.routes: List[RouteData] = []
@@ -210,15 +210,14 @@ class RouteReservoir:
         
         # Initialize spatial zone cache (loads zones in background thread)
         self.logger.info(f"[SPATIAL] Initializing spatial zone cache with {len(route_coordinates)} route points...")
-        self.spatial_cache = SpatialZoneCache(
+        self.spatial_cache = SimpleSpatialZoneCache(
             api_client=self.api_client,
-            country_id=1,  # Barbados
+            country_id=29,  # Barbados (ID in database)
             buffer_km=5.0,  # Only load zones within 5km of routes
-            cache_ttl_minutes=60,
             logger=self.logger
         )
         
-        # Start background zone loading (non-blocking)
+        # Start zone loading (async, non-blocking)
         await self.spatial_cache.initialize_for_route(
             route_coordinates=route_coordinates,
             depot_locations=[]  # No depots for route reservoir

@@ -365,6 +365,7 @@ class StrapiApiClient:
                 f"{self.base_url}/api/places",
                 params={
                     "filters[country][id][$eq]": country_id,
+                    "populate": "country",  # CRITICAL: Must populate relation to filter by it
                     "pagination[pageSize]": 10000,  # Very large limit for place names
                     "sort": "name:asc"
                 }
@@ -394,6 +395,7 @@ class StrapiApiClient:
                     f"{self.base_url}/api/landuse-zones",
                     params={
                         "filters[country][id][$eq]": country_id,
+                        "populate": "country",  # CRITICAL: Must populate relation to filter by it
                         "pagination[page]": page,
                         "pagination[pageSize]": page_size,
                         "sort": "zone_type:asc"

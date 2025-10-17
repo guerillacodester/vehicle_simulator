@@ -20,7 +20,7 @@ from shapely.geometry import Point, Polygon, shape
 from shapely.ops import unary_union
 
 from .strapi_api_client import StrapiApiClient, DepotData, RouteData
-from .spatial_zone_cache import SpatialZoneCache
+from .simple_spatial_cache import SimpleSpatialZoneCache
 
 
 @dataclass
@@ -331,7 +331,7 @@ class GeoJSONDataLoader:
 class PoissonGeoJSONSpawner:
     """Poisson-based passenger spawning using GeoJSON population data"""
     
-    def __init__(self, api_client: StrapiApiClient, spatial_cache: Optional[SpatialZoneCache] = None):
+    def __init__(self, api_client: StrapiApiClient, spatial_cache: Optional[SimpleSpatialZoneCache] = None):
         self.api_client = api_client
         self.geojson_loader = GeoJSONDataLoader(self.api_client)
         self.spatial_cache = spatial_cache  # Optional spatial zone cache for performance
@@ -354,32 +354,23 @@ class PoissonGeoJSONSpawner:
             
             # Determine if we should use spatial cache
             if use_spatial_cache and self.spatial_cache:
-                # Wait for spatial cache to load zones in background
-                logging.info("⏳ Waiting for spatial zone cache to load...")
-                loaded = await self.spatial_cache.wait_for_initial_load(timeout=30.0)
+                # Get cached zones (already loaded during initialization)
+                population_zones, amenity_zones = await self.spatial_cache.get_cached_zones()
                 
-                if loaded:
-                    # Use cached zones instead of loading all
-                    population_zones, amenity_zones = await self.spatial_cache.get_cached_zones()
-                    
-                    # Convert cached zones to PopulationZone objects
-                    self.geojson_loader.population_zones = await self._convert_cached_zones(
-                        population_zones, is_amenity=False
-                    )
-                    self.geojson_loader.amenity_zones = await self._convert_cached_zones(
-                        amenity_zones, is_amenity=True
-                    )
-                    
-                    stats = self.spatial_cache.get_stats()
-                    logging.info(
-                        f"✅ Using spatial cache: {stats['population_zones']} population zones, "
-                        f"{stats['amenity_zones']} amenity zones (±{stats['buffer_km']}km buffer)"
-                    )
-                    self._using_cache = True
-                else:
-                    logging.warning("⚠️ Spatial cache timeout, falling back to full load")
-                    if not await self.geojson_loader.load_geojson_data(country_code):
-                        return False
+                # Convert cached zones to PopulationZone objects
+                self.geojson_loader.population_zones = await self._convert_cached_zones(
+                    population_zones, is_amenity=False
+                )
+                self.geojson_loader.amenity_zones = await self._convert_cached_zones(
+                    amenity_zones, is_amenity=True
+                )
+                
+                stats = self.spatial_cache.get_stats()
+                logging.info(
+                    f"✅ Using spatial cache: {stats['population_zones']} population zones, "
+                    f"{stats['amenity_zones']} amenity zones (±{stats['buffer_km']}km buffer)"
+                )
+                self._using_cache = True
             else:
                 # Traditional full load (all zones, blocks main thread)
                 logging.info("📦 Loading all zones (no spatial filtering)...")
@@ -408,10 +399,14 @@ class PoissonGeoJSONSpawner:
         Returns:
             List of PopulationZone objects
         """
+        logging.info(f"🔄 Converting {len(cached_zones)} cached {'amenity' if is_amenity else 'population'} zones...")
         zones = []
         
-        for zone_data in cached_zones:
+        for i, zone_data in enumerate(cached_zones):
             try:
+                if i % 5 == 0:  # Log progress every 5 zones
+                    logging.info(f"   Processing zone {i+1}/{len(cached_zones)}...")
+                
                 # Extract geometry
                 geometry_data = zone_data.get('geometry_geojson') or zone_data.get('geometry')
                 if not geometry_data:
@@ -424,7 +419,12 @@ class PoissonGeoJSONSpawner:
                 
                 # Calculate population density
                 if is_amenity:
-                    population_density = self.geojson_loader._estimate_amenity_activity(zone_type)
+                    # For amenities, use activity level estimation
+                    # Pass empty dict for properties since we don't have them in cached zones
+                    population_density = self.geojson_loader._estimate_activity_level(
+                        zone_type, 
+                        zone_data.get('properties', {})
+                    )
                 else:
                     population_density = self.geojson_loader._estimate_population_density(zone_type)
                 
@@ -441,9 +441,10 @@ class PoissonGeoJSONSpawner:
                     zones.append(zone)
                     
             except Exception as e:
-                logging.warning(f"Failed to convert cached zone: {e}")
+                logging.warning(f"Failed to convert cached zone {i+1}: {e}")
                 continue
         
+        logging.info(f"✅ Converted {len(zones)} zones successfully")
         return zones
     
     async def generate_poisson_spawn_requests(self, current_time: datetime, 

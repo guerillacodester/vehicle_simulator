@@ -146,7 +146,7 @@ class SpawningCoordinator:
             )
             
             self.logger.info(
-                f"🎲 Generated {len(spawn_requests)} spawn requests "
+                f"[SPAWN_GEN] Generated {len(spawn_requests)} spawn requests "
                 f"for hour {current_time.hour}"
             )
             
@@ -174,24 +174,34 @@ class SpawningCoordinator:
         Background task that periodically generates spawn requests.
         """
         self.logger.info(
-            "🚀 Starting automatic passenger spawning loop "
+            "[SPAWNING_LOOP] Starting automatic passenger spawning loop "
             "(using GeoJSON population data)"
         )
         
+        spawn_cycle_number = 0
+        
         while self.running:
             try:
+                spawn_cycle_number += 1
+                self.logger.info(f"[SPAWNING_LOOP] Cycle {spawn_cycle_number}: Waiting {self.spawn_interval}s before next spawn...")
+                
                 # Wait before next spawn cycle
                 await asyncio.sleep(self.spawn_interval)
+                
+                self.logger.info(f"[SPAWNING_LOOP] Cycle {spawn_cycle_number}: Generating spawns now...")
                 
                 # Generate and process spawns
                 await self.generate_and_process_spawns()
                 
+                self.logger.info(f"[SPAWNING_LOOP] Cycle {spawn_cycle_number}: Completed")
+                
             except asyncio.CancelledError:
+                self.logger.info("[SPAWNING_LOOP] Loop cancelled")
                 break
             except Exception as e:
-                self.logger.error(f"Error in spawning loop: {e}")
+                self.logger.error(f"[SPAWNING_LOOP] Error in spawning loop: {e}", exc_info=True)
         
-        self.logger.debug("Spawning loop exited")
+        self.logger.info("[SPAWNING_LOOP] Loop exited")
     
     def update_spawn_interval(self, new_interval: float):
         """
