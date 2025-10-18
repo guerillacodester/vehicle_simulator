@@ -708,8 +708,22 @@ class DepotReservoir:
             self.logger.debug(f"Skipping incomplete spawn request")
             return
         
-        # Find nearest depot to spawn location
-        nearest_depot = self._find_nearest_depot(spawn_location)
+        # Find nearest depot to spawn location that is CONNECTED to the assigned route
+        # This prevents depots 20+ km away from spawning for unrelated routes
+        nearest_depot = None
+        min_distance = float('inf')
+        
+        # Filter depots by route connection first
+        connected_depots = [d for d in self.depots if self._is_depot_connected_to_route(d, route_id)]
+        
+        if not connected_depots:
+            self.logger.warning(
+                f"No depots connected to route {route_id} - skipping spawn at ({spawn_location[0]:.4f}, {spawn_location[1]:.4f})"
+            )
+            return
+        
+        # Find nearest connected depot
+        nearest_depot = self._find_nearest_depot_from_list(spawn_location, connected_depots)
         
         if nearest_depot:
             # Get depot coordinates
@@ -734,6 +748,113 @@ class DepotReservoir:
     # ========================================================================
     # Helper Methods
     # ========================================================================
+    
+    def _is_depot_connected_to_route(self, depot: DepotData, route_id: str, max_distance_km: float = 0.5) -> bool:
+        """
+        Check if a depot is connected to a route by verifying it's within max_distance_km
+        of the route's start or end point.
+        
+        Args:
+            depot: The depot to check
+            route_id: The route ID (short_name)
+            max_distance_km: Maximum distance in km for connection (default 0.5 km = 500m)
+            
+        Returns:
+            True if depot is connected to route, False otherwise
+        """
+        from math import radians, sin, cos, sqrt, atan2
+        
+        # Find the route
+        route = next((r for r in self.routes if r.short_name == route_id), None)
+        if not route or not route.geometry_coordinates:
+            return False
+        
+        # Get depot coordinates
+        depot_lat = depot.latitude if depot.latitude is not None else depot.location.get('lat')
+        depot_lon = depot.longitude if depot.longitude is not None else depot.location.get('lon')
+        
+        if not depot_lat or not depot_lon:
+            return False
+        
+        # Ensure depot coordinates are floats
+        if isinstance(depot_lat, str):
+            depot_lat = float(depot_lat)
+        if isinstance(depot_lon, str):
+            depot_lon = float(depot_lon)
+        
+        # Check distance to route start point (first coordinate)
+        start_coord = route.geometry_coordinates[0]  # [lon, lat]
+        start_lat, start_lon = start_coord[1], start_coord[0]
+        
+        # Haversine distance to start
+        R = 6371  # Earth radius in km
+        dlat = radians(start_lat - depot_lat)
+        dlon = radians(start_lon - depot_lon)
+        a = sin(dlat/2)**2 + cos(radians(depot_lat)) * cos(radians(start_lat)) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1-a))
+        distance_to_start = R * c
+        
+        if distance_to_start <= max_distance_km:
+            return True
+        
+        # Check distance to route end point (last coordinate)
+        end_coord = route.geometry_coordinates[-1]  # [lon, lat]
+        end_lat, end_lon = end_coord[1], end_coord[0]
+        
+        # Haversine distance to end
+        dlat = radians(end_lat - depot_lat)
+        dlon = radians(end_lon - depot_lon)
+        a = sin(dlat/2)**2 + cos(radians(depot_lat)) * cos(radians(end_lat)) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1-a))
+        distance_to_end = R * c
+        
+        return distance_to_end <= max_distance_km
+    
+    def _find_nearest_depot_from_list(self, location: tuple[float, float], depot_list: List[DepotData]) -> Optional[DepotData]:
+        """
+        Find the nearest depot to a given location from a filtered list.
+        
+        Args:
+            location: (lat, lon) tuple
+            depot_list: List of depots to search
+            
+        Returns:
+            Nearest depot or None
+        """
+        from math import radians, sin, cos, sqrt, atan2
+        
+        if not depot_list:
+            return None
+        
+        # Normalize location using LocationNormalizer
+        lat1, lon1 = LocationNormalizer.normalize(location)
+        min_distance = float('inf')
+        nearest_depot = None
+        
+        for depot in depot_list:
+            depot_lat = depot.latitude or (depot.location.get('lat') if depot.location else None)
+            depot_lon = depot.longitude or (depot.location.get('lon') if depot.location else None)
+            
+            if not depot_lat or not depot_lon:
+                continue
+            
+            # Ensure coordinates are floats (might be strings from API)
+            lat2 = float(depot_lat) if isinstance(depot_lat, str) else depot_lat
+            lon2 = float(depot_lon) if isinstance(depot_lon, str) else depot_lon
+            
+            # Haversine distance
+            R = 6371000  # Earth radius in meters
+            dlat = radians(lat2 - lat1)
+            dlon = radians(lon2 - lon1)
+            a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+            c = 2 * atan2(sqrt(a), sqrt(1-a))
+            distance = R * c
+            
+            if distance < min_distance:
+                min_distance = distance
+                nearest_depot = depot
+        
+        return nearest_depot
     
     def _find_nearest_depot(self, location: tuple[float, float]) -> Optional[DepotData]:
         """Find the nearest depot to a given location using Haversine distance"""

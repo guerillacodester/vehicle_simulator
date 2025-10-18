@@ -753,8 +753,8 @@ class PoissonGeoJSONSpawner:
             nearest_route = self._find_nearest_route(zone.center_point)
             
             if nearest_route:
-                # Generate spawn location within zone
-                spawn_location = self._generate_spawn_location_in_zone(zone)
+                # Generate spawn location ON the route (snapped to route geometry)
+                spawn_location = self._generate_spawn_location_in_zone(zone, nearest_route)
                 
                 # Generate destination based on trip purpose and time
                 destination = self._generate_destination(zone, current_time, nearest_route)
@@ -795,9 +795,41 @@ class PoissonGeoJSONSpawner:
         
         return nearest_route
     
-    def _generate_spawn_location_in_zone(self, zone: PopulationZone) -> Dict[str, float]:
-        """Generate random spawn location within zone geometry"""
-        # Use zone center for simplicity, but could be enhanced to sample within polygon
+    def _generate_spawn_location_in_zone(self, zone: PopulationZone, route: RouteData = None) -> Dict[str, float]:
+        """Generate spawn location ON the route geometry (not in zone center).
+        
+        For route spawns, passengers MUST spawn at actual route points, not in nearby zones.
+        This ensures trip distances are realistic and <= route length.
+        
+        Args:
+            zone: Population zone where spawning occurs
+            route: Route to snap spawn location to (if provided)
+            
+        Returns:
+            Dict with 'lat' and 'lon' of spawn location
+        """
+        if route and route.geometry_coordinates:
+            # Find closest point on route to zone center
+            zone_center = zone.center_point
+            min_dist = float('inf')
+            closest_route_point = None
+            
+            for coord in route.geometry_coordinates:
+                route_point = (coord[1], coord[0])  # Convert to (lat, lon)
+                dist = geodesic(zone_center, route_point).kilometers
+                
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_route_point = route_point
+            
+            # Return the actual route point, not zone center!
+            if closest_route_point:
+                return {
+                    'lat': closest_route_point[0],
+                    'lon': closest_route_point[1]
+                }
+        
+        # Fallback: use zone center with small offset (for depot spawns or if no route)
         lat, lon = zone.center_point
         
         # Add small random offset (within ~100m)
