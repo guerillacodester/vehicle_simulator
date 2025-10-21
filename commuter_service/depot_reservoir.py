@@ -23,6 +23,7 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import uuid
+from geopy.distance import geodesic
 
 from commuter_service.socketio_client import (
     SocketIOClient,
@@ -194,13 +195,28 @@ class DepotReservoir:
                 self.logger.warning(f"Depot {depot.depot_id} has no GPS coordinates, skipping")
                 continue
             
+            # Only create queues for depots that are actually near a route
             for route in self.routes:
-                queue_key = (depot.depot_id, route.short_name)
-                self.queues[queue_key] = DepotQueue(
-                    depot_id=depot.depot_id,
-                    depot_location=(depot_lat, depot_lon),
-                    route_id=route.short_name
-                )
+                # Check distance from depot to nearest route point (km)
+                min_dist = float('inf')
+                if route.geometry_coordinates:
+                    for coord in route.geometry_coordinates:
+                        rlat, rlon = coord[1], coord[0]
+                        d = geodesic((depot_lat, depot_lon), (rlat, rlon)).kilometers
+                        if d < min_dist:
+                            min_dist = d
+
+                # Threshold: only consider depots within 5 km of the route
+                # TODO: Fix route geometry or depot locations in database
+                if min_dist <= 5.0:
+                    queue_key = (depot.depot_id, route.short_name)
+                    self.queues[queue_key] = DepotQueue(
+                        depot_id=depot.depot_id,
+                        depot_location=(depot_lat, depot_lon),
+                        route_id=route.short_name
+                    )
+                else:
+                    self.logger.debug(f"Skipping depot {depot.depot_id} for route {route.short_name}: distance {min_dist:.2f} km")
         
         # Connect to Socket.IO
         self.logger.info("[STEP 11/12] Connecting to Socket.IO...")
@@ -299,6 +315,10 @@ class DepotReservoir:
         
         # Disconnect from database
         await self.db.disconnect()
+        
+        # Close Strapi API client session
+        if self.api_client:
+            await self.api_client.close()
         
         # Disconnect from Socket.IO
         if self.client:
@@ -470,11 +490,10 @@ class DepotReservoir:
         depot_name = next((d.name for d in self.depots if d.depot_id == depot_id), depot_id)
         
         # Calculate trip distance
-        from geodesy.geodesy import haversine
-        trip_distance_km = haversine(
-            depot_location[0], depot_location[1],
-            destination[0], destination[1]
-        )
+        trip_distance_km = geodesic(
+            (depot_location[0], depot_location[1]),
+            (destination[0], destination[1])
+        ).kilometers
         
         # Get total spawned count from statistics
         stats = await self.statistics.get_stats()
@@ -699,10 +718,14 @@ class DepotReservoir:
         Args:
             spawn_request: Spawn request dict with location/destination/route info
         """
-        spawn_location = spawn_request.get('spawn_location')  # (lat, lon)
-        destination = spawn_request.get('destination_location')  # (lat, lon)
+        spawn_location_dict = spawn_request.get('spawn_location')
+        destination_dict = spawn_request.get('destination_location')
         route_id = spawn_request.get('assigned_route')
         priority = spawn_request.get('priority', 3)
+        
+        # Convert dict locations to tuples
+        spawn_location = (spawn_location_dict['lat'], spawn_location_dict['lon']) if spawn_location_dict else None
+        destination = (destination_dict['lat'], destination_dict['lon']) if destination_dict else None
         
         if not all([spawn_location, destination, route_id]):
             self.logger.debug(f"Skipping incomplete spawn request")
@@ -717,6 +740,24 @@ class DepotReservoir:
         connected_depots = [d for d in self.depots if self._is_depot_connected_to_route(d, route_id)]
         
         if not connected_depots:
+            # Debug: Log all depot distances to help diagnose the issue
+            self.logger.warning(f"Checking {len(self.depots)} depots for route {route_id} connection:")
+            for d in self.depots:
+                d_lat = d.latitude if d.latitude is not None else (d.location.get('lat') if d.location else None)
+                d_lon = d.longitude if d.longitude is not None else (d.location.get('lon') if d.location else None)
+                self.logger.warning(f"  Depot {d.depot_id} ({d.name}) at ({d_lat}, {d_lon})")
+                
+                # Test connection
+                route = next((r for r in self.routes if r.short_name == route_id), None)
+                if route and route.geometry_coordinates and d_lat and d_lon:
+                    min_dist = float('inf')
+                    for coord in route.geometry_coordinates:
+                        rlat, rlon = coord[1], coord[0]
+                        dist = geodesic((d_lat, d_lon), (rlat, rlon)).kilometers
+                        if dist < min_dist:
+                            min_dist = dist
+                    self.logger.warning(f"    Min distance to route {route_id}: {min_dist:.3f} km")
+            
             self.logger.warning(
                 f"No depots connected to route {route_id} - skipping spawn at ({spawn_location[0]:.4f}, {spawn_location[1]:.4f})"
             )
@@ -749,29 +790,27 @@ class DepotReservoir:
     # Helper Methods
     # ========================================================================
     
-    def _is_depot_connected_to_route(self, depot: DepotData, route_id: str, max_distance_km: float = 0.5) -> bool:
+    def _is_depot_connected_to_route(self, depot: DepotData, route_id: str, max_distance_km: float = 5.0) -> bool:
         """
         Check if a depot is connected to a route by verifying it's within max_distance_km
-        of the route's start or end point.
+        of ANY point on the route geometry.
         
         Args:
             depot: The depot to check
             route_id: The route ID (short_name)
-            max_distance_km: Maximum distance in km for connection (default 0.5 km = 500m)
+            max_distance_km: Maximum distance in km for connection (default 5.0 km)
             
         Returns:
             True if depot is connected to route, False otherwise
         """
-        from math import radians, sin, cos, sqrt, atan2
-        
         # Find the route
         route = next((r for r in self.routes if r.short_name == route_id), None)
         if not route or not route.geometry_coordinates:
             return False
         
-        # Get depot coordinates
-        depot_lat = depot.latitude if depot.latitude is not None else depot.location.get('lat')
-        depot_lon = depot.longitude if depot.longitude is not None else depot.location.get('lon')
+        # Get depot coordinates - handle both direct fields and location dict
+        depot_lat = depot.latitude if depot.latitude is not None else (depot.location.get('lat') if depot.location else None)
+        depot_lon = depot.longitude if depot.longitude is not None else (depot.location.get('lon') if depot.location else None)
         
         if not depot_lat or not depot_lon:
             return False
@@ -782,33 +821,15 @@ class DepotReservoir:
         if isinstance(depot_lon, str):
             depot_lon = float(depot_lon)
         
-        # Check distance to route start point (first coordinate)
-        start_coord = route.geometry_coordinates[0]  # [lon, lat]
-        start_lat, start_lon = start_coord[1], start_coord[0]
+        # Check distance to ALL route points (same logic as queue initialization)
+        min_dist = float('inf')
+        for coord in route.geometry_coordinates:
+            rlat, rlon = coord[1], coord[0]
+            d = geodesic((depot_lat, depot_lon), (rlat, rlon)).kilometers
+            if d < min_dist:
+                min_dist = d
         
-        # Haversine distance to start
-        R = 6371  # Earth radius in km
-        dlat = radians(start_lat - depot_lat)
-        dlon = radians(start_lon - depot_lon)
-        a = sin(dlat/2)**2 + cos(radians(depot_lat)) * cos(radians(start_lat)) * sin(dlon/2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1-a))
-        distance_to_start = R * c
-        
-        if distance_to_start <= max_distance_km:
-            return True
-        
-        # Check distance to route end point (last coordinate)
-        end_coord = route.geometry_coordinates[-1]  # [lon, lat]
-        end_lat, end_lon = end_coord[1], end_coord[0]
-        
-        # Haversine distance to end
-        dlat = radians(end_lat - depot_lat)
-        dlon = radians(end_lon - depot_lon)
-        a = sin(dlat/2)**2 + cos(radians(depot_lat)) * cos(radians(end_lat)) * sin(dlon/2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1-a))
-        distance_to_end = R * c
-        
-        return distance_to_end <= max_distance_km
+        return min_dist <= max_distance_km
     
     def _find_nearest_depot_from_list(self, location: tuple[float, float], depot_list: List[DepotData]) -> Optional[DepotData]:
         """

@@ -26,6 +26,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import uuid
 import math
+from geopy.distance import geodesic
 
 from commuter_service.socketio_client import (
     SocketIOClient,
@@ -375,6 +376,10 @@ class RouteReservoir:
         # Disconnect from database
         await self.db.disconnect()
         
+        # Close Strapi API client session
+        if self.api_client:
+            await self.api_client.close()
+        
         # Disconnect from Socket.IO
         if self.client:
             await self.client.disconnect()
@@ -552,11 +557,10 @@ class RouteReservoir:
         dest_location_name = self._get_location_name(destination)
         
         # Calculate trip distance
-        from geodesy.geodesy import haversine
-        trip_distance_km = haversine(
-            current_location[0], current_location[1],
-            destination[0], destination[1]
-        )
+        trip_distance_km = geodesic(
+            (current_location[0], current_location[1]),
+            (destination[0], destination[1])
+        ).kilometers
         
         # Get total spawned count from statistics
         stats = await self.statistics.get_stats()
@@ -818,11 +822,15 @@ class RouteReservoir:
         Args:
             spawn_request: Spawn request dict with location/destination/route info
         """
-        spawn_location = spawn_request.get('spawn_location')  # (lat, lon)
-        destination = spawn_request.get('destination_location')  # (lat, lon)
+        spawn_location_dict = spawn_request.get('spawn_location')
+        destination_dict = spawn_request.get('destination_location')
         route_id = spawn_request.get('assigned_route')
         priority = spawn_request.get('priority', 3)
         direction = spawn_request.get('direction', 'OUTBOUND').upper()
+        
+        # Convert dict locations to tuples
+        spawn_location = (spawn_location_dict['lat'], spawn_location_dict['lon']) if spawn_location_dict else None
+        destination = (destination_dict['lat'], destination_dict['lon']) if destination_dict else None
         
         if not all([spawn_location, destination, route_id]):
             self.logger.debug(f"Skipping incomplete route spawn request")
