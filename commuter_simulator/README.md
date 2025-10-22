@@ -4,7 +4,7 @@ A redesigned passenger spawning and management system with clean separation of c
 
 ## Structure
 
-```
+```text
 commuter_simulator/
 ├── infrastructure/          # External integrations (SINGLE SOURCE OF TRUTH)
 │   ├── database/           # ✓ Strapi API client (ONLY place for API access)
@@ -30,18 +30,21 @@ commuter_simulator/
 ## Key Principles
 
 ### 1. Single Source of Truth
+
 - **API Access**: `infrastructure/database/strapi_client.py` is the ONLY place where API calls are made
 - **Socket.IO**: `services/socketio/service.py` handles all real-time communication
 - All other modules must use these services, never make direct HTTP/Socket calls
 
 ### 2. Clear Separation
+
 - **Infrastructure**: External systems (database, sockets, GIS)
 - **Services**: High-level application services (depot/route reservoirs)
 - **Core**: Business logic, independent of infrastructure
 - **Utils**: Reusable utilities
 
 ### 3. Dependency Flow
-```
+
+```text
 Services → Core → Infrastructure
          ↓
        Utils
@@ -50,6 +53,7 @@ Services → Core → Infrastructure
 ## Ported Components
 
 ### ✓ Socket.IO Service
+
 - Location: `services/socketio/service.py`
 - Original: `commuter_service/socketio_client.py`
 - Changes:
@@ -58,6 +62,7 @@ Services → Core → Infrastructure
   - Cleaner logging
 
 ### ✓ API Client
+
 - Location: `infrastructure/database/strapi_client.py`
 - Original: `commuter_service/strapi_api_client.py`
 - Changes:
