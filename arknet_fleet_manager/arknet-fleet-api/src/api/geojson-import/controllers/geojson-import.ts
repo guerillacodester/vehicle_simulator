@@ -3,6 +3,9 @@
  * Handles GeoJSON file imports with streaming parser and Socket.IO progress updates
  */
 
+import fs from 'fs';
+import path from 'path';
+
 export default {
   /**
    * Health check endpoint
@@ -34,16 +37,56 @@ export default {
         return ctx.badRequest('countryId is required');
       }
 
-      // TODO: Implement streaming import
+      const jobId = `highway_${Date.now()}`;
+      
+      // Step 1.7.3a: Test file reading and basic parsing
+      const geojsonPath = path.join(process.cwd(), '..', '..', 'sample_data', 'highway.geojson');
+      
+      // Check if file exists
+      if (!fs.existsSync(geojsonPath)) {
+        strapi.log.error(`Highway GeoJSON file not found: ${geojsonPath}`);
+        return ctx.notFound(`GeoJSON file not found at: ${geojsonPath}`);
+      }
+
+      // Get file stats
+      const fileStats = fs.statSync(geojsonPath);
+      const fileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
+      
+      strapi.log.info(`[${jobId}] Starting highway import`);
+      strapi.log.info(`[${jobId}] File: ${geojsonPath}`);
+      strapi.log.info(`[${jobId}] Size: ${fileSizeMB} MB`);
+      strapi.log.info(`[${jobId}] Country: ${countryId}`);
+
+      // Read and parse GeoJSON (for testing - will use streaming later)
+      const geojsonContent = fs.readFileSync(geojsonPath, 'utf-8');
+      const geojson = JSON.parse(geojsonContent);
+      
+      const featureCount = geojson.features ? geojson.features.length : 0;
+      strapi.log.info(`[${jobId}] Features found: ${featureCount}`);
+      
+      // Log first feature as sample
+      if (geojson.features && geojson.features.length > 0) {
+        const firstFeature = geojson.features[0];
+        strapi.log.info(`[${jobId}] Sample feature properties:`, Object.keys(firstFeature.properties || {}));
+        strapi.log.info(`[${jobId}] Sample geometry type:`, firstFeature.geometry?.type);
+      }
+
       ctx.body = {
-        jobId: `highway_${Date.now()}`,
-        message: 'Highway import started (STUB)',
+        jobId,
+        message: 'Highway import file validated (TEST MODE)',
         countryId,
         fileType: 'highway',
+        fileInfo: {
+          path: geojsonPath,
+          sizeMB: fileSizeMB,
+          featureCount,
+          geometryType: geojson.type,
+        },
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       strapi.log.error('Highway import failed:', error);
-      ctx.internalServerError('Import failed');
+      ctx.internalServerError(`Import failed: ${errorMessage}`);
     }
   },
 
