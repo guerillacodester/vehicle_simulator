@@ -96,6 +96,12 @@
       "target": "api::highway.highway",
       "mappedBy": "country"
     },
+    "buildings": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::building.building",
+      "mappedBy": "country"
+    },
     "spawn_config": {
       "type": "relation",
       "relation": "oneToOne",
