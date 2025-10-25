@@ -1,4 +1,5 @@
 -- Insert 4 admin levels with proper Strapi v5 structure
+-- Uses ON CONFLICT to prevent duplicate inserts
 INSERT INTO admin_levels (
     document_id,
     level,
@@ -10,7 +11,7 @@ INSERT INTO admin_levels (
     updated_at
 ) VALUES
 (
-    gen_random_uuid()::text,
+    gen_random_uuid(),
     6,
     'Parish',
     'First-level administrative division (Parishes)',
@@ -20,7 +21,7 @@ INSERT INTO admin_levels (
     NOW()
 ),
 (
-    gen_random_uuid()::text,
+    gen_random_uuid(),
     8,
     'Town',
     'Town-level administrative boundary',
@@ -30,7 +31,7 @@ INSERT INTO admin_levels (
     NOW()
 ),
 (
-    gen_random_uuid()::text,
+    gen_random_uuid(),
     9,
     'Suburb',
     'Suburb or neighborhood district',
@@ -40,7 +41,7 @@ INSERT INTO admin_levels (
     NOW()
 ),
 (
-    gen_random_uuid()::text,
+    gen_random_uuid(),
     10,
     'Neighbourhood',
     'Small neighborhood or locality',
@@ -48,7 +49,8 @@ INSERT INTO admin_levels (
     NOW(),
     NOW(),
     NOW()
-);
+)
+ON CONFLICT (level) DO NOTHING;
 
 -- Verify
 SELECT id, level, name, locale, published_at IS NOT NULL as published FROM admin_levels ORDER BY level;
