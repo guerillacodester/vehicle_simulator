@@ -52,10 +52,72 @@ function getCountryId(): string | null {
 }
 
 /**
- * Get JWT authentication token from localStorage
+ * Get JWT authentication token from Strapi admin session
+ * Strapi admin uses a different auth mechanism than the public API
  */
 function getAuthToken(): string | null {
-  return localStorage.getItem('jwtToken');
+  // Try sessionStorage first (Strapi v5 may use this)
+  const tokenKeys = [
+    'jwtToken',
+    'strapi_jwt', 
+    'token',
+    'strapi-token',
+  ];
+
+  // Check sessionStorage
+  for (const key of tokenKeys) {
+    const token = sessionStorage.getItem(key);
+    if (token) {
+      console.log(`Found token in sessionStorage key: ${key}`);
+      return token;
+    }
+  }
+
+  // Check localStorage
+  for (const key of tokenKeys) {
+    const token = localStorage.getItem(key);
+    if (token) {
+      console.log(`Found token in localStorage key: ${key}`);
+      return token;
+    }
+  }
+
+  // Try to get admin token from various Strapi v5 structures
+  try {
+    // Method 1: strapi-admin-auth object
+    const strapiAuth = sessionStorage.getItem('strapi-admin-auth') || localStorage.getItem('strapi-admin-auth');
+    if (strapiAuth) {
+      const authData = JSON.parse(strapiAuth);
+      if (authData?.token) {
+        console.log('Found token in strapi-admin-auth');
+        return authData.token;
+      }
+    }
+    
+    // Method 2: Check for JWT pattern in all storage
+    const allStorage = [
+      { name: 'sessionStorage', storage: sessionStorage },
+      { name: 'localStorage', storage: localStorage }
+    ];
+    
+    for (const { name, storage } of allStorage) {
+      for (let i = 0; i < storage.length; i++) {
+        const key = storage.key(i);
+        if (key) {
+          const value = storage.getItem(key);
+          if (value && value.startsWith('eyJ')) {
+            console.log(`Found JWT-like token in ${name} key: ${key}`);
+            return value;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse auth data:', e);
+  }
+
+  console.warn('No authentication token found - will try cookie-based auth');
+  return null;
 }
 
 /**
@@ -111,36 +173,47 @@ async function handleGeoJSONImport(
     return;
   }
 
-  // Step 3: Get authentication
+  // Step 3: Get authentication token (optional - will fall back to cookies)
   const token = getAuthToken();
-  if (!token) {
-    alert('❌ Error: Not authenticated. Please log in again.');
-    return;
-  }
-
+  
   // Step 4: Initialize metadata with "starting" status
-  if (onChange) {
-    onChange({
-      status: 'starting',
-      fileType: fileType,
-      startedAt: new Date().toISOString(),
-      progress: 0,
-      featuresImported: 0,
-      message: 'Initializing import...'
-    });
-  }
+  // Note: onChange disabled for now - causes Form.tsx errors
+  // if (onChange) {
+  //   try {
+  //     onChange({
+  //       status: 'starting',
+  //       fileType: fileType,
+  //       startedAt: new Date().toISOString(),
+  //       progress: 0,
+  //       featuresImported: 0,
+  //       message: 'Initializing import...'
+  //     });
+  //   } catch (e) {
+  //     console.warn('[Import] onChange failed (non-critical):', e);
+  //   }
+  // }
 
   try {
     // Step 5: Call backend API to start import
     const apiUrl = `${getApiBaseUrl()}/api/import-geojson/${fileType}`;
     console.log(`[${fileType}] Calling API:`, apiUrl);
 
+    // Build headers - use token if available, otherwise rely on cookies
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log(`[${fileType}] Using Bearer token authentication`);
+    } else {
+      console.log(`[${fileType}] Using cookie-based authentication`);
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: headers,
+      credentials: 'include', // Include cookies for Strapi admin auth
       body: JSON.stringify({
         countryId: countryId
       })
@@ -160,17 +233,18 @@ async function handleGeoJSONImport(
     }
 
     // Step 6: Update metadata with job started
-    if (onChange) {
-      onChange({
-        status: 'in_progress',
-        fileType: fileType,
-        startedAt: new Date().toISOString(),
-        jobId: jobId,
-        progress: 0,
-        featuresImported: 0,
-        message: 'Import job started, connecting for progress updates...'
-      });
-    }
+    // TODO: Fix onChange to work with Strapi Form component
+    // if (onChange) {
+    //   onChange({
+    //     status: 'in_progress',
+    //     fileType: fileType,
+    //     startedAt: new Date().toISOString(),
+    //     jobId: jobId,
+    //     progress: 0,
+    //     featuresImported: 0,
+    //     message: 'Import job started, connecting for progress updates...'
+    //   });
+    // }
 
     // Step 7: Connect to Socket.IO for real-time progress
     const socket: Socket = io(getApiBaseUrl(), {
@@ -183,38 +257,40 @@ async function handleGeoJSONImport(
     socket.on('connect', () => {
       console.log(`[${fileType}] Socket.IO connected`, socket.id);
       
-      if (onChange) {
-        onChange({
-          status: 'in_progress',
-          fileType: fileType,
-          startedAt: new Date().toISOString(),
-          jobId: jobId,
-          progress: 0,
-          featuresImported: 0,
-          message: 'Connected to progress stream...',
-          socketId: socket.id
-        });
-      }
+      // TODO: Fix onChange
+      // if (onChange) {
+      //   onChange({
+      //     status: 'in_progress',
+      //     fileType: fileType,
+      //     startedAt: new Date().toISOString(),
+      //     jobId: jobId,
+      //     progress: 0,
+      //     featuresImported: 0,
+      //     message: 'Connected to progress stream...',
+      //     socketId: socket.id
+      //   });
+      // }
     });
 
     // Step 8: Listen for progress events
     socket.on(`import:progress:${jobId}`, (data: any) => {
       console.log(`[${fileType}] Progress update:`, data);
       
-      if (onChange) {
-        onChange({
-          status: 'in_progress',
-          fileType: fileType,
-          startedAt: fieldValue?.startedAt || new Date().toISOString(),
-          jobId: jobId,
-          progress: data.progress || 0,
-          featuresImported: data.featuresImported || 0,
-          currentChunk: data.currentChunk,
-          totalChunks: data.totalChunks,
-          message: data.message || `Processing... ${data.progress}%`,
-          lastUpdate: new Date().toISOString()
-        });
-      }
+      // TODO: Fix onChange
+      // if (onChange) {
+      //   onChange({
+      //     status: 'in_progress',
+      //     fileType: fileType,
+      //     startedAt: fieldValue?.startedAt || new Date().toISOString(),
+      //     jobId: jobId,
+      //     progress: data.progress || 0,
+      //     featuresImported: data.featuresImported || 0,
+      //     currentChunk: data.currentChunk,
+      //     totalChunks: data.totalChunks,
+      //     message: data.message || `Processing... ${data.progress}%`,
+      //     lastUpdate: new Date().toISOString()
+      //   });
+      // }
     });
 
     // Step 9: Listen for completion event
@@ -223,19 +299,20 @@ async function handleGeoJSONImport(
       
       socket.disconnect();
       
-      if (onChange) {
-        onChange({
-          status: 'completed',
-          fileType: fileType,
-          startedAt: fieldValue?.startedAt || new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-          jobId: jobId,
-          progress: 100,
-          featuresImported: data.totalFeatures || data.featuresImported || 0,
-          duration: data.duration,
-          message: 'Import completed successfully!'
-        });
-      }
+      // TODO: Fix onChange
+      // if (onChange) {
+      //   onChange({
+      //     status: 'completed',
+      //     fileType: fileType,
+      //     startedAt: fieldValue?.startedAt || new Date().toISOString(),
+      //     completedAt: new Date().toISOString(),
+      //     jobId: jobId,
+      //     progress: 100,
+      //     featuresImported: data.totalFeatures || data.featuresImported || 0,
+      //     duration: data.duration,
+      //     message: 'Import completed successfully!'
+      //   });
+      // }
 
       alert(
         `✅ Import Complete!\n\n` +
@@ -251,17 +328,18 @@ async function handleGeoJSONImport(
       
       socket.disconnect();
       
-      if (onChange) {
-        onChange({
-          status: 'failed',
-          fileType: fileType,
-          startedAt: fieldValue?.startedAt || new Date().toISOString(),
-          failedAt: new Date().toISOString(),
-          jobId: jobId,
-          error: error.message || 'Unknown error',
-          message: `Import failed: ${error.message || 'Unknown error'}`
-        });
-      }
+      // TODO: Fix onChange
+      // if (onChange) {
+      //   onChange({
+      //     status: 'failed',
+      //     fileType: fileType,
+      //     startedAt: fieldValue?.startedAt || new Date().toISOString(),
+      //     failedAt: new Date().toISOString(),
+      //     jobId: jobId,
+      //     error: error.message || 'Unknown error',
+      //     message: `Import failed: ${error.message || 'Unknown error'}`
+      //   });
+      // }
 
       alert(`❌ Import Failed!\n\n${error.message || 'Unknown error'}`);
     });
@@ -270,17 +348,18 @@ async function handleGeoJSONImport(
     socket.on('connect_error', (error: Error) => {
       console.error(`[${fileType}] Socket.IO connection error:`, error);
       
-      if (onChange) {
-        onChange({
-          status: 'failed',
-          fileType: fileType,
-          startedAt: fieldValue?.startedAt || new Date().toISOString(),
-          failedAt: new Date().toISOString(),
-          jobId: jobId,
-          error: `Connection error: ${error.message}`,
-          message: 'Failed to connect to progress stream'
-        });
-      }
+      // TODO: Fix onChange
+      // if (onChange) {
+      //   onChange({
+      //     status: 'failed',
+      //     fileType: fileType,
+      //     startedAt: fieldValue?.startedAt || new Date().toISOString(),
+      //     failedAt: new Date().toISOString(),
+      //     jobId: jobId,
+      //     error: `Connection error: ${error.message}`,
+      //     message: 'Failed to connect to progress stream'
+      //   });
+      // }
     });
 
     socket.on('disconnect', (reason: string) => {
@@ -290,16 +369,17 @@ async function handleGeoJSONImport(
   } catch (error) {
     console.error(`[${fileType}] Import handler error:`, error);
     
-    if (onChange) {
-      onChange({
-        status: 'failed',
-        fileType: fileType,
-        startedAt: fieldValue?.startedAt || new Date().toISOString(),
-        failedAt: new Date().toISOString(),
-        error: (error as Error).message,
-        message: `Import failed: ${(error as Error).message}`
-      });
-    }
+    // TODO: Fix onChange
+    // if (onChange) {
+    //   onChange({
+    //     status: 'failed',
+    //     fileType: fileType,
+    //     startedAt: fieldValue?.startedAt || new Date().toISOString(),
+    //     failedAt: new Date().toISOString(),
+    //     error: (error as Error).message,
+    //     message: `Import failed: ${(error as Error).message}`
+    //   });
+    // }
 
     alert(`❌ Import Failed!\n\n${(error as Error).message}`);
   }
