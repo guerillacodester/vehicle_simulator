@@ -1,14 +1,14 @@
-{
+﻿{
   "kind": "collectionType",
   "collectionName": "admin_levels",
   "info": {
     "singularName": "admin-level",
     "pluralName": "admin-levels",
     "displayName": "Admin Level",
-    "description": "Administrative hierarchy levels (Parish, Town, Suburb, Neighborhood)"
+    "description": "Administrative hierarchy levels"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
