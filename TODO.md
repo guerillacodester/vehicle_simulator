@@ -32,16 +32,20 @@
 - 🚨 **PostGIS MANDATORY** - All spatial tables must use geometry columns
 - 🚨 **GIST indexes required** - For all PostGIS geometry columns
 - 🚨 **GTFS compliance** - Follow GTFS standards for stops, shapes, routes
-- ⚠️ **Streaming parser required** - building.geojson = 658MB
+- 🚨 **Buildings table REQUIRED** - Foundation for realistic passenger spawning (see CONTEXT.md "Passenger Spawning Architecture")
+- 🚨 **commuter_simulator is active** - `commuter_service/` is DEPRECATED (being phased out)
+- ⚠️ **Streaming parser required** - building.geojson = 658MB (cannot load into memory)
+- ⚠️ **All 5 datasets needed** - Buildings, Landuse, Amenities, Admin, Highways work together for spawning model
 - ⚠️ **Centroid extraction required** - amenity.geojson has MultiPolygon, schema expects Point
 - ⚠️ **Don't break spawn rate** - Currently calibrated to 100/hr
 
 ### **Files to Read Before Starting**
 
-1. `CONTEXT.md` - **READ "DATABASE ARCHITECTURE ISSUES" SECTION FIRST**
-2. `arknet_fleet_manager/arknet-fleet-api/migrate_all_to_postgis.sql` - Migration script
-3. `src/admin/button-handlers.ts` - Frontend handlers (387 lines)
-4. `src/api/geojson-import/controllers/geojson-import.ts` - Highway import (uses PostGIS)
+1. `CONTEXT.md` - **READ "PASSENGER SPAWNING ARCHITECTURE" AND "DATABASE ARCHITECTURE ISSUES" SECTIONS FIRST**
+2. `commuter_simulator/README.md` - New architecture (Single Source of Truth pattern)
+3. `arknet_fleet_manager/arknet-fleet-api/migrate_all_to_postgis.sql` - Migration script
+4. `src/admin/button-handlers.ts` - Frontend handlers (387 lines)
+5. `src/api/geojson-import/controllers/geojson-import.ts` - All import endpoints (uses PostGIS)
 
 ---
 
@@ -54,8 +58,12 @@
   - ✅ 11 tables with PostGIS geometry columns
   - ✅ 12 GIST spatial indexes created
   - ✅ Spatial queries tested and working
-- [ ] **Phase 1.8.4**: Update Remaining Import Code (0/4 steps) ⏳ CURRENT
-- [ ] **Phase 2**: Complete Backend + Batch Import (0/15 steps) - UNBLOCKED
+  - ✅ All import endpoints updated with PostGIS pattern
+- [ ] **Phase 1.9**: Create Buildings Content Type (0/4 steps) ⏳ NEXT - CRITICAL
+- [ ] **Phase 1.10**: Streaming GeoJSON Parser (0/6 steps) - CRITICAL for 658MB files
+- [ ] **Phase 1.11**: Geospatial Services API (0/7 steps) - CRITICAL for spawning queries
+- [ ] **Phase 1.12**: Database Integration (0/5 steps)
+- [ ] **Phase 2**: Complete Backend + Batch Import (0/15 steps)
 - [ ] **Phase 3**: Redis + Reverse Geocoding (0/12 steps)
 - [ ] **Phase 4**: Geofencing (0/8 steps)
 - [ ] **Phase 5**: POI-Based Spawning (0/18 steps) - BLOCKED
@@ -334,52 +342,104 @@
   - Depots: Point geometry with ST_AsText() working
   - Shape geometries: Aggregated LineStrings (7-45 points each)
 
-#### **1.8.4** Update Import Code for PostGIS
+#### **1.8.4** Update Import Code for PostGIS ✅ COMPLETE (Oct 25, 2025 18:25)
 
-- [ ] **1.8.4a** Update amenity/POI import
-  - Extract centroid from MultiPolygon geometries
-  - Insert as PostGIS Point: `ST_GeomFromText('POINT(lon lat)', 4326)`
+- [x] **1.8.4a** Update amenity/POI import ✅
+  - Extracts centroid from Point/Polygon/MultiPolygon geometries
+  - Inserts as PostGIS Point: `ST_GeomFromText('POINT(lon lat)', 4326)`
+  - Handles all geometry types with centroid calculation
   
-- [ ] **1.8.4b** Update landuse import
-  - Insert as PostGIS Polygon: `ST_GeomFromText('POLYGON(...)', 4326)`
+- [x] **1.8.4b** Update landuse import ✅
+  - Converts Polygon/MultiPolygon to PostGIS Polygon
+  - Uses `ST_GeomFromText('POLYGON(...)', 4326)`
+  - Handles MultiPolygon by using first polygon
   
-- [ ] **1.8.4c** Update building import
-  - Insert as PostGIS Polygon
+- [x] **1.8.4c** Update building import ✅
+  - Placeholder implementation (table doesn't exist yet)
+  - PostGIS pattern documented for future implementation
+  - Notes: Requires streaming parser for 658MB file
   
-- [ ] **1.8.4d** Update admin boundaries import
-  - Insert as PostGIS MultiPolygon: `ST_GeomFromText('MULTIPOLYGON(...)', 4326)`
+- [x] **1.8.4d** Update admin boundaries import ✅
+  - Converts Polygon/MultiPolygon to PostGIS MultiPolygon
+  - Uses `ST_GeomFromText('MULTIPOLYGON(...)', 4326)`
+  - Handles single Polygon by converting to MultiPolygon for consistency
 
-**✅ Validation**: All spatial tables have PostGIS geometry + GIST indexes, spatial queries working
+**✅ Validation**: All import endpoints updated with PostGIS geometry insertion pattern
 
 ---
 
-### **STEP 1.9: Streaming GeoJSON Parser** ⏱️ 50 min
+### **STEP 1.9: Create Buildings Content Type** ⏱️ 30 min
 
-- [ ] **1.9.1** Install streaming parser dependencies
-  - Command: `npm install stream-json`
-  - Verify installation
+**CRITICAL**: Buildings table required for realistic passenger spawning model (see CONTEXT.md "Passenger Spawning Architecture")
+
+- [ ] **1.9.1** Create building content type schema
+  - File: `src/api/building/content-types/building/schema.json`
+  - Generate with: `npm run strapi generate`
+  - Select: "content-type" → "building"
   
-- [ ] **1.9.2** Create GeoJSON streaming parser
-  - File: `src/utils/geojson-parser.ts`
+- [ ] **1.9.2** Define building schema fields
+  - `building_id` (UID, required, unique)
+  - `osm_id` (biginteger, indexed)
+  - `full_id` (string)
+  - `building_type` (string) - residential, commercial, industrial, etc.
+  - `name` (string, nullable)
+  - `addr_street` (string, nullable)
+  - `addr_city` (string, nullable)
+  - `levels` (integer, nullable) - number of floors
+  - `country` (relation to country)
+  
+- [ ] **1.9.3** Add PostGIS geometry column
+  - Run SQL: `ALTER TABLE buildings ADD COLUMN geom geometry(Polygon, 4326);`
+  - Create GIST index: `CREATE INDEX idx_buildings_geom ON buildings USING GIST(geom);`
+  - Verify: `\d buildings` should show geom column
+  
+- [ ] **1.9.4** Test building import endpoint
+  - Note: Will still show "TABLE NOT CREATED YET" error until Strapi restart
+  - Restart Strapi to load new content type
+  - Click Building button in UI
+  - Should now attempt to insert (may error on file size without streaming)
+
+**✅ Validation**: Buildings table exists with PostGIS geometry column and GIST index
+
+---
+
+### **STEP 1.10: Streaming GeoJSON Parser** ⏱️ 50 min
+
+**CRITICAL**: Required for building.geojson (658MB) and production batch imports
+
+- [ ] **1.10.1** Install streaming parser dependencies
+  - Command: `cd arknet_fleet_manager/arknet-fleet-api && npm install stream-json`
+  - Verify installation in package.json
+  
+- [ ] **1.10.2** Create GeoJSON streaming parser utility
+  - File: `src/utils/geojson-stream-parser.ts`
   - Implement streaming read (chunk-by-chunk)
-  - Emit progress events per chunk
+  - Emit progress events per chunk (for Socket.IO)
   - Handle errors and edge cases
+  - Memory-efficient: process one feature at a time
   
-- [ ] **1.8.3** Integrate parser with Highway import
-  - Wire streaming parser to Highway endpoint
-  - Test with actual highway.geojson file
-  - Verify real-time progress in UI
+- [ ] **1.10.3** Update Building import to use streaming
+  - Modify `importBuilding` endpoint
+  - Replace `fs.readFileSync` with streaming parser
+  - Process features in batches (500-1000 at a time)
+  - Emit Socket.IO progress updates per batch
   
-- [ ] **1.8.4** Test all 5 file types with real files
-  - Test Highway import (real progress)
-  - Test Amenity import (real progress)
-  - Test Landuse import (real progress)
-  - Test Building import (658MB - long test, verify memory)
-  - Test Admin import (real progress)
+- [ ] **1.10.4** Test streaming with building.geojson
+  - Click Building button in UI
+  - Monitor memory usage (should stay <500MB)
+  - Verify progress updates in real-time
+  - Test with 658MB file (may take 10-30 minutes)
   
-- [ ] **1.8.5** Validate streaming performance
-  - Check memory usage during imports
+- [ ] **1.10.5** Apply streaming to other imports
+  - Update Highway import (22,719 features)
+  - Update Amenity import (1,427 features)
+  - Update Landuse import (2,267 features)
+  - Update Admin import (parishes)
+  
+- [ ] **1.10.6** Validate streaming performance
+  - Check memory usage during imports (<500MB)
   - Verify no memory leaks
+  - Confirm batch progress updates working
   - Confirm 658MB building.geojson streams successfully
   - Measure import times
 
@@ -387,9 +447,73 @@
 
 ---
 
-### **STEP 1.9: Database Integration** ⏱️ 32 min
+### **STEP 1.11: Geospatial Services API (Phase 1)** ⏱️ 90 min
 
-- [ ] **1.9.1** Update geodata_import_status after import
+**CRITICAL**: Provides optimized spatial queries for simulators (see CONTEXT.md "Geospatial Services Architecture")
+
+#### **Phase 1: Strapi Custom Controllers** (Current)
+
+- [ ] **1.11.1** Create geospatial content type structure
+  - Generate: `cd arknet_fleet_manager/arknet-fleet-api && npm run strapi generate`
+  - Select: "api" → "geospatial"
+  - Creates: `src/api/geospatial/` folder structure
+  
+- [ ] **1.11.2** Implement geofencing endpoints
+  - File: `src/api/geospatial/controllers/geospatial.ts`
+  - Endpoint: `POST /api/geospatial/check-geofence`
+    - Input: `{ lat, lon }`
+    - Query: `SELECT * FROM geofences WHERE ST_Contains(geom, ST_MakePoint(?, ?))`
+    - Output: Array of zones containing point
+  - Endpoint: `POST /api/geospatial/batch-geofence`
+    - Input: `[{ lat, lon }, ...]`
+    - Batch query for multiple points
+  
+- [ ] **1.11.3** Implement reverse geocoding endpoints
+  - Endpoint: `POST /api/geospatial/reverse-geocode`
+    - Input: `{ lat, lon }`
+    - Query: Find nearest address/building with name
+    - Output: `{ address, building_name, distance }`
+  
+- [ ] **1.11.4** Implement spawning spatial queries
+  - Endpoint: `GET /api/geospatial/route-buildings?route_id=X&buffer=500`
+    - Query: `ST_DWithin(building.geom, route_shape.geom, buffer)`
+    - Output: Buildings within route buffer
+  - Endpoint: `GET /api/geospatial/depot-buildings?depot_id=X&radius=1000`
+    - Query: `ST_DWithin(building.geom, depot.geom, radius)`
+    - Output: Buildings in depot catchment
+  - Endpoint: `GET /api/geospatial/zone-containing?lat=X&lon=Y`
+    - Query: `ST_Contains(landuse_zone.geom, ST_MakePoint(?, ?))`
+    - Output: Landuse zone containing point
+  - Endpoint: `GET /api/geospatial/nearby-pois?lat=X&lon=Y&radius=500`
+    - Query: `ST_DWithin(poi.geom, ST_MakePoint(?, ?), radius)`
+    - Output: POIs within radius
+  
+- [ ] **1.11.5** Add route definitions
+  - File: `src/api/geospatial/routes/geospatial.ts`
+  - Configure all endpoints with proper HTTP methods
+  - Add authentication/authorization if needed
+  
+- [ ] **1.11.6** Test geospatial endpoints
+  - Test geofence check with known coordinates
+  - Test route-buildings query with existing route
+  - Test depot-buildings query with existing depot
+  - Verify PostGIS functions working (ST_DWithin, ST_Contains)
+  - Check query performance (<100ms for simple queries)
+  
+- [ ] **1.11.7** Document API endpoints
+  - Add OpenAPI/Swagger documentation
+  - Document expected inputs/outputs
+  - Provide example curl commands
+
+**✅ Validation**: All geospatial endpoints working, simulators can query spatial data
+
+**⏳ Phase 2 (Future)**: Extract to separate `geospatial_service/` FastAPI service when scaling needed (>1000 req/s)
+
+---
+
+### **STEP 1.12: Database Integration** ⏱️ 32 min
+
+- [ ] **1.12.1** Update geodata_import_status after import
   - After successful import, update JSON field
   - Set status, featureCount, lastImportDate, jobId
   - Verify field updates in database

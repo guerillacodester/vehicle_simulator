@@ -1,16 +1,19 @@
 # DEFINITIVE ARCHITECTURE - Passenger Spawning System
 
 ## Overview
+
 Database-centric architecture with Socket.IO for real-time notifications only.
 
 ## Components
 
 ### 1. Database (Strapi PostgreSQL)
+
 - **Single source of truth** for all passenger data
 - Stores: passenger_id, route_id, location, destination, status, timestamps
 - Accessed via Strapi REST API
 
 ### 2. Commuter Service (Python)
+
 - **Depot Reservoir**: Spawns outbound passengers at depots
 - **Route Reservoir**: Spawns bidirectional passengers along routes
 - **Automatic spawning**: Poisson-based probability, no external triggers
@@ -18,6 +21,7 @@ Database-centric architecture with Socket.IO for real-time notifications only.
 - **Emits events**: Socket.IO notifications (IDs only, no data payload)
 
 ### 3. Socket.IO Server (Strapi)
+
 - **Notification-only pub/sub**
 - Events emitted:
   - `COMMUTER_SPAWNED` → `{passenger_id, route_id}`
@@ -26,14 +30,16 @@ Database-centric architecture with Socket.IO for real-time notifications only.
   - `QUERY_COMMUTERS` → Deprecated (use REST API instead)
 
 ### 4. Actors (Vehicles, Visualization)
+
 - **Read from database**: Query `/api/active-passengers`
 - **Listen to Socket.IO**: Get notified of changes, then query DB
 - **Never write directly**: Updates go through Strapi API
 
 ## Data Flow
 
-### Spawning Flow:
-```
+### Spawning Flow
+
+```text
 1. Reservoir (background task)
    ↓
 2. Generate passenger (PoissonGeoJSONSpawner)
@@ -47,8 +53,9 @@ Database-centric architecture with Socket.IO for real-time notifications only.
 6. Subscribers query DB for details (GET /api/active-passengers/:id)
 ```
 
-### Pickup Flow:
-```
+### Pickup Flow
+
+```text
 1. Vehicle detects nearby passenger (GET /api/active-passengers/near-location)
    ↓
 2. Vehicle picks up passenger
@@ -66,14 +73,16 @@ Database-centric architecture with Socket.IO for real-time notifications only.
 
 ## API Endpoints
 
-### Read Operations:
+### Read Operations
+
 - `GET /api/active-passengers` - List all active passengers
 - `GET /api/active-passengers/:id` - Get passenger details
 - `GET /api/active-passengers/near-location?lat=X&lon=Y&radius=Z` - Spatial query
 - `GET /api/active-passengers/by-route/:routeId` - Filter by route
 - `GET /api/active-passengers/by-status/:status` - Filter by status
 
-### Write Operations:
+### Write Operations
+
 - `POST /api/active-passengers` - Create passenger (Reservoirs only)
 - `POST /api/active-passengers/mark-boarded/:id` - Update to ONBOARD
 - `POST /api/active-passengers/mark-alighted/:id` - Update to COMPLETED
@@ -82,14 +91,17 @@ Database-centric architecture with Socket.IO for real-time notifications only.
 ## Socket.IO Namespaces
 
 ### `/depot-reservoir`
+
 - Emits: `COMMUTER_SPAWNED`, `COMMUTER_PICKED_UP`
 - For: Depot-spawned passengers
 
 ### `/route-reservoir`
+
 - Emits: `COMMUTER_SPAWNED`, `COMMUTER_PICKED_UP`
 - For: Route-spawned passengers
 
 ### `/vehicle-events`
+
 - Receives: Vehicle location updates
 - Emits: Vehicle state changes
 

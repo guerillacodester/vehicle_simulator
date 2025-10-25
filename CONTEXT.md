@@ -11,6 +11,197 @@
 
 ---
 
+## 🏗️ **SYSTEM ARCHITECTURE OVERVIEW**
+
+### **Complete System Diagram**
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          ARKNET VEHICLE SIMULATOR                               │
+│                         Production Transit Simulation                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ PRESENTATION LAYER (User Interfaces)                                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌────────────────────────────────────┐   ┌─────────────────────────────┐   │
+│  │  Strapi Admin UI (React)           │   │  Real-Time Dashboard        │   │
+│  │  Port: 1337/admin                  │   │  (Future - React/Vue)       │   │
+│  │  - Content management              │   │  - Vehicle tracking         │   │
+│  │  - GeoJSON imports (5 buttons)     │   │  - Passenger spawning view  │   │
+│  │  - Action buttons plugin           │   │  - Route visualization      │   │
+│  └────────────────────────────────────┘   └─────────────────────────────┘   │
+│                    ↓                                    ↓                     │
+└────────────────────┼────────────────────────────────────┼─────────────────────┘
+                     │                                    │
+                     ↓ HTTP/Socket.IO                     ↓ WebSocket
+                     
+┌────────────────────┴────────────────────────────────────┴─────────────────────┐
+│ API GATEWAY / DATA LAYER (Single Source of Truth)                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │  Strapi v5.23.5 (Node.js 22.20.0)                                       │ │
+│  │  arknet_fleet_manager/arknet-fleet-api/                                 │ │
+│  │  Port: 1337                                                              │ │
+│  │  ┌───────────────────────────────────────────────────────────────────┐  │ │
+│  │  │ REST/GraphQL APIs (Data CRUD - Single Source of Truth)           │  │ │
+│  │  │  - /api/countries, /api/routes, /api/stops                        │  │ │
+│  │  │  - /api/highways, /api/pois, /api/landuse-zones                   │  │ │
+│  │  │  - /api/buildings, /api/depots, /api/vehicles                     │  │ │
+│  │  │  - /api/regions (admin boundaries)                                │  │ │
+│  │  └───────────────────────────────────────────────────────────────────┘  │ │
+│  │  ┌───────────────────────────────────────────────────────────────────┐  │ │
+│  │  │ GeoJSON Import API (Custom Controllers)                           │  │ │
+│  │  │  - POST /api/import-geojson/highway (22,719 features, 43MB)       │  │ │
+│  │  │  - POST /api/import-geojson/amenity (1,427 features, 3.8MB)       │  │ │
+│  │  │  - POST /api/import-geojson/landuse (2,267 features, 4.3MB)       │  │ │
+│  │  │  - POST /api/import-geojson/building (658MB - streaming required) │  │ │
+│  │  │  - POST /api/import-geojson/admin (parishes/districts)            │  │ │
+│  │  │  ✅ Uses PostGIS geometry columns (Point, LineString, Polygon)    │  │ │
+│  │  └───────────────────────────────────────────────────────────────────┘  │ │
+│  │  ┌───────────────────────────────────────────────────────────────────┐  │ │
+│  │  │ Geospatial Services API (Phase 1 - Custom Controllers)            │  │ │
+│  │  │  - POST /api/geospatial/check-geofence                            │  │ │
+│  │  │  - POST /api/geospatial/reverse-geocode                           │  │ │
+│  │  │  - GET  /api/geospatial/route-buildings?route_id=X&buffer=500     │  │ │
+│  │  │  - GET  /api/geospatial/depot-buildings?depot_id=X&radius=1000    │  │ │
+│  │  │  - GET  /api/geospatial/zone-containing?lat=X&lon=Y               │  │ │
+│  │  │  - GET  /api/geospatial/nearby-pois?lat=X&lon=Y&radius=500        │  │ │
+│  │  │  ✅ Direct PostGIS queries (ST_Contains, ST_DWithin, ST_Intersects)│ │ │
+│  │  └───────────────────────────────────────────────────────────────────┘  │ │
+│  │  ┌───────────────────────────────────────────────────────────────────┐  │ │
+│  │  │ Socket.IO Events (Real-time updates)                              │  │ │
+│  │  │  - import:progress (file processing updates)                      │  │ │
+│  │  │  - import:complete (job finished)                                 │  │ │
+│  │  │  - vehicle:position (vehicle movement)                            │  │ │
+│  │  │  - passenger:spawned (new passenger)                              │  │ │
+│  │  └───────────────────────────────────────────────────────────────────┘  │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│                                      ↓                                        │
+└──────────────────────────────────────┼────────────────────────────────────────┘
+                                       │
+                                       ↓ Knex.js ORM
+                                       
+┌──────────────────────────────────────┴────────────────────────────────────────┐
+│ DATABASE LAYER (PostgreSQL + PostGIS)                                        │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │  PostgreSQL 16.3 + PostGIS 3.5                                          │ │
+│  │  Database: arknettransit  |  Port: 5432  |  User: david                 │ │
+│  │  ┌───────────────────────────────────────────────────────────────────┐  │ │
+│  │  │ Spatial Tables (PostGIS geometry columns + GIST indexes)          │  │ │
+│  │  │  ✅ highways (geom: LineString, 4326)                             │  │ │
+│  │  │  ✅ stops (geom: Point, 4326) - GTFS compliant                    │  │ │
+│  │  │  ✅ shape_geometries (geom: LineString, 4326) - GTFS aggregated   │  │ │
+│  │  │  ✅ depots (geom: Point, 4326)                                    │  │ │
+│  │  │  ✅ landuse_zones (geom: Polygon, 4326)                           │  │ │
+│  │  │  ✅ pois (geom: Point, 4326)                                      │  │ │
+│  │  │  ✅ regions (geom: MultiPolygon, 4326) - admin boundaries        │  │ │
+│  │  │  ✅ geofences (geom: Polygon, 4326)                               │  │ │
+│  │  │  ⏳ buildings (geom: Polygon, 4326) - NOT YET CREATED             │  │ │
+│  │  │  ✅ vehicle_events (geom: Point, 4326)                            │  │ │
+│  │  │  ✅ active_passengers (geom: Point, 4326)                         │  │ │
+│  │  └───────────────────────────────────────────────────────────────────┘  │ │
+│  │  ┌───────────────────────────────────────────────────────────────────┐  │ │
+│  │  │ GIST Spatial Indexes (12 indexes)                                 │  │ │
+│  │  │  - idx_highways_geom, idx_stops_geom, idx_depots_geom             │  │ │
+│  │  │  - idx_landuse_zones_geom, idx_pois_geom, idx_regions_geom        │  │ │
+│  │  │  - idx_shape_geometries_geom, idx_geofences_geom                  │  │ │
+│  │  │  - idx_vehicle_events_geom, idx_active_passengers_geom            │  │ │
+│  │  └───────────────────────────────────────────────────────────────────┘  │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│                    ↑ Strapi ORM (write)          ↑ Direct SQL (read - Phase 2)│
+└────────────────────┼──────────────────────────────┼────────────────────────────┘
+                     │                              │
+                     │                              │ (Phase 2 - Future)
+                     │                              │
+┌────────────────────┴──────────────┐  ┌───────────┴────────────────────────────┐
+│ BUSINESS LOGIC LAYER (Simulators) │  │ GEOSPATIAL SERVICE LAYER (Future)     │
+├───────────────────────────────────┤  ├───────────────────────────────────────┤
+│                                    │  │                                        │
+│  ┌──────────────────────────────┐ │  │  ┌──────────────────────────────────┐ │
+│  │ arknet_transit_simulator/    │ │  │  │ geospatial_service/              │ │
+│  │ (Python)                     │ │  │  │ (Python FastAPI)                 │ │
+│  │ - Vehicle movement           │ │  │  │ Port: 8001                       │ │
+│  │ - Route navigation           │ │  │  │ - Geofencing API                 │ │
+│  │ - Stop detection             │ │  │  │ - Reverse geocoding API          │ │
+│  │ - Socket.IO events           │ │  │  │ - Spatial query optimization     │ │
+│  │ Consumes: Strapi API         │ │  │  │ - Redis caching layer            │ │
+│  └──────────────────────────────┘ │  │  │ Database: arknettransit (same)   │ │
+│                                    │  │  │ Connection: asyncpg (read-only)  │ │
+│  ┌──────────────────────────────┐ │  │  │ ⏳ Phase 2 - Not yet implemented │ │
+│  │ commuter_simulator/          │ │  │  └──────────────────────────────────┘ │
+│  │ (Python - ACTIVE)            │ │  │                                        │
+│  │ ✅ Route Reservoir           │ │  └────────────────────────────────────────┘
+│  │    - ST_DWithin(building,    │ │
+│  │      route, 500m)            │ │  ┌────────────────────────────────────────┐
+│  │ ✅ Depot Reservoir           │ │  │ DEPRECATED LEGACY SYSTEMS             │
+│  │    - ST_DWithin(building,    │ │  ├────────────────────────────────────────┤
+│  │      depot, 1000m)           │ │  │                                        │
+│  │ ✅ Poisson distribution      │ │  │  ⚠️ commuter_service/                 │
+│  │ ✅ Temporal patterns         │ │  │  (Python - DEPRECATED)                │
+│  │ Architecture:                │ │  │  - Being phased out                   │
+│  │  infrastructure/database/    │ │  │  - Replaced by commuter_simulator     │
+│  │  services/route_reservoir/   │ │  │  - Tight coupling issues              │
+│  │  services/depot_reservoir/   │ │  │  - Do not use for new development     │
+│  │ Consumes:                    │ │  │                                        │
+│  │  - Strapi API (CRUD)         │ │  └────────────────────────────────────────┘
+│  │  - Geospatial API (spatial)  │ │
+│  └──────────────────────────────┘ │
+│                                    │
+└────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ DATA FLOW PATTERNS                                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ WRITES (Data Creation/Updates):                                             │
+│   Strapi Admin UI → Strapi API → PostgreSQL                                 │
+│   GeoJSON Import → Strapi Controller → PostgreSQL (ST_GeomFromText)         │
+│                                                                              │
+│ READS (Data Consumption):                                                   │
+│   Simulators → Strapi API → PostgreSQL (CRUD operations)                    │
+│   Simulators → Geospatial API → PostgreSQL (spatial queries)                │
+│                                                                              │
+│ REAL-TIME EVENTS:                                                           │
+│   Simulators → Socket.IO → Strapi → Dashboard                               │
+│   Import Progress → Socket.IO → Admin UI (progress bars)                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ KEY ARCHITECTURAL PRINCIPLES                                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ 1. Single Source of Truth:                                                  │
+│    ✅ Strapi owns database schema and all CRUD operations                   │
+│    ✅ All writes go through Strapi Entity Service API                       │
+│    ✅ Simulators NEVER access database directly                             │
+│                                                                              │
+│ 2. PostGIS First:                                                           │
+│    ✅ All spatial tables use geometry columns (Point, LineString, Polygon)  │
+│    ✅ GIST indexes on all geometry columns                                  │
+│    ✅ GTFS compliance for transit data (stops, shapes, routes)              │
+│                                                                              │
+│ 3. Separation of Concerns:                                                  │
+│    ✅ Strapi = Data persistence + Admin UI                                  │
+│    ✅ Geospatial Service = Optimized spatial queries (Phase 1: in Strapi)   │
+│    ✅ Simulators = Business logic (vehicle movement, passenger spawning)    │
+│                                                                              │
+│ 4. Phased Migration:                                                        │
+│    ✅ Phase 1 (MVP): Geospatial API in Strapi (simpler deployment)          │
+│    ✅ Phase 2 (Scale): Extract to FastAPI service (>1000 req/s)             │
+│    ✅ Same database: Both Strapi and geospatial service connect to          │
+│       arknettransit PostgreSQL (Strapi writes, geospatial reads)            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 📖 **DOCUMENT HIERARCHY**
 
 This workspace has multiple documentation files. Here's the authoritative order:
@@ -144,14 +335,228 @@ During highway GeoJSON import implementation, discovered the database uses **ind
 
 ### **Remaining Work**
 
-⚠️ **Import Code Updates Required** (Step 1.8.4):
+⚠️ **Import Code Updates Required** (Step 1.8.4): ✅ **COMPLETE (Oct 25, 2025 18:25)**
 
-- [ ] Amenity/POI import - Extract centroid, use ST_GeomFromText('POINT(...)')
-- [ ] Landuse import - Use ST_GeomFromText('POLYGON(...)')
-- [ ] Building import - Use ST_GeomFromText('POLYGON(...)')
-- [ ] Admin boundaries - Use ST_GeomFromText('MULTIPOLYGON(...)')
+- [x] Amenity/POI import - Extracts centroid, uses ST_GeomFromText('POINT(...)')
+- [x] Landuse import - Uses ST_GeomFromText('POLYGON(...)')
+- [x] Building import - Placeholder (table doesn't exist, streaming required for 658MB)
+- [x] Admin boundaries - Uses ST_GeomFromText('MULTIPOLYGON(...)')
 
 ✅ **Highway import already updated** - Uses PostGIS LineString with WKT format
+
+**🎉 PostGIS Migration: FULLY COMPLETE** - All spatial tables migrated, all import code updated
+
+### **Next Phase: Buildings Table & Streaming Parser**
+
+⚠️ **Buildings Content Type Required** (not yet created):
+
+- **Purpose**: Foundation for realistic passenger spawning model
+- **File**: sample_data/building.geojson (658MB, ~100K+ features)
+- **Schema**: building_id, osm_id, building_type, geom geometry(Polygon, 4326)
+- **Why Critical**: See "Passenger Spawning Architecture" section below
+
+⚠️ **Streaming Parser Required** (Step 1.9):
+
+- **Why**: building.geojson is 658MB (too large to read into memory)
+- **Solution**: Use `stream-json` to process chunks
+- **Applies to**: All GeoJSON imports for production batch processing
+
+### **Passenger Spawning Architecture Vision**
+
+The system uses **5 spatial datasets + temporal statistics** for realistic spawning across **3 reservoir types**:
+
+#### **Three Reservoir Spawning Patterns**
+
+1. **Route Reservoir** - Passengers along specific routes
+   - **Origin**: Buildings + Landuse zones along route corridor
+   - **Destination**: Buildings + Landuse zones along same route
+   - **Logic**: Spawn passengers at stops where nearby buildings/zones have high density
+   - **Example**: Route 1 spawns at stops near apartment buildings (residential landuse)
+   - **Spatial Query**: Find buildings within 500m buffer of route shape using PostGIS
+
+2. **Depot Reservoir** - Passengers near depot locations
+   - **Origin**: Buildings + Landuse zones within depot catchment area
+   - **Destination**: Depots (return trips) or nearby amenities
+   - **Logic**: Depot acts as hub, spawn passengers in surrounding residential areas
+   - **Example**: Cheapside Terminal depot spawns from nearby office buildings (morning) and residential (evening)
+   - **Spatial Query**: Find buildings within 1km radius of depot using ST_DWithin()
+
+3. **General Reservoir** - City-wide random spawning
+   - **Origin**: Any building with appropriate landuse type
+   - **Destination**: Any amenity/POI
+   - **Logic**: Random pairs based on building type → amenity type matching
+   - **Example**: Residential building → School (morning), Office → Restaurant (lunch)
+
+#### **Spatial Dataset Roles**
+
+1. **Buildings (658MB)** - Individual building footprints
+   - **Route Reservoir**: Origin/destination points along route
+   - **Depot Reservoir**: Origin/destination points near depots
+   - **Building-level precision** (apartments vs houses vs offices)
+   - **Different spawn rates by building type** (residential vs commercial)
+
+2. **Landuse Zones (2,267 features)** - Area density modifiers
+   - **Route Reservoir**: Density multiplier for buildings along route
+   - **Depot Reservoir**: Density multiplier for buildings near depot
+   - **Applied to buildings within zone boundaries**
+   - **Example**: High-density residential × 2.5 spawn rate
+
+3. **Amenities/POIs (1,427 features)** - Destination attractiveness
+   - **All Reservoirs**: Primary trip destinations
+   - **Creates trip generation patterns** (commute, shopping, school)
+   - **Example**: University spawns 1,000 students at 8am
+
+4. **Admin Boundaries (parishes)** - Regional population calibration
+   - **All Reservoirs**: Regional population totals from census
+   - **Distributes regional totals across buildings**
+   - **Example**: St. Michael parish 80K people → allocate to buildings
+
+5. **Highways (22,719 features)** - Road network connectivity
+   - **Route Reservoir**: Defines route corridors for spawning
+   - **Accessibility factor**: Buildings near highways spawn more riders
+
+6. **Depots (5 locations)** - Hub locations
+   - **Depot Reservoir**: Center point for catchment area spawning
+   - **Spatial query**: ST_DWithin(depot.geom, building.geom, 1000m)
+
+#### **Spawning Algorithms** (conceptual)
+
+**Route Reservoir**:
+
+```python
+for stop in route.stops:
+    # Find buildings near this stop
+    nearby_buildings = ST_DWithin(building.geom, stop.geom, 500)
+    
+    for building in nearby_buildings:
+        landuse_zone = find_zone_containing(building)
+        base_rate = building.units * transit_usage_rate
+        time_modifier = poisson_distribution(current_hour)
+        density_modifier = landuse_zone.density_factor
+        
+        spawn_rate = base_rate * time_modifier * density_modifier
+        spawn_passenger(building.centroid, random_stop_on_route)
+```
+
+**Depot Reservoir**:
+
+```python
+for depot in depots:
+    # Find buildings within depot catchment
+    nearby_buildings = ST_DWithin(building.geom, depot.geom, 1000)
+    
+    for building in nearby_buildings:
+        landuse_zone = find_zone_containing(building)
+        base_rate = building.units * depot_ridership_rate
+        time_modifier = poisson_distribution(current_hour)
+        density_modifier = landuse_zone.density_factor
+        
+        spawn_rate = base_rate * time_modifier * density_modifier
+        spawn_passenger(building.centroid, depot.location)
+```
+
+**Result**: Production-grade realistic passenger spawning with:
+
+- **Spatial precision** (building-level, not just random zones)
+- **Temporal patterns** (Poisson distribution for rush hours)
+- **Route-aware spawning** (passengers appear along actual routes)
+- **Depot-aware spawning** (hub-based trip generation)
+- **Density calibration** (landuse zones modify spawn rates)
+
+#### **Implementation Status**
+
+⚠️ **Current Implementation**: `commuter_service/` (DEPRECATED - being phased out)
+
+- Legacy architecture with tight coupling
+- Direct API calls scattered across modules
+- Being replaced by cleaner architecture
+
+✅ **New Implementation**: `commuter_simulator/` (ACTIVE - modern architecture)
+
+- Clean separation of concerns (Infrastructure → Services → Core)
+- Single Source of Truth pattern (API access only in `infrastructure/database/`)
+- Route Reservoir: `services/route_reservoir/`
+- Depot Reservoir: `services/depot_reservoir/`
+- Uses PostGIS spatial queries for building/landuse selection
+- **This is where the 5-dataset spawning model will be fully implemented**
+
+**Migration Plan**: Once GeoJSON imports complete, `commuter_simulator` will:
+
+1. Query buildings within route buffers using PostGIS ST_DWithin()
+2. Query landuse zones containing buildings using PostGIS ST_Contains()
+3. Apply density modifiers from landuse to building spawn rates
+4. Use Poisson distribution for temporal patterns
+5. Deprecate `commuter_service` completely
+
+### **Geospatial Services Architecture**
+
+The system provides high-performance spatial queries for both simulators through a dedicated service layer.
+
+#### **Architecture: Phased Approach**
+
+**Phase 1 (MVP - Current Focus)**: Strapi Custom Controllers
+
+- **Location**: `arknet_fleet_manager/arknet-fleet-api/src/api/geospatial/`
+- **Access**: `http://localhost:1337/api/geospatial/*`
+- **Implementation**: TypeScript custom controllers in Strapi
+- **Database**: Uses Strapi's existing database connection
+- **Deployment**: Single service (Strapi)
+- **Pros**: Simpler to implement, faster MVP
+- **Cons**: Coupled to Strapi, limited scaling
+
+**Phase 2 (Production - Future)**: Separate FastAPI Service
+
+- **Location**: `geospatial_service/` (folder created, not yet implemented)
+- **Access**: `http://localhost:8001/*`
+- **Implementation**: Python FastAPI with asyncpg
+- **Database**: Direct read-only PostGIS connection
+- **Deployment**: Independent service (port 8001)
+- **Pros**: Better performance, independent scaling, can use Python geospatial libs
+- **Cons**: Additional deployment complexity
+
+**Migration Trigger**: When geofence queries exceed >1000 req/second or performance bottlenecks appear
+
+#### **Geospatial API Endpoints** (Phase 1 Implementation)
+
+To be created in `arknet_fleet_manager/arknet-fleet-api/src/api/geospatial/controllers/`:
+
+1. **Geofencing**
+   - `POST /api/geospatial/check-geofence` - Check which zones contain a point
+   - `POST /api/geospatial/batch-geofence` - Batch geofence checks
+
+2. **Reverse Geocoding**
+   - `POST /api/geospatial/reverse-geocode` - Lat/lon to address
+   - `POST /api/geospatial/batch-geocode` - Batch reverse geocoding
+
+3. **Spatial Queries for Spawning**
+   - `GET /api/geospatial/route-buildings` - Buildings within route buffer (ST_DWithin)
+   - `GET /api/geospatial/depot-buildings` - Buildings in depot catchment (ST_DWithin)
+   - `GET /api/geospatial/nearby-pois` - POIs within radius
+   - `GET /api/geospatial/zone-containing` - Find landuse zone containing point (ST_Contains)
+
+#### **Data Flow**
+
+```text
+commuter_simulator → Strapi Geospatial API → PostGIS
+arknet_transit_simulator → Strapi Geospatial API → PostGIS
+
+(Phase 1 - Current)
+
+commuter_simulator → Geospatial Service → PostGIS
+arknet_transit_simulator → Geospatial Service → PostGIS
+
+(Phase 2 - Future, when scaling needed)
+```
+
+#### **Single Source of Truth Pattern**
+
+- ✅ **Strapi** owns database schema and CRUD operations
+- ✅ **Geospatial API** provides optimized read-only spatial queries
+- ✅ **Simulators** never access database directly
+- ✅ All writes go through Strapi Entity Service
+- ✅ All spatial reads go through Geospatial API
+
+**Result**: Production-grade realistic passenger spawning with temporal patterns
 
 ### **Architecture Decision: PostGIS First**
 
