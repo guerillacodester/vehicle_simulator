@@ -17,6 +17,7 @@
   "dependencies": {
     "@strapi/plugin-cloud": "5.23.5",
     "@strapi/plugin-users-permissions": "5.23.5",
+    "@strapi/provider-upload-cloudinary": "^5.29.0",
     "@strapi/strapi": "5.23.5",
     "@types/socket.io": "^3.0.2",
     "cors": "^2.8.5",

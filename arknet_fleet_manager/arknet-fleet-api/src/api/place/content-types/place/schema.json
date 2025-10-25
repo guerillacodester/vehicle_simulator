@@ -69,19 +69,19 @@
     },
     "spawn_weight": {
       "type": "decimal",
-      "default": 1.0,
+      "default": 1,
       "min": 0,
       "max": 10
     },
     "peak_hour_multiplier": {
       "type": "decimal",
-      "default": 1.0,
+      "default": 1,
       "min": 0,
       "max": 5
     },
     "off_peak_multiplier": {
       "type": "decimal",
-      "default": 1.0,
+      "default": 1,
       "min": 0,
       "max": 5
     },

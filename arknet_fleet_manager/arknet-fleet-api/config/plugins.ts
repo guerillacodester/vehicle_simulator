@@ -1,32 +1,52 @@
-export default () => ({
+export default ({ env }: any) => ({
   upload: {
     config: {
-      sizeLimit: 200 * 1024 * 1024, // 200mb
+      // Choose provider: Cloudinary or Local
+      provider: env('UPLOAD_PROVIDER', 'cloudinary'),
+      providerOptions:
+        env('UPLOAD_PROVIDER', 'cloudinary') === 'cloudinary'
+          ? {
+            cloud_name: env('CLOUDINARY_NAME'),
+            api_key: env('CLOUDINARY_KEY'),
+            api_secret: env('CLOUDINARY_SECRET'),
+          }
+          : {
+            localServer: { maxage: 300000 },
+          },
+
+      // Upload actions
+      actionOptions:
+        env('UPLOAD_PROVIDER', 'cloudinary') === 'cloudinary'
+          ? {
+            upload: {
+              resource_type: 'raw', // accept any file type (non-media)
+              folder: env('CLOUDINARY_FOLDER', 'strapi-uploads'),
+            },
+            delete: {},
+          }
+          : {},
+
+      // General settings
+      sizeLimit: 1000 * 1024 * 1024, // 1000 MB
       formats: ['thumbnail', 'large', 'medium', 'small'],
       breakpoints: {
         xlarge: 1920,
         large: 1000,
         medium: 750,
         small: 500,
-        xsmall: 64
+        xsmall: 64,
       },
-      // Allow GeoJSON file uploads
-      providerOptions: {
-        localServer: {
-          maxage: 300000
-        }
-      },
-      // Explicitly allow GeoJSON files
-      allowedFormats: [
-        'image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp',
-        'video/mp4', 'video/mpeg', 'video/webm',
-        'audio/mpeg', 'audio/wav', 'audio/ogg',
-        'application/pdf',
-        'application/json',           // GeoJSON
-        'application/geo+json',        // GeoJSON standard MIME
-        'application/vnd.geo+json',    // GeoJSON vendor MIME
-        'text/plain'                   // Sometimes GeoJSON is served as text
-      ]
-    }
-  }
+    },
+  },
+  // ==============================
+  // CUSTOM ADMIN PLUGIN
+  // ==============================
+  'allow-custom-files': {
+    enabled: true,
+    resolve: './src/plugins/allow-custom-files',
+  },
+  'action-buttons': {
+    enabled: true,
+    resolve: './src/plugins/strapi-plugin-action-buttons'
+  },
 });

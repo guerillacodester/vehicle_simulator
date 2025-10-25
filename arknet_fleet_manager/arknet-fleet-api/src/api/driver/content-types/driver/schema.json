@@ -28,7 +28,12 @@
     },
     "employment_status": {
       "type": "enumeration",
-      "enum": ["active", "inactive", "suspended", "terminated"],
+      "enum": [
+        "active",
+        "inactive",
+        "suspended",
+        "terminated"
+      ],
       "default": "active",
       "required": true
     },

@@ -14,8 +14,8 @@
   "attributes": {
     "country_id": {
       "type": "uid",
-      "required": true,
-      "targetField": "name"
+      "targetField": "name",
+      "required": true
     },
     "name": {
       "type": "string",
@@ -24,14 +24,14 @@
     },
     "code": {
       "type": "string",
+      "maxLength": 3,
       "required": true,
-      "unique": true,
-      "maxLength": 3
+      "unique": true
     },
     "currency": {
       "type": "string",
-      "required": false,
-      "maxLength": 3
+      "maxLength": 3,
+      "required": false
     },
     "timezone": {
       "type": "string",
@@ -50,14 +50,14 @@
     },
     "vehicles": {
       "type": "relation",
-      "relation": "oneToMany", 
+      "relation": "oneToMany",
       "target": "api::vehicle.vehicle",
       "mappedBy": "country"
     },
     "drivers": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::driver.driver", 
+      "target": "api::driver.driver",
       "mappedBy": "country"
     },
     "depots": {
@@ -102,53 +102,8 @@
       "target": "api::spawn-config.spawn-config",
       "mappedBy": "country"
     },
-    "pois_geojson_file": {
-      "type": "media",
-      "multiple": false,
-      "required": false,
-      "allowedTypes": ["files"],
-      "pluginOptions": {
-        "i18n": {
-          "localized": false
-        }
-      }
-    },
-    "landuse_geojson_file": {
-      "type": "media",
-      "multiple": false,
-      "required": false,
-      "allowedTypes": ["files"],
-      "pluginOptions": {
-        "i18n": {
-          "localized": false
-        }
-      }
-    },
-    "regions_geojson_file": {
-      "type": "media",
-      "multiple": false,
-      "required": false,
-      "allowedTypes": ["files"],
-      "pluginOptions": {
-        "i18n": {
-          "localized": false
-        }
-      }
-    },
-    "highways_geojson_file": {
-      "type": "media",
-      "multiple": false,
-      "required": false,
-      "allowedTypes": ["files"],
-      "pluginOptions": {
-        "i18n": {
-          "localized": false
-        }
-      }
-    },
     "geodata_import_status": {
-      "type": "text",
-      "default": ""
+      "type": "text"
     },
     "geodata_last_import": {
       "type": "datetime"

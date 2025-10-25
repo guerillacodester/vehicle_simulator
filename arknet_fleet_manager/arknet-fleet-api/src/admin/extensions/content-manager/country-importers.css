@@ -1,0 +1,21 @@
+.geojson-import-panel {
+  margin-top: 24px;
+  padding: 24px;
+  background-color: #ffffff;
+  border: 1px solid #dcdce4;
+  border-radius: 4px;
+}
+
+.geojson-import-panel__title {
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #32324d;
+}
+
+.geojson-importers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}

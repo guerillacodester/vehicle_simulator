@@ -35,7 +35,7 @@
     },
     "base_spawn_rate": {
       "type": "decimal",
-      "default": 1.0,
+      "default": 1,
       "min": 0,
       "max": 100
     },
@@ -57,7 +57,7 @@
     },
     "peak_multiplier": {
       "type": "decimal",
-      "default": 2.0,
+      "default": 2,
       "min": 0,
       "max": 10
     },
@@ -91,22 +91,22 @@
     },
     "max_spawn_radius_km": {
       "type": "decimal",
-      "default": 5.0,
+      "default": 5,
       "min": 0,
       "max": 100
     },
     "min_distance_between_spawns_m": {
       "type": "decimal",
-      "default": 50.0,
+      "default": 50,
       "min": 0,
       "max": 1000
     },
     "poi_type_weights": {
       "type": "json",
       "default": {
-        "bus_station": 3.0,
+        "bus_station": 3,
         "marketplace": 2.5,
-        "school": 2.0,
+        "school": 2,
         "hospital": 1.5,
         "office": 1.8,
         "residential": 1.2,
@@ -116,7 +116,7 @@
     "zone_type_weights": {
       "type": "json",
       "default": {
-        "residential": 2.0,
+        "residential": 2,
         "commercial": 2.5,
         "industrial": 1.5,
         "mixed_use": 2.2

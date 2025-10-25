@@ -44,7 +44,7 @@
     "max_speed_kmh": {
       "type": "decimal",
       "required": true,
-      "default": 25.0
+      "default": 25
     },
     "acceleration_mps2": {
       "type": "decimal",
@@ -63,7 +63,12 @@
     },
     "performance_profile": {
       "type": "enumeration",
-      "enum": ["standard", "eco", "performance", "express"],
+      "enum": [
+        "standard",
+        "eco",
+        "performance",
+        "express"
+      ],
       "required": false
     },
     "country": {

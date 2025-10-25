@@ -28,7 +28,7 @@
     "latitude": {
       "type": "float",
       "required": true,
-      "min": 13.0,
+      "min": 13,
       "max": 13.35
     },
     "longitude": {
@@ -50,9 +50,9 @@
     "activity_level": {
       "type": "decimal",
       "required": false,
-      "default": 1.0,
+      "default": 1,
       "min": 0.5,
-      "max": 2.0
+      "max": 2
     },
     "country": {
       "type": "relation",

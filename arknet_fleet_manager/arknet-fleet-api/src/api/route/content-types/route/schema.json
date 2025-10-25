@@ -45,9 +45,9 @@
     "activity_level": {
       "type": "decimal",
       "required": false,
-      "default": 1.0,
+      "default": 1,
       "min": 0.5,
-      "max": 2.0
+      "max": 2
     },
     "valid_from": {
       "type": "date",
@@ -61,8 +61,7 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::country.country",
-      "inversedBy": "routes",
-      "required": true
+      "inversedBy": "routes"
     },
     "vehicles": {
       "type": "relation",
