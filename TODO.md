@@ -45,14 +45,14 @@
 
 ## 📊 **OVERALL PROGRESS**
 
-- [ ] **Phase 1**: Country Schema + Action Buttons (9/9 steps) ✅
+- [ ] **Phase 1**: Country Schema + Action Buttons (1/10 steps) ⏳ EXPANDED
 - [ ] **Phase 2**: Redis + Reverse Geocoding (0/12 steps)
 - [ ] **Phase 3**: Geofencing (0/8 steps)
 - [ ] **Phase 4**: POI-Based Spawning (0/18 steps)
 - [ ] **Phase 5**: Depot/Route Spawners (0/11 steps)
 - [ ] **Phase 6**: Conductor Communication (0/7 steps)
 
-**Total**: 9/65 major steps completed
+**Total**: 10/75 major steps completed
 
 ---
 
@@ -152,97 +152,217 @@
 
 ---
 
-### **STEP 1.4: Design Button Configuration** ⏱️ 1 hour
+### **STEP 1.4: Install Socket.IO & Setup Infrastructure** ⏱️ 15 min
 
-- [ ] **1.4.1** Define geodata_import_buttons field structure
-
-  ```json
-  "geodata_import_buttons": {
-    "type": "customField",
-    "customField": "plugin::action-buttons.button-group",
-    "options": {
-      "buttons": [
-        {
-          "buttonLabel": "Import Highways",
-          "onClick": "importGeoJSON",
-          "metadata": { "fileType": "highway" }
-        },
-        {
-          "buttonLabel": "Import Amenities/POIs",
-          "onClick": "importGeoJSON",
-          "metadata": { "fileType": "amenity" }
-        },
-        {
-          "buttonLabel": "Import Landuse Zones",
-          "onClick": "importGeoJSON",
-          "metadata": { "fileType": "landuse" }
-        },
-        {
-          "buttonLabel": "Import Buildings",
-          "onClick": "importGeoJSON",
-          "metadata": { "fileType": "building" }
-        },
-        {
-          "buttonLabel": "Import Admin Boundaries",
-          "onClick": "importGeoJSON",
-          "metadata": { "fileType": "admin" }
-        },
-        {
-          "buttonLabel": "View Import Stats",
-          "onClick": "viewImportStats",
-          "metadata": {}
-        },
-        {
-          "buttonLabel": "Clear Redis Cache",
-          "onClick": "clearRedisCache",
-          "metadata": {}
-        }
-      ]
-    }
-  }
-  ```
+- [x] **1.4.1** Install Socket.IO client dependency ✅
+  - Command: `npm install socket.io-client --save`
+  - ✅ COMPLETED: Installed socket.io-client@4.8.1
+  - ✅ COMPLETED: Verified in package.json (3 packages added)
   
-- [ ] **1.4.2** Define geodata_import_status field structure
+- [ ] **1.4.2** Create button-handlers.ts file structure
+  - File: `src/admin/button-handlers.ts`
+  - Add TypeScript declarations
+  - Add Socket.IO import
+  - Add utility functions (getCountryId, getAuthToken)
+  
+- [ ] **1.4.3** Add first button field to schema (Highway)
+  - File: `src/api/country/content-types/country/schema.json`
+  - Add `import_highway` field with customField type
+  - Validate JSON syntax
+  
+- [ ] **1.4.4** Create first handler (handleImportHighway)
+  - Full Socket.IO implementation
+  - Progress tracking with real-time updates
+  - Error handling and user feedback
+  - Metadata updates (status, progress, features)
+  
+- [ ] **1.4.5** Wire up handler in app.tsx
+  - File: `src/admin/app.tsx`
+  - Import button-handlers.ts
+  - Verify import works
 
-  ```json
-  "geodata_import_status": {
-    "type": "json",
-    "default": {
-      "highway": {
-        "status": "not_imported",
-        "lastImportDate": null,
-        "featureCount": 0,
-        "lastJobId": null
-      },
-      "amenity": {
-        "status": "not_imported",
-        "lastImportDate": null,
-        "featureCount": 0,
-        "lastJobId": null
-      },
-      "landuse": {
-        "status": "not_imported",
-        "lastImportDate": null,
-        "featureCount": 0,
-        "lastJobId": null
-      },
-      "building": {
-        "status": "not_imported",
-        "lastImportDate": null,
-        "featureCount": 0,
-        "lastJobId": null
-      },
-      "admin": {
-        "status": "not_imported",
-        "lastImportDate": null,
-        "featureCount": 0,
-        "lastJobId": null
-      }
-    }
-  }
-  ```
+**✅ Validation**: Socket.IO installed, handler structure created, Highway button ready
 
-**✅ Validation**: Button configuration designed, status field structure defined
+---
+
+### **STEP 1.5: Test First Button (Highway)** ⏱️ 15 min
+
+- [ ] **1.5.1** Restart Strapi
+  - Command: `npm run develop`
+  - Wait for successful start
+  - Verify no schema errors
+  
+- [ ] **1.5.2** Test Highway button in admin UI
+  - Open country edit page in browser
+  - Verify "🛣️ Import Highways" button appears
+  - Click button and verify confirmation dialog
+  - Confirm import and verify error handling (no API yet)
+  - Check metadata field displays
+  
+- [ ] **1.5.3** Validate Highway button complete
+  - Button renders correctly ✅
+  - Handler function loaded ✅
+  - Socket.IO client ready ✅
+  - Error handling graceful ✅
+
+**✅ Validation**: First button working, pattern validated
+
+---
+
+### **STEP 1.6: Add Remaining 4 Buttons** ⏱️ 32 min
+
+- [ ] **1.6.1** Add Amenity button field + handler
+  - Schema: Add `import_amenity` field
+  - Handler: Create `handleImportAmenity` function
+  - Test: Restart, verify, click
+  
+- [ ] **1.6.2** Add Landuse button field + handler
+  - Schema: Add `import_landuse` field
+  - Handler: Create `handleImportLanduse` function
+  - Test: Restart, verify, click
+  
+- [ ] **1.6.3** Add Building button field + handler
+  - Schema: Add `import_building` field
+  - Handler: Create `handleImportBuilding` function
+  - Test: Restart, verify, click
+  
+- [ ] **1.6.4** Add Admin button field + handler
+  - Schema: Add `import_admin` field
+  - Handler: Create `handleImportAdmin` function
+  - Test: Restart, verify, click
+  
+- [ ] **1.6.5** Final validation - All 5 buttons
+  - Verify all 5 buttons render in UI
+  - Test each button individually
+  - Verify all handlers loaded
+  - Confirm metadata displays for each
+
+**✅ Validation**: All 5 buttons working, UI complete
+
+---
+
+### **STEP 1.7: Create Backend API Skeleton** ⏱️ 48 min
+
+- [ ] **1.7.1** Create API route structure
+  - File: `src/api/import-geojson/routes/import-geojson.ts`
+  - Define 5 endpoints: /highway, /amenity, /landuse, /building, /admin
+  
+- [ ] **1.7.2** Create API controller
+  - File: `src/api/import-geojson/controllers/import-geojson.ts`
+  - Add 5 handler functions (one per file type)
+  - Add Socket.IO emit logic for progress
+  
+- [ ] **1.7.3** Create API service
+  - File: `src/api/import-geojson/services/import-geojson.ts`
+  - Add job queue structure
+  - Add progress tracking logic
+  
+- [ ] **1.7.4** Register Socket.IO in Strapi
+  - File: `src/index.ts`
+  - Initialize Socket.IO server
+  - Configure CORS for Socket.IO
+  
+- [ ] **1.7.5** Test Socket.IO connection
+  - Restart Strapi
+  - Click Highway button
+  - Verify Socket.IO connects in browser console
+  - Verify error shows (no import logic yet)
+  
+- [ ] **1.7.6** Implement mock progress for testing
+  - Add simulated import progress (0-100%)
+  - Add simulated feature counting
+  - Test real-time UI updates for all 5 buttons
+
+**✅ Validation**: API skeleton working, Socket.IO connected, progress working
+
+---
+
+### **STEP 1.8: Streaming GeoJSON Parser** ⏱️ 50 min
+
+- [ ] **1.8.1** Install streaming parser dependencies
+  - Command: `npm install stream-json`
+  - Verify installation
+  
+- [ ] **1.8.2** Create GeoJSON streaming parser
+  - File: `src/utils/geojson-parser.ts`
+  - Implement streaming read (chunk-by-chunk)
+  - Emit progress events per chunk
+  - Handle errors and edge cases
+  
+- [ ] **1.8.3** Integrate parser with Highway import
+  - Wire streaming parser to Highway endpoint
+  - Test with actual highway.geojson file
+  - Verify real-time progress in UI
+  
+- [ ] **1.8.4** Test all 5 file types with real files
+  - Test Highway import (real progress)
+  - Test Amenity import (real progress)
+  - Test Landuse import (real progress)
+  - Test Building import (658MB - long test, verify memory)
+  - Test Admin import (real progress)
+  
+- [ ] **1.8.5** Validate streaming performance
+  - Check memory usage during imports
+  - Verify no memory leaks
+  - Confirm 658MB building.geojson streams successfully
+  - Measure import times
+
+**✅ Validation**: Streaming parser working, all files importable, memory efficient
+
+---
+
+### **STEP 1.9: Database Integration** ⏱️ 32 min
+
+- [ ] **1.9.1** Update geodata_import_status after import
+  - After successful import, update JSON field
+  - Set status, featureCount, lastImportDate, jobId
+  - Verify field updates in database
+  
+- [ ] **1.9.2** Store features in database (temporary solution)
+  - Create temporary table for imported features
+  - Store GeoJSON features during import
+  - Verify data persists
+  
+- [ ] **1.9.3** Test end-to-end import (Highway)
+  - Import highway.geojson fully
+  - Verify database updated
+  - Verify button metadata updated
+  - Verify geodata_import_status field updated
+  
+- [ ] **1.9.4** Validate all 5 file types import to DB
+  - Import all 5 file types sequentially
+  - Verify data in database for each
+  - Check geodata_import_status field shows all 5
+  - Verify total feature counts accurate
+
+**✅ Validation**: Full import pipeline working, data persisting, UI showing accurate status
+
+---
+
+### **STEP 1.10: Final Testing & Documentation** ⏱️ 20 min
+
+- [ ] **1.10.1** Complete end-to-end test
+  - Import all 5 GeoJSON files
+  - Verify all progress updates work
+  - Verify all database updates complete
+  - Screenshot working UI
+  
+- [ ] **1.10.2** Document implementation
+  - Update CONTEXT.md with GeoJSON import architecture
+  - Document Socket.IO integration
+  - Document streaming parser approach
+  
+- [ ] **1.10.3** Update TODO.md completion
+  - Mark all Phase 1 steps complete
+  - Update progress counters
+  - Add session log entries
+  - Mark Phase 1 as ✅ COMPLETE
+
+**✅ Validation**: Phase 1 fully complete, documented, tested
+
+---
+
+## 🔴 **PHASE 2: REDIS + REVERSE GEOCODING**
 
 ---
 
@@ -423,7 +543,7 @@ git push origin branch-0.0.2.6
 
 ---
 
-## 🔴 **PHASE 2: REDIS + REVERSE GEOCODING**
+🔴 **PHASE 2: REDIS + REVERSE GEOCODING**
 
 **Goal**: Install Redis, implement geospatial service, benchmark <200ms
 

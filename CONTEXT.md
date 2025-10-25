@@ -4,8 +4,8 @@
 **Repository**: vehicle_simulator  
 **Branch**: branch-0.0.2.6  
 **Date**: October 25, 2025  
-**Status**: 🟡 Active Development - GeoJSON Import System  
-**Phase**: Planning & Feasibility Study (Phase 1 not started)
+**Status**: � Active Development - GeoJSON Import System Implementation  
+**Phase**: Phase 1 - Full Implementation (Steps 1.4-1.10 in progress)
 
 > **📌 MASTER DOCUMENT**: This is the primary context reference. See `TODO.md` for step-by-step tasks.
 
@@ -68,7 +68,10 @@ This workspace has multiple documentation files. Here's the authoritative order:
 12. **Added System Integration**: Enhanced CONTEXT.md with 10 detailed workflow diagrams
 13. **Role Clarification**: User asked to confirm conductor/driver/commuter roles
 14. **Architecture Fix**: Discovered and corrected "Conductor Service" error (doesn't exist - assignment happens in spawn strategies)
-15. **Current State**: ✅ Documentation complete, ready to begin Phase 1 implementation
+15. **Agent Role Established**: User confirmed agent acts as 50+ year senior developer with authority to push back on bad practices
+16. **Phase 1 Steps 1.1-1.3 Complete**: Schema analyzed, plugin verified, database columns validated, backups created
+17. **Design Decision**: User requested 5 separate buttons (one per GeoJSON file type) with full Socket.IO progress feedback
+18. **Current State**: ✅ Steps 1.1-1.3 complete (9/75 steps), ready for full implementation (Steps 1.4-1.10)
 
 ### **Key Decisions Made**
 
@@ -81,25 +84,31 @@ This workspace has multiple documentation files. Here's the authoritative order:
 | **Centroid extraction needed** | amenity.geojson has MultiPolygon, POI schema expects Point | Oct 25 |
 | **6-phase implementation** | Country Schema → Redis → Geofencing → POI → Depot/Route → Conductor | Oct 25 |
 | **Event-based passenger assignment** | No centralized "Conductor Service" - routes assigned in spawn strategies | Oct 25 |
+| **5 separate import buttons** | One button per file type (highway, amenity, landuse, building, admin) for granular control | Oct 25 |
+| **Socket.IO for progress** | Real-time progress feedback during GeoJSON imports, leveraging existing Socket.IO infrastructure | Oct 25 |
+| **Full implementation today** | Not just skeleton - complete streaming parser, Socket.IO progress, database integration | Oct 25 |
 
 ### **Current Checkpoint**
 
 - ✅ **Documentation**: CONTEXT.md and TODO.md complete and validated
 - ✅ **Architecture**: Component roles clarified, system flows documented
-- ⏸️ **Implementation**: Phase 1 Step 1.1.1 ready to start
-- 🎯 **Next Action**: User approval to begin reading country schema
+- ✅ **Phase 1 Steps 1.1-1.3**: Schema analyzed, plugin verified, backups created (9/75 steps complete)
+- ⏳ **Implementation Phase**: Full GeoJSON import system (Steps 1.4-1.10) in progress
+- 🎯 **Next Action**: Step 1.4.1 - Install Socket.IO client dependency
 
 ---
 
 ## 👤 **USER PREFERENCES & WORK STYLE**
 
 ### **Communication Style**
+
 - ✅ **Prefers detailed explanations** over quick fixes
 - ✅ **Emphasizes analysis before implementation** - "This is a feasibility study"
 - ✅ **Values clarity over speed** - Asked for role confirmation before proceeding
 - ✅ **Appreciates validation** - Wants to verify understanding at each step
 
 ### **Work Approach**
+
 - ✅ **Incremental validation** - "Validate at each phase before proceeding"
 - ✅ **Documentation-first** - Requested comprehensive context docs before coding
 - ✅ **Explicit approvals** - Confirms decisions before major changes
@@ -108,6 +117,7 @@ This workspace has multiple documentation files. Here's the authoritative order:
 - ✅ **Update TODO.md after every change** - Must confirm updates made
 
 ### **Technical Preferences**
+
 - ✅ **Working branch**: `branch-0.0.2.6` (NOT main)
 - ✅ **Quality over speed** - Prefers thorough analysis
 - ✅ **No assumptions** - Asked to confirm roles even when docs existed
@@ -116,6 +126,7 @@ This workspace has multiple documentation files. Here's the authoritative order:
 - ✅ **No unnecessary files/scripts** - Avoid creating garbage
 
 ### **How to Work with This User**
+
 1. **Always explain WHY** before HOW
 2. **Validate assumptions** before proceeding
 3. **Update TODO.md checkboxes** as you complete steps
@@ -130,6 +141,7 @@ This workspace has multiple documentation files. Here's the authoritative order:
 ## 🧑‍💻 **AGENT ROLE & RESPONSIBILITIES**
 
 ### **Your Role**
+
 You are a **full-stack developer with 50+ years of experience**, working as a technical advisor and implementer.
 
 ### **Core Responsibilities**
@@ -210,6 +222,7 @@ You are a **full-stack developer with 50+ years of experience**, working as a te
 ### **Your Authority**
 
 You have **full authority** to:
+
 - ✅ Reject unsafe practices
 - ✅ Demand clarification
 - ✅ Propose better alternatives
@@ -224,6 +237,7 @@ You have **full authority** to:
 ## 🎯 **PROJECT MISSION**
 
 Building a **GeoJSON import system** integrated with:
+
 - **Strapi CMS v5** (PostgreSQL + PostGIS backend)
 - **Redis** for fast reverse geocoding (lat/lon → address)
 - **Real-time geofencing** via Socket.IO
@@ -235,7 +249,7 @@ Building a **GeoJSON import system** integrated with:
 
 ## 📁 **PROJECT STRUCTURE**
 
-```
+```text
 vehicle_simulator/
 ├── arknet_fleet_manager/
 │   └── arknet-fleet-api/              # Strapi CMS v5 backend
@@ -294,14 +308,17 @@ vehicle_simulator/
 
 ### **Vehicle Components** (4-Layer Hierarchy)
 
-```
+```text
+```text
 DepotManager → Dispatcher → VehicleDriver → Conductor
 ```
 
-#### **1. VehicleDriver** 
+#### **1. VehicleDriver**
+
 **Location**: `arknet_transit_simulator/vehicle/driver/navigation/vehicle_driver.py`
 
 **Role**: Vehicle operation and route navigation
+
 - **Person Component**: Extends `BasePerson` (with `PersonState` management)
 - **States**: `DriverState` - DISEMBARKED, BOARDING, ONBOARD, WAITING
 - **Responsibilities**:
@@ -315,15 +332,18 @@ DepotManager → Dispatcher → VehicleDriver → Conductor
     - `conductor:ready:depart` → Restarts engine to continue journey
 
 **Configuration**: `DriverConfig` loaded from Strapi `ConfigurationService`
+
 - `waypoint_proximity_threshold_km` (default: 0.05 = 50 meters)
 - `broadcast_interval_seconds` (default: 5.0)
 
 ---
 
 #### **2. Conductor** (Vehicle-Based Passenger Manager)
+
 **Location**: `arknet_transit_simulator/vehicle/conductor.py`
 
 **Role**: Manages passengers ON the vehicle
+
 - **Person Component**: Extends `BasePerson` (with `PersonState` management)
 - **States**: `ConductorState` - MONITORING, EVALUATING, BOARDING_PASSENGERS, SIGNALING_DRIVER, WAITING_FOR_DEPARTURE
 - **Responsibilities**:
@@ -338,6 +358,7 @@ DepotManager → Dispatcher → VehicleDriver → Conductor
 **Configuration**: `ConductorConfig` loaded from Strapi `ConfigurationService`
 
 **Communication**:
+
 - **Emits to Driver**: `conductor:request:stop`, `conductor:ready:depart`
 - **Receives from Passengers**: Stop requests, boarding signals
 
@@ -346,13 +367,16 @@ DepotManager → Dispatcher → VehicleDriver → Conductor
 ### **Passenger Spawning System**
 
 #### **3. Commuter Service** (Passenger Generation Engine)
+
 **Location**: `commuter_service/` directory
 
 **Role**: Generates passengers using statistical models
+
 - **NOT the passengers themselves** - this is the spawning system
 - **Socket.IO ServiceType**: `COMMUTER_SERVICE`
 
 **Components**:
+
 - **`poisson_geojson_spawner.py`** - Statistical engine
   - Poisson distribution modeling
   - 18x spawn rate reduction
@@ -383,6 +407,7 @@ DepotManager → Dispatcher → VehicleDriver → Conductor
   - Auto-refresh on Strapi data changes
 
 **Key Data Structure**:
+
 ```python
 @dataclass
 class SpawnRequest:
@@ -417,7 +442,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 
 #### **1. Data Import Flow** (Strapi → PostgreSQL → Redis)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. ADMIN TRIGGERS IMPORT                                         │
 │    User clicks [Import Highways] in Strapi admin                │
@@ -444,6 +469,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 ```
 
 **After Import Complete**:
+
 - **PostgreSQL** contains: All highway/POI/landuse records with full geometry
 - **Redis** contains: Geospatial indexes for fast proximity queries (<200ms)
 - **Strapi Admin** shows: Import status (completed, 22,719 highways imported)
@@ -452,7 +478,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 
 #### **2. Passenger Spawning Flow** (Commuter Service → Strapi → Socket.IO)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ SPAWNING COORDINATOR (commuter_service/spawning_coordinator.py) │
 │                                                                  │
@@ -504,12 +530,14 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 ```
 
 **SimpleSpatialZoneCache** (simple_spatial_cache.py):
+
 - **Loads**: All landuse zones + POIs from Strapi API
 - **Filters**: Only zones within ±5km of active routes
 - **Refreshes**: Auto-reloads when data changes in Strapi
 - **Strategy**: Async-only (no threading)
 
 **Critical Dependencies**:
+
 1. Depot spawner needs: `poi` table populated with depot locations
 2. Route spawner needs: `landuse_zone` table with spawn_weight values
 3. Poisson spawner needs: POIs with `activity_level` assigned
@@ -518,7 +546,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 
 #### **3. Vehicle Movement Flow** (Vehicle Simulator → Redis → Geofencing)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ VEHICLE SIMULATOR (arknet_transit_simulator/main.py)            │
 │                                                                  │
@@ -590,7 +618,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 
 #### **4. Reverse Geocoding Flow** (Redis Cache → Compute → Cache)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ REQUEST: GET /api/reverse-geocode?lat=13.0806&lon=-59.5905      │
 └─────────────────────────────────────────────────────────────────┘
@@ -639,6 +667,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 ```
 
 **Performance**:
+
 - Cache hit: <10ms (target) ✅
 - Cache miss: <200ms (target) ✅
 - vs PostgreSQL: ~2000ms (current) → 10-100x improvement
@@ -647,7 +676,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 
 #### **5. Passenger-to-Vehicle Assignment Flow** (Spawners → Vehicles)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ PASSENGER SPAWNED                                               │
 │ (depot_reservoir.py OR route_reservoir.py)                      │
@@ -736,6 +765,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 ```
 
 **Key Insights**:
+
 - ✅ **No centralized assignment service** - Route assignment happens in spawn strategies
 - ✅ **Event-based coordination** - Conductor monitors Socket.IO events, filters by route
 - ✅ **State machine architecture** - Both Conductor and Driver use state enums
@@ -745,7 +775,7 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 
 #### **6. Complete End-to-End Flow**
 
-```
+```text
 ADMIN IMPORTS DATA
     ↓
 PostgreSQL + Redis populated
@@ -797,7 +827,7 @@ Spawning Coordinator starts
 
 #### **7. Data Flow Diagram**
 
-```
+```text
 ┌──────────────┐
 │   STRAPI     │  ← Admin imports GeoJSON
 │   CMS API    │  ← SimpleSpatialZoneCache queries zones
@@ -862,6 +892,7 @@ Spawning Coordinator starts
 #### **9. Socket.IO Events Reference**
 
 **Events Emitted**:
+
 - `passenger:spawned` - New passenger waiting
 - `passenger:assigned` - Passenger assigned to vehicle
 - `passenger:picked_up` - Passenger boarded vehicle
@@ -872,6 +903,7 @@ Spawning Coordinator starts
 - `import:progress` - GeoJSON import progress update
 
 **Event Subscribers**:
+
 - Conductor: `passenger:spawned`
 - Vehicle Simulator: `passenger:assigned`, `geofence:entered`, `geofence:exited`
 - Admin Dashboard: `import:progress`, `vehicle:position`, all passenger events
@@ -898,6 +930,7 @@ Spawning Coordinator starts
    - Both components respond to state changes
 
 **Health Check**:
+
 ```bash
 # Check PostgreSQL
 psql -U postgres -c "SELECT 1;"
@@ -922,6 +955,7 @@ curl http://localhost:1337/api/countries
 ### **Technology Stack**
 
 #### **Backend**
+
 - **Strapi CMS v5**: Headless CMS with PostgreSQL + PostGIS
 - **PostgreSQL 15+**: Relational database with spatial extensions
 - **PostGIS**: Spatial database (geometry types, ST_* functions)
@@ -930,15 +964,18 @@ curl http://localhost:1337/api/countries
 - **ioredis**: Redis client library
 
 #### **Frontend/Admin**
+
 - **Strapi Admin Panel**: React-based CMS admin UI
 - **strapi-plugin-action-buttons**: Custom ArkNet plugin for UI buttons
 
 #### **Vehicle Simulator**
+
 - **Python 3.9+**: Vehicle simulation logic
 - **Socket.IO Client**: Real-time communication
 - **Redis Client**: Position publishing
 
 #### **Commuter Service**
+
 - **Python 3.9+**: Passenger spawning logic
 - **Poisson distribution**: Statistical spawning algorithm
 - **Async I/O**: Non-blocking zone loading
@@ -954,7 +991,8 @@ curl http://localhost:1337/api/countries
 **Purpose**: Custom field type that renders clickable buttons in Strapi admin panel
 
 **Architecture**:
-```
+
+```text
 Strapi Admin UI
 │
 ├─ Country Content-Type Edit View
@@ -972,6 +1010,7 @@ Strapi Admin UI
 ```
 
 **Field Configuration**:
+
 ```json
 {
   "type": "customField",
@@ -989,6 +1028,7 @@ Strapi Admin UI
 ```
 
 **Window Handlers**: Global JavaScript functions triggered by button clicks
+
 - `window.importGeoJSON(entityId, metadata)` - Start import job
 - `window.viewImportStats(entityId, metadata)` - View import statistics
 - `window.clearRedisCache(entityId, metadata)` - Clear Redis cache
@@ -998,6 +1038,7 @@ Strapi Admin UI
 ### **2. Database Schemas**
 
 #### **Country** (Main entity)
+
 ```javascript
 {
   name: String,
@@ -1009,6 +1050,7 @@ Strapi Admin UI
 ```
 
 **geodata_import_status structure**:
+
 ```json
 {
   "highway": {
@@ -1025,6 +1067,7 @@ Strapi Admin UI
 ```
 
 #### **Highway** (Road network)
+
 ```javascript
 {
   osm_id: String (unique),
@@ -1043,6 +1086,7 @@ Strapi Admin UI
 ```
 
 #### **POI** (Points of Interest)
+
 ```javascript
 {
   osm_id: String (unique),
@@ -1058,10 +1102,12 @@ Strapi Admin UI
 ```
 
 **⚠️ CRITICAL ISSUE**: POI schema expects Point (lat/lon) but amenity.geojson contains **MultiPolygon** geometries
+
 - **Solution**: Calculate centroid using Turf.js during import
 - **Alternative**: Create separate `poi_shape` table for full polygon geometries
 
 #### **Landuse Zone**
+
 ```javascript
 {
   osm_id: String (unique),
@@ -1078,6 +1124,7 @@ Strapi Admin UI
 ```
 
 #### **Import Job** (Tracking)
+
 ```javascript
 {
   id: UUID,
@@ -1100,6 +1147,7 @@ Strapi Admin UI
 **Purpose**: Fast geospatial lookups (<200ms vs ~2sec PostgreSQL)
 
 #### **Geospatial Indexes**
+
 ```redis
 # Highways by country
 GEOADD highways:barbados {lon} {lat} highway:{id}
@@ -1112,6 +1160,7 @@ GEORADIUS highways:barbados -59.5905 13.0806 50 m WITHDIST ASC
 ```
 
 #### **Feature Metadata**
+
 ```redis
 # Highway details
 HSET highway:5172465 name "Tom Adams Highway" type "trunk" ref "ABC"
@@ -1121,6 +1170,7 @@ HSET poi:123 name "Bridgetown Mall" type "mall" activity "0.34"
 ```
 
 #### **Reverse Geocode Cache**
+
 ```redis
 # Cache formatted addresses (TTL: 1 hour)
 SETEX geo:13.0806:-59.5905 3600 "Tom Adams Highway, near Bridgetown Mall"
@@ -1130,6 +1180,7 @@ GET geo:13.0806:-59.5905
 ```
 
 #### **Vehicle State** (for geofencing)
+
 ```redis
 # Track current geofence
 SET vehicle:V123:current_highway highway:5172465
@@ -1137,6 +1188,7 @@ SET vehicle:V123:current_poi poi:123
 ```
 
 **Memory Estimate**: ~16MB per country (Barbados)
+
 - Geospatial indexes: ~5MB
 - Metadata hashes: ~1MB
 - Reverse geocode cache: ~10MB (LRU eviction)
@@ -1150,19 +1202,23 @@ SET vehicle:V123:current_poi poi:123
 #### **Components**
 
 **depot_reservoir.py**: Depot-based spawning
+
 - **Mechanism**: FIFO queue, proximity-based selection
 - **Temporal Multiplier**: 1.0x (journey starts at depot)
 - **Use Case**: Passengers waiting at bus depots/terminals
 
 **route_reservoir.py**: Route-based spawning
+
 - **Mechanism**: Grid-based spatial indexing
 - **Temporal Multiplier**: 0.5x (already traveling on route)
 - **Use Case**: Passengers flagging down vehicles along routes
 
 **poisson_geojson_spawner.py**: Statistical engine
+
 - **Algorithm**: Poisson distribution with temporal/spatial modifiers
 - **Base Rate**: 1800/hr (theoretical) → 100/hr (calibrated with 18x reduction)
 - **Temporal Multipliers**:
+
   ```python
   {
     'morning_peak': 3.0,    # 6-9 AM
@@ -1171,7 +1227,9 @@ SET vehicle:V123:current_poi poi:123
     'night': 0.1-0.2        # 7 PM-6 AM
   }
   ```
+
 - **Activity Levels** (by amenity type):
+
   ```python
   {
     'mall': 0.34,           # High activity
@@ -1190,15 +1248,18 @@ SET vehicle:V123:current_poi poi:123
   ```
 
 **Spawn Rate Formula**:
-```
+
+```text
 spawn_rate = (base_rate × peak_multiplier × zone_modifier × activity_multiplier) / 18.0
 ```
 
 **Current Calibration** (as of Oct 13, 2025):
+
 - Evening 9 PM: **100 spawns/hour** (target: 90-180/hr) ✅
 - Reduction factor: **18x** (from theoretical 1800/hr)
 
 **simple_spatial_cache.py**: Zone loader
+
 - **Strategy**: Async-only, no threading
 - **Filter**: ±5km buffer around active routes
 - **Refresh**: Auto-reloads from Strapi API when zones change
@@ -1209,13 +1270,14 @@ spawn_rate = (base_rate × peak_multiplier × zone_modifier × activity_multipli
 ### **5. Geofencing System**
 
 **Current State**: `/api/geofence/find-nearby-features-fast` exists (PostgreSQL)
+
 - **Performance**: ~2 seconds per query
 - **Function**: `find_nearby_features_fast()` SQL function
 - **Radius**: 50m → 500m (expanding search)
 
 **Planned Architecture** (Redis Pub/Sub):
 
-```
+```text
 Vehicle GPS Update
 │
 ├─ Redis Publish: vehicle:position
@@ -1271,6 +1333,7 @@ Vehicle GPS Update
 ### **GeoJSON Property Mapping**
 
 #### **highway.geojson → highway table**
+
 ```javascript
 // GeoJSON Feature
 {
@@ -1311,6 +1374,7 @@ Vehicle GPS Update
 ```
 
 #### **amenity.geojson → poi table**
+
 ```javascript
 // GeoJSON Feature (⚠️ MultiPolygon, not Point!)
 {
@@ -1350,6 +1414,7 @@ Vehicle GPS Update
 ```
 
 #### **landuse.geojson → landuse_zone table**
+
 ```javascript
 // GeoJSON Feature
 {
@@ -1383,6 +1448,7 @@ Vehicle GPS Update
 ```
 
 **Default Spawn Weights by Landuse Type**:
+
 ```javascript
 {
   'residential': 0.8,
@@ -1410,7 +1476,7 @@ Vehicle GPS Update
 
 ### **Import Flow Architecture**
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ STRAPI ADMIN UI (Country Content-Type)                          │
 │                                                                  │
@@ -1456,6 +1522,7 @@ Vehicle GPS Update
 **Problem**: POI schema expects Point (lat/lon) but amenity.geojson has MultiPolygon
 
 **Options**:
+
 - **A**: Extract centroid only, lose polygon shape
 - **B**: Create `poi_shape` table for full geometry + `poi` for centroid ✅ RECOMMENDED
 - **C**: Store both in metadata JSON
@@ -1476,13 +1543,15 @@ CREATE TABLE poi_shape (
 ### **Decision 2: Redis Architecture**
 
 **Options**:
+
 - **A**: Geospatial indexes only (GEOADD/GEORADIUS)
 - **B**: Reverse geocode cache only (SET/GET)
 - **C**: Hybrid (geospatial + hash + cache) ✅ RECOMMENDED
 
 **Chosen**: Option C (flexibility)
 
-**Rationale**: 
+**Rationale**:
+
 - Geospatial for proximity queries
 - Hashes for feature metadata
 - Cache for formatted addresses
@@ -1493,6 +1562,7 @@ CREATE TABLE poi_shape (
 ### **Decision 3: Import Scope**
 
 **Options**:
+
 - **A**: All 11 files immediately
 - **B**: Top 3 only (highway/amenity/landuse MVP)
 - **C**: Phased (3 core → 5 admin → 3 supporting) ✅ RECOMMENDED
@@ -1506,6 +1576,7 @@ CREATE TABLE poi_shape (
 ### **Decision 4: Geofencing Implementation**
 
 **Options**:
+
 - **A**: Polling (simple, high latency)
 - **B**: Redis Pub/Sub (real-time, <10ms) ✅ RECOMMENDED
 - **C**: PostgreSQL NOTIFY/LISTEN (no new infra, slower)
@@ -1533,17 +1604,20 @@ CREATE TABLE poi_shape (
 ### **Why Redis? Performance Imperative**
 
 **Problem**: PostgreSQL geospatial queries are too slow for real-time systems
+
 - Current: `find_nearby_features_fast()` SQL function takes ~2000ms
 - Requirement: Real-time passenger spawning needs <200ms response
 - Impact: 10-100x performance improvement needed
 
 **Solution**: Redis Geospatial Commands
+
 - `GEOADD`: Index features by lat/lon (O(log N))
 - `GEORADIUS`: Find nearby features in <10ms (cache hit), <200ms (cache miss)
 - `GEODIST`: Calculate distances instantly
 - Memory-efficient: Only stores coordinates + IDs, full data stays in PostgreSQL
 
 **Architecture**: Hybrid approach
+
 - **Redis**: Fast proximity queries (lat/lon → nearby feature IDs)
 - **PostgreSQL**: Master data (full geometry, properties)
 - **Cache strategy**: Write-through on import, TTL-based invalidation
@@ -1553,6 +1627,7 @@ CREATE TABLE poi_shape (
 ### **Why 11 Files? Scope Definition**
 
 **Files Included** (from `sample_data/`):
+
 1. `highway.geojson` - 22,719 roads (reverse geocoding)
 2. `amenity.geojson` - 1,427 POIs (spawning locations)
 3. `landuse.geojson` - 2,267 zones (spawn weights)
@@ -1566,6 +1641,7 @@ CREATE TABLE poi_shape (
 11. `add_street_polygon.geojson` - Address polygons
 
 **File Excluded**:
+
 - ❌ `barbados_geocoded_stops.geojson` - Already processed, duplicate data
 
 **Rationale**: User clarification on October 25, 2025
@@ -1577,6 +1653,7 @@ CREATE TABLE poi_shape (
 **Problem**: Strapi v5 doesn't provide built-in interactive buttons in admin UI to trigger custom JavaScript handlers
 
 **Solution**: Built `strapi-plugin-action-buttons` (custom ArkNet plugin)
+
 - **Location**: `src/plugins/strapi-plugin-action-buttons/`
 - **Implementation**: Window object handlers (`window.importGeoJSON()`, etc.)
 - **Features**: Custom button fields, JSON metadata storage, async handler support
@@ -1584,6 +1661,7 @@ CREATE TABLE poi_shape (
 - **Status**: Production-ready, zero external dependencies
 
 **Why Custom vs Marketplace**:
+
 - ✅ **Built for ArkNet's needs** - Interactive import buttons, custom workflows
 - ✅ **Full control** - Modify behavior without external dependency
 - ✅ **Well-documented** - 686-line README, architecture diagrams
@@ -1597,10 +1675,12 @@ CREATE TABLE poi_shape (
 ### **Why Streaming Parser? Memory Constraints**
 
 **Problem**: `building.geojson` = 658MB
+
 - Cannot `fs.readFileSync()` - will crash Node.js
 - Cannot load entire array into memory
 
 **Solution**: JSONStream for chunk-based processing
+
 ```javascript
 const JSONStream = require('JSONStream');
 const stream = fs.createReadStream('building.geojson');
@@ -1619,11 +1699,13 @@ parser.on('data', async (feature) => {
 ### **Why Centroid Extraction? Schema Mismatch**
 
 **Problem**: Geometry type conflict
+
 - **amenity.geojson data**: MultiPolygon (area boundaries)
 - **POI schema expects**: Point (single lat/lon)
 - **Error without fix**: "Cannot insert MultiPolygon into Point column"
 
 **Solution**: Turf.js centroid calculation
+
 ```javascript
 const turf = require('@turf/turf');
 const centroid = turf.centroid(feature); // MultiPolygon → Point
@@ -1636,6 +1718,7 @@ const centroid = turf.centroid(feature); // MultiPolygon → Point
 ### **Why 6 Phases? Risk Mitigation**
 
 **Phased Approach**:
+
 1. **Phase 1**: Country Schema + Action Buttons (foundation)
 2. **Phase 2**: Redis + Reverse Geocoding (core performance)
 3. **Phase 3**: Geofencing (real-time notifications)
@@ -1643,7 +1726,8 @@ const centroid = turf.centroid(feature); // MultiPolygon → Point
 5. **Phase 5**: Depot/Route Spawners (existing system enhancement)
 6. **Phase 6**: Conductor Communication (end-to-end validation)
 
-**Rationale**: 
+**Rationale**:
+
 - Each phase builds on previous
 - Validation gates prevent cascading failures
 - Can stop early if feasibility issues discovered
@@ -1656,12 +1740,14 @@ const centroid = turf.centroid(feature); // MultiPolygon → Point
 **Initial Misunderstanding**: Documentation referenced "Conductor Service (location TBD)" for centralized passenger→vehicle assignment
 
 **Reality Discovered** (October 25, 2025):
+
 - ✅ **Route assignment happens in spawn strategies** (`spawn_interface.py`)
 - ✅ **Conductor is vehicle component** (manages boarding/disembarking)
 - ✅ **VehicleDriver is separate component** (controls engine/GPS)
 - ❌ **No centralized assignment service exists**
 
 **Architecture**: Event-based coordination via Socket.IO
+
 1. Spawner emits `passenger:spawned` with `assignedRoute` field
 2. Conductor monitors events, filters by route match
 3. Conductor evaluates proximity/capacity/timing
@@ -1793,6 +1879,7 @@ const metadata = await redis.hgetall('highway:5172465');
 ## 🔗 **API ENDPOINTS**
 
 ### **Existing**
+
 - `GET /api/countries` - List countries
 - `GET /api/countries/:id` - Get country details
 - `GET /api/highways` - List highways
@@ -1801,6 +1888,7 @@ const metadata = await redis.hgetall('highway:5172465');
 - `POST /api/geofence/find-nearby-features-fast` - Find features (PostgreSQL, slow)
 
 ### **To Be Implemented**
+
 - `POST /api/geojson-import` - Start GeoJSON import
 - `GET /api/geojson-import/:jobId` - Get import job status
 - `GET /api/geojson-import/stats/:countryId` - Get import statistics
@@ -1836,17 +1924,19 @@ const metadata = await redis.hgetall('highway:5172465');
 ## 📚 **REFERENCE DOCUMENTATION**
 
 ### **Internal Docs**
+
 - `arknet_fleet_manager/arknet-fleet-api/src/plugins/strapi-plugin-action-buttons/ARCHITECTURE.md` - Plugin architecture
 - `arknet_fleet_manager/arknet-fleet-api/src/plugins/strapi-plugin-action-buttons/EXAMPLES.ts` - Usage examples
 - `PROJECT_STATUS.md` - Historical updates (last: Oct 13, 2025)
 - `ARCHITECTURE_DEFINITIVE.md` - System architecture
 
 ### **External Docs**
-- Strapi v5: https://docs.strapi.io/
-- PostGIS: https://postgis.net/documentation/
-- Redis Geospatial: https://redis.io/commands/geoadd/
-- Turf.js: https://turfjs.org/
-- OpenStreetMap Tags: https://wiki.openstreetmap.org/wiki/Map_features
+
+- Strapi v5: <https://docs.strapi.io/>
+- PostGIS: <https://postgis.net/documentation/>
+- Redis Geospatial: <https://redis.io/commands/geoadd/>
+- Turf.js: <https://turfjs.org/>
+- OpenStreetMap Tags: <https://wiki.openstreetmap.org/wiki/Map_features>
 
 ---
 
@@ -1854,7 +1944,8 @@ const metadata = await redis.hgetall('highway:5172465');
 
 See `TODO.md` for detailed step-by-step implementation plan.
 
-**Immediate Next Task**: 
+**Immediate Next Task**:
+
 1. Read country schema (`src/api/country/content-types/country/schema.json`)
 2. Verify action-buttons plugin enabled
 3. Add `geodata_import_buttons` field to country schema
@@ -1862,6 +1953,7 @@ See `TODO.md` for detailed step-by-step implementation plan.
 5. Verify buttons render in Strapi admin
 
 **Quick Start Command**:
+
 ```bash
 cd arknet_fleet_manager/arknet-fleet-api
 npm run develop
@@ -1873,7 +1965,7 @@ npm run develop
 
 ### **⚡ Quick Reference Card**
 
-```
+```text
 PROJECT: GeoJSON Import System for Redis-based Reverse Geocoding
 STATUS: Phase 1 Ready (Documentation Complete, Implementation Not Started)
 BRANCH: branch-0.0.2.6 (NOT main)
@@ -1968,6 +2060,7 @@ CRITICAL FILES:
 ## 🏁 **SUCCESS CRITERIA**
 
 **Project Complete When**:
+
 - [x] All 11 GeoJSON files imported successfully
 - [x] Redis reverse geocoding <200ms (cache miss), <10ms (cache hit)
 - [x] Real-time geofencing <10ms latency
