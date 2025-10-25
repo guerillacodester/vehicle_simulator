@@ -271,12 +271,13 @@ This workspace has multiple documentation files. Here's the authoritative order:
 | **Use Redis for reverse geocoding** | PostgreSQL queries ~2000ms, Redis target <200ms (10-100x improvement) | Oct 25 |
 | **11 GeoJSON files in scope** | User specified: exclude barbados_geocoded_stops from sample_data | Oct 25 |
 | **Use custom action-buttons plugin** | Already built at `src/plugins/strapi-plugin-action-buttons/`, no marketplace equivalent | Oct 25 |
-| **Streaming parser required** | building.geojson = 658MB (cannot load into memory) | Oct 25 |
+| **Universal streaming for ALL imports** | Consistency, memory efficiency (<500MB), progress feedback, future-proofing. Files: 628MB building, 41MB highway, 4MB landuse, 3.6MB amenity, <1MB admin. Single code path reduces bugs. | Oct 25 |
 | **Centroid extraction needed** | amenity.geojson has MultiPolygon, POI schema expects Point | Oct 25 |
 | **6-phase implementation** | Country Schema → Redis → Geofencing → POI → Depot/Route → Conductor | Oct 25 |
 | **Event-based passenger assignment** | No centralized "Conductor Service" - routes assigned in spawn strategies | Oct 25 |
 | **5 separate import buttons** | One button per file type (highway, amenity, landuse, building, admin) for granular control | Oct 25 |
 | **Socket.IO for progress** | Real-time progress feedback during GeoJSON imports, leveraging existing Socket.IO infrastructure | Oct 25 |
+| **Batch processing (500-1000 features)** | Optimal database performance, enables progress updates, prevents memory spikes | Oct 25 |
 | **Full implementation today** | Not just skeleton - complete streaming parser, Socket.IO progress, database integration | Oct 25 |
 
 ### **Current Checkpoint**
@@ -286,8 +287,16 @@ This workspace has multiple documentation files. Here's the authoritative order:
 - ✅ **Phase 1 Steps 1.1-1.7.3c**: UI buttons working, backend API created, PostGIS migration completed for highways
 - ✅ **Phase 1.8: PostGIS Migration**: All 11 tables migrated with geometry columns + GIST indexes (Oct 25 18:17)
 - ✅ **Phase 1.9: Buildings Content Type**: Created with PostGIS Polygon column + GIST index (Oct 25 19:16)
-- ⏳ **Phase 1.10: Streaming GeoJSON Parser**: NEXT - Required for 658MB building.geojson import
-- 🎯 **Next Action**: Implement streaming parser with memory-efficient chunk processing
+- ⏳ **Phase 1.10: Streaming GeoJSON Parser**: NEXT - Universal streaming for ALL 5 content types
+- 🎯 **Next Action**: Install stream-json, create reusable streaming utility, update all 5 import endpoints
+
+**Streaming Strategy Confirmed**:
+
+- **Scope**: ALL 5 content types (highway, amenity, landuse, building, admin)
+- **File Sizes**: 628MB building (critical), 41MB highway, 4.12MB landuse, 3.65MB amenity, <1MB admin
+- **Rationale**: Consistency (single code path), memory efficiency (<500MB), real-time progress, future-proofing
+- **Implementation**: Reusable `geojson-stream-parser.ts` utility with configurable batch size (500-1000 features)
+- **Benefits**: No memory leaks, production-ready scalability, consistent progress feedback across all imports
 
 ---
 
@@ -488,6 +497,99 @@ for depot in depots:
 3. Apply density modifiers from landuse to building spawn rates
 4. Use Poisson distribution for temporal patterns
 5. Deprecate `commuter_service` completely
+
+---
+
+### **GeoJSON Streaming Import Architecture**
+
+The system uses a **universal streaming approach** for all GeoJSON imports to ensure consistency, memory efficiency, and production scalability.
+
+#### **Strategic Decision: Stream Everything**
+
+**Rationale for Universal Streaming**:
+
+1. **Consistency**: Single code path for all 5 content types reduces bugs and maintenance overhead
+2. **Memory Efficiency**: Critical for 628MB building.geojson, beneficial for all files
+3. **Progress Feedback**: Real-time batch-by-batch progress updates for ALL imports (not just large files)
+4. **Future-Proofing**: Barbados data today → multi-country datasets tomorrow (small files become large)
+5. **Batch Processing**: Consistent 500-1000 feature batches optimize database performance across all content types
+
+#### **File Size Analysis**
+
+| Content Type | File Size | Feature Count | Streaming Priority |
+|--------------|-----------|---------------|-------------------|
+| **Building** | **628.45 MB** | Unknown (100K+) | ⚠️ **CRITICAL** |
+| **Highway** | 41.22 MB | 22,719 | ✅ High |
+| **Landuse** | 4.12 MB | 2,267 | ✅ Consistency |
+| **Amenity** | 3.65 MB | 1,427 | ✅ Consistency |
+| **Admin Boundaries** | 0.02-0.28 MB | ~10-50 | ✅ Consistency |
+
+**Memory Target**: <500MB throughout import process (including Node.js overhead)
+
+#### **Streaming Architecture Components**
+
+```typescript
+// src/utils/geojson-stream-parser.ts
+export interface StreamingOptions {
+  batchSize: number;          // Default: 500 features
+  onBatch: (features) => Promise<void>;  // Process batch callback
+  onProgress: (progress) => void;        // Progress callback (for Socket.IO)
+  onError: (error) => void;              // Error handler
+}
+
+export async function streamGeoJSON(
+  filePath: string,
+  options: StreamingOptions
+): Promise<StreamResult> {
+  // Implementation using stream-json
+  // Reads file chunk-by-chunk
+  // Emits batches of features
+  // Memory stays constant regardless of file size
+}
+```
+
+#### **Import Flow (All Content Types)**
+
+1. **User clicks import button** → `handleImportBuilding(countryId, metadata)`
+2. **Frontend handler** → POST to `/api/import-geojson/building`
+3. **Strapi controller**:
+   - Validates country exists
+   - Constructs file path: `sample_data/building.geojson`
+   - Calls streaming parser with batch callbacks
+4. **Streaming parser**:
+   - Opens file stream (no memory spike)
+   - Reads features one at a time
+   - Accumulates into batches of 500
+   - Emits batch for processing
+5. **Batch processor** (for each batch):
+   - Extracts geometry (Point/LineString/Polygon/MultiPolygon)
+   - Converts to WKT format
+   - Inserts batch using `strapi.entityService.createMany()`
+   - Uses PostGIS `ST_GeomFromText()` for geometry column
+   - Emits Socket.IO progress: `{ processed: 500, total: 22719, percent: 2.2 }`
+6. **Frontend receives progress** → Updates progress bar in real-time
+7. **Import completes** → Updates `geodata_import_status` metadata
+
+#### **Benefits of Universal Streaming**
+
+- ✅ **628MB building.geojson imports successfully** (impossible with `fs.readFileSync`)
+- ✅ **Consistent memory usage** across all imports (<500MB)
+- ✅ **Real-time progress feedback** for all content types (not just large files)
+- ✅ **Production-ready** for multi-country scaling (Jamaica, Trinidad, etc.)
+- ✅ **Single code path** reduces bugs, simplifies testing
+- ✅ **Batch optimization** allows tuning (500 vs 1000 vs 2000 features per batch)
+- ✅ **Error recovery** possible (resume from last successful batch)
+- ✅ **Cancellation support** feasible (stop streaming on user request)
+
+#### **Streaming Implementation Progress**
+
+- ✅ **Highway import**: Already using streaming (41.22 MB, 22,719 features)
+- ⏳ **Amenity import**: Update to streaming (3.65 MB, 1,427 features)
+- ⏳ **Landuse import**: Update to streaming (4.12 MB, 2,267 features)
+- ⏳ **Building import**: Update to streaming (628.45 MB, critical)
+- ⏳ **Admin import**: Update to streaming (0.02-0.28 MB, consistency)
+
+---
 
 ### **Geospatial Services Architecture**
 

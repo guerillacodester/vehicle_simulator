@@ -65,7 +65,10 @@
   - ✅ PostGIS geometry column added (Polygon, 4326)
   - ✅ GIST spatial index created (idx_buildings_geom)
   - ✅ Buildings table ready for import
-- [ ] **Phase 1.10**: Streaming GeoJSON Parser (0/6 steps) ⏳ NEXT - CRITICAL for 658MB files
+- [ ] **Phase 1.10**: Streaming GeoJSON Parser (0/6 steps) ⏳ NEXT - CRITICAL
+  - **Strategy**: Universal streaming for ALL 5 content types (consistency + scalability)
+  - **Target**: <500MB memory usage, 628MB building.geojson import, batch progress feedback
+  - **Scope**: Highway, Amenity, Landuse, Building, Admin boundaries
 - [ ] **Phase 1.11**: Geospatial Services API (0/7 steps) - CRITICAL for spawning queries
 - [ ] **Phase 1.12**: Database Integration (0/5 steps)
 - [ ] **Phase 2**: Complete Backend + Batch Import (0/15 steps)
@@ -412,47 +415,71 @@
 
 ---
 
-### **STEP 1.10: Streaming GeoJSON Parser** ⏱️ 50 min
+### **STEP 1.10: Streaming GeoJSON Parser** ⏱️ 90 min
 
-**CRITICAL**: Required for building.geojson (658MB) and production batch imports
+**CRITICAL**: Required for all GeoJSON imports - ensures consistency, memory efficiency, and production scalability
+
+**Strategy Decision**: Implement streaming for **ALL 5 content types** (highway, amenity, landuse, building, admin)
+
+**Rationale**:
+
+- **Consistency**: Single code path reduces bugs and maintenance
+- **Memory Efficiency**: 628MB building.geojson requires streaming; applying to all ensures <500MB memory usage
+- **Progress Feedback**: Real-time progress bars for all imports (not just large files)
+- **Future-Proofing**: Data grows (Barbados → multi-country), small files today = large files tomorrow
+- **Batch Processing**: Consistent 500-1000 feature batches for optimal database performance
+
+**File Size Analysis**:
+
+- building.geojson: **628.45 MB** ⚠️ CRITICAL - streaming required
+- highway.geojson: **41.22 MB** - streaming beneficial
+- landuse.geojson: **4.12 MB** - streaming for consistency
+- amenity.geojson: **3.65 MB** - streaming for consistency
+- admin boundaries: **0.02-0.28 MB** - streaming for consistency
 
 - [ ] **1.10.1** Install streaming parser dependencies
   - Command: `cd arknet_fleet_manager/arknet-fleet-api && npm install stream-json`
   - Verify installation in package.json
   
-- [ ] **1.10.2** Create GeoJSON streaming parser utility
+- [ ] **1.10.2** Create reusable GeoJSON streaming parser utility
   - File: `src/utils/geojson-stream-parser.ts`
-  - Implement streaming read (chunk-by-chunk)
-  - Emit progress events per chunk (for Socket.IO)
-  - Handle errors and edge cases
-  - Memory-efficient: process one feature at a time
+  - Implement streaming read (chunk-by-chunk using stream-json)
+  - Emit progress events per batch (for Socket.IO)
+  - Handle errors and edge cases (malformed JSON, file not found)
+  - Memory-efficient: process one feature at a time, batch inserts
+  - Configurable batch size (default: 500 features)
   
-- [ ] **1.10.3** Update Building import to use streaming
-  - Modify `importBuilding` endpoint
-  - Replace `fs.readFileSync` with streaming parser
+- [ ] **1.10.3** Update ALL 5 import endpoints to use streaming
+  - ✅ Highway import already uses streaming (22,719 features, 41MB)
+  - Update `importAmenity` endpoint (1,427 features, 3.65MB)
+  - Update `importLanduse` endpoint (2,267 features, 4.12MB)
+  - Update `importBuilding` endpoint (unknown count, **628MB**)
+  - Update `importAdmin` endpoint (parishes/districts, <1MB)
+  - Replace all `fs.readFileSync` with streaming parser
   - Process features in batches (500-1000 at a time)
   - Emit Socket.IO progress updates per batch
   
-- [ ] **1.10.4** Test streaming with building.geojson
+- [ ] **1.10.4** Test streaming with building.geojson (stress test)
   - Click Building button in UI
-  - Monitor memory usage (should stay <500MB)
-  - Verify progress updates in real-time
-  - Test with 658MB file (may take 10-30 minutes)
+  - Monitor memory usage (should stay <500MB throughout)
+  - Verify progress updates in real-time (batch-by-batch)
+  - Test with 628MB file (may take 10-30 minutes)
+  - Confirm no memory leaks during long import
   
-- [ ] **1.10.5** Apply streaming to other imports
-  - Update Highway import (22,719 features)
-  - Update Amenity import (1,427 features)
-  - Update Landuse import (2,267 features)
-  - Update Admin import (parishes)
+- [ ] **1.10.5** Validate streaming performance for all imports
+  - Test all 5 import buttons sequentially
+  - Check memory usage during each import (<500MB)
+  - Verify no memory leaks between imports
+  - Confirm batch progress updates working for all types
+  - Measure and document import times per file
   
-- [ ] **1.10.6** Validate streaming performance
-  - Check memory usage during imports (<500MB)
-  - Verify no memory leaks
-  - Confirm batch progress updates working
-  - Confirm 658MB building.geojson streams successfully
-  - Measure import times
+- [ ] **1.10.6** Production optimization
+  - Fine-tune batch size for optimal performance (test 500, 1000, 2000)
+  - Add error recovery (resume from last successful batch)
+  - Add import cancellation support
+  - Document memory usage benchmarks in CONTEXT.md
 
-**✅ Validation**: Streaming parser working, all files importable, memory efficient
+**✅ Validation**: Streaming parser working for all 5 content types, memory <500MB, no leaks, 628MB file imports successfully
 
 ---
 
