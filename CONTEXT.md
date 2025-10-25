@@ -62,7 +62,7 @@ This workspace has multiple documentation files. Here's the authoritative order:
 6. **GeoJSON Analysis**: User confirmed 11 files from sample_data (excluding barbados_geocoded_stops)
 7. **First Context Doc**: Created GEOJSON_IMPORT_CONTEXT.md (600+ lines)
 8. **User Requested Reorganization**: Phased approach based on their vision
-9. **Plugin Name Correction**: Fixed `@artechventure/strapi-plugin-action-buttons` → `strapi-plugin-action-buttons` (custom ArkNet plugin)
+9. **Custom Plugin Clarification**: Confirmed `strapi-plugin-action-buttons` is custom ArkNet plugin (no marketplace equivalent)
 10. **TODO Created**: Built TODO.md with 65+ granular steps across 6 phases
 11. **Single Source of Truth**: User requested CONTEXT.md + TODO.md separation
 12. **Added System Integration**: Enhanced CONTEXT.md with 10 detailed workflow diagrams
@@ -76,7 +76,7 @@ This workspace has multiple documentation files. Here's the authoritative order:
 |----------|-----------|------|
 | **Use Redis for reverse geocoding** | PostgreSQL queries ~2000ms, Redis target <200ms (10-100x improvement) | Oct 25 |
 | **11 GeoJSON files in scope** | User specified: exclude barbados_geocoded_stops from sample_data | Oct 25 |
-| **Use strapi-plugin-action-buttons** | Custom ArkNet plugin already exists at `src/plugins/` | Oct 25 |
+| **Use custom action-buttons plugin** | Already built at `src/plugins/strapi-plugin-action-buttons/`, no marketplace equivalent | Oct 25 |
 | **Streaming parser required** | building.geojson = 658MB (cannot load into memory) | Oct 25 |
 | **Centroid extraction needed** | amenity.geojson has MultiPolygon, POI schema expects Point | Oct 25 |
 | **6-phase implementation** | Country Schema → Redis → Geofencing → POI → Depot/Route → Conductor | Oct 25 |
@@ -1472,19 +1472,25 @@ CREATE TABLE poi_shape (
 
 ---
 
-### **Why Strapi Action-Buttons Plugin?**
+### **Why Build Custom Action-Buttons Plugin?**
 
-**Options Considered**:
-1. ❌ **@artechventure/strapi-plugin-action-buttons** (marketplace plugin)
-2. ✅ **strapi-plugin-action-buttons** (custom ArkNet plugin)
+**Problem**: Strapi v5 doesn't provide built-in interactive buttons in admin UI to trigger custom JavaScript handlers
 
-**Decision**: Use existing custom ArkNet plugin
+**Solution**: Built `strapi-plugin-action-buttons` (custom ArkNet plugin)
 - **Location**: `src/plugins/strapi-plugin-action-buttons/`
-- **Already implemented**: Window object handlers, button groups
-- **Architecture docs exist**: ARCHITECTURE.md, EXAMPLES.ts
-- **No external dependency**: Full control over customization
+- **Implementation**: Window object handlers (`window.importGeoJSON()`, etc.)
+- **Features**: Custom button fields, JSON metadata storage, async handler support
+- **Documentation**: Complete suite (README.md, ARCHITECTURE.md, EXAMPLES.ts)
+- **Status**: Production-ready, zero external dependencies
 
-**Correction Made**: Initial research found wrong plugin, user corrected on Oct 25
+**Why Custom vs Marketplace**:
+- ✅ **Built for ArkNet's needs** - Interactive import buttons, custom workflows
+- ✅ **Full control** - Modify behavior without external dependency
+- ✅ **Well-documented** - 686-line README, architecture diagrams
+- ✅ **Zero bloat** - Only Strapi core dependencies
+- ✅ **Already working** - In use for ArkNet Fleet Manager
+
+**Note**: No marketplace equivalent exists. This is a custom-built solution.
 
 ---
 

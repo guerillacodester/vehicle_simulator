@@ -63,7 +63,7 @@
   
 - [ ] **1.1.2** Verify action-buttons plugin exists
   - Path: `src/plugins/strapi-plugin-action-buttons/`
-  - Plugin name: `strapi-plugin-action-buttons` ✅ (custom ArkNet plugin)
+  - Plugin name: `strapi-plugin-action-buttons` ✅ (custom ArkNet plugin, no marketplace equivalent)
   - Check if enabled in `config/plugins.js`
   
 - [ ] **1.1.3** List current country fields in database
@@ -946,7 +946,7 @@ git push origin branch-0.0.2.6
 5. ✅ Analyzed 11 GeoJSON files (user confirmed scope, excluded barbados_geocoded_stops)
 6. ✅ Created GEOJSON_IMPORT_CONTEXT.md (600+ lines architecture study)
 7. ✅ User requested phased approach reorganization
-8. ✅ Corrected plugin name: `strapi-plugin-action-buttons` (custom ArkNet plugin)
+8. ✅ Confirmed custom action-buttons plugin (no marketplace equivalent)
 9. ✅ Built TODO.md with 65+ granular steps across 6 phases
 10. ✅ Created CONTEXT.md as single source of truth
 11. ✅ Added 10 detailed system integration workflows to CONTEXT.md
@@ -961,6 +961,7 @@ git push origin branch-0.0.2.6
 **Key Decisions**:
 - Redis chosen for 10-100x performance improvement (PostgreSQL ~2000ms → Redis <200ms)
 - 11 GeoJSON files in scope (excluding barbados_geocoded_stops)
+- Custom action-buttons plugin confirmed (built in-house, no marketplace equivalent)
 - Streaming parser required for building.geojson (658MB)
 - Centroid extraction required for amenity.geojson (MultiPolygon → Point)
 - 6-phase implementation approach
