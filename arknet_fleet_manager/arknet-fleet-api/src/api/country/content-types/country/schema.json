@@ -147,6 +147,38 @@
         "buttonLabel": "🛣️ Import Highways",
         "onClick": "handleImportHighway"
       }
+    },
+    "import_amenity": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🏪 Import Amenities",
+        "onClick": "handleImportAmenity"
+      }
+    },
+    "import_landuse": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🌳 Import Land Use",
+        "onClick": "handleImportLanduse"
+      }
+    },
+    "import_building": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🏢 Import Buildings",
+        "onClick": "handleImportBuilding"
+      }
+    },
+    "import_admin": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🗺️ Import Admin Boundaries",
+        "onClick": "handleImportAdmin"
+      }
     }
   }
 }
