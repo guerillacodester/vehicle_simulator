@@ -294,24 +294,29 @@
   
 - [ ] **1.8.1c** Verify PostGIS columns created
   - Query all geometry columns:
+
     ```sql
+
     SELECT table_name, column_name, udt_name 
     FROM information_schema.columns 
     WHERE column_name = 'geom' AND table_schema = 'public'
     ORDER BY table_name;
-    ```
+    ```text
   - Expected tables: highways, stops, depots, landuse_zones, pois, regions, geofences, shape_geometries
 
 #### **1.8.2** Verify GIST Spatial Indexes
 
 - [ ] **1.8.2a** Check spatial indexes exist
   - Query:
+
     ```sql
+
     SELECT tablename, indexname, indexdef 
     FROM pg_indexes 
     WHERE indexname LIKE '%geom%' AND schemaname = 'public'
     ORDER BY tablename;
-    ```
+
+    ```text
   - Expected: idx_highways_geom, idx_stops_geom, idx_depots_geom, etc.
 
 - [ ] **1.8.2b** Verify index types are GIST
