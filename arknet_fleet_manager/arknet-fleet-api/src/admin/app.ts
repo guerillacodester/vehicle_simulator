@@ -1,4 +1,5 @@
 import uploadGeojsonExtension from './extensions/upload-geojson';
+import './button-handlers'; // Load GeoJSON import button handlers
 
 const config = {
   locales: [

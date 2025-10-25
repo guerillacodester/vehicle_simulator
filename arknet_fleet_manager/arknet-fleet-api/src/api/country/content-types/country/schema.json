@@ -142,7 +142,7 @@
     },
     "import_highway": {
       "type": "customField",
-      "customField": "plugin::action-buttons.button-field",
+      "customField": "plugin::action-buttons.action-button",
       "options": {
         "buttonLabel": "🛣️ Import Highways",
         "onClick": "handleImportHighway"
