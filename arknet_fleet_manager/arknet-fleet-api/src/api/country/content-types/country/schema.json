@@ -139,6 +139,14 @@
     },
     "geodata_last_import": {
       "type": "datetime"
+    },
+    "import_highway": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.button-field",
+      "options": {
+        "buttonLabel": "🛣️ Import Highways",
+        "onClick": "handleImportHighway"
+      }
     }
   }
 }

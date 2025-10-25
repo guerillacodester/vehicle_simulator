@@ -45,14 +45,14 @@
 
 ## 📊 **OVERALL PROGRESS**
 
-- [ ] **Phase 1**: Country Schema + Action Buttons (1/10 steps) ⏳ EXPANDED
+- [ ] **Phase 1**: Country Schema + Action Buttons (2/10 steps) ⏳ EXPANDED
 - [ ] **Phase 2**: Redis + Reverse Geocoding (0/12 steps)
 - [ ] **Phase 3**: Geofencing (0/8 steps)
 - [ ] **Phase 4**: POI-Based Spawning (0/18 steps)
 - [ ] **Phase 5**: Depot/Route Spawners (0/11 steps)
 - [ ] **Phase 6**: Conductor Communication (0/7 steps)
 
-**Total**: 10/75 major steps completed
+**Total**: 11/75 major steps completed
 
 ---
 
@@ -159,11 +159,16 @@
   - ✅ COMPLETED: Installed socket.io-client@4.8.1
   - ✅ COMPLETED: Verified in package.json (3 packages added)
   
-- [ ] **1.4.2** Create button-handlers.ts file structure
+- [x] **1.4.2** Create button-handlers.ts file structure ✅
   - File: `src/admin/button-handlers.ts`
-  - Add TypeScript declarations
-  - Add Socket.IO import
-  - Add utility functions (getCountryId, getAuthToken)
+  - ✅ COMPLETED: Created file with 387 lines
+  - ✅ COMPLETED: Added TypeScript declarations for 5 handlers
+  - ✅ COMPLETED: Added Socket.IO import and connection logic
+  - ✅ COMPLETED: Added utility functions (getCountryId, getAuthToken, getApiBaseUrl)
+  - ✅ COMPLETED: Created generic handleGeoJSONImport function
+  - ✅ COMPLETED: Created 5 specific handlers (highway, amenity, landuse, building, admin)
+  - ✅ COMPLETED: Added real-time Socket.IO progress tracking
+  - ✅ COMPLETED: Added error handling and user feedback
   
 - [ ] **1.4.3** Add first button field to schema (Highway)
   - File: `src/api/country/content-types/country/schema.json`
