@@ -103,7 +103,39 @@
       "mappedBy": "country"
     },
     "geodata_import_status": {
-      "type": "text"
+      "type": "json",
+      "default": {
+        "highway": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "amenity": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "landuse": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "building": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "admin": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        }
+      }
     },
     "geodata_last_import": {
       "type": "datetime"
