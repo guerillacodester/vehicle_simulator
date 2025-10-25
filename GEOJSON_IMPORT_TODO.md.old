@@ -1,0 +1,818 @@
+# GeoJSON Import System - Step-by-Step Implementation TODO
+
+**Date**: October 25, 2025  
+**Project**: ArkNet Vehicle Simulator  
+**Context**: See `GEOJSON_IMPORT_CONTEXT.md` for full architecture
+
+---
+
+## 📋 **OVERVIEW**
+
+This TODO follows a **validate-at-each-step** approach:
+1. ✅ **Country Schema + Action Buttons** → Migrate & verify
+2. ✅ **Redis + Reverse Geocoding** → Benchmark performance
+3. ✅ **Geofencing** → Test real-time notifications
+4. ✅ **POI-Based Spawning** → Integrate with Poisson system
+5. ✅ **Depot/Route Spawners** → Verify commuter generation
+6. ✅ **Conductor Communication** → End-to-end validation
+
+**Total Estimated Effort**: ~100-140 hours (2.5-3.5 weeks full-time)
+
+---
+
+## � **PHASE 1: COUNTRY SCHEMA + ACTION BUTTONS** (Estimated: 14-18 hours)
+
+**Goal**: Update country content-type, add action buttons, successfully migrate schema, verify button functionality in Strapi admin.
+
+---
+
+### **Task 1.1: Redis Infrastructure Setup** (4-6 hours)
+- [ ] **1.1.1** Install Redis server (Windows WSL or native)
+  - Download Redis 7.x from official site
+  - Start Redis service: `redis-server`
+  - Verify: `redis-cli ping` → PONG
+  
+- [ ] **1.1.2** Install Redis client library for Node.js
+  - `npm install ioredis --save` in `arknet_fleet_manager/arknet-fleet-api/`
+  - Create `src/utils/redis-client.js`:
+    ```javascript
+    const Redis = require('ioredis');
+    const redis = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: process.env.REDIS_PORT || 6379,
+      password: process.env.REDIS_PASSWORD || null
+    });
+    module.exports = redis;
+    ```
+  
+- [ ] **1.1.3** Add Redis config to `.env`
+  ```env
+  REDIS_HOST=localhost
+  REDIS_PORT=6379
+  REDIS_PASSWORD=
+  ```
+  
+- [ ] **1.1.4** Create Redis service wrapper
+  - File: `src/services/redis-geo.service.js`
+  - Methods:
+    - `addHighway(countryCode, lon, lat, highwayId, metadata)`
+    - `addPOI(countryCode, lon, lat, poiId, metadata)`
+    - `findNearbyHighways(countryCode, lon, lat, radiusMeters)`
+    - `findNearbyPOIs(countryCode, lon, lat, radiusMeters)`
+    - `getReverseGeocode(lat, lon)` (cache lookup)
+    - `setReverseGeocode(lat, lon, address)` (cache write)
+  
+- [ ] **1.1.5** Write unit tests for Redis service
+  - Test GEOADD/GEORADIUS operations
+  - Test cache SET/GET operations
+  - Test error handling (Redis down scenario)
+
+---
+
+### **Task 1.2: GeoJSON Import Service - Core Logic** (8-10 hours)
+- [ ] **1.2.1** Install dependencies
+  - `npm install JSONStream turf --save`
+  - JSONStream: Streaming JSON parser for large files
+  - Turf: Geospatial calculations (centroid, etc.)
+  
+- [ ] **1.2.2** Create import service file
+  - File: `src/services/geojson-import.service.js`
+  - Export class: `GeoJSONImportService`
+  
+- [ ] **1.2.3** Implement file validation
+  - Method: `validateImportRequest(countryId, fileType)`
+  - Check country exists in database
+  - Check file exists: `sample_data/${fileType}.geojson`
+  - Check file type is supported: ['amenity', 'highway', 'landuse', 'building', 'admin', 'natural', 'name', 'add_street_polygon']
+  
+- [ ] **1.2.4** Implement streaming JSON parser
+  - Method: `streamParseGeoJSON(filePath, onFeature)`
+  - Use JSONStream to parse without loading entire file into memory
+  - Emit progress events every 100 features
+  - Handle malformed JSON gracefully
+  
+- [ ] **1.2.5** Create import job tracking
+  - Add `import_job` table to database:
+    ```sql
+    CREATE TABLE import_job (
+      id SERIAL PRIMARY KEY,
+      country_id INTEGER REFERENCES country(id),
+      file_type VARCHAR(50),
+      status VARCHAR(20), -- 'pending', 'processing', 'completed', 'failed'
+      total_features INTEGER,
+      processed_features INTEGER,
+      failed_features INTEGER,
+      error_log JSON,
+      started_at TIMESTAMP,
+      completed_at TIMESTAMP
+    );
+    ```
+  
+- [ ] **1.2.6** Implement progress tracking
+  - Method: `updateJobProgress(jobId, processed, failed, errors)`
+  - Emit Socket.IO events: `import:progress`
+  - Update database every 100 features
+
+---
+
+### **Task 1.3: Property Transformation Logic** (6-8 hours)
+- [ ] **1.3.1** Create transformer for Highway
+  - File: `src/transformers/highway.transformer.js`
+  - Method: `transformHighway(feature, countryId)`
+  - Extract: osm_id, highway_type, name, ref, oneway, lanes, maxspeed, surface
+  - Calculate midpoint of LineString for center coordinates
+  - Store full geometry in `geometry_geojson`
+  - Return object matching highway schema
+  
+- [ ] **1.3.2** Create transformer for Landuse
+  - File: `src/transformers/landuse.transformer.js`
+  - Method: `transformLanduse(feature, countryId)`
+  - Extract: osm_id, landuse_type, name
+  - Calculate centroid of MultiPolygon using Turf.js
+  - Assign default spawn_weight by landuse type:
+    ```javascript
+    const weights = {
+      residential: 0.8, commercial: 0.6, industrial: 0.3,
+      farmland: 0.1, grass: 0.05, meadow: 0.05
+    };
+    ```
+  - Calculate population_density (default by type or use existing if available)
+  - Return object matching landuse_zone schema
+  
+- [ ] **1.3.3** Create transformer for Amenity/POI
+  - File: `src/transformers/amenity.transformer.js`
+  - Method: `transformAmenity(feature, countryId)`
+  - Extract: osm_id, amenity (→ poi_type), name
+  - **Handle geometry types**:
+    - If Point: Use coordinates directly
+    - If Polygon/MultiPolygon: Calculate centroid using Turf.js
+  - Extract address from properties: `addr:street`, `addr:city`, `addr:housenumber`
+  - Assign activity_level by amenity type:
+    ```javascript
+    const activities = {
+      mall: 0.34, university: 0.27, school: 0.17, hospital: 0.12,
+      restaurant: 0.25, cafe: 0.20, bank: 0.15, pharmacy: 0.18,
+      parking: 0.08, fuel: 0.10, bus_station: 0.30
+    };
+    ```
+  - Store all other properties in metadata JSON
+  - Return object matching poi schema
+  
+- [ ] **1.3.4** Create transformer factory
+  - File: `src/transformers/index.js`
+  - Method: `getTransformer(fileType)`
+  - Return appropriate transformer based on file type
+  - Throw error if unsupported file type
+  
+- [ ] **1.3.5** Write unit tests for transformers
+  - Test each transformer with sample GeoJSON features
+  - Test edge cases: null properties, missing geometry, invalid types
+  - Test centroid calculation accuracy
+
+---
+
+### **Task 1.4: Batch Database Insert** (4-6 hours)
+- [ ] **1.4.1** Create batch insert utility
+  - File: `src/utils/batch-insert.js`
+  - Method: `batchInsert(tableName, records, batchSize = 100)`
+  - Use parameterized queries to prevent SQL injection
+  - Return array of inserted IDs
+  
+- [ ] **1.4.2** Implement insert for Highway
+  - Method: `insertHighways(highways)`
+  - Batch insert to `highway` table
+  - Handle duplicate osm_id (UPSERT behavior)
+  - Return count of inserted/updated records
+  
+- [ ] **1.4.3** Implement insert for Landuse
+  - Method: `insertLanduse(landuseZones)`
+  - Batch insert to `landuse_zone` table
+  - Handle duplicate osm_id
+  - Return count of inserted/updated records
+  
+- [ ] **1.4.4** Implement insert for POI
+  - Method: `insertPOIs(pois)`
+  - Batch insert to `poi` table
+  - Handle duplicate osm_id
+  - Return count of inserted/updated records
+  
+- [ ] **1.4.5** Add error recovery
+  - If batch fails, try inserting records individually
+  - Log failed records to import_job.error_log
+  - Continue processing remaining features
+
+---
+
+## 🚀 **PHASE 2: CORE DATA IMPORT** (Estimated: 15-20 hours)
+
+### **Task 2.1: Highway Import Implementation** (5-7 hours)
+- [ ] **2.1.1** Create highway import workflow
+  - Method: `importHighways(countryId, jobId)`
+  - Stream parse `sample_data/highway.geojson`
+  - Transform each feature using highway.transformer
+  - Batch insert 100 features at a time
+  - Update Redis: `GEOADD highways:{countryCode}`
+  - Update job progress every 100 features
+  
+- [ ] **2.1.2** Add Redis geospatial indexing
+  - For each inserted highway:
+    - `GEOADD highways:barbados {lon} {lat} highway:{id}`
+    - `HSET highway:{id} name "{name}" type "{type}" ref "{ref}"`
+  
+- [ ] **2.1.3** Test highway import
+  - Import highway.geojson (22,719 features)
+  - Verify database count: `SELECT COUNT(*) FROM highway WHERE country_id = ?`
+  - Verify Redis count: `ZCARD highways:barbados`
+  - Test reverse geocoding: `GEORADIUS highways:barbados -59.5905 13.0806 50 m`
+  - Measure import time (target: <2 minutes for 22k features)
+
+---
+
+### **Task 2.2: Amenity/POI Import Implementation** (5-7 hours)
+- [ ] **2.2.1** **Decision**: Choose POI geometry handling strategy
+  - Review GEOJSON_IMPORT_CONTEXT.md Decision 1
+  - If Option B (poi_shape table), create schema:
+    ```sql
+    CREATE TABLE poi_shape (
+      id SERIAL PRIMARY KEY,
+      poi_id INTEGER REFERENCES poi(id) ON DELETE CASCADE,
+      geometry_geojson JSON NOT NULL,
+      geometry_type VARCHAR(50) -- 'Point', 'Polygon', 'MultiPolygon'
+    );
+    CREATE INDEX idx_poi_shape_poi ON poi_shape(poi_id);
+    ```
+  
+- [ ] **2.2.2** Create amenity import workflow
+  - Method: `importAmenities(countryId, jobId)`
+  - Stream parse `sample_data/amenity.geojson`
+  - Transform each feature using amenity.transformer
+  - Extract centroid for polygon geometries
+  - Batch insert to `poi` table
+  - If Option B: Insert full geometry to `poi_shape` table
+  - Update Redis: `GEOADD pois:{countryCode}`
+  
+- [ ] **2.2.3** Add Redis geospatial indexing for POIs
+  - For each inserted POI:
+    - `GEOADD pois:barbados {lon} {lat} poi:{id}`
+    - `HSET poi:{id} name "{name}" type "{type}" activity "{activity_level}"`
+  
+- [ ] **2.2.4** Test amenity import
+  - Import amenity.geojson (1,427 features)
+  - Verify database count: `SELECT COUNT(*) FROM poi WHERE country_id = ?`
+  - Verify Redis count: `ZCARD pois:barbados`
+  - Test nearest POI query: `GEORADIUS pois:barbados -59.6016 13.0947 100 m`
+  - Verify centroid accuracy for polygon amenities
+
+---
+
+### **Task 2.3: Landuse Import Implementation** (3-4 hours)
+- [ ] **2.3.1** Create landuse import workflow
+  - Method: `importLanduse(countryId, jobId)`
+  - Stream parse `sample_data/landuse.geojson`
+  - Transform each feature using landuse.transformer
+  - Batch insert to `landuse_zone` table
+  - Update job progress
+  
+- [ ] **2.3.2** Test landuse import
+  - Import landuse.geojson (2,267 features)
+  - Verify database count: `SELECT COUNT(*) FROM landuse_zone WHERE country_id = ?`
+  - Verify spawn_weight distribution: `SELECT landuse_type, AVG(spawn_weight) FROM landuse_zone GROUP BY landuse_type`
+  
+- [ ] **2.3.3** Verify Poisson spawning integration
+  - Restart commuter service
+  - Check SimpleSpatialZoneCache loads new zones
+  - Monitor spawn rates (should remain ~100/hr with calibrated weights)
+
+---
+
+### **Task 2.4: Reverse Geocoding Performance Testing** (2-3 hours)
+- [ ] **2.4.1** Create reverse geocoding endpoint
+  - File: `src/api/geofence/controllers/reverse-geocode.js`
+  - Endpoint: `GET /api/reverse-geocode?lat={lat}&lon={lon}`
+  - Logic:
+    1. Check cache: `GET geo:{lat}:{lon}`
+    2. If miss: Query Redis geospatial
+    3. Format address string
+    4. Cache result: `SET geo:{lat}:{lon} "{address}"`
+    5. Return address
+  
+- [ ] **2.4.2** Benchmark Redis vs PostGIS
+  - Test 100 random coordinates
+  - Measure Redis GEORADIUS time (avg, p95, p99)
+  - Measure PostGIS find_nearby_features_fast() time
+  - Compare results
+  - Target: Redis <200ms, PostGIS ~2000ms
+  
+- [ ] **2.4.3** Implement cache warming
+  - Pre-compute reverse geocodes for major roads
+  - Populate cache: `SET geo:{lat}:{lon}` for every 50m along highways
+  - Measure cache hit rate after 1000 queries
+
+---
+
+## 🎨 **PHASE 3: ACTION BUTTONS UI** (Estimated: 12-16 hours)
+
+### **Task 3.1: Country Schema Updates** (2-3 hours)
+- [ ] **3.1.1** Add action button fields to country schema
+  - File: `arknet_fleet_manager/arknet-fleet-api/src/api/country/content-types/country/schema.json`
+  - Add `geodata_import_buttons` field (see CONTEXT.md for full config)
+  - Add `geodata_import_status` field (JSON tracking import state)
+  
+- [ ] **3.1.2** Update country controller to expose import status
+  - File: `src/api/country/controllers/country.js`
+  - Add `getImportStatus(countryId)` method
+  - Return current import status for all file types
+
+---
+
+### **Task 3.2: Import API Endpoint** (4-5 hours)
+- [ ] **3.2.1** Create import controller
+  - File: `src/api/geojson-import/controllers/geojson-import.js`
+  - Endpoint: `POST /api/geojson-import`
+  - Body: `{ countryId: number, fileType: string }`
+  - Logic:
+    1. Validate request (country exists, file type supported)
+    2. Check if import already in progress
+    3. Create import_job record
+    4. Start async import (don't block response)
+    5. Return job ID
+  
+- [ ] **3.2.2** Create import progress endpoint
+  - Endpoint: `GET /api/geojson-import/:jobId`
+  - Return job status, progress, errors
+  
+- [ ] **3.2.3** Create import stats endpoint
+  - Endpoint: `GET /api/geojson-import/stats/:countryId`
+  - Return counts for all imported data types
+  - Return last import timestamps
+  - Return total features per type
+  
+- [ ] **3.2.4** Add route registration
+  - File: `src/api/geojson-import/routes/geojson-import.js`
+  - Register all import routes
+  - Add authentication middleware
+
+---
+
+### **Task 3.3: Window Handler Implementation** (3-4 hours)
+- [ ] **3.3.1** Create global handler script
+  - File: `arknet_fleet_manager/arknet-fleet-api/admin-extensions/geojson-handlers.js`
+  - Implement `window.importGeoJSON(entityId, metadata)`
+  - Implement `window.viewImportStats(entityId, metadata)`
+  - Implement `window.clearRedisCache(entityId, metadata)`
+  
+- [ ] **3.3.2** Add Socket.IO progress listener
+  - Connect to Socket.IO in admin panel
+  - Listen for `import:progress` events
+  - Show real-time progress notification
+  - Update import status when complete
+  
+- [ ] **3.3.3** Inject script into Strapi admin
+  - Add script tag to admin/src/index.html or use Strapi plugin hooks
+  - Test in Strapi admin panel
+
+---
+
+### **Task 3.4: Progress Monitoring UI** (3-4 hours)
+- [ ] **3.4.1** Create import progress modal component
+  - Show import progress bar
+  - Show feature count (processed/total)
+  - Show estimated time remaining
+  - Show errors (if any)
+  - Auto-close on completion
+  
+- [ ] **3.4.2** Create import stats view
+  - Show table of all import types
+  - Show status: Not Imported / Imported / Failed
+  - Show feature counts
+  - Show last import date
+  - Show "Re-import" button for each type
+  
+- [ ] **3.4.3** Add error handling UI
+  - Show failed features in expandable list
+  - Show error messages
+  - Option to "Retry Failed" or "Skip and Continue"
+
+---
+
+## 🔔 **PHASE 4: GEOFENCING NOTIFICATIONS** (Estimated: 10-14 hours)
+
+### **Task 4.1: Redis Pub/Sub Setup** (3-4 hours)
+- [ ] **4.1.1** Create geofence service
+  - File: `src/services/geofence-notifier.service.js`
+  - Subscribe to `vehicle:position` channel
+  - On message: Check nearby features using Redis GEORADIUS
+  - Emit Socket.IO event if features found
+  
+- [ ] **4.1.2** Update GPS device to publish positions
+  - File: `arknet_transit_simulator/vehicle/gps_device.py`
+  - Add Redis client: `pip install redis`
+  - On position update: `redis.publish('vehicle:position', json.dumps(data))`
+  
+- [ ] **4.1.3** Test Pub/Sub latency
+  - Publish 100 position updates
+  - Measure time from publish to Socket.IO emission
+  - Target: <10ms average latency
+
+---
+
+### **Task 4.2: Geofence Detection Logic** (4-5 hours)
+- [ ] **4.2.1** Implement proximity detection
+  - Method: `detectProximity(vehicleId, lat, lon, countryCode)`
+  - Query Redis for nearby highways (50m radius)
+  - Query Redis for nearby POIs (50m radius)
+  - Compare with vehicle's last known location (avoid duplicate notifications)
+  
+- [ ] **4.2.2** Implement geofence enter/exit logic
+  - Track vehicle's current geofence state in Redis:
+    - `SET vehicle:{id}:current_highway {highwayId}`
+    - `SET vehicle:{id}:current_poi {poiId}`
+  - Detect transitions:
+    - `geofence:entered` - Vehicle enters new highway/POI
+    - `geofence:exited` - Vehicle exits highway/POI
+  
+- [ ] **4.2.3** Add reverse geocode enrichment
+  - When geofence entered, fetch full address:
+    - Try cache: `GET geo:{lat}:{lon}`
+    - If miss: Query Redis for nearest highway + POI
+    - Format address: "{highway name}, near {poi name}"
+    - Cache: `SET geo:{lat}:{lon} "{address}"`
+  - Emit enriched event: `{ highway, poi, address }`
+
+---
+
+### **Task 4.3: Socket.IO Event Integration** (3-4 hours)
+- [ ] **4.3.1** Define Socket.IO event schema
+  - Event: `geofence:entered`
+    ```javascript
+    {
+      vehicleId: 'V123',
+      timestamp: 1729872000000,
+      location: { lat: 13.0806, lon: -59.5905 },
+      highway: { id: 5172465, name: 'Tom Adams Highway', type: 'trunk' },
+      poi: { id: 123, name: 'Bridgetown Mall', type: 'mall' },
+      address: 'Tom Adams Highway, near Bridgetown Mall'
+    }
+    ```
+  - Event: `geofence:exited` (same schema)
+  
+- [ ] **4.3.2** Update vehicle client to listen for events
+  - File: `arknet_transit_simulator/vehicle/socketio_client.py`
+  - Add handler for `geofence:entered` and `geofence:exited`
+  - Log events or trigger actions (e.g., announce to passengers)
+  
+- [ ] **4.3.3** Test with multiple vehicles
+  - Start 10 vehicles on different routes
+  - Monitor geofence events in real-time
+  - Verify no duplicate notifications
+  - Verify correct enter/exit sequences
+
+---
+
+## 🌍 **PHASE 5: EXTENDED DATA IMPORT** (Estimated: 15-20 hours)
+
+### **Task 5.1: Admin Boundaries Import** (6-8 hours)
+- [ ] **5.1.1** Analyze admin GeoJSON structure
+  - Inspect `admin_level_6_polygon.geojson` (parishes)
+  - Inspect `admin_level_8_polygon.geojson` (districts)
+  - Inspect `admin_level_9/10_polygon.geojson`
+  - Identify common properties: name, admin_level, boundary, type
+  
+- [ ] **5.1.2** Create admin transformer
+  - File: `src/transformers/admin.transformer.js`
+  - Map to `region` or `place` table based on admin_level
+  - Extract: name, admin_level, boundary type
+  - Calculate centroid for labeling
+  
+- [ ] **5.1.3** Implement admin import workflow
+  - Method: `importAdmin(countryId, jobId, adminLevel)`
+  - Support levels: 6, 8, 9, 10
+  - Batch insert to appropriate table
+  
+- [ ] **5.1.4** Test admin import
+  - Import all 4 admin levels
+  - Verify hierarchy (parish → district → sub-district → locality)
+  - Test spatial queries (find district containing lat/lon)
+
+---
+
+### **Task 5.2: Building Import** (5-7 hours)
+- [ ] **5.2.1** **Critical**: Analyze building.geojson size (658MB)
+  - Count features: `grep -c '"type": "Feature"' building.geojson`
+  - Estimate import time: features / 1000 per second
+  - Decide if import is feasible or if filtering needed
+  
+- [ ] **5.2.2** Create building schema
+  - Table: `building`
+  - Fields: osm_id, building_type, name, levels, address, geometry_geojson, centroid
+  
+- [ ] **5.2.3** Create building transformer
+  - File: `src/transformers/building.transformer.js`
+  - Extract: building type, levels (building:levels), name
+  - Calculate centroid for large buildings
+  
+- [ ] **5.2.4** Implement building import with streaming
+  - Method: `importBuildings(countryId, jobId)`
+  - Use streaming parser (critical for 658MB file)
+  - Process in chunks of 1000 features
+  - Estimate time: ~10-30 minutes for full import
+  
+- [ ] **5.2.5** Test building import
+  - Import first 10,000 buildings as test
+  - Monitor memory usage (should stay <500MB)
+  - If successful, import full dataset
+
+---
+
+### **Task 5.3: Supporting Data Import** (4-5 hours)
+- [ ] **5.3.1** Import natural.geojson
+  - Create `natural_feature` table (water, forest, beach, cliff, etc.)
+  - Create transformer
+  - Import and verify
+  
+- [ ] **5.3.2** Import name.geojson
+  - Analyze structure (what does this file contain?)
+  - Map to appropriate table (poi or place)
+  - Import and verify
+  
+- [ ] **5.3.3** Import add_street_polygon.geojson
+  - Create `street_polygon` table or enhance highway table
+  - Create transformer
+  - Import and verify
+
+---
+
+## 🎯 **PHASE 6: POISSON INTEGRATION & OPTIMIZATION** (Estimated: 18-22 hours)
+
+### **Task 6.1: Activity Level Updates** (4-5 hours)
+- [ ] **6.1.1** Research OSM amenity types
+  - List all amenity types from imported data:
+    ```sql
+    SELECT DISTINCT poi_type, COUNT(*) 
+    FROM poi 
+    GROUP BY poi_type 
+    ORDER BY COUNT(*) DESC;
+    ```
+  
+- [ ] **6.1.2** Assign activity levels
+  - File: `commuter_service/poisson_geojson_spawner.py`
+  - Update `activity_levels` dictionary with all OSM types:
+    ```python
+    activity_levels = {
+        # Existing
+        'mall': 0.34, 'university': 0.27, 'school': 0.17, 'hospital': 0.12,
+        # Transport
+        'bus_station': 0.30, 'taxi': 0.25, 'ferry_terminal': 0.28,
+        # Food/Drink
+        'restaurant': 0.25, 'cafe': 0.20, 'fast_food': 0.22, 'bar': 0.18, 'pub': 0.20,
+        # Retail
+        'bank': 0.15, 'pharmacy': 0.18, 'supermarket': 0.28, 'shop': 0.20,
+        # Services
+        'post_office': 0.12, 'police': 0.08, 'fire_station': 0.05,
+        # Recreation
+        'cinema': 0.22, 'theatre': 0.18, 'library': 0.12, 'park': 0.15,
+        # Infrastructure
+        'parking': 0.08, 'fuel': 0.10, 'atm': 0.05,
+        # Default
+        'default': 0.15
+    }
+    ```
+  
+- [ ] **6.1.3** Add time-of-day modifiers
+  - Implement `get_amenity_time_modifier(amenity_type, hour)`:
+    ```python
+    # Restaurant more active at lunch/dinner
+    if amenity_type == 'restaurant':
+        if hour in [12, 13, 18, 19, 20]:
+            return 2.0  # Peak meal times
+        elif hour in [6, 7, 8, 9, 10, 11, 14, 15, 16, 17]:
+            return 1.0
+        else:
+            return 0.3  # Closed/quiet
+    ```
+
+---
+
+### **Task 6.2: Spawn Weight Calibration** (5-6 hours)
+- [ ] **6.2.1** Analyze current spawn distribution
+  - Run spawner for 1 hour with new data
+  - Log spawn counts by zone and amenity type
+  - Calculate actual spawn rate (target: 90-180/hr)
+  
+- [ ] **6.2.2** Identify over/under-represented zones
+  - Find zones with >20% of total spawns
+  - Find zones with <1% of total spawns
+  - Adjust spawn_weight accordingly
+  
+- [ ] **6.2.3** Re-calibrate temporal multipliers
+  - Current reduction: 18x (from 1800/hr → 100/hr)
+  - With new data, may need adjustment
+  - Test different multipliers: 15x, 18x, 20x
+  - Select multiplier that maintains 100/hr average
+  
+- [ ] **6.2.4** Implement adaptive spawn weights
+  - Track spawn success rate by zone
+  - If zone consistently has no commuters picked up, reduce weight
+  - If zone always full, increase weight slightly
+
+---
+
+### **Task 6.3: Performance Optimization** (5-6 hours)
+- [ ] **6.3.1** Optimize SimpleSpatialZoneCache
+  - Current: Loads all zones into memory
+  - Problem: 3,694 zones vs previous 50 zones
+  - Solution: Implement pagination or spatial filtering
+    - Only load zones within ±10km of active routes
+    - Lazy-load zones as vehicles enter new areas
+  
+- [ ] **6.3.2** Add zone caching layers
+  - L1 Cache: Active zones (in-memory, <100 zones)
+  - L2 Cache: Nearby zones (Redis, ~500 zones)
+  - L3 Cache: All zones (PostgreSQL, full dataset)
+  - Implement LRU eviction for L1/L2
+  
+- [ ] **6.3.3** Optimize spawn rate calculations
+  - Pre-calculate base rates for common hour/context combinations
+  - Cache Poisson distributions for common lambda values
+  - Reduce calculation frequency (every 5 min instead of every spawn)
+  
+- [ ] **6.3.4** Add monitoring
+  - Log spawn rate by zone type (depot vs route)
+  - Log spawn rate by amenity type
+  - Log cache hit rates
+  - Alert if spawn rate deviates >20% from target
+
+---
+
+### **Task 6.4: Integration Testing** (4-5 hours)
+- [ ] **6.4.1** Test end-to-end spawn flow
+  - Start commuter service with full dataset
+  - Start 5 vehicles on different routes
+  - Monitor spawn distribution across zones
+  - Verify spawns occur at appropriate amenities
+  
+- [ ] **6.4.2** Test geofence integration
+  - Verify reverse geocoding uses imported highways
+  - Verify geofence events trigger correctly
+  - Verify address formatting includes POI names
+  
+- [ ] **6.4.3** Load testing
+  - Simulate 50 concurrent vehicles
+  - Simulate 200 spawns/hour
+  - Monitor Redis/PostgreSQL load
+  - Verify <200ms reverse geocoding latency
+  - Verify <10ms geofence notification latency
+  
+- [ ] **6.4.4** Data accuracy validation
+  - Manually verify 50 random spawns have correct locations
+  - Verify addresses match Google Maps
+  - Verify amenity types are correct
+
+---
+
+## 📊 **PHASE 7: DOCUMENTATION & DEPLOYMENT** (Estimated: 6-8 hours)
+
+### **Task 7.1: User Documentation** (2-3 hours)
+- [ ] **7.1.1** Write admin guide
+  - How to import GeoJSON data
+  - How to monitor import progress
+  - How to handle import errors
+  - How to re-import data (clear old data first)
+  
+- [ ] **7.1.2** Write developer guide
+  - How to add new GeoJSON file types
+  - How to create new transformers
+  - How to modify spawn weights/activity levels
+  - How Redis caching works
+  
+- [ ] **7.1.3** Write troubleshooting guide
+  - Common import errors (file not found, invalid JSON, etc.)
+  - Redis connection issues
+  - Performance degradation (slow imports, high memory)
+  - Data accuracy issues (wrong centroids, missing features)
+
+---
+
+### **Task 7.2: Deployment Checklist** (2-3 hours)
+- [ ] **7.2.1** Production environment setup
+  - [ ] Redis server installed and running
+  - [ ] Redis password configured
+  - [ ] Firewall rules allow Redis port
+  - [ ] Redis persistence enabled (AOF or RDB)
+  
+- [ ] **7.2.2** Database migrations
+  - [ ] Run all schema migrations
+  - [ ] Create spatial indexes
+  - [ ] Verify PostGIS extensions installed
+  
+- [ ] **7.2.3** Strapi configuration
+  - [ ] Action buttons plugin enabled
+  - [ ] Country schema updated
+  - [ ] Import API routes registered
+  - [ ] Socket.IO configured for geofence events
+  
+- [ ] **7.2.4** Monitoring setup
+  - [ ] Redis monitoring (memory, connections, latency)
+  - [ ] PostgreSQL monitoring (query time, connection pool)
+  - [ ] Import job monitoring (success rate, duration)
+  - [ ] Geofence event monitoring (event rate, latency)
+
+---
+
+### **Task 7.3: Performance Benchmarking** (2-3 hours)
+- [ ] **7.3.1** Benchmark reverse geocoding
+  - Run 1000 random queries
+  - Measure Redis cache hit rate
+  - Measure average latency (cache hit vs miss)
+  - Verify <200ms target met
+  
+- [ ] **7.3.2** Benchmark geofencing
+  - Simulate 100 vehicles moving simultaneously
+  - Measure geofence event latency (position update → Socket.IO emission)
+  - Verify <10ms target met
+  
+- [ ] **7.3.3** Benchmark import speed
+  - Import highway.geojson (22,719 features)
+  - Import amenity.geojson (1,427 features)
+  - Import building.geojson (full 658MB dataset)
+  - Measure features/second for each type
+  - Verify >1000 features/sec target met (except buildings)
+
+---
+
+## ✅ **COMPLETION CRITERIA**
+
+### **Must Have (MVP)**
+- [x] Redis server running and accessible
+- [x] Highway, Amenity, Landuse imported and indexed
+- [x] Reverse geocoding <200ms average latency
+- [x] Action buttons functional in Strapi admin
+- [x] Import progress monitoring working
+- [x] Geofence notifications functional (<10ms)
+- [x] Poisson spawning using new dataset
+- [x] Spawn rate calibrated to 90-180/hr
+
+### **Should Have**
+- [x] Admin boundaries imported (levels 6, 8, 9, 10)
+- [x] Redis cache warming for major roads
+- [x] Import error recovery and retry logic
+- [x] Zone-specific activity levels by time of day
+- [x] Performance monitoring dashboards
+
+### **Nice to Have**
+- [x] Building.geojson imported (if feasible)
+- [x] Natural features imported
+- [x] Address street polygons imported
+- [x] Adaptive spawn weights based on usage
+- [x] Multi-country support (scaling Redis keys by country)
+
+---
+
+## 🚨 **RISK MITIGATION**
+
+### **Risk 1: Building.geojson Too Large (658MB)**
+- **Mitigation**: Implement streaming parser first, test with subset
+- **Fallback**: Skip building import or filter by building type (residential only)
+
+### **Risk 2: Spawn Rate Too High After Import**
+- **Mitigation**: Implement spawn weight override in config
+- **Fallback**: Increase temporal reduction multiplier (18x → 25x)
+
+### **Risk 3: Redis Memory Exhaustion**
+- **Mitigation**: Monitor Redis memory, implement LRU eviction
+- **Fallback**: Reduce cache size, use Redis clustering
+
+### **Risk 4: Import Takes Too Long**
+- **Mitigation**: Optimize batch size, use multiple workers
+- **Fallback**: Import overnight, add import scheduling
+
+---
+
+## 📅 **ESTIMATED TIMELINE**
+
+| Phase | Duration | Cumulative |
+|-------|----------|-----------|
+| Phase 1: Foundation | 20-30 hours | 20-30 hours |
+| Phase 2: Core Data | 15-20 hours | 35-50 hours |
+| Phase 3: Action Buttons | 12-16 hours | 47-66 hours |
+| Phase 4: Geofencing | 10-14 hours | 57-80 hours |
+| Phase 5: Extended Data | 15-20 hours | 72-100 hours |
+| Phase 6: Optimization | 18-22 hours | 90-122 hours |
+| Phase 7: Deployment | 6-8 hours | **96-130 hours** |
+
+**Total: 2.5-3.5 weeks full-time work**
+
+---
+
+## 📝 **NOTES**
+
+- Each task is designed to be atomic (completable without dependencies on incomplete tasks)
+- Tasks marked with ⚠️ require critical decisions before implementation
+- Tasks marked with 🔍 require research/analysis before coding
+- Progress should be tracked in this document (check off completed tasks)
+
+---
+
+**Document Version**: 1.0  
+**Last Updated**: October 25, 2025  
+**Next Review**: After Phase 1 completion
