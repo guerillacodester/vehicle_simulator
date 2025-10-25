@@ -145,9 +145,10 @@ async function handleGeoJSONImport(
   fileType: string,
   fieldName: string,
   fieldValue: any,
-  onChange?: (value: any) => void
+  onChange?: (value: any) => void,
+  additionalParams?: Record<string, any>
 ): Promise<void> {
-  console.log(`[${fileType}] Import button clicked`, { fieldName, fieldValue });
+  console.log(`[${fileType}] Import button clicked`, { fieldName, fieldValue, additionalParams });
 
   // Step 1: Get country ID
   const countryId = getCountryId();
@@ -215,7 +216,8 @@ async function handleGeoJSONImport(
       headers: headers,
       credentials: 'include', // Include cookies for Strapi admin auth
       body: JSON.stringify({
-        countryId: countryId
+        countryId: countryId,
+        ...additionalParams  // Include admin level or other parameters
       })
     });
 
@@ -441,13 +443,182 @@ window.handleImportBuilding = async (
 /**
  * Handler for Admin Boundaries GeoJSON import
  * Button: 🗺️ Import Admin Boundaries
+ * 
+ * IMPORTANT: Requires admin level selection before import
+ * User must choose: Parish (6), Town (8), Suburb (9), or Neighbourhood (10)
  */
 window.handleImportAdmin = async (
   fieldName: string,
   fieldValue: any,
   onChange?: (value: any) => void
 ): Promise<void> => {
-  await handleGeoJSONImport('admin', fieldName, fieldValue, onChange);
+  const countryId = getCountryId();
+  if (!countryId) {
+    alert('⚠️ Please save the country first before importing admin boundaries.');
+    return;
+  }
+
+  // Fetch available admin levels from API
+  try {
+    const apiBase = getApiBaseUrl();
+    const token = getAuthToken();
+    
+    const response = await fetch(`${apiBase}/api/admin-levels`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch admin levels: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const adminLevels = data.data || [];
+    
+    if (adminLevels.length === 0) {
+      alert('⚠️ No admin levels found in database. Please seed admin_levels table first.');
+      return;
+    }
+    
+    // Create a custom modal dialog with dropdown
+    const sortedLevels = adminLevels.sort((a: any, b: any) => a.level - b.level);
+    
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    `;
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: #212134;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 90%;
+    `;
+    
+    modalContent.innerHTML = `
+      <h2 style="margin: 0 0 20px 0; color: #ffffff; font-size: 24px; font-weight: 600;">
+        🗺️ Select Admin Level
+      </h2>
+      <p style="margin: 0 0 20px 0; color: #a5a5ba; font-size: 14px;">
+        Choose the administrative level for the regions you want to import:
+      </p>
+      <select id="adminLevelSelect" style="
+        width: 100%;
+        padding: 12px;
+        font-size: 14px;
+        border: 1px solid #32324d;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        cursor: pointer;
+        background: #32324d;
+        color: #ffffff;
+      ">
+        ${sortedLevels.map((level: any) => `
+          <option value="${level.id}">
+            ${level.name} (Admin Level ${level.level})${level.description ? ' - ' + level.description : ''}
+          </option>
+        `).join('')}
+      </select>
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="cancelBtn" style="
+          padding: 10px 20px;
+          font-size: 14px;
+          border: 1px solid #32324d;
+          background: transparent;
+          color: #ffffff;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background 0.2s;
+        " onmouseover="this.style.background='#32324d'" onmouseout="this.style.background='transparent'">Cancel</button>
+        <button id="confirmBtn" style="
+          padding: 10px 20px;
+          font-size: 14px;
+          border: none;
+          background: #4945ff;
+          color: white;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background 0.2s;
+        " onmouseover="this.style.background='#7b79ff'" onmouseout="this.style.background='#4945ff'">Import</button>
+      </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Wait for user selection
+    const adminLevel = await new Promise<any>((resolve) => {
+      const selectElement = document.getElementById('adminLevelSelect') as HTMLSelectElement;
+      const confirmBtn = document.getElementById('confirmBtn');
+      const cancelBtn = document.getElementById('cancelBtn');
+      
+      confirmBtn?.addEventListener('click', () => {
+        const selectedId = parseInt(selectElement.value);
+        const selected = adminLevels.find((l: any) => l.id === selectedId);
+        document.body.removeChild(modal);
+        resolve(selected);
+      });
+      
+      cancelBtn?.addEventListener('click', () => {
+        document.body.removeChild(modal);
+        resolve(null);
+      });
+      
+      // Allow ESC key to cancel
+      const escHandler = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          document.body.removeChild(modal);
+          document.removeEventListener('keydown', escHandler);
+          resolve(null);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+    });
+    
+    if (!adminLevel) {
+      console.log('Admin import cancelled by user');
+      return;
+    }
+    
+    // Confirm import with selected level
+    const confirmed = confirm(
+      `📍 Import Admin Boundaries\n\n` +
+      `Level: ${adminLevel.level} (${adminLevel.name})\n` +
+      `Description: ${adminLevel.description || 'N/A'}\n\n` +
+      `This will import all ${adminLevel.name} boundaries for this country.\n\n` +
+      `Continue?`
+    );
+    
+    if (!confirmed) {
+      console.log('Admin import cancelled by user');
+      return;
+    }
+    
+    // Call generic handler with admin level parameter
+    await handleGeoJSONImport('admin', fieldName, fieldValue, onChange, {
+      adminLevelId: adminLevel.id,
+      adminLevel: adminLevel.level
+    });
+    
+  } catch (error) {
+    console.error('Error fetching admin levels:', error);
+    alert(`❌ Error: ${error instanceof Error ? error.message : 'Failed to fetch admin levels'}`);
+  }
 };
 
 // ============================================================================

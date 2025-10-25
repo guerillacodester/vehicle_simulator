@@ -15,9 +15,10 @@
 
 ### **Where Am I?**
 
-- **Phase**: Phase 1.9 COMPLETE ✅ - Buildings imported (162,942 records), Admin levels normalized
-- **Next Task**: Step 1.10 - Optimize remaining import endpoints (highway, amenity, landuse, admin)
-- **Blocker**: None - ready to apply bulk insert pattern to 4 remaining endpoints
+- **Phase**: Phase 1.9 COMPLETE ✅ - Admin level UI ready, backend endpoint needed
+- **Next Task**: Step 1.10.6 - Create `/api/import-geojson/admin` backend endpoint
+- **Blocker**: None - Frontend ready, database seeded, just need backend implementation
+- **Files Ready**: 4 GeoJSON files in sample_data/ (admin_level_6, 8, 9, 10)
 
 ### **What Do I Need to Know?**
 
@@ -68,11 +69,29 @@
   - ✅ Admin-level Strapi content type created (schema, controller, service, routes)
   - ✅ Regions table updated with admin_level relationship
   - ✅ Foreign key constraints and junction table created
-- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (0/4 endpoints) ⏳ NEXT - HIGH PRIORITY
+  - ✅ Admin level selection UI created (dark theme modal with dropdown)
+  - ✅ Frontend handler updated to fetch and pass admin level to backend
+  - ✅ Build successful (Oct 25, 2025 23:45)
+- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (2/5 tasks) ⏳ NEXT - HIGH PRIORITY
   - **Goal**: Apply building import pattern (streaming + bulk SQL) to 4 remaining endpoints
-  - **Scope**: Highway (41MB), Amenity (3.65MB), Landuse (4.12MB), Admin (4 files <1MB each)
-  - **UI Enhancement**: Admin level dropdown for admin import
-  - **Expected Performance**: ~1400 features/sec for highway, similar for others
+  - **Current Status**: Admin UI complete (dropdown selection with dark theme), backend needed
+  - [x] Admin level selection UI with dropdown (COMPLETE Oct 25, 2025 23:45)
+  - [x] Frontend handler passes adminLevelId and adminLevel to backend (COMPLETE)
+  - [ ] **NEXT IMMEDIATE**: Create `/api/import-geojson/admin` backend endpoint ⏳
+    - **Accept**: countryId, adminLevelId, adminLevel from request body
+    - **File mapping**: admin_level_${adminLevel}_polygon.geojson (4 files: 6, 8, 9, 10)
+    - **Lookup**: Verify adminLevelId exists in admin_levels table
+    - **Insert**: regions table with osm_id, full_id, name, admin_level_id, geom (MultiPolygon)
+    - **Pattern**: Use building import streaming parser + bulk SQL (500 features/batch)
+    - **Validation**: adminLevel must be 6, 8, 9, or 10
+  - [ ] Highway import optimization (41MB, ~22,719 features, LineString)
+  - [ ] Amenity import optimization (3.65MB, 1,427 features, handle Point/Polygon/MultiPolygon)
+  - [ ] Landuse import optimization (4.12MB, 2,267 features, Polygon/MultiPolygon)
+    - Lookup admin_level record, insert regions with relationship
+    - Use streaming parser + bulk SQL pattern from buildings
+  - [ ] Highway import optimization (41MB, ~22,719 features)
+  - [ ] Amenity import optimization (3.65MB, 1,427 features, handle Point/Polygon/MultiPolygon)
+  - [ ] Landuse import optimization (4.12MB, 2,267 features)
 - [ ] **Phase 1.11**: Geospatial Services API (0/7 steps) - CRITICAL for spawning queries
 - [ ] **Phase 1.12**: Database Integration (0/5 steps)
 - [ ] **Phase 2**: Complete Backend + Batch Import (0/15 steps)
@@ -82,7 +101,7 @@
 - [ ] **Phase 6**: Depot/Route Spawners (0/11 steps) - BLOCKED
 - [ ] **Phase 7**: Conductor Communication (0/7 steps) - BLOCKED
 
-**Total**: 16/87 major steps (added Phase 1.9 Buildings + Admin Normalization)
+**Total**: 17/92 major steps (added Phase 1.10 sub-tasks)
 
 ---
 

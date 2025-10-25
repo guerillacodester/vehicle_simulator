@@ -362,7 +362,31 @@ During highway GeoJSON import implementation, discovered the database uses **ind
 - [x] Foreign key constraints and junction table created
 - [x] Strapi build successful with new content type
 
-⏳ **Import Endpoints Needing Bulk Insert Optimization** (Step 1.10.4-1.10.6)
+✅ **Admin Level Selection UI Complete** (Oct 25, 2025 23:45)
+
+- [x] Custom modal dialog with dropdown for admin level selection
+- [x] Dark theme styling matching Strapi design system (#212134, #4945ff, #32324d)
+- [x] Frontend handler fetches admin levels from `/api/admin-levels`
+- [x] Dropdown format: "Parish (Admin Level 6) - First-level administrative division"
+- [x] Passes adminLevelId and adminLevel to backend in request body
+- [x] Cancel button, ESC key support, hover effects implemented
+- [x] Generic handleGeoJSONImport updated to accept additionalParams
+- [x] Build successful - ready for backend implementation
+
+⏳ **NEXT STEP: Create Admin Import Backend Endpoint** (IMMEDIATE - HIGH PRIORITY)
+
+- [ ] Create `/api/import-geojson/admin` endpoint in geojson-import controller
+  - **Accept parameters**: countryId, adminLevelId, adminLevel (from frontend)
+  - **File selection logic**: Map adminLevel (6,8,9,10) → filename (admin_level_${level}_polygon.geojson)
+  - **Pattern**: Use building import pattern (streaming parser + bulk SQL inserts)
+  - **Lookup**: Verify admin_level exists in admin_levels table by adminLevelId
+  - **Insert**: Regions with admin_level_id foreign key
+  - **Fields**: osm_id, full_id, name, admin_level_id, country_id, geom (MultiPolygon)
+  - **Validation**: Verify adminLevel in [6, 8, 9, 10], file exists
+  - **File location**: sample_data/admin_level_${adminLevel}_polygon.geojson
+  - **Expected**: 4 separate imports (one per level), each with unique admin_level_id
+
+⏳ **Import Endpoints Needing Bulk Insert Optimization** (Step 1.10.4-1.10.5)
 
 - [ ] Highway import - Apply building import pattern (streaming + bulk SQL)
   - **File**: highway.geojson (41.22 MB, ~22,719 features)
@@ -377,19 +401,6 @@ During highway GeoJSON import implementation, discovered the database uses **ind
 - [ ] Landuse import - Apply building import pattern
   - **File**: landuse.geojson (4.12 MB, 2,267 features)
   - **Geometry**: Polygon or MultiPolygon
-
-- [ ] Admin import - Apply building import pattern + admin level selection
-  - **Files**: 4 files (admin_level_6, 8, 9, 10)
-  - **UI Requirement**: Dropdown to select admin level BEFORE upload (prevents errors)
-  - **Pattern**: Lookup admin_level_id from admin_levels table, then insert regions
-  - **Validation**: Require adminLevel parameter (6, 8, 9, or 10)
-
-⏳ **Frontend UI Enhancement**
-
-- [ ] Add admin level dropdown to admin import section
-  - **State Management**: selectedAdminLevel, disabled button until selected
-  - **Validation**: Client-side validation before submit
-  - **API Call**: Include adminLevel in request body
 
 **🎉 PostGIS Migration: FULLY COMPLETE** - All spatial tables migrated, all import code updated
 
