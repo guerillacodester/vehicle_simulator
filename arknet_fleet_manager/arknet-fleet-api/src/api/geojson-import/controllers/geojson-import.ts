@@ -475,6 +475,18 @@ export default {
         return ctx.badRequest('countryId is required');
       }
 
+      // Get the numeric country ID from the document ID using direct SQL
+      const knex = strapi.db.connection;
+      const countryResult = await knex('countries')
+        .select('id')
+        .where('document_id', countryId)
+        .first();
+      
+      if (!countryResult) {
+        return ctx.notFound(`Country not found: ${countryId}`);
+      }
+      const numericCountryId = countryResult.id; // The auto-increment integer ID
+
       const jobId = `building_${Date.now()}`;
       const startTime = Date.now();
       
@@ -491,10 +503,9 @@ export default {
       const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
       strapi.log.info(`[${jobId}] Starting STREAMING import of ${fileSizeMB} MB file`);
 
-      // Estimate total features (sampling approach)
-      strapi.log.info(`[${jobId}] Estimating feature count...`);
-      const estimatedTotal = await estimateFeatureCount(geojsonPath, 100);
-      strapi.log.info(`[${jobId}] Estimated ${estimatedTotal} features`);
+      // Skip estimation for large files - start importing immediately
+      const estimatedTotal = 0; // Will be updated as we process
+      strapi.log.info(`[${jobId}] Starting import (progress will be tracked without estimation)`);
 
       // Send initial progress
       // @ts-ignore - Socket.IO instance stored on strapi object
@@ -514,53 +525,93 @@ export default {
         batchSize: 500,
         
         onBatch: async (features: any[]) => {
-          // Process batch of building features
-          const buildingData = features.map((feature: any) => {
+          const knex = strapi.db.connection;
+          const timestamp = new Date();
+          const { randomUUID } = require('crypto');
+          
+          // Build bulk insert values array
+          const insertValues: any[] = [];
+          const insertBindings: any[] = [];
+          
+          features.forEach((feature: any) => {
             const props = feature.properties || {};
             const buildingName = props.name || `${props.building || 'building'}-${props.osm_id || 'unknown'}`;
             const buildingId = generateSlug(buildingName, props.osm_id);
-
-            return {
-              feature, // Keep original feature for geometry processing
-              data: {
-                building_id: buildingId,
-                osm_id: props.osm_id || null,
-                full_id: props.full_id || null,
-                building_type: props.building || 'yes',
-                name: props.name || null,
-                addr_street: props['addr:street'] || null,
-                addr_city: props['addr:city'] || null,
-                addr_housenumber: props['addr:housenumber'] || null,
-                levels: props.levels ? parseInt(props.levels) : null,
-                height: props.height ? parseFloat(props.height) : null,
-                amenity: props.amenity || null,
-                country: countryId,
+            const documentId = randomUUID(); // Generate UUID for document_id
+            
+            // Convert geometry to WKT
+            let wkt = null;
+            if (feature.geometry) {
+              if (feature.geometry.type === 'Polygon') {
+                const rings = feature.geometry.coordinates;
+                const wktRings = rings.map((ring: number[][]) => 
+                  '(' + ring.map((coord: number[]) => `${coord[0]} ${coord[1]}`).join(', ') + ')'
+                ).join(', ');
+                wkt = `POLYGON(${wktRings})`;
+              } else if (feature.geometry.type === 'MultiPolygon') {
+                const polygons = feature.geometry.coordinates;
+                const wktPolygons = polygons.map((rings: number[][][]) =>
+                  '(' + rings.map((ring: number[][]) => 
+                    '(' + ring.map((coord: number[]) => `${coord[0]} ${coord[1]}`).join(', ') + ')'
+                  ).join(', ') + ')'
+                ).join(', ');
+                wkt = `MULTIPOLYGON(${wktPolygons})`;
               }
-            };
+            }
+            
+            insertValues.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+            insertBindings.push(
+              documentId,                                    // document_id
+              buildingId,                                    // building_id
+              props.osm_id || null,                          // osm_id
+              props.full_id || null,                         // full_id
+              props.building || 'yes',                       // building_type
+              props.name || null,                            // name
+              props['addr:street'] || null,                  // addr_street
+              props['addr:city'] || null,                    // addr_city
+              props['addr:housenumber'] || null,             // addr_housenumber
+              props.levels ? parseInt(props.levels) : null,  // levels
+              props.height ? parseFloat(props.height) : null,// height
+              props.amenity || null,                         // amenity
+              wkt,                                           // geom (WKT)
+              timestamp,                                     // created_at
+              timestamp,                                     // updated_at
+              timestamp                                      // published_at
+            );
           });
-
-          // Insert buildings one by one (Strapi doesn't have createMany)
-          const knex = strapi.db.connection;
           
-          for (const item of buildingData) {
-            const building = await strapi.entityService.create('api::building.building' as any, {
-              data: item.data,
-            });
-
-            // Update geometry using PostGIS
-            if (item.feature.geometry && item.feature.geometry.type === 'Polygon') {
-              // Convert Polygon coordinates to WKT
-              const rings = item.feature.geometry.coordinates;
-              const wktRings = rings.map((ring: number[][]) => 
-                '(' + ring.map((coord: number[]) => `${coord[0]} ${coord[1]}`).join(', ') + ')'
-              ).join(', ');
-              const wkt = `POLYGON(${wktRings})`;
-
+          // Execute bulk insert with geometry in one query
+          if (insertValues.length > 0) {
+            await knex.raw(`
+              INSERT INTO buildings (
+                document_id, building_id, osm_id, full_id, building_type, name,
+                addr_street, addr_city, addr_housenumber, levels, height,
+                amenity, geom, created_at, updated_at, published_at
+              ) VALUES ${insertValues.join(', ')}
+            `, insertBindings);
+            
+            // Link to country (bulk insert into junction table)
+            const buildingIds = await knex('buildings')
+              .select('id')
+              .whereIn('building_id', features.map((f: any) => {
+                const props = f.properties || {};
+                const buildingName = props.name || `${props.building || 'building'}-${props.osm_id || 'unknown'}`;
+                return generateSlug(buildingName, props.osm_id);
+              }))
+              .orderBy('id', 'desc')
+              .limit(features.length);
+            
+            const countryLinkBindings: any[] = [];
+            const countryLinkPlaceholders = buildingIds.map((row: any) => {
+              countryLinkBindings.push(row.id, numericCountryId);
+              return '(?, ?)';
+            }).join(', ');
+            
+            if (countryLinkPlaceholders) {
               await knex.raw(`
-                UPDATE buildings
-                SET geom = ST_GeomFromText(?, 4326)
-                WHERE id = ?
-              `, [wkt, building.id]);
+                INSERT INTO buildings_country_lnk (building_id, country_id)
+                VALUES ${countryLinkPlaceholders}
+              `, countryLinkBindings);
             }
           }
 
@@ -568,6 +619,29 @@ export default {
         },
         
         onProgress: (progress) => {
+          // Calculate progress metrics
+          const elapsedSeconds = (progress.elapsedTime / 1000).toFixed(1);
+          const featuresPerSecond = progress.elapsedTime > 0
+            ? (progress.processed / (progress.elapsedTime / 1000)).toFixed(0)
+            : '0';
+          
+          // Calculate percentage and batch info if we have an estimate
+          let progressMessage = `[${jobId}] Progress: ${progress.processed} features`;
+          let percentComplete = '0.0';
+          let estimatedBatches = 0;
+          
+          if (progress.estimatedTotal && progress.estimatedTotal > 0) {
+            percentComplete = ((progress.processed / progress.estimatedTotal) * 100).toFixed(1);
+            estimatedBatches = Math.ceil(progress.estimatedTotal / 500);
+            progressMessage = `[${jobId}] Progress: ${progress.processed}/${progress.estimatedTotal} features (${percentComplete}%)`;
+          }
+          
+          progressMessage += ` | Batch ${progress.currentBatch}`;
+          if (estimatedBatches > 0) {
+            progressMessage += `/${estimatedBatches}`;
+          }
+          progressMessage += ` | ${elapsedSeconds}s elapsed | ${featuresPerSecond} features/sec`;
+          
           // Emit Socket.IO progress update
           // @ts-ignore - Socket.IO instance stored on strapi object
           strapi.io.emit('import:progress', {
@@ -575,13 +649,18 @@ export default {
             countryId,
             fileType: 'building',
             processed: progress.processed,
-            estimatedTotal,
-            percent: ((progress.processed / estimatedTotal) * 100).toFixed(1),
+            estimatedTotal: progress.estimatedTotal,
+            percent: percentComplete,
             currentBatch: progress.currentBatch,
+            estimatedBatches,
             elapsedTime: progress.elapsedTime,
+            elapsedSeconds,
+            featuresPerSecond,
+            bytesRead: progress.bytesRead,
           });
 
-          strapi.log.info(`[${jobId}] Progress: ${progress.processed}/${estimatedTotal} features (${progress.currentBatch} batches)`);
+          // Log progress
+          strapi.log.info(progressMessage);
         },
         
         onError: (error) => {
@@ -597,8 +676,13 @@ export default {
       });
 
       const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+      const featuresPerSecond = (result.totalFeatures / (result.elapsedTime / 1000)).toFixed(0);
+      const avgBatchTime = (result.elapsedTime / result.totalBatches / 1000).toFixed(1);
       
-      strapi.log.info(`[${jobId}] Import complete: ${result.totalFeatures} features in ${elapsedSeconds}s`);
+      strapi.log.info(
+        `[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s ` +
+        `(${result.totalBatches} batches, ${featuresPerSecond} features/sec, ${avgBatchTime}s/batch)`
+      );
 
       // Emit completion event
       // @ts-ignore - Socket.IO instance stored on strapi object
@@ -609,6 +693,9 @@ export default {
         totalFeatures: result.totalFeatures,
         totalBatches: result.totalBatches,
         elapsedTime: result.elapsedTime,
+        elapsedSeconds,
+        featuresPerSecond,
+        avgBatchTime,
       });
 
       ctx.body = {
