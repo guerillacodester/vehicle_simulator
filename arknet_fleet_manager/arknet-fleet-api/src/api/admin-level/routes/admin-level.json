@@ -1,0 +1,44 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/admin-levels",
+      "handler": "admin-level.find",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin-levels/:id",
+      "handler": "admin-level.findOne",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin-levels",
+      "handler": "admin-level.create",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/admin-levels/:id",
+      "handler": "admin-level.update",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin-levels/:id",
+      "handler": "admin-level.delete",
+      "config": {
+        "policies": []
+      }
+    }
+  ]
+}

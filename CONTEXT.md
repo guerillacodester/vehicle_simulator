@@ -99,9 +99,10 @@
 │  │  │  ✅ depots (geom: Point, 4326)                                    │  │ │
 │  │  │  ✅ landuse_zones (geom: Polygon, 4326)                           │  │ │
 │  │  │  ✅ pois (geom: Point, 4326)                                      │  │ │
-│  │  │  ✅ regions (geom: MultiPolygon, 4326) - admin boundaries        │  │ │
+│  │  │  │  ✅ regions (geom: MultiPolygon, 4326) - admin boundaries        │  │ │
+│  │  │  ✅ admin_levels (reference table) - level, name, description   │  │ │
 │  │  │  ✅ geofences (geom: Polygon, 4326)                               │  │ │
-│  │  │  ⏳ buildings (geom: Polygon, 4326) - NOT YET CREATED             │  │ │
+│  │  │  ✅ buildings (geom: Polygon, 4326) - IMPORTED (162,942 records) │  │ │
 │  │  │  ✅ vehicle_events (geom: Point, 4326)                            │  │ │
 │  │  │  ✅ active_passengers (geom: Point, 4326)                         │  │ │
 │  │  └───────────────────────────────────────────────────────────────────┘  │ │
@@ -293,10 +294,11 @@ This workspace has multiple documentation files. Here's the authoritative order:
 **Streaming Strategy Confirmed**:
 
 - **Scope**: ALL 5 content types (highway, amenity, landuse, building, admin)
-- **File Sizes**: 628MB building (critical), 41MB highway, 4.12MB landuse, 3.65MB amenity, <1MB admin
+- **File Sizes**: 628MB building ✅ IMPORTED (162,942 records), 41MB highway, 4.12MB landuse, 3.65MB amenity, <1MB admin (4 files)
 - **Rationale**: Consistency (single code path), memory efficiency (<500MB), real-time progress, future-proofing
 - **Implementation**: Reusable `geojson-stream-parser.ts` utility with configurable batch size (500-1000 features)
 - **Benefits**: No memory leaks, production-ready scalability, consistent progress feedback across all imports
+- **Admin Level Architecture**: Normalized admin_levels reference table with 4 seeded levels (6, 8, 9, 10)
 
 ---
 
@@ -345,31 +347,71 @@ During highway GeoJSON import implementation, discovered the database uses **ind
 
 ### **Remaining Work**
 
-⚠️ **Import Code Updates Required** (Step 1.8.4): ✅ **COMPLETE (Oct 25, 2025 18:25)**
+✅ **Buildings Import Complete** (Oct 25, 2025 19:45)
 
-- [x] Amenity/POI import - Extracts centroid, uses ST_GeomFromText('POINT(...)')
-- [x] Landuse import - Uses ST_GeomFromText('POLYGON(...)')
-- [x] Building import - Placeholder (table doesn't exist, streaming required for 658MB)
-- [x] Admin boundaries - Uses ST_GeomFromText('MULTIPOLYGON(...)')
+- [x] Buildings content type created with PostGIS Polygon column
+- [x] Streaming parser implemented for 658MB file
+- [x] 162,942 buildings imported at 1166 features/sec (139.7s total)
+- [x] 100% data completeness validated (document_id, geometries, junction table)
 
-✅ **Highway import already updated** - Uses PostGIS LineString with WKT format
+✅ **Admin Level Normalization Complete** (Oct 25, 2025)
+
+- [x] admin_levels reference table created and seeded (4 levels: 6, 8, 9, 10)
+- [x] Admin-level Strapi content type created (schema, controller, service, routes)
+- [x] Regions table updated with osm_id, full_id, admin_level relationship
+- [x] Foreign key constraints and junction table created
+- [x] Strapi build successful with new content type
+
+⏳ **Import Endpoints Needing Bulk Insert Optimization** (Step 1.10.4-1.10.6)
+
+- [ ] Highway import - Apply building import pattern (streaming + bulk SQL)
+  - **File**: highway.geojson (41.22 MB, ~22,719 features)
+  - **Geometry**: LineString (not Polygon)
+  - **Expected Performance**: ~1400 features/sec
+
+- [ ] Amenity import - Apply building import pattern
+  - **File**: amenity.geojson (3.65 MB, 1,427 features)
+  - **Geometry**: Point, Polygon, or MultiPolygon (handle all three)
+  - **Note**: May need centroid extraction for non-Point geometries
+
+- [ ] Landuse import - Apply building import pattern
+  - **File**: landuse.geojson (4.12 MB, 2,267 features)
+  - **Geometry**: Polygon or MultiPolygon
+
+- [ ] Admin import - Apply building import pattern + admin level selection
+  - **Files**: 4 files (admin_level_6, 8, 9, 10)
+  - **UI Requirement**: Dropdown to select admin level BEFORE upload (prevents errors)
+  - **Pattern**: Lookup admin_level_id from admin_levels table, then insert regions
+  - **Validation**: Require adminLevel parameter (6, 8, 9, or 10)
+
+⏳ **Frontend UI Enhancement**
+
+- [ ] Add admin level dropdown to admin import section
+  - **State Management**: selectedAdminLevel, disabled button until selected
+  - **Validation**: Client-side validation before submit
+  - **API Call**: Include adminLevel in request body
 
 **🎉 PostGIS Migration: FULLY COMPLETE** - All spatial tables migrated, all import code updated
 
-### **Next Phase: Buildings Table & Streaming Parser**
+### **Buildings Import Success (Oct 25, 2025)**
 
-⚠️ **Buildings Content Type Required** (not yet created):
+✅ **Buildings Content Type Created**:
 
 - **Purpose**: Foundation for realistic passenger spawning model
-- **File**: sample_data/building.geojson (658MB, ~100K+ features)
+- **File**: sample_data/building.geojson (658MB, 162,942 features imported)
 - **Schema**: building_id, osm_id, building_type, geom geometry(Polygon, 4326)
-- **Why Critical**: See "Passenger Spawning Architecture" section below
+- **Performance**: 1166 features/sec, 139.7s total import time
+- **Strategy**: Streaming parser with bulk SQL inserts (500 features/batch)
 
-⚠️ **Streaming Parser Required** (Step 1.9):
+### **Admin Level Normalization (Oct 25, 2025)**
 
-- **Why**: building.geojson is 658MB (too large to read into memory)
-- **Solution**: Use `stream-json` to process chunks
-- **Applies to**: All GeoJSON imports for production batch processing
+✅ **Normalized Architecture Implemented**:
+
+- **Reference Table**: admin_levels with 4 seeded levels
+- **Content Type**: Full Strapi admin-level API
+- **Regions Updated**: osm_id, full_id, admin_level relationship added
+- **Benefits**: Extensible, prevents hardcoded enums, supports hierarchical queries
+- **Next Step**: Implement admin import endpoint with admin level dropdown
 
 ### **Passenger Spawning Architecture Vision**
 
@@ -636,6 +678,33 @@ To be created in `arknet_fleet_manager/arknet-fleet-api/src/api/geospatial/contr
    - `GET /api/geospatial/depot-buildings` - Buildings in depot catchment (ST_DWithin)
    - `GET /api/geospatial/nearby-pois` - POIs within radius
    - `GET /api/geospatial/zone-containing` - Find landuse zone containing point (ST_Contains)
+
+#### **Strapi Content Type APIs**
+
+Standard Strapi REST APIs (already available):
+
+1. **Admin Levels** (NEW - Oct 25, 2025)
+   - `GET /api/admin-levels` - List all admin levels (6, 8, 9, 10)
+   - `GET /api/admin-levels/:id` - Get specific admin level
+   - `POST /api/admin-levels` - Create new admin level (requires auth)
+   - `PUT /api/admin-levels/:id` - Update admin level (requires auth)
+   - `DELETE /api/admin-levels/:id` - Delete admin level (requires auth)
+   - **Files**: `src/api/admin-level/` (schema, controller, service, routes)
+   - **Database**: `admin_levels` table with document_id, level, name, description
+
+2. **Regions**
+   - `GET /api/regions` - List regions with admin level relationships
+   - `GET /api/regions/:id` - Get region with admin level details
+   - **Updated Fields**: osm_id, full_id, admin_level (relation)
+
+3. **Countries**
+   - `GET /api/countries` - List countries with import status
+   - `PUT /api/countries/:id` - Update geodata_import_status
+
+4. **Buildings** (NEW - Oct 25, 2025)
+   - `GET /api/buildings` - List buildings (162,942 records)
+   - `GET /api/buildings/:id` - Get building details
+   - **Import Status**: ✅ Complete (658 MB imported at 1166 features/sec)
 
 #### **Data Flow**
 
@@ -1700,6 +1769,157 @@ Strapi Admin UI
 }
 ```
 
+#### **Admin Level** (Administrative Hierarchy Reference - NEW Oct 25, 2025)
+
+**✅ NORMALIZED ARCHITECTURE**: Separate reference table for admin levels with foreign key relationship
+
+```javascript
+// Admin Levels (Reference Table)
+{
+  id: Integer (Primary Key),
+  document_id: UUID (Unique),
+  level: Integer (Unique),  // 6, 8, 9, 10
+  name: String,             // 'Parish', 'Town', 'Suburb', 'Neighbourhood'
+  description: Text,
+  regions: Relation(Region, oneToMany, mappedBy: 'admin_level')
+}
+```
+
+**Seeded Reference Data** (4 levels):
+
+```sql
+INSERT INTO admin_levels (id, level, name, description)
+VALUES
+  (1, 6,  'Parish',        'Top-level administrative division (OSM admin_level=6)'),
+  (2, 8,  'Town',          'Town-level administrative division (OSM admin_level=8)'),
+  (3, 9,  'Suburb',        'Suburb-level administrative division (OSM admin_level=9)'),
+  (4, 10, 'Neighbourhood', 'Neighbourhood-level division (OSM admin_level=10)');
+```
+
+**Design Principles**:
+
+- ✅ **Normalized**: Admin levels stored as reference data (not hardcoded enum)
+- ✅ **Extensible**: Easy to add new levels (7, 11, etc.) without schema changes
+- ✅ **Data Integrity**: Foreign key constraints enforce referential integrity
+- ✅ **Strapi Content Type**: Full admin-level API with controller, service, routes
+
+#### **Region** (Administrative Boundaries - UPDATED Oct 25, 2025)
+
+```javascript
+{
+  osm_id: String (maxLength: 50),      // NEW: OSM identifier
+  full_id: String (maxLength: 50),      // NEW: Full OSM ID (type + id)
+  admin_level: Relation(AdminLevel, manyToOne, inversedBy: 'regions'),  // NEW: Normalized relationship
+  name: String,
+  geometry_geojson: JSON,  // Full MultiPolygon geometry
+  geom: PostGIS Geometry(MultiPolygon, 4326),  // PostGIS geometry column
+  center_latitude: Float,
+  center_longitude: Float,
+  country: Relation(Country)
+}
+```
+
+**Database Schema**:
+
+```sql
+-- Admin levels table (created Oct 25, 2025)
+CREATE TABLE admin_levels (
+  id SERIAL PRIMARY KEY,
+  document_id VARCHAR(255) UNIQUE NOT NULL,
+  level INTEGER NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_by_id INTEGER,
+  updated_by_id INTEGER,
+  locale VARCHAR(255)
+);
+
+CREATE INDEX admin_levels_documents_idx 
+  ON admin_levels(document_id, locale, published_at);
+
+-- Regions table (updated Oct 25, 2025)
+ALTER TABLE regions ADD COLUMN osm_id VARCHAR(50);
+ALTER TABLE regions ADD COLUMN full_id VARCHAR(50);
+ALTER TABLE regions ADD COLUMN admin_level_id INTEGER;
+
+ALTER TABLE regions 
+  ADD CONSTRAINT regions_admin_level_id_fk 
+  FOREIGN KEY (admin_level_id) 
+  REFERENCES admin_levels(id) 
+  ON DELETE SET NULL;
+
+-- Junction table for Strapi relationship management
+CREATE TABLE regions_admin_level_lnk (
+  id SERIAL PRIMARY KEY,
+  region_id INTEGER REFERENCES regions(id) ON DELETE CASCADE,
+  admin_level_id INTEGER REFERENCES admin_levels(id) ON DELETE CASCADE,
+  region_ord NUMERIC(10,2)
+);
+
+CREATE INDEX regions_admin_level_lnk_fk ON regions_admin_level_lnk(region_id);
+CREATE INDEX regions_admin_level_lnk_inv_fk ON regions_admin_level_lnk(admin_level_id);
+CREATE INDEX regions_admin_level_lnk_order_fk ON regions_admin_level_lnk(region_ord);
+```
+
+**GeoJSON Import Requirements**:
+
+- **4 Separate Files**: admin_level_6_polygon.geojson, admin_level_8_polygon.geojson, admin_level_9_polygon.geojson, admin_level_10_polygon.geojson
+- **UI Requirement**: Dropdown to select admin level BEFORE file upload (prevents data integrity issues)
+- **Import Pattern**:
+
+  ```typescript
+  // 1. Validate admin level parameter
+  const { adminLevel } = ctx.request.body;
+  if (!adminLevel || ![6, 8, 9, 10].includes(adminLevel)) {
+    return ctx.badRequest('adminLevel required (6, 8, 9, or 10)');
+  }
+
+  // 2. Lookup admin_level_id
+  const adminLevelRecord = await knex('admin_levels')
+    .select('id', 'name')
+    .where('level', adminLevel)
+    .first();
+
+  // 3. Insert regions with admin_level_id
+  await knex('regions').insert({
+    osm_id: feature.properties.osm_id,
+    full_id: feature.properties.full_id,
+    admin_level_id: adminLevelRecord.id,
+    geom: knex.raw(`ST_GeomFromText(?, 4326)`, [wkt])
+  });
+  ```
+
+**Benefits of Normalization**:
+
+- ✅ Prevents hardcoded enums that require schema changes
+- ✅ Easy to query all regions by admin level: `SELECT * FROM regions WHERE admin_level_id = 1`
+- ✅ Extensible to new admin levels without migration
+- ✅ Consistent with Strapi relationship patterns
+- ✅ Supports hierarchical queries (e.g., all towns within a parish)
+
+#### **Building** (Structures - IMPORTED Oct 25, 2025)
+
+```javascript
+{
+  building_id: String (unique),
+  osm_id: String,
+  building_type: String,  // 'residential', 'commercial', 'industrial', etc.
+  name: String,
+  geom: PostGIS Geometry(Polygon, 4326),
+  country: Relation(Country)
+}
+```
+
+**Import Status**: ✅ **COMPLETE** (162,942 buildings imported)
+
+- **Performance**: 1166 features/sec, 139.7s total
+- **Strategy**: Streaming parser with bulk SQL inserts (500 features/batch)
+- **Data Completeness**: 100% document_id, geometries, junction table populated
+- **Geometry Type**: ST_MultiPolygon (all 162,942 records)
+
 #### **Import Job** (Tracking)
 
 ```javascript
@@ -1891,11 +2111,16 @@ Vehicle GPS Update
 
 | File | Features | Size | Priority | Status |
 |------|----------|------|----------|--------|
-| `highway.geojson` | 22,719 | 43 MB | 🔴 High | Not Imported |
-| `amenity.geojson` | 1,427 | 3.8 MB | 🔴 High | Not Imported |
-| `landuse.geojson` | 2,267 | 4.3 MB | 🔴 High | Not Imported |
-| `admin_level_6_polygon.geojson` | ? | ? | 🟡 Medium | Not Imported |
-| `admin_level_8_polygon.geojson` | ? | ? | 🟡 Medium | Not Imported |
+| File | Features | Size | Priority | Status |
+|------|----------|------|----------|--------|
+| `building.geojson` | 162,942 | 658 MB | 🔴 High | ✅ **IMPORTED** (Oct 25, 2025) |
+| `highway.geojson` | 22,719 | 43 MB | 🔴 High | ⏳ Pending (bulk insert needed) |
+| `amenity.geojson` | 1,427 | 3.8 MB | 🔴 High | ⏳ Pending (bulk insert needed) |
+| `landuse.geojson` | 2,267 | 4.3 MB | 🔴 High | ⏳ Pending (bulk insert needed) |
+| `admin_level_6_polygon.geojson` | 11 | 0.28 MB | 🟡 Medium | ⏳ Pending (admin level dropdown required) |
+| `admin_level_8_polygon.geojson` | 11 | 0.27 MB | 🟡 Medium | ⏳ Pending (admin level dropdown required) |
+| `admin_level_9_polygon.geojson` | 40 | 0.02 MB | 🟡 Medium | ⏳ Pending (admin level dropdown required) |
+| `admin_level_10_polygon.geojson` | 81 | 0.02 MB | 🟡 Medium | ⏳ Pending (admin level dropdown required) |
 | `admin_level_9_polygon.geojson` | ? | ? | 🟡 Medium | Not Imported |
 | `admin_level_10_polygon.geojson` | ? | ? | 🟡 Medium | Not Imported |
 | `building.geojson` | ? | 658 MB | 🟢 Low | ⚠️ Requires streaming |

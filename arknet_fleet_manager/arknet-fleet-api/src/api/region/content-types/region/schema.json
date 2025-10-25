@@ -69,6 +69,20 @@
       "default": true,
       "required": true
     },
+    "osm_id": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "full_id": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "admin_level": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::admin-level.admin-level",
+      "inversedBy": "regions"
+    },
     "country": {
       "type": "relation",
       "relation": "manyToOne",
