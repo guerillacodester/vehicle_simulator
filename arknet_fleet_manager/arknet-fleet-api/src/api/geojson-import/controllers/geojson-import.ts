@@ -6,6 +6,15 @@
 import fs from 'fs';
 import path from 'path';
 
+// Helper function to generate a slug/UID
+function generateSlug(name: string, suffix?: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return suffix ? `${slug}-${suffix}` : slug;
+}
+
 export default {
   /**
    * Health check endpoint
@@ -64,16 +73,109 @@ export default {
       const featureCount = geojson.features ? geojson.features.length : 0;
       strapi.log.info(`[${jobId}] Features found: ${featureCount}`);
       
-      // Log first feature as sample
+      // Step 1.7.3c: Insert first test feature into database
+      let testInsertResult = null;
       if (geojson.features && geojson.features.length > 0) {
         const firstFeature = geojson.features[0];
-        strapi.log.info(`[${jobId}] Sample feature properties:`, Object.keys(firstFeature.properties || {}));
-        strapi.log.info(`[${jobId}] Sample geometry type:`, firstFeature.geometry?.type);
+        const propertyKeys = Object.keys(firstFeature.properties || {});
+        strapi.log.info(`[${jobId}] Sample feature property count: ${propertyKeys.length}`);
+        strapi.log.info(`[${jobId}] Sample feature properties: ${propertyKeys.join(', ')}`);
+        strapi.log.info(`[${jobId}] Sample geometry type: ${firstFeature.geometry?.type}`);
+        strapi.log.info(`[${jobId}] Sample coordinates count: ${firstFeature.geometry?.coordinates?.length || 0}`);
+        
+        // Show key properties we'll map to database
+        const props = firstFeature.properties;
+        strapi.log.info(`[${jobId}] Key mapped properties:`, {
+          osm_id: props?.osm_id,
+          highway: props?.highway,
+          name: props?.name,
+          ref: props?.ref,
+          surface: props?.surface,
+          maxspeed: props?.maxspeed,
+          lanes: props?.lanes,
+          oneway: props?.oneway,
+        });
+
+        // Insert first feature as test
+        strapi.log.info(`[${jobId}] Inserting first feature into database...`);
+        
+        // Create highway record
+        // Note: name is required, so we provide a fallback based on osm_id or highway type
+        const roadName = props?.name || props?.ref || `${props?.highway || 'road'}-${props?.osm_id || 'unknown'}`;
+        
+        // Generate highway_id (UID) manually since auto-generation seems to have validation issues
+        const highwayId = generateSlug(roadName, props?.osm_id);
+        
+        const highwayData = {
+          highway_id: highwayId,
+          osm_id: props?.osm_id || null,
+          full_id: props?.full_id || null,
+          highway_type: props?.highway || 'other',
+          name: roadName,
+          ref: props?.ref || null,
+          surface: props?.surface || null,
+          maxspeed: props?.maxspeed || null,
+          lanes: props?.lanes ? parseInt(props.lanes) : null,
+          oneway: props?.oneway === 'yes' ? true : (props?.oneway === 'no' ? false : null),
+          country: countryId,
+        };
+        
+        strapi.log.info(`[${jobId}] Generated highway_id: ${highwayId}`);
+
+        const highway = await strapi.entityService.create('api::highway.highway' as any, {
+          data: highwayData,
+        });
+
+        strapi.log.info(`[${jobId}] Highway record created with ID: ${highway.id}`);
+
+        // Create geometry records as individual shape points
+        if (firstFeature.geometry && firstFeature.geometry.type === 'LineString') {
+          const coordinates = firstFeature.geometry.coordinates;
+          
+          strapi.log.info(`[${jobId}] Creating geometry with ${coordinates.length} points`);
+          
+          // Insert each coordinate as a separate highway_shape record
+          const shapePointIds: string[] = [];
+          for (let i = 0; i < coordinates.length; i++) {
+            const [lon, lat] = coordinates[i];
+            
+            const shapePoint = await strapi.entityService.create('api::highway-shape.highway-shape' as any, {
+              data: {
+                shape_pt_lat: lat,
+                shape_pt_lon: lon,
+                shape_pt_sequence: i,
+              }
+            });
+            
+            shapePointIds.push(String(shapePoint.id));
+          }
+
+          // Create linking table entries to connect shape points to highway
+          const knex = strapi.db.connection;
+          for (let i = 0; i < shapePointIds.length; i++) {
+            await knex.raw(`
+              INSERT INTO highway_shapes_highway_lnk (highway_shape_id, highway_id, highway_shape_ord)
+              VALUES (?, ?, ?)
+            `, [shapePointIds[i], highway.id, i]);
+          }
+
+          strapi.log.info(`[${jobId}] Created ${shapePointIds.length} shape points and linked to highway`);
+          
+          testInsertResult = {
+            highwayId: highway.id,
+            geometryPointCount: shapePointIds.length,
+            osmId: props?.osm_id,
+            name: props?.name,
+            coordinateCount: coordinates.length,
+          };
+        }
       }
 
       ctx.body = {
         jobId,
-        message: 'Highway import file validated (TEST MODE)',
+        message: testInsertResult 
+          ? 'Highway import - first test feature inserted successfully' 
+          : 'Highway import file validated and parsed successfully',
         countryId,
         fileType: 'highway',
         fileInfo: {
@@ -82,6 +184,10 @@ export default {
           featureCount,
           geometryType: geojson.type,
         },
+        testInsert: testInsertResult,
+        nextStep: testInsertResult 
+          ? 'Step 1.7.3d: Verify database insertion' 
+          : 'Ready for Step 1.7.3c: Insert first test feature into database',
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
