@@ -79,6 +79,123 @@ vehicle_simulator/
 
 ---
 
+## 🎭 **COMPONENT ROLES & RESPONSIBILITIES**
+
+### **Vehicle Components** (4-Layer Hierarchy)
+
+```
+DepotManager → Dispatcher → VehicleDriver → Conductor
+```
+
+#### **1. VehicleDriver** 
+**Location**: `arknet_transit_simulator/vehicle/driver/navigation/vehicle_driver.py`
+
+**Role**: Vehicle operation and route navigation
+- **Person Component**: Extends `BasePerson` (with `PersonState` management)
+- **States**: `DriverState` - DISEMBARKED, BOARDING, ONBOARD, WAITING
+- **Responsibilities**:
+  - Maps engine distance to GPS coordinates along route polyline
+  - Boards/disembarks from vehicle
+  - Controls Engine and GPS components (turns on/off)
+  - Produces interpolated GPS positions in `TelemetryBuffer`
+  - Accepts route coordinates directly (doesn't load from files)
+  - Listens for Conductor signals via Socket.IO:
+    - `conductor:request:stop` → Stops engine for passenger operations
+    - `conductor:ready:depart` → Restarts engine to continue journey
+
+**Configuration**: `DriverConfig` loaded from Strapi `ConfigurationService`
+- `waypoint_proximity_threshold_km` (default: 0.05 = 50 meters)
+- `broadcast_interval_seconds` (default: 5.0)
+
+---
+
+#### **2. Conductor** (Vehicle-Based Passenger Manager)
+**Location**: `arknet_transit_simulator/vehicle/conductor.py`
+
+**Role**: Manages passengers ON the vehicle
+- **Person Component**: Extends `BasePerson` (with `PersonState` management)
+- **States**: `ConductorState` - MONITORING, EVALUATING, BOARDING_PASSENGERS, SIGNALING_DRIVER, WAITING_FOR_DEPARTURE
+- **Responsibilities**:
+  - Monitors depot and route for passengers matching assigned route
+  - Evaluates passenger-vehicle proximity and timing intersections
+  - Manages passenger boarding/disembarking based on configuration rules
+  - **Signals driver** to start/stop vehicle with duration control
+  - Preserves GPS state during engine on/off cycles
+  - Handles passenger capacity and safety protocols
+  - Communicates with self-aware passengers for stop requests
+
+**Configuration**: `ConductorConfig` loaded from Strapi `ConfigurationService`
+
+**Communication**:
+- **Emits to Driver**: `conductor:request:stop`, `conductor:ready:depart`
+- **Receives from Passengers**: Stop requests, boarding signals
+
+---
+
+### **Passenger Spawning System**
+
+#### **3. Commuter Service** (Passenger Generation Engine)
+**Location**: `commuter_service/` directory
+
+**Role**: Generates passengers using statistical models
+- **NOT the passengers themselves** - this is the spawning system
+- **Socket.IO ServiceType**: `COMMUTER_SERVICE`
+
+**Components**:
+- **`poisson_geojson_spawner.py`** - Statistical engine
+  - Poisson distribution modeling
+  - 18x spawn rate reduction
+  - Activity level weighting
+  
+- **`depot_reservoir.py`** - Depot-based spawning
+  - FIFO queue logic
+  - 1.0x temporal multiplier
+  - Depot POI integration
+  
+- **`route_reservoir.py`** - Route-based spawning
+  - Spatial grid segmentation
+  - 0.5x temporal multiplier
+  - Zone modifier application
+  
+- **`spawning_coordinator.py`** - Orchestrator
+  - Coordinates depot and route spawners
+  - Manages spawn timing (1-minute intervals)
+  
+- **`spawn_interface.py`** - **Passenger-to-Route Assignment**
+  - `SpawnRequest` dataclass with `assigned_route` field
+  - Spawning strategies (depot-based, route-based, stop-based, mixed)
+  - Demand calculation and route selection
+  
+- **`simple_spatial_cache.py`** - Zone loader
+  - Async-only zone loading
+  - ±5km buffer around active routes
+  - Auto-refresh on Strapi data changes
+
+**Key Data Structure**:
+```python
+@dataclass
+class SpawnRequest:
+    spawn_location: SpawnLocation
+    destination_location: Dict[str, float]
+    passenger_count: int
+    assigned_route: Optional[str] = None  # ← Route assignment
+```
+
+---
+
+### **Terminology Clarification**
+
+| Term | Meaning |
+|------|---------|
+| **Commuter Service** | The spawning system that generates passengers |
+| **Passenger** | The spawned entity (person waiting for/riding vehicle) |
+| **Conductor** | Vehicle component managing passengers on that specific vehicle |
+| **VehicleDriver** | Vehicle component controlling engine/GPS/navigation |
+| **Depot** | Bus terminal/station where passengers spawn (POI type) |
+| **Route** | Bus route with defined path and stops |
+
+---
+
 ## 🔄 **SYSTEM INTEGRATION & WORKFLOW**
 
 ### **How All Subsystems Work Together**
@@ -317,62 +434,101 @@ This section explains the **end-to-end flow** from GeoJSON import to passenger p
 
 ---
 
-#### **5. Conductor Communication Flow** (Spawners → Conductor → Vehicles)
+#### **5. Passenger-to-Vehicle Assignment Flow** (Spawners → Vehicles)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ PASSENGER SPAWNED                                               │
 │ (depot_reservoir.py OR route_reservoir.py)                      │
 │                                                                  │
+│ SpawnRequest created with:                                      │
+│ {                                                                │
+│   spawn_location: {lat, lon, name},                             │
+│   destination_location: {lat, lon},                             │
+│   passenger_count: 1,                                           │
+│   assigned_route: "1A"  ← ROUTE ASSIGNED BY SPAWN STRATEGY      │
+│ }                                                                │
+│                                                                  │
 │ Socket.IO Emit: passenger:spawned                               │
 │ {                                                                │
 │   passengerId: "P12345",                                        │
 │   origin: {lat: 13.0806, lon: -59.5905, name: "Bridgetown"},    │
 │   destination: {lat: 13.1050, lon: -59.6100, name: "Airport"},  │
+│   assignedRoute: "1A",                                          │
 │   timestamp: 1729872000000,                                     │
 │   spawner: "depot" | "route"                                    │
 │ }                                                                │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ CONDUCTOR SERVICE (location TBD - needs discovery)              │
+│ VEHICLE CONDUCTOR RECEIVES PASSENGER (Event-Based Assignment)   │
+│ (arknet_transit_simulator/vehicle/conductor.py)                 │
 │                                                                  │
-│ @sio.on('passenger:spawned')                                    │
-│ def on_passenger_spawned(data):                                 │
-│   1. Receive passenger request                                  │
-│   2. Find eligible vehicles:                                    │
-│      ├─ Query vehicles near origin (±2km)                       │
-│      ├─ Check vehicle capacity (seats available)                │
-│      └─ Check vehicle route compatibility                       │
-│   3. Select best vehicle (closest + route match)                │
-│   4. Assign passenger to vehicle:                               │
-│      └─ Socket.IO Emit: passenger:assigned                      │
-│         {                                                        │
-│           passengerId: "P12345",                                │
-│           vehicleId: "V123",                                    │
-│           estimatedPickupTime: 180 (seconds)                    │
-│         }                                                        │
+│ Conductor monitors for passengers matching assigned route:      │
+│                                                                  │
+│ ConductorState.MONITORING:                                      │
+│   1. Listen for passenger:spawned events                        │
+│   2. Filter: Does passenger.assignedRoute == vehicle.route?     │
+│   3. If match:                                                  │
+│      ├─ Transition to EVALUATING state                          │
+│      ├─ Calculate proximity (passenger location vs vehicle)     │
+│      └─ Check timing intersection                               │
+│                                                                  │
+│ ConductorState.EVALUATING:                                      │
+│   1. Determine if pickup is feasible:                           │
+│      ├─ Distance check (within route tolerance)                 │
+│      ├─ Capacity check (seats available)                        │
+│      └─ Timing check (ETA reasonable)                           │
+│   2. If feasible:                                               │
+│      └─ Transition to BOARDING_PASSENGERS                       │
+│                                                                  │
+│ ConductorState.BOARDING_PASSENGERS:                             │
+│   1. Signal driver to stop:                                     │
+│      └─ Socket.IO Emit: conductor:request:stop                  │
+│         {vehicleId, duration_seconds: 30}                       │
+│   2. Manage passenger boarding                                  │
+│   3. When complete:                                             │
+│      └─ Transition to SIGNALING_DRIVER                          │
+│                                                                  │
+│ ConductorState.SIGNALING_DRIVER:                                │
+│   1. Signal driver to resume:                                   │
+│      └─ Socket.IO Emit: conductor:ready:depart                  │
+│         {vehicleId, passengerCount}                             │
+│   2. Transition to WAITING_FOR_DEPARTURE                        │
+│                                                                  │
+│ ConductorState.WAITING_FOR_DEPARTURE:                           │
+│   1. Wait for vehicle to start moving                           │
+│   2. When moving:                                               │
+│      └─ Transition back to MONITORING                           │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ VEHICLE SIMULATOR RECEIVES ASSIGNMENT                           │
-│ (arknet_transit_simulator/vehicle/socketio_client.py)           │
+│ VEHICLE DRIVER RESPONDS TO CONDUCTOR SIGNALS                    │
+│ (arknet_transit_simulator/vehicle/driver/navigation/            │
+│  vehicle_driver.py)                                             │
 │                                                                  │
-│ @sio.on('passenger:assigned')                                   │
-│ def on_passenger_assigned(data):                                │
-│   1. Add passenger to pickup queue                              │
-│   2. Navigate to pickup location                                │
-│   3. On arrival:                                                │
-│      └─ Socket.IO Emit: passenger:picked_up                     │
-│         {passengerId: "P12345", vehicleId: "V123"}              │
-│   4. Navigate to destination                                    │
-│   5. On arrival:                                                │
-│      └─ Socket.IO Emit: passenger:delivered                     │
-│         {passengerId: "P12345", vehicleId: "V123"}              │
+│ @sio.on('conductor:request:stop')                               │
+│ async def on_stop_request(data):                                │
+│   1. Stop engine (if currently driving)                         │
+│   2. Transition to DriverState.WAITING                          │
+│   3. Sleep for duration_seconds (default: 30s)                  │
+│   4. Wait for conductor:ready:depart signal                     │
+│                                                                  │
+│ @sio.on('conductor:ready:depart')                               │
+│ async def on_ready_to_depart(data):                             │
+│   1. Restart engine                                             │
+│   2. Transition to DriverState.ONBOARD                          │
+│   3. Resume navigation along route                              │
+│                                                                  │
+│ Vehicle continues to destination with passenger aboard          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**⚠️ NOTE**: Conductor service location needs to be discovered in Phase 6
+**Key Insights**:
+- ✅ **No centralized assignment service** - Route assignment happens in spawn strategies
+- ✅ **Event-based coordination** - Conductor monitors Socket.IO events, filters by route
+- ✅ **State machine architecture** - Both Conductor and Driver use state enums
+- ✅ **Bidirectional communication** - Conductor ↔ Driver via Socket.IO
 
 ---
 
@@ -386,16 +542,24 @@ PostgreSQL + Redis populated
 SimpleSpatialZoneCache loads zones
     ↓
 Spawning Coordinator starts
-    ├─ Depot Spawner: Generates passenger at depot POI
-    └─ Route Spawner: Generates passenger along route
+    ├─ Depot Spawner: Generates passenger at depot POI (with assigned_route)
+    └─ Route Spawner: Generates passenger along route (with assigned_route)
          ↓
-    Socket.IO: passenger:spawned
+    Socket.IO: passenger:spawned {passengerId, origin, destination, assignedRoute}
          ↓
-    Conductor assigns to vehicle
+    Vehicle Conductor monitors events (filters by route match)
          ↓
-    Socket.IO: passenger:assigned
+    Conductor evaluates proximity/capacity/timing
          ↓
-    Vehicle navigates to pickup
+    Conductor signals Driver: conductor:request:stop
+         ↓
+    Driver stops vehicle, waits for boarding
+         ↓
+    Conductor manages passenger boarding
+         ↓
+    Conductor signals Driver: conductor:ready:depart
+         ↓
+    Driver resumes navigation
          ↓
     Vehicle GPS publishes position
          ↓
@@ -405,17 +569,13 @@ Spawning Coordinator starts
          ↓
     Socket.IO: geofence:entered ("Near Bridgetown Depot")
          ↓
-    Vehicle picks up passenger
-         ↓
-    Socket.IO: passenger:picked_up
-         ↓
-    Vehicle navigates to destination
+    Vehicle continues to destination
          ↓
     Geofence Service detects arrival
          ↓
     Socket.IO: geofence:entered ("Near Airport Terminal")
          ↓
-    Vehicle delivers passenger
+    Conductor manages passenger disembarkation
          ↓
     Socket.IO: passenger:delivered
          ↓
@@ -446,21 +606,20 @@ Spawning Coordinator starts
 │   ├─ Depot Spawner                  │
 │   ├─ Route Spawner                  │
 │   ├─ Poisson Spawner                │
-│   └─ SimpleSpatialZoneCache         │
+│   ├─ SimpleSpatialZoneCache         │
+│   └─ spawn_interface.py (route assignment)
 └─────────────────┬───────────────────┘
                   │
-                  ▼ (passenger:spawned)
-┌─────────────────────────────────────┐
-│   CONDUCTOR SERVICE (Python?)       │
-│   └─ Passenger → Vehicle assignment │
-└─────────────────┬───────────────────┘
-                  │
-                  ▼ (passenger:assigned)
+                  ▼ (passenger:spawned with assignedRoute)
 ┌─────────────────────────────────────┐
 │   VEHICLE SIMULATOR (Python)        │
-│   ├─ GPS Device                     │
-│   ├─ Passenger Manager              │
-│   └─ Socket.IO Client               │
+│   ├─ Conductor (monitors events,    │
+│   │   filters by route, manages     │
+│   │   boarding/disembarkation)      │
+│   ├─ VehicleDriver (controls        │
+│   │   engine/GPS, responds to        │
+│   │   conductor signals)             │
+│   └─ GPS Device                     │
 └─────────────────┬───────────────────┘
                   │
                   ▼ (vehicle:position)
@@ -521,11 +680,11 @@ Spawning Coordinator starts
    - Loads SimpleSpatialZoneCache from Strapi
    - Starts depot_reservoir.py
    - Starts route_reservoir.py
-6. **Conductor Service** (if exists - TBD)
-7. **Vehicle Simulators** (main.py for each vehicle)
-   - Connects to Socket.IO
-   - Starts GPS device
-   - Listens for passenger assignments
+   - Assigns routes via spawn_interface.py strategies
+6. **Vehicle Simulators** (main.py for each vehicle)
+   - VehicleDriver connects to Socket.IO
+   - Conductor monitors for passenger:spawned events
+   - Both components respond to state changes
 
 **Health Check**:
 ```bash
