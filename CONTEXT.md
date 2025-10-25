@@ -4,9 +4,120 @@
 **Repository**: vehicle_simulator  
 **Branch**: branch-0.0.2.6  
 **Date**: October 25, 2025  
-**Status**: 🟡 Active Development - GeoJSON Import System
+**Status**: 🟡 Active Development - GeoJSON Import System  
+**Phase**: Planning & Feasibility Study (Phase 1 not started)
 
-> **📌 Companion Document**: See `TODO.md` for step-by-step implementation tasks
+> **📌 MASTER DOCUMENT**: This is the primary context reference. See `TODO.md` for step-by-step tasks.
+
+---
+
+## 📖 **DOCUMENT HIERARCHY**
+
+This workspace has multiple documentation files. Here's the authoritative order:
+
+1. **`CONTEXT.md`** (this file) - ✅ **PRIMARY REFERENCE**
+   - Complete project context, architecture, and system integration
+   - Component roles and responsibilities
+   - User preferences and work style
+   - Start here for project understanding
+
+2. **`TODO.md`** - ✅ **ACTIVE TASK LIST**
+   - Step-by-step implementation plan (65+ steps, 6 phases)
+   - Time estimates and validation criteria
+   - Progress tracking with checkboxes
+   - Update this as you complete tasks
+
+3. **`GEOJSON_IMPORT_CONTEXT.md`** - ⚠️ **HISTORICAL REFERENCE**
+   - Early architecture study (600+ lines)
+   - Created before CONTEXT.md consolidation
+   - Keep for reference, but CONTEXT.md supersedes it
+   - Contains detailed file analysis and constraints
+
+4. **`PROJECT_STATUS.md`** - 📚 **HISTORICAL LOG**
+   - Project updates through October 13, 2025
+   - Background context on simulator development
+   - Not actively maintained during import system work
+
+5. **`ARCHITECTURE_DEFINITIVE.md`** - 📚 **SYSTEM DESIGN**
+   - Overall system architecture
+   - May be outdated for import system specifics
+
+---
+
+## 🕐 **SESSION HISTORY**
+
+### **How We Got Here**
+
+**October 25, 2025** - User lost chat history and requested full context rebuild:
+
+1. **Initial Request**: "Read context, read TODO" (chat history lost)
+2. **Context Recovery**: Read PROJECT_STATUS.md and ARCHITECTURE_DEFINITIVE.md
+3. **First Deliverable**: Created initial TODO list (8 items)
+4. **Scope Clarification**: User revealed this is a **feasibility study** for:
+   - Redis-based reverse geocoding
+   - Real-time geofencing
+   - Poisson spawning integration
+   - Strapi action-buttons plugin triggers
+5. **Deep Analysis**: Examined codebase (action-buttons plugin, spawning systems, geofence API)
+6. **GeoJSON Analysis**: User confirmed 11 files from sample_data (excluding barbados_geocoded_stops)
+7. **First Context Doc**: Created GEOJSON_IMPORT_CONTEXT.md (600+ lines)
+8. **User Requested Reorganization**: Phased approach based on their vision
+9. **Plugin Name Correction**: Fixed `@artechventure/strapi-plugin-action-buttons` → `strapi-plugin-action-buttons` (custom ArkNet plugin)
+10. **TODO Created**: Built TODO.md with 65+ granular steps across 6 phases
+11. **Single Source of Truth**: User requested CONTEXT.md + TODO.md separation
+12. **Added System Integration**: Enhanced CONTEXT.md with 10 detailed workflow diagrams
+13. **Role Clarification**: User asked to confirm conductor/driver/commuter roles
+14. **Architecture Fix**: Discovered and corrected "Conductor Service" error (doesn't exist - assignment happens in spawn strategies)
+15. **Current State**: ✅ Documentation complete, ready to begin Phase 1 implementation
+
+### **Key Decisions Made**
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| **Use Redis for reverse geocoding** | PostgreSQL queries ~2000ms, Redis target <200ms (10-100x improvement) | Oct 25 |
+| **11 GeoJSON files in scope** | User specified: exclude barbados_geocoded_stops from sample_data | Oct 25 |
+| **Use strapi-plugin-action-buttons** | Custom ArkNet plugin already exists at `src/plugins/` | Oct 25 |
+| **Streaming parser required** | building.geojson = 658MB (cannot load into memory) | Oct 25 |
+| **Centroid extraction needed** | amenity.geojson has MultiPolygon, POI schema expects Point | Oct 25 |
+| **6-phase implementation** | Country Schema → Redis → Geofencing → POI → Depot/Route → Conductor | Oct 25 |
+| **Event-based passenger assignment** | No centralized "Conductor Service" - routes assigned in spawn strategies | Oct 25 |
+
+### **Current Checkpoint**
+
+- ✅ **Documentation**: CONTEXT.md and TODO.md complete and validated
+- ✅ **Architecture**: Component roles clarified, system flows documented
+- ⏸️ **Implementation**: Phase 1 Step 1.1.1 ready to start
+- 🎯 **Next Action**: User approval to begin reading country schema
+
+---
+
+## 👤 **USER PREFERENCES & WORK STYLE**
+
+### **Communication Style**
+- ✅ **Prefers detailed explanations** over quick fixes
+- ✅ **Emphasizes analysis before implementation** - "This is a feasibility study"
+- ✅ **Values clarity over speed** - Asked for role confirmation before proceeding
+- ✅ **Appreciates validation** - Wants to verify understanding at each step
+
+### **Work Approach**
+- ✅ **Incremental validation** - "Validate at each phase before proceeding"
+- ✅ **Documentation-first** - Requested comprehensive context docs before coding
+- ✅ **Explicit approvals** - Confirms decisions before major changes
+- ✅ **Corrects misunderstandings immediately** - Fixed plugin name, clarified roles
+
+### **Technical Preferences**
+- ✅ **Working branch**: `branch-0.0.2.6` (NOT main)
+- ✅ **Quality over speed** - Prefers thorough analysis
+- ✅ **No assumptions** - Asked to confirm roles even when docs existed
+- ✅ **Preserve existing calibration** - Don't break 100/hr spawn rate without discussion
+
+### **How to Work with This User**
+1. **Always explain WHY** before HOW
+2. **Validate assumptions** before proceeding
+3. **Update TODO.md checkboxes** as you complete steps
+4. **Document issues immediately** in Session Notes
+5. **Ask questions** if anything is unclear
+6. **Don't rush implementation** - analysis is valued
 
 ---
 
@@ -1317,7 +1428,144 @@ CREATE TABLE poi_shape (
 
 ---
 
-## 🛠️ **CURRENT STATE**
+## � **CRITICAL DESIGN DECISIONS**
+
+### **Why Redis? Performance Imperative**
+
+**Problem**: PostgreSQL geospatial queries are too slow for real-time systems
+- Current: `find_nearby_features_fast()` SQL function takes ~2000ms
+- Requirement: Real-time passenger spawning needs <200ms response
+- Impact: 10-100x performance improvement needed
+
+**Solution**: Redis Geospatial Commands
+- `GEOADD`: Index features by lat/lon (O(log N))
+- `GEORADIUS`: Find nearby features in <10ms (cache hit), <200ms (cache miss)
+- `GEODIST`: Calculate distances instantly
+- Memory-efficient: Only stores coordinates + IDs, full data stays in PostgreSQL
+
+**Architecture**: Hybrid approach
+- **Redis**: Fast proximity queries (lat/lon → nearby feature IDs)
+- **PostgreSQL**: Master data (full geometry, properties)
+- **Cache strategy**: Write-through on import, TTL-based invalidation
+
+---
+
+### **Why 11 Files? Scope Definition**
+
+**Files Included** (from `sample_data/`):
+1. `highway.geojson` - 22,719 roads (reverse geocoding)
+2. `amenity.geojson` - 1,427 POIs (spawning locations)
+3. `landuse.geojson` - 2,267 zones (spawn weights)
+4. `building.geojson` - 658MB (context, requires streaming)
+5. `admin_level_6_polygon.geojson` - Parishes (regional grouping)
+6. `admin_level_8_polygon.geojson` - Districts
+7. `admin_level_9_polygon.geojson` - Sub-districts
+8. `admin_level_10_polygon.geojson` - Localities
+9. `natural.geojson` - Natural features (context)
+10. `name.geojson` - Named locations
+11. `add_street_polygon.geojson` - Address polygons
+
+**File Excluded**:
+- ❌ `barbados_geocoded_stops.geojson` - Already processed, duplicate data
+
+**Rationale**: User clarification on October 25, 2025
+
+---
+
+### **Why Strapi Action-Buttons Plugin?**
+
+**Options Considered**:
+1. ❌ **@artechventure/strapi-plugin-action-buttons** (marketplace plugin)
+2. ✅ **strapi-plugin-action-buttons** (custom ArkNet plugin)
+
+**Decision**: Use existing custom ArkNet plugin
+- **Location**: `src/plugins/strapi-plugin-action-buttons/`
+- **Already implemented**: Window object handlers, button groups
+- **Architecture docs exist**: ARCHITECTURE.md, EXAMPLES.ts
+- **No external dependency**: Full control over customization
+
+**Correction Made**: Initial research found wrong plugin, user corrected on Oct 25
+
+---
+
+### **Why Streaming Parser? Memory Constraints**
+
+**Problem**: `building.geojson` = 658MB
+- Cannot `fs.readFileSync()` - will crash Node.js
+- Cannot load entire array into memory
+
+**Solution**: JSONStream for chunk-based processing
+```javascript
+const JSONStream = require('JSONStream');
+const stream = fs.createReadStream('building.geojson');
+const parser = JSONStream.parse('features.*');
+
+parser.on('data', async (feature) => {
+  // Process one feature at a time
+  await processFeature(feature);
+});
+```
+
+**Impact**: All import handlers must support streaming architecture
+
+---
+
+### **Why Centroid Extraction? Schema Mismatch**
+
+**Problem**: Geometry type conflict
+- **amenity.geojson data**: MultiPolygon (area boundaries)
+- **POI schema expects**: Point (single lat/lon)
+- **Error without fix**: "Cannot insert MultiPolygon into Point column"
+
+**Solution**: Turf.js centroid calculation
+```javascript
+const turf = require('@turf/turf');
+const centroid = turf.centroid(feature); // MultiPolygon → Point
+```
+
+**Impact**: All POI transformers must extract centroids before database insert
+
+---
+
+### **Why 6 Phases? Risk Mitigation**
+
+**Phased Approach**:
+1. **Phase 1**: Country Schema + Action Buttons (foundation)
+2. **Phase 2**: Redis + Reverse Geocoding (core performance)
+3. **Phase 3**: Geofencing (real-time notifications)
+4. **Phase 4**: POI-Based Spawning (data integration)
+5. **Phase 5**: Depot/Route Spawners (existing system enhancement)
+6. **Phase 6**: Conductor Communication (end-to-end validation)
+
+**Rationale**: 
+- Each phase builds on previous
+- Validation gates prevent cascading failures
+- Can stop early if feasibility issues discovered
+- User requested this structure on October 25
+
+---
+
+### **Why Event-Based Assignment? No "Conductor Service"**
+
+**Initial Misunderstanding**: Documentation referenced "Conductor Service (location TBD)" for centralized passenger→vehicle assignment
+
+**Reality Discovered** (October 25, 2025):
+- ✅ **Route assignment happens in spawn strategies** (`spawn_interface.py`)
+- ✅ **Conductor is vehicle component** (manages boarding/disembarking)
+- ✅ **VehicleDriver is separate component** (controls engine/GPS)
+- ❌ **No centralized assignment service exists**
+
+**Architecture**: Event-based coordination via Socket.IO
+1. Spawner emits `passenger:spawned` with `assignedRoute` field
+2. Conductor monitors events, filters by route match
+3. Conductor evaluates proximity/capacity/timing
+4. Conductor signals Driver for stops/departures
+
+**Impact**: Phase 6 focuses on event flow validation, not building new service
+
+---
+
+## �🛠️ **CURRENT STATE**
 
 ### **What Exists** ✅
 
@@ -1517,6 +1765,61 @@ npm run develop
 
 ## 💡 **TIPS FOR NEW AGENTS**
 
+### **⚡ Quick Reference Card**
+
+```
+PROJECT: GeoJSON Import System for Redis-based Reverse Geocoding
+STATUS: Phase 1 Ready (Documentation Complete, Implementation Not Started)
+BRANCH: branch-0.0.2.6 (NOT main)
+USER STYLE: Analysis-first, detailed explanations, incremental validation
+
+NEXT TASK: Step 1.1.1 - Read country schema
+BLOCKER: None - awaiting user approval
+
+KEY CONSTRAINTS:
+- Streaming parser (building.geojson = 658MB)
+- Centroid extraction (amenity.geojson MultiPolygon → Point)
+- Don't break spawn rate (currently 100/hr)
+- Redis is greenfield (no existing code)
+
+CRITICAL FILES:
+- CONTEXT.md (this file) - Primary reference
+- TODO.md - Task tracker with 65+ steps
+- src/plugins/strapi-plugin-action-buttons/ - Custom plugin
+- commuter_service/spawning_coordinator.py - Existing spawning
+```
+
+### **🎯 Agent Workflow**
+
+1. **First Time Here?**
+   - ✅ Read "Document Hierarchy" section (lines 11-33)
+   - ✅ Read "Session History" section (lines 35-70)
+   - ✅ Read "User Preferences" section (lines 72-111)
+   - ✅ Read "Critical Design Decisions" section (lines 286-402)
+   - ✅ Scan "Component Roles" section (lines 199-284)
+   - ✅ Review TODO.md "Quick Start" section
+
+2. **Starting Work?**
+   - ✅ Check TODO.md current step
+   - ✅ Read validation criteria for that step
+   - ✅ Perform the task
+   - ✅ Mark checkbox in TODO.md
+   - ✅ Document any issues in Session Notes
+
+3. **Stuck or Confused?**
+   - ✅ Check "Known Issues" section (line 1632)
+   - ✅ Review "System Integration & Workflow" (lines 404-660)
+   - ✅ Search CONTEXT.md for keywords
+   - ✅ Ask user for clarification (they prefer questions over assumptions)
+
+4. **Completed a Phase?**
+   - ✅ Update progress in TODO.md
+   - ✅ Add session notes with discoveries
+   - ✅ Validate against success criteria
+   - ✅ Get user approval before next phase
+
+### **📋 Important Reminders**
+
 1. **Always check TODO.md first** - Step-by-step plan with checkboxes
 2. **This is a feasibility study** - Analyze before implementing
 3. **Validate at each phase** - Don't proceed until previous phase works
@@ -1527,6 +1830,17 @@ npm run develop
 8. **Centroid calculation is critical** - POI schema expects Point, data is MultiPolygon
 9. **Spawn rate is already calibrated** - Don't break the 100/hr rate without discussion
 10. **Redis is greenfield** - No existing Redis code, build from scratch
+
+### **🚨 Common Pitfalls to Avoid**
+
+1. ❌ **DON'T** assume "Conductor Service" exists (it doesn't - assignment is event-based)
+2. ❌ **DON'T** use `fs.readFileSync()` for GeoJSON files (use streaming)
+3. ❌ **DON'T** insert MultiPolygon into Point columns (extract centroid first)
+4. ❌ **DON'T** work on `main` branch (use `branch-0.0.2.6`)
+5. ❌ **DON'T** skip validation steps (user wants incremental verification)
+6. ❌ **DON'T** rush to code (user values analysis and explanation)
+7. ❌ **DON'T** forget to update TODO.md checkboxes
+8. ❌ **DON'T** modify spawn rate without discussion
 
 ---
 

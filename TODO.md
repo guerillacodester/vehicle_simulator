@@ -3,9 +3,39 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.6  
 **Started**: October 25, 2025  
-**Status**: 🟡 In Progress
+**Status**: 🟡 Phase 1 Ready to Start (Documentation Complete)  
+**Current Step**: 1.1.1 (Read current country schema)
 
-> **📌 Companion Docs**: `GEOJSON_IMPORT_CONTEXT.md` | `GEOJSON_IMPORT_TODO.md`
+> **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
+> **📚 Reference**: `GEOJSON_IMPORT_CONTEXT.md` - Detailed file analysis (historical)
+
+---
+
+## 🎯 **QUICK START FOR NEW AGENTS**
+
+### **Where Am I?**
+- **Phase**: Planning complete, implementation ready to begin
+- **Next Task**: Step 1.1.1 - Read country schema file
+- **Blocker**: None - waiting for go-ahead to start
+
+### **What Do I Need to Know?**
+1. **Read CONTEXT.md first** - Contains architecture, component roles, user preferences
+2. **This is a feasibility study** - Analyze before implementing
+3. **User prefers detailed explanations** - Quality over speed
+4. **Validate at each step** - Mark checkboxes, document issues
+5. **Working branch**: `branch-0.0.2.6` (NOT main)
+
+### **Critical Constraints**
+- ⚠️ **Streaming parser required** - building.geojson = 658MB
+- ⚠️ **Centroid extraction required** - amenity.geojson has MultiPolygon, schema expects Point
+- ⚠️ **Don't break spawn rate** - Currently calibrated to 100/hr
+- ⚠️ **Redis is greenfield** - No existing Redis code, build from scratch
+
+### **Files to Read Before Starting**
+1. `CONTEXT.md` - Project context (read this first!)
+2. `src/plugins/strapi-plugin-action-buttons/ARCHITECTURE.md` - Plugin docs
+3. `src/api/country/content-types/country/schema.json` - Current schema
+4. `commuter_service/spawning_coordinator.py` - Existing spawning system
 
 ---
 
@@ -904,12 +934,85 @@ git push origin branch-0.0.2.6
 
 ## 📝 **SESSION NOTES**
 
-### **Session 1: October 25, 2025**
-- Created TODO structure
-- Corrected plugin name to `strapi-plugin-action-buttons` (ArkNet custom plugin)
-- Ready to begin Phase 1
+### **Session 1: October 25, 2025 - Documentation & Planning**
+
+**Context**: User lost chat history, requested full context rebuild
+
+**Activities**:
+1. ✅ Read PROJECT_STATUS.md and ARCHITECTURE_DEFINITIVE.md
+2. ✅ Created initial TODO list (8 items)
+3. ✅ User clarified: This is a feasibility study for Redis + geofencing + spawning
+4. ✅ Deep codebase analysis (action-buttons plugin, spawning systems, geofence API)
+5. ✅ Analyzed 11 GeoJSON files (user confirmed scope, excluded barbados_geocoded_stops)
+6. ✅ Created GEOJSON_IMPORT_CONTEXT.md (600+ lines architecture study)
+7. ✅ User requested phased approach reorganization
+8. ✅ Corrected plugin name: `strapi-plugin-action-buttons` (custom ArkNet plugin)
+9. ✅ Built TODO.md with 65+ granular steps across 6 phases
+10. ✅ Created CONTEXT.md as single source of truth
+11. ✅ Added 10 detailed system integration workflows to CONTEXT.md
+12. ✅ User asked to confirm conductor/driver/commuter roles
+13. ✅ Discovered architectural error: "Conductor Service" doesn't exist
+14. ✅ Fixed CONTEXT.md: Assignment happens in spawn strategies, not centralized service
+15. ✅ Added component roles section to CONTEXT.md
+16. ✅ User asked: "Can agent pick up where we left off with minimal prompting?"
+17. ✅ Enhanced CONTEXT.md with session history, user preferences, critical decisions
+18. ✅ Enhanced TODO.md with quick start guide for new agents
+
+**Key Decisions**:
+- Redis chosen for 10-100x performance improvement (PostgreSQL ~2000ms → Redis <200ms)
+- 11 GeoJSON files in scope (excluding barbados_geocoded_stops)
+- Streaming parser required for building.geojson (658MB)
+- Centroid extraction required for amenity.geojson (MultiPolygon → Point)
+- 6-phase implementation approach
+- Event-based passenger assignment (no centralized conductor service)
+
+**Blockers**: None
+
+**Next Steps**: 
+- ⏸️ Waiting for user approval to begin Step 1.1.1
+- Ready to read country schema and start Phase 1
+
+**Issues Discovered**:
+- ✅ FIXED: Documentation incorrectly described "Conductor Service" for centralized assignment
+  - Reality: Route assignment happens in `spawn_interface.py` spawn strategies
+  - Conductor is vehicle component, not centralized service
+- ✅ FIXED: Plugin name was `@artechventure/strapi-plugin-action-buttons` 
+  - Correct: `strapi-plugin-action-buttons` (custom ArkNet plugin)
+
+**Agent Handoff Notes**:
+- All documentation complete and validated
+- User prefers detailed analysis before implementation
+- User values clarity and validation at each step
+- Working on branch `branch-0.0.2.6` (NOT main)
+- CONTEXT.md is primary reference (1,700+ lines)
+- TODO.md is active task tracker (65+ steps)
+- GEOJSON_IMPORT_CONTEXT.md is historical reference
+
+---
+
+### **Template for Future Sessions**
+
+```markdown
+### **Session X: [Date] - [Title]**
+
+**Activities**:
+- [ ] Task 1
+- [ ] Task 2
+
+**Key Decisions**:
+- Decision 1: Rationale
+
+**Blockers**: 
+- Issue 1: Description
+
+**Next Steps**:
+- Next action
+
+**Issues Discovered**:
+- Issue 1: Description and resolution status
+```
 
 ---
 
 **Last Updated**: October 25, 2025  
-**Next Session**: Begin Step 1.1.1
+**Next Session**: Begin Step 1.1.1 (awaiting user approval)
