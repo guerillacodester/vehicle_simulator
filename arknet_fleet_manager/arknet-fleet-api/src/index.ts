@@ -45,6 +45,10 @@ export default {
     console.log('[Bootstrap] Initializing Socket.IO server...');
     const io = initializeSocketIO(strapi);
     
+    // Store io instance on strapi for use in controllers
+    // @ts-ignore - Extending Strapi type
+    strapi.io = io;
+    
     console.log('[Bootstrap] Socket.IO server initialized successfully');
     console.log('[Bootstrap] Available namespaces:');
     console.log('  - /depot-reservoir (Outbound commuters)');

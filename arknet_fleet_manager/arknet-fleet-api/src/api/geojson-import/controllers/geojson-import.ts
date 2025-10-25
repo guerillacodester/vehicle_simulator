@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { streamGeoJSON, estimateFeatureCount } from '../../../utils/geojson-stream-parser';
 
 // Helper function to generate a slug/UID
 function generateSlug(name: string, suffix?: string): string {
@@ -460,6 +461,12 @@ export default {
    * Target: building table (needs to be created)
    * NOTE: Table doesn't exist yet - this is a placeholder implementation
    */
+  /**
+   * Import building.geojson (building footprints for passenger spawning)
+   * File: sample_data/building.geojson (100K+ features, 628MB)
+   * Target: building table
+   * Uses STREAMING parser (memory-efficient for large file)
+   */
   async importBuilding(ctx: any) {
     try {
       const { countryId } = ctx.request.body;
@@ -469,6 +476,7 @@ export default {
       }
 
       const jobId = `building_${Date.now()}`;
+      const startTime = Date.now();
       
       // Check if file exists
       const geojsonPath = path.join(process.cwd(), '..', '..', 'sample_data', 'building.geojson');
@@ -478,42 +486,159 @@ export default {
         return ctx.notFound(`GeoJSON file not found at: ${geojsonPath}`);
       }
 
-      // Get file stats (don't read the entire 658MB file!)
+      // Get file stats
       const stats = fs.statSync(geojsonPath);
       const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-      strapi.log.info(`[${jobId}] File found: ${geojsonPath} (${fileSizeMB} MB)`);
-      strapi.log.warn(`[${jobId}] Large file detected - streaming parser required`);
+      strapi.log.info(`[${jobId}] Starting STREAMING import of ${fileSizeMB} MB file`);
 
-      // TODO: Building table needs to be created in Strapi schema first
-      // TODO: Implement streaming parser for large file (658MB)
-      // Pattern will be:
-      // 1. Read file in chunks using stream-json
-      // 2. For each building feature:
-      //    - Extract properties (osm_id, building type, etc.)
-      //    - Convert Polygon coordinates to WKT
-      //    - INSERT INTO buildings with ST_GeomFromText('POLYGON(...)', 4326)
-      // 3. Use batch inserts for performance (500-1000 at a time)
+      // Estimate total features (sampling approach)
+      strapi.log.info(`[${jobId}] Estimating feature count...`);
+      const estimatedTotal = await estimateFeatureCount(geojsonPath, 100);
+      strapi.log.info(`[${jobId}] Estimated ${estimatedTotal} features`);
+
+      // Send initial progress
+      // @ts-ignore - Socket.IO instance stored on strapi object
+      strapi.io.emit('import:progress', {
+        jobId,
+        countryId,
+        fileType: 'building',
+        phase: 'starting',
+        estimatedTotal,
+        fileSizeMB,
+      });
+
+      // Stream and process features in batches
+      let totalProcessed = 0;
+      
+      const result = await streamGeoJSON(geojsonPath, {
+        batchSize: 500,
+        
+        onBatch: async (features: any[]) => {
+          // Process batch of building features
+          const buildingData = features.map((feature: any) => {
+            const props = feature.properties || {};
+            const buildingName = props.name || `${props.building || 'building'}-${props.osm_id || 'unknown'}`;
+            const buildingId = generateSlug(buildingName, props.osm_id);
+
+            return {
+              feature, // Keep original feature for geometry processing
+              data: {
+                building_id: buildingId,
+                osm_id: props.osm_id || null,
+                full_id: props.full_id || null,
+                building_type: props.building || 'yes',
+                name: props.name || null,
+                addr_street: props['addr:street'] || null,
+                addr_city: props['addr:city'] || null,
+                addr_housenumber: props['addr:housenumber'] || null,
+                levels: props.levels ? parseInt(props.levels) : null,
+                height: props.height ? parseFloat(props.height) : null,
+                amenity: props.amenity || null,
+                country: countryId,
+              }
+            };
+          });
+
+          // Insert buildings one by one (Strapi doesn't have createMany)
+          const knex = strapi.db.connection;
+          
+          for (const item of buildingData) {
+            const building = await strapi.entityService.create('api::building.building' as any, {
+              data: item.data,
+            });
+
+            // Update geometry using PostGIS
+            if (item.feature.geometry && item.feature.geometry.type === 'Polygon') {
+              // Convert Polygon coordinates to WKT
+              const rings = item.feature.geometry.coordinates;
+              const wktRings = rings.map((ring: number[][]) => 
+                '(' + ring.map((coord: number[]) => `${coord[0]} ${coord[1]}`).join(', ') + ')'
+              ).join(', ');
+              const wkt = `POLYGON(${wktRings})`;
+
+              await knex.raw(`
+                UPDATE buildings
+                SET geom = ST_GeomFromText(?, 4326)
+                WHERE id = ?
+              `, [wkt, building.id]);
+            }
+          }
+
+          totalProcessed += features.length;
+        },
+        
+        onProgress: (progress) => {
+          // Emit Socket.IO progress update
+          // @ts-ignore - Socket.IO instance stored on strapi object
+          strapi.io.emit('import:progress', {
+            jobId,
+            countryId,
+            fileType: 'building',
+            processed: progress.processed,
+            estimatedTotal,
+            percent: ((progress.processed / estimatedTotal) * 100).toFixed(1),
+            currentBatch: progress.currentBatch,
+            elapsedTime: progress.elapsedTime,
+          });
+
+          strapi.log.info(`[${jobId}] Progress: ${progress.processed}/${estimatedTotal} features (${progress.currentBatch} batches)`);
+        },
+        
+        onError: (error) => {
+          strapi.log.error(`[${jobId}] Streaming error:`, error);
+          // @ts-ignore - Socket.IO instance stored on strapi object
+          strapi.io.emit('import:error', {
+            jobId,
+            countryId,
+            fileType: 'building',
+            error: error.message,
+          });
+        },
+      });
+
+      const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+      
+      strapi.log.info(`[${jobId}] Import complete: ${result.totalFeatures} features in ${elapsedSeconds}s`);
+
+      // Emit completion event
+      // @ts-ignore - Socket.IO instance stored on strapi object
+      strapi.io.emit('import:complete', {
+        jobId,
+        countryId,
+        fileType: 'building',
+        totalFeatures: result.totalFeatures,
+        totalBatches: result.totalBatches,
+        elapsedTime: result.elapsedTime,
+      });
 
       ctx.body = {
         jobId,
-        message: 'Building import - TABLE NOT CREATED YET',
+        message: 'Building import completed successfully using streaming parser',
         countryId,
         fileType: 'building',
         fileInfo: {
           path: geojsonPath,
           sizeMB: fileSizeMB,
         },
-        warning: 'Building table does not exist in database yet. Create schema first.',
-        nextSteps: [
-          '1. Create building content type in Strapi',
-          '2. Add geom geometry(Polygon, 4326) column',
-          '3. Create GIST spatial index',
-          '4. Implement streaming parser for 658MB file',
-        ],
+        result: {
+          totalFeatures: result.totalFeatures,
+          totalBatches: result.totalBatches,
+          elapsedTime: result.elapsedTime,
+          elapsedSeconds,
+          featuresPerSecond: (result.totalFeatures / (result.elapsedTime / 1000)).toFixed(0),
+        },
       };
-    } catch (error) {
+    } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       strapi.log.error('Building import failed:', error);
+      
+      // @ts-ignore - Socket.IO instance stored on strapi object
+      strapi.io.emit('import:error', {
+        countryId: ctx.request.body.countryId,
+        fileType: 'building',
+        error: errorMessage,
+      });
+      
       ctx.internalServerError(`Import failed: ${errorMessage}`);
     }
   },

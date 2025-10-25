@@ -437,27 +437,32 @@
 - amenity.geojson: **3.65 MB** - streaming for consistency
 - admin boundaries: **0.02-0.28 MB** - streaming for consistency
 
-- [ ] **1.10.1** Install streaming parser dependencies
-  - Command: `cd arknet_fleet_manager/arknet-fleet-api && npm install stream-json`
-  - Verify installation in package.json
+- [x] **1.10.1** Install streaming parser dependencies ✅
+  - ✅ Ran: `cd arknet_fleet_manager/arknet-fleet-api && npm install stream-json`
+  - ✅ Verified in package.json: "stream-json": "^1.9.1"
   
-- [ ] **1.10.2** Create reusable GeoJSON streaming parser utility
-  - File: `src/utils/geojson-stream-parser.ts`
-  - Implement streaming read (chunk-by-chunk using stream-json)
-  - Emit progress events per batch (for Socket.IO)
-  - Handle errors and edge cases (malformed JSON, file not found)
-  - Memory-efficient: process one feature at a time, batch inserts
-  - Configurable batch size (default: 500 features)
+- [x] **1.10.2** Create reusable GeoJSON streaming parser utility ✅
+  - ✅ Created: `src/utils/geojson-stream-parser.ts` (243 lines)
+  - ✅ Implemented `streamGeoJSON()` function with batch processing
+  - ✅ Implemented `estimateFeatureCount()` for progress estimation
+  - ✅ Features:
+    - Memory-efficient streaming (uses stream-json pipeline)
+    - Configurable batch size (default: 500 features)
+    - Progress callbacks per batch (for Socket.IO)
+    - Error handling (file not found, malformed JSON, batch processing errors)
+    - Pause/resume stream during batch processing
+    - TypeScript interfaces: StreamingOptions, StreamProgress, StreamResult
   
 - [ ] **1.10.3** Update ALL 5 import endpoints to use streaming
-  - ✅ Highway import already uses streaming (22,719 features, 41MB)
-  - Update `importAmenity` endpoint (1,427 features, 3.65MB)
-  - Update `importLanduse` endpoint (2,267 features, 4.12MB)
-  - Update `importBuilding` endpoint (unknown count, **628MB**)
-  - Update `importAdmin` endpoint (parishes/districts, <1MB)
+  - ⏳ Highway import - needs update to use new streaming utility
+  - ⏳ Update `importAmenity` endpoint (1,427 features, 3.65MB)
+  - ⏳ Update `importLanduse` endpoint (2,267 features, 4.12MB)
+  - ✅ **Building import** - COMPLETED with streaming (628MB file, 500 feature batches, fixed createMany API issue)
+  - ⏳ Update `importAdmin` endpoint (parishes/districts, <1MB)
   - Replace all `fs.readFileSync` with streaming parser
   - Process features in batches (500-1000 at a time)
   - Emit Socket.IO progress updates per batch
+  - **NOTE**: Strapi v5 EntityService doesn't have `createMany()` - use loop of `create()` calls
   
 - [ ] **1.10.4** Test streaming with building.geojson (stress test)
   - Click Building button in UI
