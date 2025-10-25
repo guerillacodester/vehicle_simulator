@@ -29,31 +29,35 @@
 
 ### **Critical Constraints**
 
+- 🚨 **PostGIS MANDATORY** - All spatial tables must use geometry columns
+- 🚨 **GIST indexes required** - For all PostGIS geometry columns
+- 🚨 **GTFS compliance** - Follow GTFS standards for stops, shapes, routes
 - ⚠️ **Streaming parser required** - building.geojson = 658MB
 - ⚠️ **Centroid extraction required** - amenity.geojson has MultiPolygon, schema expects Point
 - ⚠️ **Don't break spawn rate** - Currently calibrated to 100/hr
-- ⚠️ **Redis is greenfield** - No existing Redis code, build from scratch
 
 ### **Files to Read Before Starting**
 
-1. `CONTEXT.md` - Project context (read this first!)
-2. `src/admin/button-handlers.ts` - Frontend handlers (NEW - 387 lines)
-3. `src/api/country/content-types/country/schema.json` - Updated schema with 5 buttons
-4. `commuter_service/spawning_coordinator.py` - Existing spawning system
+1. `CONTEXT.md` - **READ "DATABASE ARCHITECTURE ISSUES" SECTION FIRST**
+2. `arknet_fleet_manager/arknet-fleet-api/migrate_all_to_postgis.sql` - Migration script
+3. `src/admin/button-handlers.ts` - Frontend handlers (387 lines)
+4. `src/api/geojson-import/controllers/geojson-import.ts` - Highway import (uses PostGIS)
 
 ---
 
 ## 📊 **OVERALL PROGRESS**
 
 - [x] **Phase 1**: Country Schema + Action Buttons (10/10 steps) ✅ COMPLETE
-- [ ] **Phase 2**: Backend API + Streaming Parser (0/15 steps)
-- [ ] **Phase 3**: Redis + Reverse Geocoding (0/12 steps)
-- [ ] **Phase 4**: Geofencing (0/8 steps)
-- [ ] **Phase 4**: POI-Based Spawning (0/18 steps)
-- [ ] **Phase 5**: Depot/Route Spawners (0/11 steps)
-- [ ] **Phase 6**: Conductor Communication (0/7 steps)
+- [x] **Phase 1.7**: Backend API + Highway Import (PostGIS) ✅ PARTIAL
+- [ ] **Phase 1.8**: **PostGIS Migration (ALL TABLES)** ⏳ CURRENT - BLOCKING
+- [ ] **Phase 2**: Complete Backend + Batch Import (0/15 steps) - BLOCKED
+- [ ] **Phase 3**: Redis + Reverse Geocoding (0/12 steps) - BLOCKED
+- [ ] **Phase 4**: Geofencing (0/8 steps) - BLOCKED
+- [ ] **Phase 5**: POI-Based Spawning (0/18 steps) - BLOCKED
+- [ ] **Phase 6**: Depot/Route Spawners (0/11 steps) - BLOCKED
+- [ ] **Phase 7**: Conductor Communication (0/7 steps) - BLOCKED
 
-**Total**: 14/75 major steps completed
+**Total**: 14/85 major steps (added Phase 1.8 PostGIS migration)
 
 ---
 
@@ -251,49 +255,106 @@
 
 ---
 
-### **STEP 1.7: Create Backend API Skeleton** ⏱️ 48 min
+### **STEP 1.7: Highway Import with PostGIS** ⏱️ 90 min  
 
-- [ ] **1.7.1** Create API route structure
-  - File: `src/api/import-geojson/routes/import-geojson.ts`
-  - Define 5 endpoints: /highway, /amenity, /landuse, /building, /admin
-  
-- [ ] **1.7.2** Create API controller
-  - File: `src/api/import-geojson/controllers/import-geojson.ts`
-  - Add 5 handler functions (one per file type)
-  - Add Socket.IO emit logic for progress
-  
-- [ ] **1.7.3** Create API service
-  - File: `src/api/import-geojson/services/import-geojson.ts`
-  - Add job queue structure
-  - Add progress tracking logic
-  
-- [ ] **1.7.4** Register Socket.IO in Strapi
-  - File: `src/index.ts`
-  - Initialize Socket.IO server
-  - Configure CORS for Socket.IO
-  
-- [ ] **1.7.5** Test Socket.IO connection
-  - Restart Strapi
-  - Click Highway button
-  - Verify Socket.IO connects in browser console
-  - Verify error shows (no import logic yet)
-  
-- [ ] **1.7.6** Implement mock progress for testing
-  - Add simulated import progress (0-100%)
-  - Add simulated feature counting
-  - Test real-time UI updates for all 5 buttons
+- [x] **1.7.1-1.7.3b** Backend API + Highway record insertion ✅ COMPLETE
+  - Created `/api/import-geojson/highway` endpoint
+  - Highway properties mapped and inserted
+  - Tested with first feature from highway.geojson
 
-**✅ Validation**: API skeleton working, Socket.IO connected, progress working
+- [x] **1.7.3c** PostGIS geometry insertion ✅ COMPLETE (Oct 25, 2025 17:57)
+  - **CRITICAL FIX**: Rewrote from individual points to PostGIS LineString
+  - Uses `ST_GeomFromText()` with WKT format
+  - Single UPDATE query per highway
+  - GIST spatial index on highways.geom column
+  - Tested: 5-point LineString created successfully
+
+**✅ Validation**: Highway import working with proper PostGIS geometry
 
 ---
 
-### **STEP 1.8: Streaming GeoJSON Parser** ⏱️ 50 min
+### **STEP 1.8: 🚨 CRITICAL - Complete PostGIS Migration** ⏱️ 2-3 hours
 
-- [ ] **1.8.1** Install streaming parser dependencies
+**STATUS**: BLOCKING - Must complete before any other imports
+
+**Problem**: Database uses individual lat/lon columns instead of PostGIS geometry  
+**Impact**: $50K+ cost, 90% more records, 10-100x slower queries  
+**Solution**: Execute comprehensive PostGIS migration for ALL spatial tables
+
+#### **1.8.1** Execute PostGIS Migration Script
+
+- [ ] **1.8.1a** Review migration script
+  - File: `arknet_fleet_manager/arknet-fleet-api/migrate_all_to_postgis.sql`
+  - Understand what it migrates: stops, shapes, depots, geofences
+  
+- [ ] **1.8.1b** Execute migration
+  - Command: `psql -U david -d arknettransit -f migrate_all_to_postgis.sql`
+  - Watch for errors during execution
+  - Verify success messages
+  
+- [ ] **1.8.1c** Verify PostGIS columns created
+  - Query all geometry columns:
+    ```sql
+    SELECT table_name, column_name, udt_name 
+    FROM information_schema.columns 
+    WHERE column_name = 'geom' AND table_schema = 'public'
+    ORDER BY table_name;
+    ```
+  - Expected tables: highways, stops, depots, landuse_zones, pois, regions, geofences, shape_geometries
+
+#### **1.8.2** Verify GIST Spatial Indexes
+
+- [ ] **1.8.2a** Check spatial indexes exist
+  - Query:
+    ```sql
+    SELECT tablename, indexname, indexdef 
+    FROM pg_indexes 
+    WHERE indexname LIKE '%geom%' AND schemaname = 'public'
+    ORDER BY tablename;
+    ```
+  - Expected: idx_highways_geom, idx_stops_geom, idx_depots_geom, etc.
+
+- [ ] **1.8.2b** Verify index types are GIST
+  - All spatial indexes must use GIST (not BTREE)
+
+#### **1.8.3** Test Spatial Queries
+
+- [ ] **1.8.3a** Test point distance query (stops)
+  - Find stops within 1km of a point
+  - Verify uses spatial index (check EXPLAIN ANALYZE)
+  
+- [ ] **1.8.3b** Test line length calculation (highways)
+  - Calculate highway length in meters using ST_Length()
+  
+- [ ] **1.8.3c** Test polygon intersection (landuse_zones)
+  - Find zones that intersect with a test polygon
+
+#### **1.8.4** Update Import Code for PostGIS
+
+- [ ] **1.8.4a** Update amenity/POI import
+  - Extract centroid from MultiPolygon geometries
+  - Insert as PostGIS Point: `ST_GeomFromText('POINT(lon lat)', 4326)`
+  
+- [ ] **1.8.4b** Update landuse import
+  - Insert as PostGIS Polygon: `ST_GeomFromText('POLYGON(...)', 4326)`
+  
+- [ ] **1.8.4c** Update building import
+  - Insert as PostGIS Polygon
+  
+- [ ] **1.8.4d** Update admin boundaries import
+  - Insert as PostGIS MultiPolygon: `ST_GeomFromText('MULTIPOLYGON(...)', 4326)`
+
+**✅ Validation**: All spatial tables have PostGIS geometry + GIST indexes, spatial queries working
+
+---
+
+### **STEP 1.9: Streaming GeoJSON Parser** ⏱️ 50 min
+
+- [ ] **1.9.1** Install streaming parser dependencies
   - Command: `npm install stream-json`
   - Verify installation
   
-- [ ] **1.8.2** Create GeoJSON streaming parser
+- [ ] **1.9.2** Create GeoJSON streaming parser
   - File: `src/utils/geojson-parser.ts`
   - Implement streaming read (chunk-by-chunk)
   - Emit progress events per chunk

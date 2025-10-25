@@ -128,45 +128,34 @@ export default {
 
         strapi.log.info(`[${jobId}] Highway record created with ID: ${highway.id}`);
 
-        // Create geometry records as individual shape points
+        // Create PostGIS geometry
         if (firstFeature.geometry && firstFeature.geometry.type === 'LineString') {
           const coordinates = firstFeature.geometry.coordinates;
           
-          strapi.log.info(`[${jobId}] Creating geometry with ${coordinates.length} points`);
+          strapi.log.info(`[${jobId}] Creating PostGIS geometry with ${coordinates.length} points`);
           
-          // Insert each coordinate as a separate highway_shape record
-          const shapePointIds: string[] = [];
-          for (let i = 0; i < coordinates.length; i++) {
-            const [lon, lat] = coordinates[i];
-            
-            const shapePoint = await strapi.entityService.create('api::highway-shape.highway-shape' as any, {
-              data: {
-                shape_pt_lat: lat,
-                shape_pt_lon: lon,
-                shape_pt_sequence: i,
-              }
-            });
-            
-            shapePointIds.push(String(shapePoint.id));
-          }
-
-          // Create linking table entries to connect shape points to highway
+          // Convert coordinates to WKT format for PostGIS
+          const wktCoords = coordinates.map((coord: number[]) => `${coord[0]} ${coord[1]}`).join(', ');
+          const wkt = `LINESTRING(${wktCoords})`;
+          
+          // Insert geometry using PostGIS ST_GeomFromText
           const knex = strapi.db.connection;
-          for (let i = 0; i < shapePointIds.length; i++) {
-            await knex.raw(`
-              INSERT INTO highway_shapes_highway_lnk (highway_shape_id, highway_id, highway_shape_ord)
-              VALUES (?, ?, ?)
-            `, [shapePointIds[i], highway.id, i]);
-          }
+          await knex.raw(`
+            UPDATE highways
+            SET geom = ST_GeomFromText(?, 4326)
+            WHERE id = ?
+          `, [wkt, highway.id]);
 
-          strapi.log.info(`[${jobId}] Created ${shapePointIds.length} shape points and linked to highway`);
+          strapi.log.info(`[${jobId}] PostGIS geometry created successfully`);
           
           testInsertResult = {
             highwayId: highway.id,
-            geometryPointCount: shapePointIds.length,
+            geometryPointCount: coordinates.length,
             osmId: props?.osm_id,
             name: props?.name,
             coordinateCount: coordinates.length,
+            geometryType: 'LineString',
+            usesPostGIS: true,
           };
         }
       }

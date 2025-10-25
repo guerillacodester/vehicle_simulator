@@ -2,10 +2,37 @@
 
 **Date**: October 25, 2025  
 **Project**: ArkNet Vehicle Simulator  
-**Status**: Planning Phase  
-**Last Updated**: October 25, 2025
+**Status**: ⚠️ CRITICAL - PostGIS Migration Required  
+**Last Updated**: October 25, 2025 18:05
 
-> **📌 COMPANION DOCUMENT**: See `GEOJSON_IMPORT_CONTEXT.md` for architecture details
+> **📌 COMPANION DOCUMENTS**:  
+>
+> - `GEOJSON_IMPORT_CONTEXT.md` for architecture details  
+> - `DB_AUDIT_POSTGIS_GTFS.md` for database compliance audit  
+> - **🚨 READ BEFORE CONTINUING**: PostGIS migration is MANDATORY
+
+---
+
+## 🚨 **CRITICAL BLOCKER: DATABASE RESTRUCTURE REQUIRED**
+
+**Status**: Database structure does NOT comply with PostGIS/GTFS best practices  
+**Impact**: System will have poor performance, high costs, limited spatial capabilities  
+**Action Required**: Execute comprehensive PostGIS migration IMMEDIATELY
+
+### Migration Files Created
+
+1. `migrate_all_to_postgis.sql` - Comprehensive migration script
+2. `DB_AUDIT_POSTGIS_GTFS.md` - Full compliance audit
+
+### What Was Fixed
+
+✅ **highways** - Migrated to PostGIS LineString (Oct 25, 2025)  
+⏳ **stops** - NEEDS PostGIS Point migration  
+⏳ **shapes** - NEEDS PostGIS LineString aggregation table  
+⏳ **depots** - NEEDS PostGIS Point migration  
+⏳ **landuse_zones, pois, regions** - Have PostGIS but need cleanup
+
+**DO NOT PROCEED** with batch imports until migration is complete!
 
 ---
 
@@ -24,7 +51,8 @@ This plan follows a **validate-at-each-step** approach:
 
 ---
 
-## 🎨 **PHASE 1: COUNTRY SCHEMA + ACTION BUTTONS** 
+## 🎨 **PHASE 1: COUNTRY SCHEMA + ACTION BUTTONS**
+
 **Estimated**: 14-18 hours  
 **Goal**: Update country content-type, add action buttons, successfully migrate schema, verify button functionality in Strapi admin.
 
@@ -43,7 +71,7 @@ This plan follows a **validate-at-each-step** approach:
   - Restart Strapi: `npm run develop`
   
 - [ ] **1.1.3** Review plugin documentation
-  - Read plugin README: https://github.com/artechventure/strapi-action-buttons
+  - Read plugin README: <https://github.com/artechventure/strapi-action-buttons>
   - Understand field configuration: `buttonLabel`, `onClick`, `metadata`
   - Identify required customType: `plugin::action-buttons.buttons`
 
@@ -132,17 +160,20 @@ This plan follows a **validate-at-each-step** approach:
 ### **Task 1.6: Phase 1 Validation** (1 hour)
 
 **✅ Phase 1 Complete When:**
+
 - [x] Country schema migration successful
 - [x] Action buttons render in Strapi admin
 - [x] Window handlers trigger (even if API doesn't exist yet)
 - [x] Changes committed to Git
 
 **📝 Document Issues:**
+
 - Record migration errors (if any)
 - Note UI rendering issues
 - Plan fixes for next iteration
 
 **💾 Commit:**
+
 ```bash
 git add schema.json geojson-handlers.js
 git commit -m "feat: Add GeoJSON import action buttons to country schema"
@@ -152,6 +183,7 @@ git push origin branch-0.0.2.6
 ---
 
 ## 🔴 **PHASE 2: REDIS + REVERSE GEOCODING**
+
 **Estimated**: 18-24 hours  
 **Goal**: Install Redis, implement geospatial indexing, build reverse geocoding service, benchmark <200ms performance.
 
@@ -263,6 +295,7 @@ git push origin branch-0.0.2.6
 ### **Task 2.5: Phase 2 Validation** (1 hour)
 
 **✅ Phase 2 Complete When:**
+
 - [x] Redis server running and accessible
 - [x] Reverse geocoding API responding
 - [x] Cache hit latency <10ms
@@ -270,6 +303,7 @@ git push origin branch-0.0.2.6
 - [x] 10x+ faster than PostgreSQL baseline
 
 **💾 Commit:**
+
 ```bash
 git add redis-client.js redis-geo.service.js reverse-geocode/
 git commit -m "feat: Implement Redis geospatial service for reverse geocoding"
@@ -279,6 +313,7 @@ git push origin branch-0.0.2.6
 ---
 
 ## 🔔 **PHASE 3: GEOFENCING**
+
 **Estimated**: 12-16 hours  
 **Goal**: Implement Redis Pub/Sub for vehicle positions, detect geofence enter/exit events, emit real-time Socket.IO notifications.
 
@@ -348,6 +383,7 @@ git push origin branch-0.0.2.6
 ### **Task 3.4: Phase 3 Validation** (1 hour)
 
 **✅ Phase 3 Complete When:**
+
 - [x] Geofence events emit via Socket.IO
 - [x] Vehicle enter/exit detection working
 - [x] Latency <10ms for notifications
@@ -355,6 +391,7 @@ git push origin branch-0.0.2.6
 - [x] Multiple vehicles tested successfully
 
 **💾 Commit:**
+
 ```bash
 git add geofence-notifier.service.js gps_device.py
 git commit -m "feat: Implement Redis Pub/Sub geofencing with Socket.IO"
@@ -364,6 +401,7 @@ git push origin branch-0.0.2.6
 ---
 
 ## 🎯 **PHASE 4: POI-BASED SPAWNING**
+
 **Estimated**: 20-26 hours  
 **Goal**: Import GeoJSON data (highway, amenity, landuse), integrate POIs with Poisson spawning system, calibrate activity levels.
 
@@ -478,6 +516,7 @@ git push origin branch-0.0.2.6
 ### **Task 4.5: Phase 4 Validation** (1 hour)
 
 **✅ Phase 4 Complete When:**
+
 - [x] Highway, Amenity, Landuse imported successfully
 - [x] POIs visible in Strapi admin
 - [x] Redis geospatial indexes populated
@@ -485,6 +524,7 @@ git push origin branch-0.0.2.6
 - [x] Spawn rate roughly maintains target (fine-tuning in Phase 5)
 
 **💾 Commit:**
+
 ```bash
 git add geojson-import.service.js transformers/ poisson_geojson_spawner.py
 git commit -m "feat: Implement GeoJSON import with POI-based spawning"
@@ -494,6 +534,7 @@ git push origin branch-0.0.2.6
 ---
 
 ## 🚌 **PHASE 5: DEPOT/ROUTE SPAWNERS**
+
 **Estimated**: 18-24 hours  
 **Goal**: Verify depot and route spawning systems generate commuters according to specs, integrate with POI data, calibrate spawn rates.
 
@@ -589,6 +630,7 @@ git push origin branch-0.0.2.6
 ### **Task 5.5: Phase 5 Validation** (1 hour)
 
 **✅ Phase 5 Complete When:**
+
 - [x] Depot spawner generates commuters per specs
 - [x] Route spawner generates commuters per specs
 - [x] Combined spawn rate: 90-180/hr
@@ -597,6 +639,7 @@ git push origin branch-0.0.2.6
 - [x] Temporal multipliers calibrated
 
 **💾 Commit:**
+
 ```bash
 git add depot_reservoir.py route_reservoir.py poisson_geojson_spawner.py
 git commit -m "feat: Calibrate depot/route spawners with POI integration"
@@ -606,6 +649,7 @@ git push origin branch-0.0.2.6
 ---
 
 ## 🔗 **PHASE 6: CONDUCTOR COMMUNICATION**
+
 **Estimated**: 14-18 hours  
 **Goal**: Ensure conductor service communicates with depot/route spawners, validate end-to-end passenger flow.
 
@@ -677,6 +721,7 @@ git push origin branch-0.0.2.6
 ### **Task 6.4: Phase 6 Validation** (2 hours)
 
 **✅ Phase 6 Complete When:**
+
 - [x] Conductor receives depot spawn events
 - [x] Conductor receives route spawn events
 - [x] Passengers assigned to vehicles correctly
@@ -685,6 +730,7 @@ git push origin branch-0.0.2.6
 - [x] All systems communicating correctly
 
 **💾 Final Commit:**
+
 ```bash
 git add conductor_service/ spawning_coordinator.py
 git commit -m "feat: Complete conductor communication with spawners"
@@ -698,17 +744,20 @@ git push origin branch-0.0.2.6
 ### **All Phases Complete When:**
 
 **✅ Infrastructure:**
+
 - [x] Country schema migrated with action buttons
 - [x] Redis server running and indexed
 - [x] All GeoJSON data imported (highway, amenity, landuse)
 
 **✅ Performance:**
+
 - [x] Reverse geocoding <200ms (cache miss)
 - [x] Reverse geocoding <10ms (cache hit)
 - [x] Geofence notifications <10ms
 - [x] Spawn rate: 90-180 commuters/hour
 
 **✅ Integration:**
+
 - [x] POI-based spawning operational
 - [x] Depot spawner using imported data
 - [x] Route spawner using imported data
@@ -716,6 +765,7 @@ git push origin branch-0.0.2.6
 - [x] End-to-end passenger flow validated
 
 **✅ Quality:**
+
 - [x] All unit tests passing
 - [x] Performance benchmarks documented
 - [x] No critical bugs
@@ -730,6 +780,7 @@ git push origin branch-0.0.2.6
 **Last Updated**: October 25, 2025
 
 ### **Phase Completion Status**
+
 - [ ] Phase 1: Country Schema + Action Buttons (0%)
 - [ ] Phase 2: Redis + Reverse Geocoding (0%)
 - [ ] Phase 3: Geofencing (0%)
