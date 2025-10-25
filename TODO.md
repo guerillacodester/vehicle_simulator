@@ -977,8 +977,9 @@ git push origin branch-0.0.2.6
 - ✅ FIXED: Documentation incorrectly described "Conductor Service" for centralized assignment
   - Reality: Route assignment happens in `spawn_interface.py` spawn strategies
   - Conductor is vehicle component, not centralized service
-- ✅ FIXED: Plugin name was `@artechventure/strapi-plugin-action-buttons` 
-  - Correct: `strapi-plugin-action-buttons` (custom ArkNet plugin)
+- ✅ CLARIFIED: Plugin is custom-built `strapi-plugin-action-buttons` (no marketplace equivalent)
+  - Initial research error suggested external package
+  - Confirmed as in-house custom plugin on October 25
 
 **Agent Handoff Notes**:
 - All documentation complete and validated
