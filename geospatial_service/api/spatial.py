@@ -183,3 +183,29 @@ async def get_depot_catchment_get(
     )
     
     return await get_depot_catchment(request)
+
+
+# Alias endpoint for generic "nearby buildings" queries
+@router.get("/nearby-buildings", response_model=DepotCatchmentResponse)
+async def get_nearby_buildings(
+    lat: float = Query(..., ge=-90, le=90, description="Center latitude"),
+    lon: float = Query(..., ge=-180, le=180, description="Center longitude"),
+    radius_meters: int = Query(500, ge=50, le=10000, description="Search radius (meters)"),
+    limit: int = Query(50, ge=1, le=1000, description="Maximum buildings")
+):
+    """
+    Find buildings near a point (generic proximity search)
+    
+    This is an alias for depot-catchment but with different defaults
+    optimized for general proximity queries rather than depot spawning.
+    
+    Performance target: <100ms for 500m radius
+    """
+    request = DepotCatchmentRequest(
+        latitude=lat,
+        longitude=lon,
+        radius_meters=radius_meters,
+        limit=limit
+    )
+    
+    return await get_depot_catchment(request)
