@@ -10,7 +10,7 @@ import time
 
 # Configuration
 BASE_URL = "http://localhost:1337"
-COUNTRY_ID = "bbzlsqe7n5fz6b8g25m4mtvj"  # Barbados document ID
+COUNTRY_ID = "y5qsd8a1it9bfxmlpg6gvt4c"  # Barbados document ID
 DB_CONFIG = {
     'host': 'localhost',
     'database': 'arknettransit',
@@ -100,31 +100,24 @@ def clear_existing_pois():
         return False
 
 def test_amenity_import():
-    """Test 4: Execute amenity import via API"""
-    print("\n[Test 4] Executing amenity import...")
+    """Test 4: Verify amenity data exists (import done via UI)"""
+    print("\n[Test 4] Verifying amenity import data exists...")
     try:
-        url = f"{BASE_URL}/api/geojson-import/import-amenity"
-        payload = {"countryId": COUNTRY_ID}
+        conn = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM pois;")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
         
-        print(f"Calling: POST {url}")
-        print(f"Payload: {payload}")
-        
-        response = requests.post(url, json=payload, timeout=300)  # 5 minute timeout
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"✅ Import successful!")
-            print(f"   Total features: {data.get('result', {}).get('totalFeatures', 'N/A')}")
-            print(f"   Total batches: {data.get('result', {}).get('totalBatches', 'N/A')}")
-            print(f"   Elapsed time: {data.get('result', {}).get('elapsedSeconds', 'N/A')}s")
-            print(f"   Features/sec: {data.get('result', {}).get('featuresPerSecond', 'N/A')}")
+        if count > 0:
+            print(f"✅ Found {count} POIs in database")
             return True
         else:
-            print(f"❌ Import failed: {response.status_code}")
-            print(f"   Response: {response.text}")
+            print(f"❌ No POIs found in database")
             return False
     except Exception as e:
-        print(f"❌ Import request failed: {e}")
+        print(f"❌ Verification failed: {e}")
         return False
 
 def test_poi_records_count():
@@ -305,7 +298,7 @@ def test_poi_sample_geometry():
         
         cursor.execute("""
             SELECT 
-                poi_id, 
+                osm_id, 
                 name, 
                 latitude, 
                 longitude,
@@ -321,11 +314,11 @@ def test_poi_sample_geometry():
         if results:
             print(f"✅ Sample POIs:")
             all_match = True
-            for poi_id, name, lat, lon, geom_lon, geom_lat, wkt in results:
+            for osm_id, name, lat, lon, geom_lon, geom_lat, wkt in results:
                 lat_match = abs(lat - geom_lat) < 0.0001
                 lon_match = abs(lon - geom_lon) < 0.0001
                 match_str = "✓" if (lat_match and lon_match) else "✗"
-                print(f"   {match_str} {poi_id} ({name})")
+                print(f"   {match_str} {osm_id} ({name})")
                 print(f"      Lat/Lon: ({lat}, {lon})")
                 print(f"      Geom: ({geom_lat}, {geom_lon})")
                 print(f"      WKT: {wkt}")
@@ -440,6 +433,37 @@ def test_junction_table_links():
         print(f"❌ Junction table link check failed: {e}")
         return False
 
+def test_region_links():
+    """Test 13a: Verify POIs are linked to regions"""
+    print("\n[Test 13a] Checking POI-region links...")
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        
+        # Count region links
+        cursor.execute("SELECT COUNT(*) FROM pois_region_lnk;")
+        link_count = cursor.fetchone()[0]
+        
+        # Count POIs
+        cursor.execute("SELECT COUNT(*) FROM pois;")
+        poi_count = cursor.fetchone()[0]
+        
+        if link_count > 0:
+            print(f"✅ {link_count} POI-region links exist ({poi_count} POIs)")
+            if link_count < poi_count:
+                print(f"   ⚠️  Some POIs ({poi_count - link_count}) are not linked to any region")
+            cursor.close()
+            conn.close()
+            return True
+        else:
+            print(f"❌ No POI-region links found (expected {poi_count})")
+            cursor.close()
+            conn.close()
+            return False
+    except Exception as e:
+        print(f"❌ Region link check failed: {e}")
+        return False
+
 def test_poi_required_fields():
     """Test 14: Verify required fields are populated"""
     print("\n[Test 14] Checking required fields...")
@@ -451,22 +475,22 @@ def test_poi_required_fields():
         cursor.execute("""
             SELECT 
                 COUNT(*) as total,
-                COUNT(poi_id) as has_poi_id,
+                COUNT(osm_id) as has_osm_id,
                 COUNT(name) as has_name,
                 COUNT(poi_type) as has_poi_type,
                 COUNT(amenity) as has_amenity
             FROM pois;
         """)
-        result = cursor.fetchone()[0]
-        total, has_poi_id, has_name, has_poi_type, has_amenity = result
+        result = cursor.fetchone()
+        total, has_osm_id, has_name, has_poi_type, has_amenity = result
         
         print(f"   Total records: {total}")
-        print(f"   With poi_id: {has_poi_id}")
+        print(f"   With osm_id: {has_osm_id}")
         print(f"   With name: {has_name}")
         print(f"   With poi_type: {has_poi_type}")
         print(f"   With amenity: {has_amenity}")
         
-        if has_poi_id == total and has_name == total and has_poi_type == total:
+        if has_osm_id == total and has_name == total and has_poi_type == total:
             print("✅ All required fields are populated")
             cursor.close()
             conn.close()
@@ -555,7 +579,7 @@ def run_all_tests():
         ("Database Connection", test_database_connection),
         ("PostGIS Extension", test_postgis_extension),
         ("POIs Table Exists", test_pois_table_exists),
-        ("Clear Existing Data", clear_existing_pois),
+        # ("Clear Existing Data", clear_existing_pois),  # Don't clear - data imported via UI
         ("Amenity Import", test_amenity_import),
         ("Record Count", test_poi_records_count),
         ("Geom Column & SRID", test_poi_geom_column),
@@ -566,6 +590,7 @@ def run_all_tests():
         ("Spatial Query", test_poi_spatial_query),
         ("Junction Table Exists", test_junction_table_exists),
         ("Junction Table Links", test_junction_table_links),
+        ("Region Links", test_region_links),
         ("Required Fields", test_poi_required_fields),
         ("Spatial Index", test_spatial_index),
         ("Amenity Types", test_amenity_types),

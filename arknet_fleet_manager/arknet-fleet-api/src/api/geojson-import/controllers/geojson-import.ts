@@ -386,12 +386,10 @@ export default {
               continue;
             }
             
-            insertValues.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+            insertValues.push('(?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
             insertBindings.push(
               documentId,
-              poiId,
               props.osm_id || null,
-              props.full_id || null,
               props.amenity || 'other',
               poiName,
               props.amenity || null,
@@ -407,36 +405,11 @@ export default {
           if (insertValues.length > 0) {
             await knex.raw(`
               INSERT INTO pois (
-                document_id, poi_id, osm_id, full_id, poi_type, name,
+                document_id, osm_id, poi_type, name,
                 amenity, latitude, longitude, geom,
                 created_at, updated_at, published_at
               ) VALUES ${insertValues.join(', ')}
             `, insertBindings);
-            
-            const poiIds = await knex('pois')
-              .select('id')
-              .whereIn('poi_id', features.filter((f: any) => {
-                return f.geometry && ['Point', 'Polygon', 'MultiPolygon'].includes(f.geometry.type);
-              }).map((f: any) => {
-                const props = f.properties || {};
-                const poiName = props.name || props.amenity || `${props.amenity || 'poi'}-${props.osm_id || 'unknown'}`;
-                return generateSlug(poiName, props.osm_id);
-              }))
-              .orderBy('id', 'desc')
-              .limit(insertValues.length);
-            
-            const countryLinkBindings: any[] = [];
-            const countryLinkPlaceholders = poiIds.map((row: any) => {
-              countryLinkBindings.push(row.id, numericCountryId);
-              return '(?, ?)';
-            }).join(', ');
-            
-            if (countryLinkPlaceholders) {
-              await knex.raw(`
-                INSERT INTO pois_country_lnk (poi_id, country_id)
-                VALUES ${countryLinkPlaceholders}
-              `, countryLinkBindings);
-            }
           }
 
           totalProcessed += features.length;
@@ -481,6 +454,42 @@ export default {
       
       strapi.log.info(`[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s (${result.totalBatches} batches, ${featuresPerSecond} features/sec)`);
 
+      // Phase 2: Link POIs to country
+      strapi.log.info(`[${jobId}] 🔗 Starting country linking for POIs...`);
+      const countryLinkStart = Date.now();
+      const countryLinkResult = await knex.raw(`
+        INSERT INTO pois_country_lnk (poi_id, country_id)
+        SELECT p.id, ?
+        FROM pois p
+        WHERE p.id NOT IN (SELECT poi_id FROM pois_country_lnk)
+      `, [numericCountryId]);
+      const countryLinkCount = countryLinkResult?.rowCount || 0;
+      const countryLinkElapsed = ((Date.now() - countryLinkStart) / 1000).toFixed(1);
+      strapi.log.info(`[${jobId}] ✅ Country linking COMPLETE: ${countryLinkCount} links created in ${countryLinkElapsed}s`);
+
+      // Phase 3: Link POIs to regions
+      strapi.log.info(`[${jobId}] 🔗 Starting region linking for POIs...`);
+      // @ts-ignore
+      strapi.io.emit('import:progress', {
+        jobId,
+        countryId,
+        fileType: 'amenity',
+        message: 'Linking POIs to regions...',
+      });
+
+      const regionLinkStart = Date.now();
+      const regionLinkResult = await knex.raw(`
+        INSERT INTO pois_region_lnk (poi_id, region_id)
+        SELECT p.id, r.id
+        FROM pois p
+        JOIN regions r ON ST_Intersects(p.geom, r.geom)
+        WHERE p.id NOT IN (SELECT poi_id FROM pois_region_lnk)
+      `);
+      const regionLinkCount = regionLinkResult?.rowCount || 0;
+      const regionLinkElapsed = ((Date.now() - regionLinkStart) / 1000).toFixed(1);
+      
+      strapi.log.info(`[${jobId}] ✅ Region linking COMPLETE: ${regionLinkCount} links created in ${regionLinkElapsed}s`);
+
       // @ts-ignore
       strapi.io.emit('import:complete', {
         jobId,
@@ -489,6 +498,8 @@ export default {
         totalFeatures: result.totalFeatures,
         elapsedSeconds,
         featuresPerSecond,
+        countryLinkCount,
+        regionLinkCount,
       });
 
       ctx.body = {
@@ -501,6 +512,8 @@ export default {
           totalBatches: result.totalBatches,
           elapsedSeconds,
           featuresPerSecond,
+          countryLinkCount,
+          regionLinkCount,
         },
       };
     } catch (error) {
