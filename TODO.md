@@ -243,9 +243,52 @@ Phase 1.10 (Complete imports) ✅ DONE
   - [ ] Test with 100+ vehicles crossing zones
   - [ ] Document alerting workflows
 
-### **🎯 TIER 6: DATA ENHANCEMENT - Historical & Ridership Analytics (Future)**
+### **🎯 TIER 6: SUBSCRIPTION & ANALYTICS - Historical Data API (Revenue Stream)**
 
-- [ ] **Phase 7**: Temporal Profile System (0/8 steps) - **FUTURE ENHANCEMENT**
+- [ ] **Phase 7**: Subscription Management System (0/12 steps) - **MONETIZATION**
+  - [ ] Create subscription_plans table (plan_name, price, retention_days, features)
+  - [ ] Create vehicle_subscriptions table (vehicle_id, plan_id, start_date, status)
+  - [ ] Implement subscription API endpoints (create, update, cancel, status)
+  - [ ] Add billing integration (Stripe/PayPal API)
+  - [ ] Create usage tracking (API calls, storage consumption)
+  - [ ] Implement rate limiting per subscription tier
+  - [ ] Add subscription dashboard (admin view: revenue, active subscribers)
+  - [ ] Create customer portal (upgrade/downgrade plans, view usage)
+  - [ ] Implement grace period for expired subscriptions (3 days)
+  - [ ] Add automated email notifications (payment failed, expiring soon)
+  - [ ] Test subscription lifecycle (trial → paid → expired → renewed)
+  - [ ] Document pricing model and API quotas
+
+- [ ] **Phase 8**: Historical Position Storage (0/10 steps) - **PAID FEATURE**
+  - [ ] Create position_history table with partitioning (by month)
+  - [ ] Implement conditional write logic (only for paid subscribers)
+  - [ ] Add data retention policy (auto-delete based on subscription tier)
+  - [ ] Create background job for Redis → PostgreSQL batch writes
+  - [ ] Implement time-series indexes (BRIN for timestamp ranges)
+  - [ ] Add storage monitoring (track GB per vehicle per month)
+  - [ ] Test with simulated 30-day retention (600 vehicles × 17K positions/day)
+  - [ ] Optimize query performance for historical range queries
+  - [ ] Add data export API (CSV, JSON, GeoJSON)
+  - [ ] Document storage costs per tier ($0.50-5/vehicle/month)
+
+- [ ] **Phase 9**: Analytics API (0/15 steps) - **PAID FEATURE**
+  - [ ] Route replay endpoint: GET /api/vehicles/{id}/history?start={ts}&end={ts}
+  - [ ] Heat map endpoint: GET /api/analytics/heatmap?zone={id}&timerange={7d}
+  - [ ] Distance traveled: GET /api/analytics/distance?vehicle={id}&period={daily/weekly}
+  - [ ] Idle time analysis: GET /api/analytics/idle?threshold={5min}
+  - [ ] Geofence violations: GET /api/analytics/violations?zone={id}
+  - [ ] Speed analytics: GET /api/analytics/speed?vehicle={id}&threshold={80kph}
+  - [ ] Aggregated fleet metrics: GET /api/analytics/fleet/summary
+  - [ ] Time-of-day analysis: GET /api/analytics/tod?metric={speed/distance}
+  - [ ] Implement caching layer (Redis) for expensive analytics queries
+  - [ ] Add API authentication (JWT tokens per subscription)
+  - [ ] Rate limiting (1000 req/day Basic, unlimited Enterprise)
+  - [ ] Create visualization widgets (charts, maps, tables)
+  - [ ] Test analytics with 30 days of historical data
+  - [ ] Document all analytics endpoints (OpenAPI/Swagger)
+  - [ ] Benchmark query performance (<2s for 30-day aggregations)
+
+- [ ] **Phase 10**: Temporal Profile System (0/8 steps) - **ANALYTICS ENHANCEMENT**
   - Create temporal_profiles table (hour, day, rate_multiplier)
   - Define peak patterns (morning rush 7-9am, evening rush 4-7pm)
   - Create seasonal_variations table (month, holiday, multiplier)
@@ -253,7 +296,7 @@ Phase 1.10 (Complete imports) ✅ DONE
   - Import historical patterns (if data becomes available)
   - Validation: Compare simulated vs historical demand curves
 
-- [ ] **Phase 8**: Ridership Data Collection (0/10 steps) - **FUTURE ENHANCEMENT**
+- [ ] **Phase 11**: Ridership Data Collection (0/10 steps) - **ANALYTICS ENHANCEMENT**
   - Create ridership_observations table (timestamp, location, passenger_count, route_id)
   - Create passenger_demand_history table (zone_id, hour, day, avg_count, std_dev)
   - Build import pipeline for CSV/Excel ridership data
@@ -265,19 +308,21 @@ Phase 1.10 (Complete imports) ✅ DONE
   - Export calibrated spawn_weights back to landuse/POI tables
   - Dashboard for ridership analytics
 
-**Note**: Current GeoJSON data (189,659 features) provides 80% of spawning model needs. Phase 7-8 adds the missing 20% (temporal patterns, actual ridership) when real-world data becomes available. The existing spawn_weight, peak_hour_multiplier fields in POI/landuse schemas are placeholders ready for calibrated values.
+**Note**: Current GeoJSON data (189,659 features) provides 80% of spawning model needs. Phase 10-11 adds the missing 20% (temporal patterns, actual ridership) when real-world data becomes available. The existing spawn_weight, peak_hour_multiplier fields in POI/landuse schemas are placeholders ready for calibrated values.
 
 ---
 
 ## 🖥️ **PRODUCTION DEPLOYMENT REQUIREMENTS**
 
-### **Current Development Server:**
+### **Current Development Server**
+
 - **OVH VPS vps2023-le-2**: 2 vCores, 2 GB RAM, 40 GB Storage
 - **Suitable for**: MVP development, real-time tracking demo with **30-50 vehicles**
 - **NOT suitable for**: Production deployment at 1,200 vehicle scale
 
 **MVP Capacity Analysis (Real-Time Demo, No Position Storage):**
-```
+
+```text
 Memory allocation:
 ├─ PostgreSQL: ~300 MB (routes, stops, POIs - NO position history)
 ├─ Strapi: ~300 MB (single instance)
@@ -301,18 +346,19 @@ Note: Position data storage is SUBSCRIPTION-BASED (free tier = real-time only, p
       Free MVP demo: In-memory tracking only | Paid tiers: 7/30/90/365 day retention with analytics API
 ```
 
-### **Production Scaling Requirements (1,200 Vehicles):**
+### **Production Scaling Requirements (1,200 Vehicles)**
 
 **Target Fleet Size**: 1,200 GPS devices (ESP32/STM32 with Rock S0 GPS module)  
 **Update Frequency**: 1 position/5 seconds  
 **Base Load**: 240 position updates/second (in-memory state updates)  
 **Dashboard**: 5-10 operators monitoring fleet  
 **Business Model**: Free tier (real-time only) + Subscription tiers (historical data + analytics)  
-**Position Storage**: Subscription-based (PostgreSQL/InfluxDB for paid tiers, ephemeral for free tier)  
+**Position Storage**: Subscription-based (PostgreSQL/InfluxDB for paid tiers, ephemeral for free tier)
 
-#### **Minimum Single Server Option:**
+#### **Minimum Single Server Option**
 
 **OVH VPS Scale-3 or Advance-2:**
+
 - **12+ vCores** minimum
 - **48-64 GB RAM** minimum
 - **500 GB SSD** minimum
@@ -321,7 +367,8 @@ Note: Position data storage is SUBSCRIPTION-BASED (free tier = real-time only, p
 - **Risk**: Single point of failure
 
 **Software Stack:**
-```
+
+```text
 ├─ GPS CentCom (Node.js Cluster - 6-8 workers)
 ├─ Strapi (2 instances for HA)
 ├─ Geospatial API (FastAPI - 1-2 instances)
@@ -330,16 +377,18 @@ Note: Position data storage is SUBSCRIPTION-BASED (free tier = real-time only, p
 └─ Nginx (reverse proxy + load balancer)
 ```
 
-#### **Recommended Multi-Server Option (High Availability):**
+#### **Recommended Multi-Server Option (High Availability)**
 
 **3× OVH VPS Scale-2:**
+
 - **4 vCores each, 8 GB RAM each, 160 GB SSD each**
 - **Cost**: ~$120-180/month total
 - **Capacity**: 1,200+ vehicles (400 per server)
 - **Benefit**: High availability, horizontal scaling, redundancy, <5 second failover
 
 **Distribution:**
-```
+
+```text
 Server 1 (VPS Scale-2):
 ├─ GPS CentCom Workers 1-2 (400 devices)
 ├─ Redis MASTER + Sentinel
@@ -367,7 +416,8 @@ External Load Balancer (CloudFlare or OVH)
 **Database Synchronization Strategy:**
 
 **PostgreSQL (Single Write Master + Read Replicas):**
-```
+
+```text
 All Writes → PostgreSQL Primary (Server 3)
    ↓ Streaming Replication (<100ms lag)
    ├→ Read Replica 1 (Server 1) - Geospatial queries
@@ -381,7 +431,8 @@ Configuration:
 ```
 
 **Redis (Sentinel HA with Auto-Failover):**
-```
+
+```text
 Redis Master (Server 1) - All writes
    ↓ Async replication
    ├→ Redis Replica (Server 2)
@@ -395,7 +446,8 @@ Sentinels (all 3 servers) monitor master health:
 ```
 
 **Strapi (Active-Active with Shared PostgreSQL):**
-```
+
+```text
 Load Balancer
    ├→ Strapi Instance 1 (Server 1) ──┐
    └→ Strapi Instance 2 (Server 2) ──┤
@@ -420,12 +472,14 @@ Load Balancer
 **Position Storage & Monetization Strategy:**
 
 **Free Tier (Real-Time Only):**
+
 - In-memory state only (current position, route, driver, status)
 - Real-time dashboard access
 - No historical data retention
 - Suitable for: Live tracking, dispatch operations, real-time monitoring
 
 **Subscription Tier (Historical Data + Analytics):**
+
 - Position history storage (PostgreSQL or InfluxDB/TimescaleDB)
 - Configurable retention (7 days, 30 days, 90 days, 1 year)
 - Analytics API endpoints (route replay, heat maps, performance metrics)
@@ -434,20 +488,22 @@ Load Balancer
 - Monthly fee covers: Storage costs + analytics processing + API access
 
 **Technical Implementation:**
+
 - **Option A**: PostgreSQL with Redis buffer (short-term: 7-30 days retention)
   - Use case: Recent history, basic analytics, route replay
   - Cost: ~$0.50-2/vehicle/month (storage + compute)
-  
+
 - **Option B**: InfluxDB/TimescaleDB (long-term: 90 days - 1 year retention)
   - Use case: Advanced analytics, trend analysis, compliance reporting
   - Cost: ~$2-5/vehicle/month (time-series optimization, higher storage)
-  
+
 - **Option C**: Hybrid (Redis → PostgreSQL → Cold Storage/S3)
   - Use case: Multi-tier retention (hot: 7 days, warm: 30 days, cold: 1 year)
   - Cost: ~$1-3/vehicle/month (tiered pricing based on access frequency)
 
 **Pricing Model Examples:**
-```
+
+```text
 Free Tier:
 ├─ Real-time tracking only
 ├─ Current position data
@@ -476,7 +532,8 @@ Enterprise Plan ($30/vehicle/month):
 ```
 
 **Revenue Projection (1,200 vehicles):**
-```
+
+```text
 Scenario 1 (Conservative - 30% paid subscribers):
 ├─ 360 vehicles × $15/month (Professional) = $5,400/month
 ├─ Infrastructure costs: ~$200-300/month (single server)
@@ -506,18 +563,17 @@ Scenario 3 (High adoption - 70% paid subscribers):
 | **Position Storage Impact** | None (in-memory only) | None (in-memory only) |
 
 **Recommendation**: Start with **Single Server** for MVP/Pilot (handles 50-100 vehicles with in-memory state). Migrate to **Multi-Server** when:
+
 - You have >500 active vehicles
 - SLA requires <5 minute downtime
 - You decide to store position history (adds write load)
 - You have operational experience to manage distributed systems
 - Budget allows for monitoring/alerting infrastructure
 
-External Load Balancer (OVH or CloudFlare)
-```
-
-### **Redis Requirements:**
+### **Redis Requirements**
 
 **Why Redis is MANDATORY for 1,200 vehicles:**
+
 1. **In-memory state sharing**: GPS CentCom workers share device state across processes
 2. **Dashboard performance**: Query 1,200 positions in <5ms (vs 100-200ms from PostgreSQL)
 3. **Device heartbeat**: TTL-based online/offline detection
@@ -526,7 +582,8 @@ External Load Balancer (OVH or CloudFlare)
 6. **Optional position buffering**: IF storing position history (TBD for production)
 
 **Memory sizing (in-memory state only, no position storage):**
-```
+
+```text
 1,200 vehicle current positions × 200 bytes = 240 KB (current state)
 Device metadata (route, driver, etc.) × 1,200 = ~500 KB
 Session data, heartbeats: ~200 MB
@@ -540,16 +597,18 @@ Total with trails: ~500 MB + 50% overhead = 750 MB
 Recommended allocation with trails: 2-4 GB
 ```
 
-### **PostgreSQL Requirements:**
+### **PostgreSQL Requirements**
 
 **Connection pooling (PgBouncer):**
+
 - Max connections: 100
 - Pool size: 20-30
 - Writes: Configuration data only (routes, stops, POIs)
 - NO position writes (in-memory only for MVP)
 
 **Storage (no position history):**
-```
+
+```text
 Base schema + indexes: ~500 MB
 GeoJSON data (189,659 features): ~4.5 GB
 Routes, stops, schedules: ~500 MB
@@ -561,15 +620,11 @@ Daily growth: ~2 GB
 Monthly growth: ~60 GB
 Recommended: 500 GB minimum, with rotation/archival after 6 months
 ```
-1,200 vehicles × 17,280 updates/day = 20,736,000 positions/day
-Daily growth: ~2 GB
-Monthly growth: ~60 GB
-Recommended: 500 GB minimum, with rotation/archival after 6 months
-```
 
-### **Development → Production Migration Path:**
+### **Development → Production Migration Path**
 
-**Phase 1: MVP Demo (Current - 2 vCore, 2 GB)**
+#### Phase 1: MVP Demo (Current - 2 vCore, 2 GB)
+
 - ✅ Real-time tracking demo with **30-50 vehicles**
 - ✅ In-memory state only (no position storage)
 - ✅ Single GPS CentCom worker (no cluster mode)
@@ -577,7 +632,8 @@ Recommended: 500 GB minimum, with rotation/archival after 6 months
 - ✅ All features work for demo/testing
 - ⚠️ NOT suitable for production (no redundancy, limited capacity)
 
-**Phase 2: Prototype Testing (Upgrade to VPS Scale-2)**
+#### Phase 2: Prototype Testing (Upgrade to VPS Scale-2)
+
 - 🎯 4 vCores, 8 GB RAM, 160 GB SSD (~$40-60/month)
 - 🎯 **100-200 vehicles** capacity
 - 🎯 Add Redis (1-2 GB allocation)
@@ -585,7 +641,8 @@ Recommended: 500 GB minimum, with rotation/archival after 6 months
 - 🎯 Deploy 5-20 real prototype devices
 - 🎯 Decide on position storage strategy (PostgreSQL vs InfluxDB vs ephemeral)
 
-**Phase 3: Pilot Deployment (Upgrade to VPS Scale-3)**
+#### Phase 3: Pilot Deployment (Upgrade to VPS Scale-3)
+
 - 🎯 8-12 vCores, 32 GB RAM, 400 GB SSD (~$100-150/month)
 - 🎯 **500-800 vehicles** capacity
 - 🎯 Redis + GPS CentCom cluster operational
@@ -593,17 +650,19 @@ Recommended: 500 GB minimum, with rotation/archival after 6 months
 - 🎯 Position storage implemented (if needed)
 - 🎯 Monitoring and alerting configured
 
-**Phase 4: Full Production (VPS Advance-2 or 3× Scale-2)**
+#### Phase 4: Full Production (VPS Advance-2 or 3× Scale-2)
+
 - 🎯 12+ vCores, 64 GB RAM, 500 GB SSD (single server ~$200/month)
 - 🎯 OR: 3× Scale-2 with load balancer (multi-server ~$150/month)
 - 🎯 **1,200 vehicles** full deployment
 - 🎯 Redis cluster (2-4 GB), PostgreSQL replica (if storing positions), full monitoring
 
-### **Critical Pre-Production Checklist:**
+### **Critical Pre-Production Checklist**
 
 Before deploying to production with real GPS devices:
 
 **Single Server Deployment (VPS Advance-2):**
+
 - [ ] Server upgraded to minimum VPS Advance-2 (12 vCore, 64 GB RAM, 500 GB SSD)
 - [ ] Redis installed and configured with persistence (RDB + AOF)
 - [ ] GPS CentCom cluster mode implemented and tested (6-8 workers)
@@ -615,6 +674,7 @@ Before deploying to production with real GPS devices:
 - [ ] Rolling deployment procedure tested
 
 **Multi-Server Deployment (3× VPS Scale-2) - Additional Requirements:**
+
 - [ ] PostgreSQL streaming replication configured (Primary → 2 Replicas)
 - [ ] Redis Sentinel configured on all 3 servers (quorum: 2/3)
 - [ ] Strapi session storage moved to Redis (shared state)
@@ -629,7 +689,7 @@ Before deploying to production with real GPS devices:
 
 ---
 
-## 📡 **GPS CENTCOM SERVER STATUS**
+## 📡 **GPS CENTCOM PRODUCTION READINESS**
 
 - ✅ **Current Status**: MVP Demo Ready (FastAPI + WebSocket + In-Memory Store)
 - [ ] **Future Tier 1**: Production-Grade Improvements
