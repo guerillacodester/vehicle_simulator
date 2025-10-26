@@ -62,6 +62,7 @@ export default {
       path: '/import-geojson/admin',
       handler: 'geojson-import.importAdmin',
       config: {
+        auth: false,
         policies: [],
         middlewares: [],
       },

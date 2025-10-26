@@ -67,8 +67,8 @@ class AdminImportTester:
             self.db_conn = psycopg2.connect(
                 host="127.0.0.1",
                 database="arknettransit",
-                user="postgres",  # Update if different
-                password="",  # Update with your password
+                user="david",
+                password="Ga25w123!",
                 port=5432
             )
             return True
@@ -377,7 +377,7 @@ class AdminImportTester:
             EXPLAIN ANALYZE
             SELECT name 
             FROM regions
-            WHERE ST_Contains(geom, ST_MakePoint(-59.6145, 13.0975))
+            WHERE ST_Contains(geom, ST_SetSRID(ST_MakePoint(-59.6145, 13.0975), 4326))
             LIMIT 1
         """
         results = self.execute_query(query)

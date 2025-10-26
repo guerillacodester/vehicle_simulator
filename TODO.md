@@ -3,8 +3,8 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.6  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025  
-**Status**: 🎯 TIER 1 (GeoJSON Import) - Phase 1.10 in progress  
+**Updated**: October 26, 2025 (Admin import complete)  
+**Status**: 🎯 TIER 1 (GeoJSON Import) - Phase 1.10 in progress (2/5 complete)  
 **Strategy**: Option A - Complete Imports → Enable Spawning → Optimize Performance
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
@@ -27,11 +27,11 @@ TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
 ### **Where Am I?**
 
 - **Current Focus**: TIER 1 - GeoJSON Import System Completion
-- **Phase**: Phase 1.10 (Optimize Remaining Import Endpoints) - 1/5 tasks complete
-- **Next Immediate Task**: Update `/api/import-geojson/admin` endpoint (exists but incomplete - needs streaming + full import)
+- **Phase**: Phase 1.10 (Optimize Remaining Import Endpoints) - 2/5 tasks complete
+- **Next Immediate Task**: Update `/api/import-geojson/highway` endpoint (convert to streaming)
 - **After Phase 1.10**: Move to TIER 2 - Geospatial Services API (enables spawning)
-- **Blocker**: None - All endpoints exist, streaming parser ready, need to update 4 endpoints
-- **Status**: Building complete (streaming ✅), Admin/Highway/Amenity/Landuse incomplete (readFileSync, test only)
+- **Blocker**: None - Building and Admin imports complete with streaming
+- **Status**: Building ✅ + Admin ✅ complete (streaming), Highway/Amenity/Landuse need streaming conversion
 
 **Priority Path** (Option A):
 
@@ -87,12 +87,18 @@ Phase 1.10 (Complete imports)
   - ✅ Admin levels normalized (4 levels with UI dropdown)
   - ✅ Streaming parser created and working (geojson-stream-parser.ts)
 
-- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (1/5 tasks) ⏳ **NEXT IMMEDIATE**
+- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (2/5 tasks) ⏳ **NEXT IMMEDIATE**
   - [x] Building import with streaming ✅ COMPLETE (162,942 records, 658MB, 1166 features/sec)
-  - [ ] **NOW**: Update `/api/import-geojson/admin` endpoint (exists but incomplete)
-    - ❌ Currently: Only imports first feature as test, hardcoded to level 6, uses readFileSync
-    - ✅ Need: Accept adminLevelId/adminLevel params, use streaming, import all features, support all 4 levels
-  - [ ] Update `/api/import-geojson/highway` endpoint (exists but incomplete)
+  - [x] **Admin import with streaming** ✅ COMPLETE (Oct 26, 2025)
+    - ✅ Accepts adminLevelId/adminLevel params from UI modal
+    - ✅ Dynamic file selection: `admin_level_${adminLevel}_polygon.geojson`
+    - ✅ Uses streaming parser with 500 feature batches
+    - ✅ Bulk SQL inserts with PostGIS ST_GeomFromText
+    - ✅ Junction table links (regions_country_lnk, regions_admin_level_lnk)
+    - ✅ Socket.IO progress events (import:progress, import:complete, import:error)
+    - ✅ Tested: Level 6 (Parish) - 11 features, 0.3s, 32 features/sec
+    - ✅ All 15 integration tests passed (DB records, geometries, junction tables, spatial indexes)
+  - [ ] **NOW**: Update `/api/import-geojson/highway` endpoint (exists but incomplete)
     - ❌ Currently: Uses fs.readFileSync, test import only
     - ✅ Need: Use streaming parser, full import (41MB, ~22,719 features, LineString)
   - [ ] Update `/api/import-geojson/amenity` endpoint (exists but incomplete)
