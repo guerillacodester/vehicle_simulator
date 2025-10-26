@@ -1268,6 +1268,40 @@ python -m commuter_simulator
 
 **Document Maintainer**: Update this document as architecture evolves  
 **Last Updated**: October 26, 2025  
-**Next Review**: After TIER 1 completion (all imports done)
+**Next Review**: After Phase 1.11 (Geospatial Services API complete)
+
+---
+
+## 📊 **FUTURE ENHANCEMENTS (Not Blocking MVP)**
+
+### **Data Enhancement - Temporal & Ridership Analytics (TIER 5)**
+
+**Current State (✅ Sufficient for MVP):**
+
+- 189,659 spatial features imported (buildings, POIs, landuse zones, highways, regions)
+- Basic temporal hooks exist (`spawn_weight`, `peak_hour_multiplier`, `off_peak_multiplier` fields)
+- Schema provides ~80% of spawning model needs
+
+**Future Enhancement (Phase 7-8):**
+
+When real-world ridership data becomes available, add:
+
+1. **Temporal Profile System** (Phase 7):
+   - `temporal_profiles` table: Define hour-of-day, day-of-week patterns
+   - Peak definitions: Morning rush (7-9am), evening rush (4-7pm), off-peak, weekend
+   - Seasonal variations: Holidays, tourist season, school terms
+   - Link profiles to POI types (school = morning/afternoon peaks, bars = evening/night)
+
+2. **Ridership Data Collection** (Phase 8):
+   - `ridership_observations` table: Actual passenger counts (timestamp, location, count)
+   - `passenger_demand_history` table: Aggregated demand by zone/hour/day
+   - Import pipeline for CSV/Excel historical data
+   - Validation & outlier detection
+   - ML model training (future: replace Poisson with learned rates)
+   - Calibrated spawn_weights exported back to existing tables
+
+**Decision**: Focus on MVP with current data (Phases 1-6). Add temporal/ridership system (Phases 7-8) when operational data is collected from live simulator runs.
+
+---
 
 > **🎯 HANDOFF COMPLETE**: A fresh agent with this CONTEXT.md + TODO.md can rebuild the environment, understand all architectural decisions, and continue to production-grade MVP without external context or chat history.

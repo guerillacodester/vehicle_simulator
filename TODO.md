@@ -177,6 +177,30 @@ Phase 1.10 (Complete imports) ✅ DONE
   - Requires: Phase 2 (Redis)
   - Real-time geofence detection
 
+### **🎯 TIER 5: DATA ENHANCEMENT - Historical & Ridership Analytics (Future)**
+
+- [ ] **Phase 7**: Temporal Profile System (0/8 steps) - **FUTURE ENHANCEMENT**
+  - Create temporal_profiles table (hour, day, rate_multiplier)
+  - Define peak patterns (morning rush 7-9am, evening rush 4-7pm)
+  - Create seasonal_variations table (month, holiday, multiplier)
+  - Link profiles to POI types (school, office, retail, etc.)
+  - Import historical patterns (if data becomes available)
+  - Validation: Compare simulated vs historical demand curves
+
+- [ ] **Phase 8**: Ridership Data Collection (0/10 steps) - **FUTURE ENHANCEMENT**
+  - Create ridership_observations table (timestamp, location, passenger_count, route_id)
+  - Create passenger_demand_history table (zone_id, hour, day, avg_count, std_dev)
+  - Build import pipeline for CSV/Excel ridership data
+  - Create API endpoints for manual data entry
+  - Implement data validation (outlier detection, consistency checks)
+  - Link observations to zones/POIs/routes
+  - Generate heat maps and demand visualizations
+  - Train ML models on historical data (future: replace Poisson with learned rates)
+  - Export calibrated spawn_weights back to landuse/POI tables
+  - Dashboard for ridership analytics
+
+**Note**: Current GeoJSON data (189,659 features) provides 80% of spawning model needs. Phase 7-8 adds the missing 20% (temporal patterns, actual ridership) when real-world data becomes available. The existing spawn_weight, peak_hour_multiplier fields in POI/landuse schemas are placeholders ready for calibrated values.
+
 ### **📡 SEPARATE TRACK: GPS CentCom Server (Future Production Hardening)**
 
 - ✅ **Current Status**: MVP Demo Ready (FastAPI + WebSocket + In-Memory Store)
