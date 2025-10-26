@@ -177,12 +177,18 @@ Phase 1.10 (Complete imports) ✅ DONE
     - Longitude degree conversion adjusted by cos(latitude)
     - In-memory TTL cache (5s) for repeated identical queries
 
-- [ ] **Phase 1.12**: Database Integration & Validation (1/5 steps) 🎯 **CURRENT**
+- [ ] **Phase 1.12**: Database Integration & Validation (2/5 steps) 🎯 **CURRENT**
   - [x] Create API client wrapper for commuter_simulator
     - ✅ `geospatial_service/geospatial_client.py` - Python client wrapper
     - ✅ Tested: reverse geocoding (105ms), geofencing (3ms), depot catchment (55ms)
     - ✅ Test: `geospatial_service/tests/test_client_manual.py`
-  - [ ] Test spatial queries from commuter_simulator spawning logic
+  - [x] Test spatial queries from commuter_simulator spawning logic
+    - ✅ Integration test: `commuter_service/tests/test_geospatial_integration.py`
+    - ✅ Reverse geocoding: 4-20ms (fast enough for real-time)
+    - ✅ Geofence checks: 3-5ms (sub-50ms target met)
+    - ✅ Building queries: 13-59ms (good performance)
+    - ✅ Depot catchment: 7-54ms (suitable for spawning)
+    - ✅ Concurrent load: 0.5 queries/sec (20 concurrent)
   - [ ] Validate performance under realistic load (100+ vehicles)
   - [ ] Document API endpoints for other services
   - [ ] Validate all spatial indexes are used (EXPLAIN ANALYZE)
