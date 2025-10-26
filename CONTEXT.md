@@ -888,10 +888,25 @@ SUCCESS CRITERIA:
 │    • Evening peak (5pm): 2.3x spawn rate, commercial buildings 1.8x multiplier                        │
 │    • Weekend: 0.7x Saturday, 0.5x Sunday                                                              │
 │    • Linked to Barbados country (id=29), verified via API                                             │
+│  ✅ SpawnConfigLoader: Python client for loading and caching spawn configurations                     │
+│    • Caching: 1-hour TTL to reduce API calls                                                          │
+│    • Methods:                                                                                         │
+│      - get_config_by_country(country_name) → loads full config from API                               │
+│      - get_hourly_rate(config, hour) → 0.1-2.8 spawn rate multiplier                                  │
+│      - get_building_weight(config, type) → building spawn weight (0-5.0)                              │
+│      - get_poi_weight(config, type) → POI spawn weight (0-5.0)                                        │
+│      - get_landuse_weight(config, type) → landuse spawn weight (0-5.0)                                │
+│      - get_day_multiplier(config, day_name) → weekday vs weekend factor                               │
+│      - get_distribution_params(config) → Poisson lambda, max spawns, radius                           │
+│      - calculate_spawn_probability() → final probability calculation                                  │
+│    • Example: Residential building, Monday 8am = 5.0 × 2.8 × 1.0 = 14.0                               │
+│    • Tested: All methods working, cache <1ms, calculations correct                                    │
 │  📁 Files:                                                                                            │
 │    • arknet-fleet-api/src/api/spawn-config/content-types/spawn-config/schema.json                    │
 │    • arknet-fleet-api/src/components/spawning/*.json (6 components)                                  │
 │    • seeds/seed_spawn_config.sql                                                                      │
+│    • commuter_simulator/infrastructure/spawn/config_loader.py                                        │
+│    • commuter_simulator/tests/manual/test_spawn_loader.py                                            │
 │                                                                                                       │
 │ TIER 4 (OPTIMIZATION - Phase 2-3): Performance Enhancements                                         │
 │  🔮 Redis reverse geocoding (<200ms target)                                                         │

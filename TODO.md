@@ -3,8 +3,8 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Phase 1.12 Progress - spawn-config schema complete with seed data)  
-**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (4/6 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
+**Updated**: October 26, 2025 (Phase 1.12 Progress - SpawnConfigLoader complete)  
+**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (5/6 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
 **Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 IN PROGRESS
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
@@ -179,7 +179,7 @@ Phase 1.10 (Complete imports) ✅ DONE
     - Longitude degree conversion adjusted by cos(latitude)
     - In-memory TTL cache (5s) for repeated identical queries
 
-- [x] **Phase 1.12**: Database Integration & Validation (4/6 steps) 🎯 **CURRENT**
+- [x] **Phase 1.12**: Database Integration & Validation (5/6 steps) 🎯 **CURRENT**
   - [x] Create API client wrapper for commuter_simulator
     - ✅ `commuter_simulator/infrastructure/geospatial/client.py` - Python client wrapper
     - ✅ Tested: reverse geocoding (105ms), geofencing (3ms), depot catchment (55ms)
@@ -216,8 +216,13 @@ Phase 1.10 (Complete imports) ✅ DONE
     - ✅ Day multipliers: Weekday 1.0, Saturday 0.7, Sunday 0.5
     - ✅ Poisson lambda: 3.5, max 50 spawns/cycle, 800m radius
     - ✅ Linked to Barbados country (id=29) via spawn_configs_country_lnk
-    - ✅ Verified via API: All components loading correctly with `populate=deep`
-  - [ ] Create SpawnConfigLoader for commuter_simulator
+    - ✅ Verified via API: All components loading correctly with `populate=*`
+  - [x] Create SpawnConfigLoader for commuter_simulator
+    - ✅ Created `commuter_simulator/infrastructure/spawn/config_loader.py`
+    - ✅ Implements caching with 1-hour TTL (reduce API calls)
+    - ✅ Methods: get_config_by_country(), get_hourly_rate(), get_building_weight(), get_poi_weight(), get_landuse_weight(), get_day_multiplier(), get_distribution_params(), calculate_spawn_probability()
+    - ✅ Tested: Loads Barbados config, calculates spawn probabilities correctly
+    - ✅ Example: Residential building Mon 8am = 5.0 × 2.8 × 1.0 = 14.0 probability multiplier
   - [ ] Validate performance under realistic load (100+ vehicles)
 
 ### **🎯 TIER 3: ADVANCED FEATURES - Passenger Spawning System**
