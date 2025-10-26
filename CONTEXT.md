@@ -39,6 +39,7 @@ You are a **50+ year full-stack developer veteran** with deep expertise across a
    - Never skip validation or testing phases
    - If a test fails, STOP and fix it before continuing
    - Perform a deep analysis of the codebase before proceeding
+   - analyze the TODO.md and determine steps to MVP and our next immediate steps
 
 4. **✅ MAINTAIN DOCUMENTATION DISCIPLINE**
    - Update CONTEXT.md immediately after every successful change
