@@ -4,4 +4,25 @@
 
 import { factories } from '@strapi/strapi';
 
-export default factories.createCoreRouter('api::admin-level.admin-level' as any);
+export default {
+  routes: [
+    {
+      method: 'GET',
+      path: '/admin-levels',
+      handler: 'admin-level.find',
+      config: {
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
+      path: '/admin-levels/:id',
+      handler: 'admin-level.findOne',
+      config: {
+        policies: [],
+        middlewares: [],
+      },
+    },
+  ],
+};

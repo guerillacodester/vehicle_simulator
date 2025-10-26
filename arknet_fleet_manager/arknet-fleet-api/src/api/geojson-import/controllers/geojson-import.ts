@@ -737,16 +737,50 @@ export default {
      */
     async importAdmin(ctx: any) {
       try {
-        const { countryId } = ctx.request.body;
+        const { countryId, adminLevelId, adminLevel } = ctx.request.body;
 
         if (!countryId) {
           return ctx.badRequest('countryId is required');
         }
 
-        const jobId = `admin_${Date.now()}`;
+        if (!adminLevelId) {
+          return ctx.badRequest('adminLevelId is required');
+        }
+
+        if (!adminLevel) {
+          return ctx.badRequest('adminLevel is required');
+        }
+
+        // Get the numeric country ID from the document ID using direct SQL
+        const knex = strapi.db.connection;
+        const countryResult = await knex('countries')
+          .select('id')
+          .where('document_id', countryId)
+          .first();
         
-        // Test with admin_level_6_polygon.geojson (parishes)
-        const geojsonPath = path.join(process.cwd(), '..', '..', 'sample_data', 'admin_level_6_polygon.geojson');
+        if (!countryResult) {
+          return ctx.notFound(`Country not found: ${countryId}`);
+        }
+        const numericCountryId = countryResult.id;
+
+        // Get the numeric admin_level ID
+        const adminLevelResult = await knex('admin_levels')
+          .select('id', 'name', 'level')
+          .where('id', adminLevelId)
+          .first();
+        
+        if (!adminLevelResult) {
+          return ctx.notFound(`Admin level not found: ${adminLevelId}`);
+        }
+        const numericAdminLevelId = adminLevelResult.id;
+
+        strapi.log.info(`[Admin Import] Country ID: ${numericCountryId}, Admin Level: ${adminLevelResult.level} (${adminLevelResult.name})`);
+
+        const jobId = `admin_${Date.now()}`;
+        const startTime = Date.now();
+        
+        // Dynamic file path based on admin level
+        const geojsonPath = path.join(process.cwd(), '..', '..', 'sample_data', `admin_level_${adminLevel}_polygon.geojson`);
         
         // Check if file exists
         if (!fs.existsSync(geojsonPath)) {
@@ -757,113 +791,239 @@ export default {
         // Get file stats
         const stats = fs.statSync(geojsonPath);
         const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-        strapi.log.info(`[${jobId}] File found: ${geojsonPath} (${fileSizeMB} MB)`);
+        strapi.log.info(`[${jobId}] Starting STREAMING import of ${fileSizeMB} MB file (${adminLevelResult.name})`);
 
-        // Read and parse GeoJSON
-        const geojsonContent = fs.readFileSync(geojsonPath, 'utf8');
-        const geojson = JSON.parse(geojsonContent);
-        const featureCount = geojson.features?.length || 0;
+        // Send initial progress
+        // @ts-ignore - Socket.IO instance stored on strapi object
+        strapi.io.emit('import:progress', {
+          jobId,
+          countryId,
+          fileType: 'admin',
+          phase: 'starting',
+          adminLevel: adminLevelResult.level,
+          adminLevelName: adminLevelResult.name,
+          fileSizeMB,
+        });
 
-        strapi.log.info(`[${jobId}] Parsed ${featureCount} features`);
-
-        // Insert first feature as test
-        let testInsertResult = null;
+        // Stream and process features in batches
+        let totalProcessed = 0;
         
-        if (featureCount > 0) {
-          const firstFeature = geojson.features[0];
-          const props = firstFeature.properties;
+        const result = await streamGeoJSON(geojsonPath, {
+          batchSize: 500,
           
-          strapi.log.info(`[${jobId}] Sample feature properties:`, {
-            osm_id: props?.osm_id,
-            name: props?.name,
-            admin_level: props?.admin_level,
-            geometry_type: firstFeature.geometry?.type,
-          });
-
-          // Create region record
-          const regionName = props?.name || `admin-${props?.admin_level || '6'}-${props?.osm_id || 'unknown'}`;
-          const regionId = generateSlug(regionName, props?.osm_id);
-          
-          const regionData = {
-            region_id: regionId,
-            osm_id: props?.osm_id || null,
-            full_id: props?.full_id || null,
-            name: regionName,
-            admin_level: props?.admin_level ? parseInt(props.admin_level) : 6,
-            country: countryId,
-          };
-
-          const region = await strapi.entityService.create('api::region.region' as any, {
-            data: regionData,
-          });
-
-          strapi.log.info(`[${jobId}] Region record created with ID: ${region.id}`);
-
-          // Create PostGIS MultiPolygon geometry
-          if (firstFeature.geometry && (firstFeature.geometry.type === 'Polygon' || firstFeature.geometry.type === 'MultiPolygon')) {
-            let wkt: string;
+          onBatch: async (features: any[]) => {
+            const knex = strapi.db.connection;
+            const timestamp = new Date();
+            const { randomUUID } = require('crypto');
             
-            if (firstFeature.geometry.type === 'MultiPolygon') {
-              // Convert MultiPolygon coordinates to WKT
-              const polygons = firstFeature.geometry.coordinates.map((polygon: number[][][]) => {
-                const rings = polygon.map((ring: number[][]) => {
-                  const coords = ring.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
-                  return `(${coords})`;
-                }).join(', ');
-                return `(${rings})`;
+            // Build bulk insert values array
+            const insertValues: any[] = [];
+            const insertBindings: any[] = [];
+            
+            features.forEach((feature: any) => {
+              const props = feature.properties || {};
+              const regionName = props.name || `admin-${adminLevel}-${props.osm_id || 'unknown'}`;
+              const documentId = randomUUID(); // Generate UUID for document_id
+              
+              // Convert geometry to WKT MultiPolygon
+              let wkt = null;
+              if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+                if (feature.geometry.type === 'MultiPolygon') {
+                  // Already MultiPolygon - convert coordinates to WKT
+                  const polygons = feature.geometry.coordinates.map((polygon: number[][][]) => {
+                    const rings = polygon.map((ring: number[][]) => {
+                      const coords = ring.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
+                      return `(${coords})`;
+                    }).join(', ');
+                    return `(${rings})`;
+                  }).join(', ');
+                  wkt = `MULTIPOLYGON(${polygons})`;
+                } else {
+                  // Convert single Polygon to MultiPolygon for consistency
+                  const rings = feature.geometry.coordinates.map((ring: number[][]) => {
+                    const coords = ring.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
+                    return `(${coords})`;
+                  }).join(', ');
+                  wkt = `MULTIPOLYGON(((${rings})))`;
+                }
+              }
+              
+              insertValues.push('(?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+              insertBindings.push(
+                documentId,                // document_id
+                props.osm_id || null,      // osm_id
+                props.full_id || null,     // full_id
+                regionName,                // name
+                wkt,                       // geom (WKT)
+                timestamp,                 // created_at
+                timestamp,                 // updated_at
+                timestamp                  // published_at
+              );
+            });
+            
+            // Execute bulk insert with geometry in one query
+            if (insertValues.length > 0) {
+              await knex.raw(`
+                INSERT INTO regions (
+                  document_id, osm_id, full_id, name, geom, created_at, updated_at, published_at
+                ) VALUES ${insertValues.join(', ')}
+              `, insertBindings);
+              
+              // Get the IDs of the just-inserted regions
+              const regionIds = await knex('regions')
+                .select('id')
+                .whereIn('osm_id', features.map((f: any) => f.properties?.osm_id).filter(Boolean))
+                .orderBy('id', 'desc')
+                .limit(features.length);
+              
+              // Link to country (bulk insert into junction table)
+              const countryLinkBindings: any[] = [];
+              const countryLinkPlaceholders = regionIds.map((row: any) => {
+                countryLinkBindings.push(row.id, numericCountryId);
+                return '(?, ?)';
               }).join(', ');
-              wkt = `MULTIPOLYGON(${polygons})`;
-            } else {
-              // Convert single Polygon to MultiPolygon for consistency
-              const rings = firstFeature.geometry.coordinates.map((ring: number[][]) => {
-                const coords = ring.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
-                return `(${coords})`;
+              
+              if (countryLinkPlaceholders) {
+                await knex.raw(`
+                  INSERT INTO regions_country_lnk (region_id, country_id)
+                  VALUES ${countryLinkPlaceholders}
+                `, countryLinkBindings);
+              }
+              
+              // Link to admin_level (bulk insert into junction table)
+              const adminLevelLinkBindings: any[] = [];
+              const adminLevelLinkPlaceholders = regionIds.map((row: any) => {
+                adminLevelLinkBindings.push(row.id, numericAdminLevelId);
+                return '(?, ?)';
               }).join(', ');
-              wkt = `MULTIPOLYGON(((${rings})))`;
-              strapi.log.info(`[${jobId}] Converted Polygon to MultiPolygon for consistency`);
+              
+              if (adminLevelLinkPlaceholders) {
+                await knex.raw(`
+                  INSERT INTO regions_admin_level_lnk (region_id, admin_level_id)
+                  VALUES ${adminLevelLinkPlaceholders}
+                `, adminLevelLinkBindings);
+              }
+            }
+
+            totalProcessed += features.length;
+          },
+          
+          onProgress: (progress) => {
+            // Calculate progress metrics
+            const elapsedSeconds = (progress.elapsedTime / 1000).toFixed(1);
+            const featuresPerSecond = progress.elapsedTime > 0
+              ? (progress.processed / (progress.elapsedTime / 1000)).toFixed(0)
+              : '0';
+            
+            // Calculate percentage and batch info if we have an estimate
+            let progressMessage = `[${jobId}] Progress: ${progress.processed} features`;
+            let percentComplete = '0.0';
+            let estimatedBatches = 0;
+            
+            if (progress.estimatedTotal && progress.estimatedTotal > 0) {
+              percentComplete = ((progress.processed / progress.estimatedTotal) * 100).toFixed(1);
+              estimatedBatches = Math.ceil(progress.estimatedTotal / 500);
+              progressMessage = `[${jobId}] Progress: ${progress.processed}/${progress.estimatedTotal} features (${percentComplete}%)`;
             }
             
-            strapi.log.info(`[${jobId}] Creating PostGIS MultiPolygon geometry`);
+            progressMessage += ` | Batch ${progress.currentBatch}`;
+            if (estimatedBatches > 0) {
+              progressMessage += `/${estimatedBatches}`;
+            }
+            progressMessage += ` | ${elapsedSeconds}s elapsed | ${featuresPerSecond} features/sec`;
             
-            // Insert geometry using PostGIS
-            const knex = strapi.db.connection;
-            await knex.raw(`
-              UPDATE regions
-              SET geom = ST_GeomFromText(?, 4326)
-              WHERE id = ?
-            `, [wkt, region.id]);
+            // Emit Socket.IO progress update
+            // @ts-ignore - Socket.IO instance stored on strapi object
+            strapi.io.emit('import:progress', {
+              jobId,
+              countryId,
+              fileType: 'admin',
+              adminLevel: adminLevelResult.level,
+              adminLevelName: adminLevelResult.name,
+              processed: progress.processed,
+              estimatedTotal: progress.estimatedTotal,
+              percent: percentComplete,
+              currentBatch: progress.currentBatch,
+              estimatedBatches,
+              elapsedTime: progress.elapsedTime,
+              elapsedSeconds,
+              featuresPerSecond,
+              bytesRead: progress.bytesRead,
+            });
 
-            strapi.log.info(`[${jobId}] PostGIS MultiPolygon geometry created successfully`);
-            
-            testInsertResult = {
-              regionId: region.id,
-              name: regionName,
-              adminLevel: props?.admin_level,
-              geometryType: firstFeature.geometry.type,
-              convertedTo: 'MultiPolygon',
-            };
-          }
-        }
+            // Log progress
+            strapi.log.info(progressMessage);
+          },
+          
+          onError: (error) => {
+            strapi.log.error(`[${jobId}] Streaming error:`, error);
+            // @ts-ignore - Socket.IO instance stored on strapi object
+            strapi.io.emit('import:error', {
+              jobId,
+              countryId,
+              fileType: 'admin',
+              adminLevel: adminLevelResult.level,
+              error: error.message,
+            });
+          },
+        });
+
+        const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+        const featuresPerSecond = (result.totalFeatures / (result.elapsedTime / 1000)).toFixed(0);
+        const avgBatchTime = (result.elapsedTime / result.totalBatches / 1000).toFixed(1);
+        
+        strapi.log.info(
+          `[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s ` +
+          `(${result.totalBatches} batches, ${featuresPerSecond} features/sec, ${avgBatchTime}s/batch)`
+        );
+
+        // Emit completion event
+        // @ts-ignore - Socket.IO instance stored on strapi object
+        strapi.io.emit('import:complete', {
+          jobId,
+          countryId,
+          fileType: 'admin',
+          adminLevel: adminLevelResult.level,
+          adminLevelName: adminLevelResult.name,
+          totalFeatures: result.totalFeatures,
+          totalBatches: result.totalBatches,
+          elapsedTime: result.elapsedTime,
+          elapsedSeconds,
+          featuresPerSecond,
+          avgBatchTime,
+        });
 
         ctx.body = {
           jobId,
-          message: testInsertResult 
-            ? 'Admin boundaries import - first test feature inserted successfully with PostGIS MultiPolygon' 
-            : 'Admin boundaries import file validated and parsed successfully',
+          message: `Admin boundaries import completed successfully using streaming parser`,
           countryId,
           fileType: 'admin',
+          adminLevel: adminLevelResult.level,
+          adminLevelName: adminLevelResult.name,
           fileInfo: {
             path: geojsonPath,
             sizeMB: fileSizeMB,
-            featureCount,
-            geometryType: geojson.type,
           },
-          testInsert: testInsertResult,
-          note: 'Currently imports admin_level_6_polygon.geojson (parishes). Other admin levels (8/9/10) need separate handling.',
+          result: {
+            totalFeatures: result.totalFeatures,
+            totalBatches: result.totalBatches,
+            elapsedTime: result.elapsedTime,
+            elapsedSeconds,
+            featuresPerSecond: (result.totalFeatures / (result.elapsedTime / 1000)).toFixed(0),
+          },
         };
-      } catch (error) {
+      } catch (error: any) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         strapi.log.error('Admin import failed:', error);
+        
+        // @ts-ignore - Socket.IO instance stored on strapi object
+        strapi.io.emit('import:error', {
+          countryId: ctx.request.body.countryId,
+          fileType: 'admin',
+          adminLevel: ctx.request.body.adminLevel,
+          error: errorMessage,
+        });
+        
         ctx.internalServerError(`Import failed: ${errorMessage}`);
       }
     },

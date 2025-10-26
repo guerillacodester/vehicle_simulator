@@ -461,11 +461,12 @@ window.handleImportAdmin = async (
   // Fetch available admin levels from API
   try {
     const apiBase = getApiBaseUrl();
-    const token = getAuthToken();
     
     const response = await fetch(`${apiBase}/api/admin-levels`, {
+      method: 'GET',
+      credentials: 'include',
       headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
       }
     });
     
