@@ -3,8 +3,8 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Phase 1.12 Progress - spawn-config schema redesigned with components)  
-**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (3/6 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
+**Updated**: October 26, 2025 (Phase 1.12 Progress - spawn-config schema complete with seed data)  
+**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (4/6 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
 **Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 IN PROGRESS
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
@@ -179,7 +179,7 @@ Phase 1.10 (Complete imports) ✅ DONE
     - Longitude degree conversion adjusted by cos(latitude)
     - In-memory TTL cache (5s) for repeated identical queries
 
-- [x] **Phase 1.12**: Database Integration & Validation (3/6 steps) 🎯 **CURRENT**
+- [x] **Phase 1.12**: Database Integration & Validation (4/6 steps) 🎯 **CURRENT**
   - [x] Create API client wrapper for commuter_simulator
     - ✅ `commuter_simulator/infrastructure/geospatial/client.py` - Python client wrapper
     - ✅ Tested: reverse geocoding (105ms), geofencing (3ms), depot catchment (55ms)
@@ -200,17 +200,25 @@ Phase 1.10 (Complete imports) ✅ DONE
       - `spawning.landuse-weight` - Landuse zones table (residential, commercial, industrial, etc.)
       - `spawning.hourly-pattern` - 24-hour spawn rates (1.0=normal, 2.5=peak)
       - `spawning.day-multiplier` - Day-of-week multipliers (weekday vs weekend)
-      - `spawning.distribution-params` - Poisson lambda, spawn constraints
+      - `spawning.distribution-params` - Poisson lambda, spawn constraints (collapsible)
     - ✅ Each feature has: base weight + peak_multiplier + is_active toggle
     - ✅ Simple mental model: final_spawn_probability = weight × peak_multiplier × hourly_rate × day_multiplier
     - ✅ UX: Three collapsible sections (Buildings, POIs, Landuse) with editable grid tables
     - ✅ No JSON blobs needed for common use cases
+    - ✅ Relationship: country ↔ spawn-config (oneToOne, bidirectional)
     - 📁 Files:
       - `arknet-fleet-api/src/api/spawn-config/content-types/spawn-config/schema.json`
       - `arknet-fleet-api/src/components/spawning/*.json` (6 components)
+  - [x] Seed spawn-config with realistic Barbados commuter patterns
+    - ✅ Created SQL seed script: `seeds/seed_spawn_config.sql`
+    - ✅ Seeded data: "Barbados Typical Weekday" with 8 building types, 6 POI types, 5 landuse types
+    - ✅ Hourly patterns: 24-hour distribution (0.2 late night → 2.8 morning peak → 2.3 evening peak)
+    - ✅ Day multipliers: Weekday 1.0, Saturday 0.7, Sunday 0.5
+    - ✅ Poisson lambda: 3.5, max 50 spawns/cycle, 800m radius
+    - ✅ Linked to Barbados country (id=29) via spawn_configs_country_lnk
+    - ✅ Verified via API: All components loading correctly with `populate=deep`
+  - [ ] Create SpawnConfigLoader for commuter_simulator
   - [ ] Validate performance under realistic load (100+ vehicles)
-  - [ ] Document API endpoints for other services
-  - [ ] Validate all spatial indexes are used (EXPLAIN ANALYZE)
 
 ### **🎯 TIER 3: ADVANCED FEATURES - Passenger Spawning System**
 

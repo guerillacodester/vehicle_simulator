@@ -873,17 +873,25 @@ SUCCESS CRITERIA:
 │    • spawning.landuse-weight - Landuse zones (residential, commercial, industrial, etc.)             │
 │    • spawning.hourly-pattern - 24-hour spawn rates (1.0=normal, 2.5=peak rush hour)                  │
 │    • spawning.day-multiplier - Day-of-week multipliers (weekday 1.0, weekend 0.7)                    │
-│    • spawning.distribution-params - Poisson lambda, spawn constraints                                │
+│    • spawning.distribution-params - Poisson lambda, spawn constraints (collapsible)                  │
 │  ✅ Simple Mental Model:                                                                              │
 │    final_spawn_probability = weight × peak_multiplier × hourly_rate × day_multiplier                 │
 │  ✅ UX Features:                                                                                      │
 │    • Three collapsible sections: Buildings, POIs, Landuse (separate grid tables)                     │
 │    • Each feature: base weight (1.0-5.0) + peak_multiplier + is_active toggle                        │
+│    • All components collapsible with (0) indicator when empty                                         │
 │    • No JSON blob editing needed for common use cases                                                 │
 │    • Editable grids with validation (can't enter text as numbers)                                    │
+│  ✅ Relationship: country ↔ spawn-config (oneToOne, bidirectional, auto-created by Strapi)           │
+│  ✅ Seed Data: "Barbados Typical Weekday" with realistic commuter patterns                            │
+│    • Morning peak (8am): 2.8x spawn rate, residential buildings 2.5x multiplier                       │
+│    • Evening peak (5pm): 2.3x spawn rate, commercial buildings 1.8x multiplier                        │
+│    • Weekend: 0.7x Saturday, 0.5x Sunday                                                              │
+│    • Linked to Barbados country (id=29), verified via API                                             │
 │  📁 Files:                                                                                            │
 │    • arknet-fleet-api/src/api/spawn-config/content-types/spawn-config/schema.json                    │
 │    • arknet-fleet-api/src/components/spawning/*.json (6 components)                                  │
+│    • seeds/seed_spawn_config.sql                                                                      │
 │                                                                                                       │
 │ TIER 4 (OPTIMIZATION - Phase 2-3): Performance Enhancements                                         │
 │  🔮 Redis reverse geocoding (<200ms target)                                                         │
