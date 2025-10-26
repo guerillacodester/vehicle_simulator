@@ -3,11 +3,22 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.6  
 **Started**: October 25, 2025  
-**Status**: � Phase 1 COMPLETE - Moving to Phase 2  
-**Current Step**: 1.7.1 (Create Backend API Skeleton)
+**Updated**: October 26, 2025  
+**Status**: 🎯 TIER 1 (GeoJSON Import) - Phase 1.10 in progress  
+**Strategy**: Option A - Complete Imports → Enable Spawning → Optimize Performance
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
 > **📚 Reference**: `GEOJSON_IMPORT_CONTEXT.md` - Detailed file analysis (historical)
+
+**Execution Priority**:
+
+```text
+TIER 1: Phase 1.10 (Complete GeoJSON imports) ⏳ CURRENT
+TIER 2: Phases 1.11-1.12 (Enable spawning queries) 🔜 NEXT
+TIER 3: Phases 4-5-6 (Passenger spawning features) 🔜 
+TIER 4: Phases 2-3 (Redis optimization + Geofencing) 🔜
+TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
+```
 
 ---
 
@@ -15,10 +26,23 @@
 
 ### **Where Am I?**
 
-- **Phase**: Phase 1.9 COMPLETE ✅ - Admin level UI ready, backend endpoint needed
-- **Next Task**: Step 1.10.6 - Create `/api/import-geojson/admin` backend endpoint
-- **Blocker**: None - Frontend ready, database seeded, just need backend implementation
-- **Files Ready**: 4 GeoJSON files in sample_data/ (admin_level_6, 8, 9, 10)
+- **Current Focus**: TIER 1 - GeoJSON Import System Completion
+- **Phase**: Phase 1.10 (Optimize Remaining Import Endpoints) - 2/5 tasks complete
+- **Next Immediate Task**: Create `/api/import-geojson/admin` backend endpoint
+- **After Phase 1.10**: Move to TIER 2 - Geospatial Services API (enables spawning)
+- **Blocker**: None - Frontend ready, database seeded, backend implementation needed
+- **Files Ready**: 4 admin level GeoJSON files in sample_data/ (levels 6, 8, 9, 10)
+
+**Priority Path** (Option A):
+
+```text
+Phase 1.10 (Complete imports) 
+  → Phase 1.11 (Geospatial API) 
+  → Phase 1.12 (Validation)
+  → Phases 4/5/6 (Spawning features)
+  → Phase 2 (Redis optimization)
+  → Phase 3 (Geofencing)
+```
 
 ### **What Do I Need to Know?**
 
@@ -52,56 +76,169 @@
 
 ## 📊 **OVERALL PROGRESS**
 
-- [x] **Phase 1**: Country Schema + Action Buttons (10/10 steps) ✅ COMPLETE
-- [x] **Phase 1.7**: Backend API + Highway Import (PostGIS) ✅ COMPLETE
-- [x] **Phase 1.8**: **PostGIS Migration (ALL TABLES)** ✅ COMPLETE (Oct 25, 2025 18:17)
-  - ✅ Migration executed successfully
-  - ✅ 11 tables with PostGIS geometry columns
-  - ✅ 12 GIST spatial indexes created
-  - ✅ Spatial queries tested and working
-  - ✅ All import endpoints updated with PostGIS pattern
-- [x] **Phase 1.9**: Buildings Import & Admin Level Normalization ✅ COMPLETE (Oct 25, 2025 19:45)
-  - ✅ Building content type schema created
-  - ✅ Streaming parser implemented (stream-json)
-  - ✅ 162,942 buildings imported at 1166 features/sec (139.7s total)
-  - ✅ 100% data completeness validated
-  - ✅ Admin levels reference table created (4 levels: 6, 8, 9, 10)
-  - ✅ Admin-level Strapi content type created (schema, controller, service, routes)
-  - ✅ Regions table updated with admin_level relationship
-  - ✅ Foreign key constraints and junction table created
-  - ✅ Admin level selection UI created (dark theme modal with dropdown)
-  - ✅ Frontend handler updated to fetch and pass admin level to backend
-  - ✅ Build successful (Oct 25, 2025 23:45)
-- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (2/5 tasks) ⏳ NEXT - HIGH PRIORITY
-  - **Goal**: Apply building import pattern (streaming + bulk SQL) to 4 remaining endpoints
-  - **Current Status**: Admin UI complete (dropdown selection with dark theme), backend needed
+**Priority Sequence**: Option A - Complete GeoJSON Import → Enable Spawning → Optimize Performance
+
+### **🎯 TIER 1: IMMEDIATE - GeoJSON Import System (Current Focus)**
+
+- [x] **Phase 1.1-1.9**: Foundation & Buildings Import ✅ COMPLETE
+  - ✅ Country schema + action buttons
+  - ✅ Backend API + PostGIS migration (11 tables, 12 GIST indexes)
+  - ✅ Buildings imported (162,942 records at 1166 features/sec)
+  - ✅ Admin levels normalized (4 levels with UI dropdown)
+
+- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (2/5 tasks) ⏳ **NEXT IMMEDIATE**
   - [x] Admin level selection UI with dropdown (COMPLETE Oct 25, 2025 23:45)
   - [x] Frontend handler passes adminLevelId and adminLevel to backend (COMPLETE)
-  - [ ] **NEXT IMMEDIATE**: Create `/api/import-geojson/admin` backend endpoint ⏳
-    - **Accept**: countryId, adminLevelId, adminLevel from request body
-    - **File mapping**: admin_level_${adminLevel}_polygon.geojson (4 files: 6, 8, 9, 10)
-    - **Lookup**: Verify adminLevelId exists in admin_levels table
-    - **Insert**: regions table with osm_id, full_id, name, admin_level_id, geom (MultiPolygon)
-    - **Pattern**: Use building import streaming parser + bulk SQL (500 features/batch)
-    - **Validation**: adminLevel must be 6, 8, 9, or 10
+  - [ ] **NOW**: Create `/api/import-geojson/admin` backend endpoint
   - [ ] Highway import optimization (41MB, ~22,719 features, LineString)
-  - [ ] Amenity import optimization (3.65MB, 1,427 features, handle Point/Polygon/MultiPolygon)
+  - [ ] Amenity import optimization (3.65MB, 1,427 features, Point/Polygon/MultiPolygon)
   - [ ] Landuse import optimization (4.12MB, 2,267 features, Polygon/MultiPolygon)
-    - Lookup admin_level record, insert regions with relationship
-    - Use streaming parser + bulk SQL pattern from buildings
-  - [ ] Highway import optimization (41MB, ~22,719 features)
-  - [ ] Amenity import optimization (3.65MB, 1,427 features, handle Point/Polygon/MultiPolygon)
-  - [ ] Landuse import optimization (4.12MB, 2,267 features)
-- [ ] **Phase 1.11**: Geospatial Services API (0/7 steps) - CRITICAL for spawning queries
-- [ ] **Phase 1.12**: Database Integration (0/5 steps)
-- [ ] **Phase 2**: Complete Backend + Batch Import (0/15 steps)
-- [ ] **Phase 3**: Redis + Reverse Geocoding (0/12 steps)
-- [ ] **Phase 4**: Geofencing (0/8 steps)
-- [ ] **Phase 5**: POI-Based Spawning (0/18 steps) - BLOCKED
-- [ ] **Phase 6**: Depot/Route Spawners (0/11 steps) - BLOCKED
-- [ ] **Phase 7**: Conductor Communication (0/7 steps) - BLOCKED
 
-**Total**: 17/92 major steps (added Phase 1.10 sub-tasks)
+### **🎯 TIER 2: FOUNDATION - Enable Spawning Queries (Required for Simulator)**
+
+- [ ] **Phase 1.11**: Geospatial Services API (0/7 steps) - **CRITICAL BLOCKER**
+  - Build queries: routes, depots, buildings, zones
+  - Enables commuter_simulator spawning logic
+  - **Blocks**: Phases 4, 5, 6 (all spawning features)
+
+- [ ] **Phase 1.12**: Database Integration & Validation (0/5 steps)
+  - Test spatial queries, validate indexes
+  - Confirms Phase 1.11 works correctly
+
+### **🎯 TIER 3: ADVANCED FEATURES - Passenger Spawning System**
+
+- [ ] **Phase 4**: POI-Based Spawning (0/18 steps)
+  - Requires: Phase 1.11 (Geospatial API)
+  - Activity-based passenger generation
+
+- [ ] **Phase 5**: Depot/Route Spawners (0/11 steps)
+  - Requires: Phase 1.11 (Geospatial API)
+  - ST_DWithin queries for proximity spawning
+
+- [ ] **Phase 6**: Conductor Communication (0/7 steps)
+  - Requires: Phase 5 (active spawning)
+  - Vehicle-passenger interaction
+
+### **🎯 TIER 4: OPTIMIZATION - Performance Enhancement (Post-Spawning)**
+
+- [ ] **Phase 2**: Redis + Reverse Geocoding (0/15 steps)
+  - Install Redis, implement geospatial service
+  - Target: <200ms queries (vs ~2000ms PostgreSQL)
+  - **Optional**: Can work with slower PostgreSQL queries initially
+
+- [ ] **Phase 3**: Geofencing (0/8 steps)
+  - Requires: Phase 2 (Redis)
+  - Real-time geofence detection
+
+### **📡 SEPARATE TRACK: GPS CentCom Server (Future Production Hardening)**
+
+- ✅ **Current Status**: MVP Demo Ready (FastAPI + WebSocket + In-Memory Store)
+- [ ] **Future Tier 1**: Production-Grade Improvements
+  - Persistent datastore (Redis or Postgres)
+  - Per-device authentication tokens
+  - Structured logging (JSON)
+  - Basic metrics (Prometheus)
+- [ ] **Future Tier 2**: Scale to Real Fleet
+  - Horizontal scaling (Redis cluster)
+  - Encrypted payloads (AESGCM server-side)
+  - Advanced monitoring (Grafana/ELK)
+  - CI/CD pipeline with tests
+
+**Total Progress**: 17/92 major steps across GeoJSON + Spawning phases  
+**GPS CentCom**: Separate track, deferred until simulator fully functional
+
+---
+
+## 📡 **GPS CENTCOM SERVER STATUS**
+
+**Location**: `gpscentcom_server/`  
+**Technology**: FastAPI + WebSocket + In-Memory Store  
+**Port**: 5000  
+**Status**: ✅ MVP Demo Ready (production deployment exists)
+
+### **Current Capabilities**
+
+✅ **Core Features**:
+
+- Real-time WebSocket telemetry ingestion (`/device` endpoint)
+- REST APIs for device queries (`/devices`, `/device/{id}`, `/route/{code}`, `/analytics`)
+- Auto-cleanup of stale devices (120s timeout)
+- Plugin-based GPS device (simulation, ESP32, file replay, navigator)
+- PING/PONG keepalive handling
+- Structured error responses (ErrorRegistry)
+- CORS enabled for cross-origin requests
+- Socket.IO progress events during import operations
+- Production deployment (Systemd + Nginx reverse proxy)
+
+✅ **Data Model**:
+
+- DeviceState with Pydantic validation
+- Route-based filtering and analytics
+- Lat/lon, speed, heading, timestamp tracking
+- Driver/conductor metadata support
+
+### **Known Limitations** (See CONTEXT.md for details)
+
+❌ **Critical Production Gaps**:
+
+1. **No persistence** - In-memory only, data lost on restart
+2. **Shared auth token** - All devices use same `AUTH_TOKEN`
+3. **No horizontal scaling** - Single-process limitation
+4. **No AESGCM server support** - Binary codec exists client-side but not server-side
+5. **No monitoring/metrics** - No Prometheus, no structured logging
+6. **No rate limiting** - Vulnerable to DoS attacks
+7. **No unit tests** - Zero automated testing
+
+### **Production Roadmap** (from `gpscentcom_server/TODO.md`)
+
+**MVP Production Grade** (safe for staging/investor pilots):
+
+- [ ] Persistent datastore (Redis or Postgres) - **HIGH PRIORITY**
+- [ ] Structured logging (JSON logs for cloud platforms)
+- [ ] Basic metrics (Prometheus)
+- [ ] TLS/HTTPS termination (wss://)
+- [ ] Per-device identifiers + token pairs
+- [ ] Unit tests for core modules
+- [ ] Graceful shutdown improvements
+
+**MVP Complete** (foundation for real deployment):
+
+- [ ] Horizontally scalable store (Redis cluster/Postgres HA)
+- [ ] Per-device authentication & key management
+- [ ] Encrypted payloads (AES/TLS end-to-end)
+- [ ] Replay protection / integrity checks
+- [ ] Advanced monitoring & alerts (Grafana/ELK)
+- [ ] CI/CD pipeline with tests
+- [ ] Extensible codec framework (CBOR, protobuf)
+
+### **Integration with Vehicle Simulator**
+
+**Current Flow**:
+
+```text
+arknet_transit_simulator
+  └─ vehicle/gps_device/
+       ├─ Plugin Manager (simulation/ESP32/file/navigator)
+       ├─ RxTx Buffer (FIFO queue, max 1000 items)
+       ├─ WebSocketTransmitter
+       └─ PacketCodec (JSON/AESGCM)
+            ↓
+            ws://server:5000/device?token=xxx&deviceId=yyy
+            ↓
+gpscentcom_server
+  ├─ rx_handler.py (WebSocket endpoint)
+  ├─ connection_manager.py (lifecycle management)
+  ├─ store.py (in-memory DeviceState)
+  └─ api_router.py (REST endpoints)
+       ↓
+       GET /devices → Dashboard
+```
+
+**Recommendation**:
+
+- ✅ Use now for development, testing, and demos (10-50 vehicles)
+- ❌ Don't deploy to real vehicles without Redis + per-device auth
+- 🎯 Priority if moving to production: Redis storage, per-device tokens, Prometheus metrics
 
 ---
 
@@ -626,7 +763,28 @@
 
 ---
 
-## 🔴 **PHASE 2: REDIS + REVERSE GEOCODING**
+## � **PHASE EXECUTION ORDER (Option A)**
+
+Following the priority sequence, phases should be executed in this order:
+
+1. ✅ **Phase 1.1-1.9**: Foundation (COMPLETE)
+2. ⏳ **Phase 1.10**: Complete Import Endpoints (CURRENT - 2/5 tasks)
+3. 🔜 **Phase 1.11**: Geospatial Services API (NEXT - enables spawning)
+4. 🔜 **Phase 1.12**: Database Integration & Validation
+5. 🔜 **Phase 4**: POI-Based Spawning (requires 1.11)
+6. 🔜 **Phase 5**: Depot/Route Spawners (requires 1.11)
+7. 🔜 **Phase 6**: Conductor Communication (requires 5)
+8. 🔜 **Phase 2**: Redis + Reverse Geocoding (optimization)
+9. 🔜 **Phase 3**: Geofencing (requires 2)
+
+**Note**: Phase 2 (Redis) is moved after spawning phases since it's an optimization, not a blocker. PostgreSQL queries (~2s) work fine for initial development. Optimize with Redis (<200ms) after spawning is functional.
+
+---
+
+## �🔴 **PHASE 2: REDIS + REVERSE GEOCODING**
+
+**EXECUTION ORDER**: After Phase 6 (Conductor Communication)  
+**STATUS**: Deferred - Optimization phase, not a blocker for spawning functionality
 
 ---
 
@@ -1376,11 +1534,26 @@ git push origin branch-0.0.2.6
 
 ## 🔔 **PHASE 3: GEOFENCING**
 
+**EXECUTION ORDER**: After Phase 2 (Redis + Reverse Geocoding)  
+**STATUS**: Deferred - Requires Redis infrastructure from Phase 2
+
 ## 🎯 **PHASE 4: POI-BASED SPAWNING**
+
+**EXECUTION ORDER**: After Phase 1.12 (Database Integration)  
+**STATUS**: Ready after Geospatial API is complete  
+**BLOCKER**: Requires Phase 1.11 Geospatial Services API
 
 ## 🚌 **PHASE 5: DEPOT/ROUTE SPAWNERS**
 
+**EXECUTION ORDER**: After Phase 4 or in parallel with Phase 4  
+**STATUS**: Ready after Geospatial API is complete  
+**BLOCKER**: Requires Phase 1.11 Geospatial Services API
+
 ## 🔗 **PHASE 6: CONDUCTOR COMMUNICATION**
+
+**EXECUTION ORDER**: After Phase 5 (Depot/Route Spawners)  
+**STATUS**: Requires active passenger spawning to be functional  
+**BLOCKER**: Requires Phase 5 (passenger spawning operational)
 
 ## Phases 3-6 to be detailed after Phase 2 completion
 
