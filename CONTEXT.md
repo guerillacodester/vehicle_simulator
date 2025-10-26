@@ -4,8 +4,8 @@
 **Repository**: vehicle_simulator  
 **Branch**: branch-0.0.2.6 (NOT main)  
 **Date**: October 26, 2025  
-**Status**: 🚧 Active Development - GeoJSON Import System (Phase 1.10 - Admin Import Next)  
-**Phase**: TIER 1 - Complete GeoJSON Imports (18/92 major steps complete)
+**Status**: ✅ TIER 1 COMPLETE - All GeoJSON Imports Validated (189,659 features, 82 tests passing)  
+**Phase**: TIER 2 NEXT - Geospatial Services API (Phase 1.11 - Enable Spawning Queries)
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -253,14 +253,35 @@ ls landuse.geojson        # 4.12MB
 -- 1. Check buildings table has 162,942 records
 SELECT COUNT(*) FROM buildings;
 
--- 2. Check admin_levels table has 4 seeded records
-SELECT * FROM admin_levels ORDER BY level;
--- Expected: Parish(6), Town(8), Suburb(9), Neighbourhood(10)
+-- 2. Check all 5 imports completed
+SELECT 
+  (SELECT COUNT(*) FROM buildings) as buildings,
+  (SELECT COUNT(*) FROM regions) as regions,
+  (SELECT COUNT(*) FROM highways) as highways,
+  (SELECT COUNT(*) FROM pois) as pois,
+  (SELECT COUNT(*) FROM landuse_zones) as landuse_zones;
+-- Expected: 162,942, 304, 22,719, 1,427, 2,267
 
--- 3. Verify GIST indexes exist
+-- 3. Verify all country links exist
+SELECT 
+  (SELECT COUNT(*) FROM buildings_country_lnk) as building_links,
+  (SELECT COUNT(*) FROM regions_country_lnk) as region_links,
+  (SELECT COUNT(*) FROM highways_country_lnk) as highway_links,
+  (SELECT COUNT(*) FROM pois_country_lnk) as poi_links,
+  (SELECT COUNT(*) FROM landuse_zones_country_lnk) as landuse_links;
+-- Expected: 162,942, 304, 22,719, 1,427, 2,267 (total: 189,659)
+
+-- 4. Verify region links exist (features can cross boundaries)
+SELECT 
+  (SELECT COUNT(*) FROM highways_region_lnk) as highway_region_links,
+  (SELECT COUNT(*) FROM pois_region_lnk) as poi_region_links,
+  (SELECT COUNT(*) FROM landuse_zones_region_lnk) as landuse_region_links;
+-- Expected: 23,666 (947 highways cross boundaries), 1,427, 2,310 (43 zones cross boundaries)
+
+-- 5. Verify GIST indexes exist
 SELECT schemaname, tablename, indexname FROM pg_indexes 
 WHERE indexname LIKE 'idx_%_geom';
--- Expected: 12 indexes
+-- Expected: Multiple indexes on all spatial tables
 
 -- 4. Test spatial query performance
 EXPLAIN ANALYZE

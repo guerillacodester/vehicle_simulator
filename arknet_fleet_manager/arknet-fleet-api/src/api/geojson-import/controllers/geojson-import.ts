@@ -592,7 +592,6 @@ export default {
             }
             
             const zoneName = props.name || `${props.landuse || 'zone'}-${props.osm_id || 'unknown'}`;
-            const zoneId = generateSlug(zoneName, props.osm_id);
             const documentId = randomUUID();
             
             // Convert Polygon/MultiPolygon to WKT
@@ -616,12 +615,10 @@ export default {
               wkt = `MULTIPOLYGON(${polygons})`;
             }
             
-            insertValues.push('(?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+            insertValues.push('(?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
             insertBindings.push(
               documentId,
-              zoneId,
               props.osm_id || null,
-              props.full_id || null,
               props.landuse || 'other',
               zoneName,
               wkt,
@@ -634,35 +631,10 @@ export default {
           if (insertValues.length > 0) {
             await knex.raw(`
               INSERT INTO landuse_zones (
-                document_id, zone_id, osm_id, full_id, zone_type, name,
+                document_id, osm_id, zone_type, name,
                 geom, created_at, updated_at, published_at
               ) VALUES ${insertValues.join(', ')}
             `, insertBindings);
-            
-            const zoneIds = await knex('landuse_zones')
-              .select('id')
-              .whereIn('zone_id', features.filter((f: any) => {
-                return f.geometry && ['Polygon', 'MultiPolygon'].includes(f.geometry.type);
-              }).map((f: any) => {
-                const props = f.properties || {};
-                const zoneName = props.name || `${props.landuse || 'zone'}-${props.osm_id || 'unknown'}`;
-                return generateSlug(zoneName, props.osm_id);
-              }))
-              .orderBy('id', 'desc')
-              .limit(insertValues.length);
-            
-            const countryLinkBindings: any[] = [];
-            const countryLinkPlaceholders = zoneIds.map((row: any) => {
-              countryLinkBindings.push(row.id, numericCountryId);
-              return '(?, ?)';
-            }).join(', ');
-            
-            if (countryLinkPlaceholders) {
-              await knex.raw(`
-                INSERT INTO landuse_zones_country_lnk (landuse_zone_id, country_id)
-                VALUES ${countryLinkPlaceholders}
-              `, countryLinkBindings);
-            }
           }
 
           totalProcessed += features.length;
@@ -707,6 +679,33 @@ export default {
       
       strapi.log.info(`[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s (${result.totalBatches} batches, ${featuresPerSecond} features/sec)`);
 
+      // Phase 2: Link landuse zones to country
+      strapi.log.info(`[${jobId}] 🔗 Starting country linking for landuse zones...`);
+      const countryLinkStart = Date.now();
+      const countryLinkResult = await knex.raw(`
+        INSERT INTO landuse_zones_country_lnk (landuse_zone_id, country_id)
+        SELECT lz.id, ?
+        FROM landuse_zones lz
+        WHERE lz.id NOT IN (SELECT landuse_zone_id FROM landuse_zones_country_lnk)
+      `, [numericCountryId]);
+      const countryLinkCount = countryLinkResult?.rowCount || 0;
+      const countryLinkElapsed = ((Date.now() - countryLinkStart) / 1000).toFixed(1);
+      strapi.log.info(`[${jobId}] ✅ Country linking COMPLETE: ${countryLinkCount} links created in ${countryLinkElapsed}s`);
+
+      // Phase 3: Link landuse zones to regions
+      strapi.log.info(`[${jobId}] 🔗 Starting region linking for landuse zones...`);
+      const regionLinkStart = Date.now();
+      const regionLinkResult = await knex.raw(`
+        INSERT INTO landuse_zones_region_lnk (landuse_zone_id, region_id)
+        SELECT lz.id, r.id
+        FROM landuse_zones lz
+        JOIN regions r ON ST_Intersects(lz.geom, r.geom)
+        WHERE lz.id NOT IN (SELECT landuse_zone_id FROM landuse_zones_region_lnk)
+      `);
+      const regionLinkCount = regionLinkResult?.rowCount || 0;
+      const regionLinkElapsed = ((Date.now() - regionLinkStart) / 1000).toFixed(1);
+      strapi.log.info(`[${jobId}] ✅ Region linking COMPLETE: ${regionLinkCount} links created in ${regionLinkElapsed}s`);
+
       // @ts-ignore
       strapi.io.emit('import:complete', {
         jobId,
@@ -715,6 +714,8 @@ export default {
         totalFeatures: result.totalFeatures,
         elapsedSeconds,
         featuresPerSecond,
+        countryLinkCount,
+        regionLinkCount,
       });
 
       ctx.body = {
@@ -727,6 +728,8 @@ export default {
           totalBatches: result.totalBatches,
           elapsedSeconds,
           featuresPerSecond,
+          countryLinkCount,
+          regionLinkCount,
         },
       };
     } catch (error) {
