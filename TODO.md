@@ -3,8 +3,8 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.6  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Admin import complete)  
-**Status**: 🎯 TIER 1 (GeoJSON Import) - Phase 1.10 in progress (2/5 complete)  
+**Updated**: October 26, 2025 (Phase 1.10 COMPLETE - All 5 imports with streaming)  
+**Status**: ✅ TIER 1 (GeoJSON Import) - Phase 1.10 COMPLETE (5/5 imports with streaming)  
 **Strategy**: Option A - Complete Imports → Enable Spawning → Optimize Performance
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
@@ -13,8 +13,8 @@
 **Execution Priority**:
 
 ```text
-TIER 1: Phase 1.10 (Complete GeoJSON imports) ⏳ CURRENT
-TIER 2: Phases 1.11-1.12 (Enable spawning queries) 🔜 NEXT
+TIER 1: Phase 1.10 (Complete GeoJSON imports) ✅ COMPLETE
+TIER 2: Phases 1.11-1.12 (Enable spawning queries) 🎯 CURRENT
 TIER 3: Phases 4-5-6 (Passenger spawning features) 🔜 
 TIER 4: Phases 2-3 (Redis optimization + Geofencing) 🔜
 TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
@@ -26,18 +26,18 @@ TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
 
 ### **Where Am I?**
 
-- **Current Focus**: TIER 1 - GeoJSON Import System Completion
-- **Phase**: Phase 1.10 (Optimize Remaining Import Endpoints) - 2/5 tasks complete
-- **Next Immediate Task**: Update `/api/import-geojson/highway` endpoint (convert to streaming)
-- **After Phase 1.10**: Move to TIER 2 - Geospatial Services API (enables spawning)
-- **Blocker**: None - Building and Admin imports complete with streaming
-- **Status**: Building ✅ + Admin ✅ complete (streaming), Highway/Amenity/Landuse need streaming conversion
+- **Current Focus**: TIER 2 - Geospatial Services API (Enable Spawning)
+- **Phase**: Phase 1.11 (Build API for spatial queries)
+- **Next Immediate Task**: Create geospatial_service/api/routes.py with endpoints for routes, depots, buildings, zones
+- **After Phase 1.11**: Move to Phase 1.12 (Database Integration & Validation)
+- **Blocker**: None - All 5 GeoJSON imports complete with streaming + integration tests
+- **Status**: Phase 1.10 ✅ COMPLETE (Building, Admin, Highway, Amenity, Landuse all streaming)
 
 **Priority Path** (Option A):
 
 ```text
-Phase 1.10 (Complete imports) 
-  → Phase 1.11 (Geospatial API) 
+Phase 1.10 (Complete imports) ✅ DONE
+  → Phase 1.11 (Geospatial API) 🎯 NEXT
   → Phase 1.12 (Validation)
   → Phases 4/5/6 (Spawning features)
   → Phase 2 (Redis optimization)
@@ -87,7 +87,7 @@ Phase 1.10 (Complete imports)
   - ✅ Admin levels normalized (4 levels with UI dropdown)
   - ✅ Streaming parser created and working (geojson-stream-parser.ts)
 
-- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (2/5 tasks) ⏳ **NEXT IMMEDIATE**
+- [x] **Phase 1.10**: Optimize Remaining Import Endpoints (5/5 tasks) ✅ **COMPLETE** (Oct 26, 2025)
   - [x] Building import with streaming ✅ COMPLETE (162,942 records, 658MB, 1166 features/sec)
   - [x] **Admin import with streaming** ✅ COMPLETE (Oct 26, 2025)
     - ✅ Accepts adminLevelId/adminLevel params from UI modal
@@ -98,15 +98,32 @@ Phase 1.10 (Complete imports)
     - ✅ Socket.IO progress events (import:progress, import:complete, import:error)
     - ✅ Tested: Level 6 (Parish) - 11 features, 0.3s, 32 features/sec
     - ✅ All 15 integration tests passed (DB records, geometries, junction tables, spatial indexes)
-  - [ ] **NOW**: Update `/api/import-geojson/highway` endpoint (exists but incomplete)
-    - ❌ Currently: Uses fs.readFileSync, test import only
-    - ✅ Need: Use streaming parser, full import (41MB, ~22,719 features, LineString)
-  - [ ] Update `/api/import-geojson/amenity` endpoint (exists but incomplete)
-    - ❌ Currently: Uses fs.readFileSync, test import only
-    - ✅ Need: Use streaming parser, full import (3.65MB, 1,427 features, Point/Polygon/MultiPolygon)
-  - [ ] Update `/api/import-geojson/landuse` endpoint (exists but incomplete)
-    - ❌ Currently: Uses fs.readFileSync, test import only
-    - ✅ Need: Use streaming parser, full import (4.12MB, 2,267 features, Polygon/MultiPolygon)
+  - [x] **Highway import with streaming** ✅ COMPLETE (Oct 26, 2025)
+    - ✅ Converted from fs.readFileSync to streaming parser
+    - ✅ Uses streamGeoJSON with 500 feature batches
+    - ✅ Bulk SQL inserts with ST_GeomFromText for LINESTRING geometries
+    - ✅ Junction table links (highways_country_lnk)
+    - ✅ Socket.IO progress events
+    - ✅ File: highway.geojson (41MB, ~22,719 features)
+    - ✅ Integration tests created: test/test_highway_import.py (16 tests)
+  - [x] **Amenity import with streaming** ✅ COMPLETE (Oct 26, 2025)
+    - ✅ Converted from fs.readFileSync to streaming parser
+    - ✅ Centroid extraction: Polygon/MultiPolygon → POINT geometries
+    - ✅ Uses PostGIS ST_Centroid for accurate centroid calculation
+    - ✅ Bulk SQL inserts with latitude/longitude fields populated
+    - ✅ Junction table links (pois_country_lnk)
+    - ✅ Socket.IO progress events
+    - ✅ File: amenity.geojson (3.65MB, 1,427 features)
+    - ✅ Integration tests created: test/test_amenity_import.py (17 tests with centroid verification)
+  - [x] **Landuse import with streaming** ✅ COMPLETE (Oct 26, 2025)
+    - ✅ Converted from fs.readFileSync to streaming parser
+    - ✅ Uses streamGeoJSON with 500 feature batches
+    - ✅ Bulk SQL inserts with ST_GeomFromText for POLYGON/MULTIPOLYGON geometries
+    - ✅ Junction table links (landuse_zones_country_lnk)
+    - ✅ Socket.IO progress events
+    - ✅ File: landuse.geojson (4.12MB, 2,267 features)
+    - ✅ Integration tests created: test/test_landuse_import.py (16 tests)
+  - **Summary**: ✅ ALL 5 IMPORTS COMPLETE with streaming, bulk SQL, PostGIS, and integration tests
 
 ### **🎯 TIER 2: FOUNDATION - Enable Spawning Queries (Required for Simulator)**
 

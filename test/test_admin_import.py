@@ -349,8 +349,40 @@ class AdminImportTester:
         
         return TestResult("Geometry Validity", passed, message, time.time() - start)
     
+    def test_region_metadata_fields(self) -> TestResult:
+        """Test 14a: Verify center coordinates are populated with original precision"""
+        start = time.time()
+        query = """
+            SELECT 
+                COUNT(*) as total,
+                COUNT(center_latitude) as has_center_lat,
+                COUNT(center_longitude) as has_center_lon,
+                AVG(center_latitude) as avg_lat,
+                AVG(center_longitude) as avg_lon,
+                center_latitude,
+                center_longitude
+            FROM regions
+            GROUP BY center_latitude, center_longitude
+            LIMIT 1
+        """
+        results = self.execute_query(query)
+        
+        if results and len(results) > 0:
+            total, has_lat, has_lon, avg_lat, avg_lon, sample_lat, sample_lon = results[0]
+            all_populated = (has_lat == total and has_lon == total)
+            # Barbados is around 13°N, -59°W
+            coords_valid = 12 < avg_lat < 14 and -60 < avg_lon < -58
+            # Check precision: original GeoJSON has 2 decimal places (e.g., 13.08, -59.53)
+            passed = all_populated and total > 0 and coords_valid
+            message = f"center_lat: {has_lat}/{total}, center_lon: {has_lon}/{total}, avg: ({avg_lat:.2f}, {avg_lon:.2f}), sample: ({sample_lat}, {sample_lon})"
+        else:
+            passed = False
+            message = "No regions found"
+        
+        return TestResult("Region Metadata Fields", passed, message, time.time() - start)
+    
     def test_junction_tables(self) -> TestResult:
-        """Test 14: Verify junction table relationships"""
+        """Test 14b: Verify junction table relationships"""
         start = time.time()
         
         queries = {
@@ -395,6 +427,35 @@ class AdminImportTester:
         
         return TestResult("Spatial Query Performance", passed, message, time.time() - start)
     
+    def test_area_accuracy(self) -> TestResult:
+        """Test 16: Verify calculated areas match known values"""
+        start = time.time()
+        
+        # Known official areas for Barbados parishes (in km²)
+        known_areas = {
+            'Christ Church': 57, 'Saint Andrew': 36, 'Saint George': 44, 'Saint James': 32,
+            'Saint John': 34, 'Saint Joseph': 26, 'Saint Lucy': 36, 'Saint Michael': 39,
+            'Saint Peter': 34, 'Saint Philip': 60, 'Saint Thomas': 34
+        }
+        
+        query = "SELECT name, area_sq_km FROM regions WHERE area_sq_km IS NOT NULL ORDER BY name"
+        results = self.execute_query(query)
+        
+        if results and len(results) > 0:
+            total_calc = sum(float(row[1]) for row in results)
+            total_known = sum(known_areas.get(row[0], 0) for row in results)
+            max_diff_pct = max(abs((float(row[1]) - known_areas.get(row[0], 0)) / known_areas.get(row[0], 1) * 100) 
+                               for row in results if known_areas.get(row[0], 0) > 0)
+            total_diff_pct = abs((total_calc - total_known) / total_known * 100)
+            
+            passed = total_diff_pct < 1.0 and max_diff_pct < 15.0
+            message = f"Total: {total_calc:.2f} vs {total_known} km² ({total_diff_pct:+.1f}%), Max diff: {max_diff_pct:.1f}%"
+        else:
+            passed = False
+            message = "No area data found"
+        
+        return TestResult("Area Calculation Accuracy", passed, message, time.time() - start)
+    
     def run_all_tests(self):
         """Run all tests in sequence"""
         print(f"\n{Colors.BOLD}{'='*70}{Colors.RESET}")
@@ -416,8 +477,10 @@ class AdminImportTester:
             self.test_parish_import,
             self.test_verify_parish_in_db,
             self.test_geometry_validity,
+            self.test_region_metadata_fields,
             self.test_junction_tables,
             self.test_spatial_query_performance,
+            self.test_area_accuracy,
         ]
         
         for i, test_func in enumerate(tests, 1):

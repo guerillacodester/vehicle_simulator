@@ -47,137 +47,188 @@ export default {
         return ctx.badRequest('countryId is required');
       }
 
-      const jobId = `highway_${Date.now()}`;
+      // Get the numeric country ID from the document ID using direct SQL
+      const knex = strapi.db.connection;
+      const countryResult = await knex('countries')
+        .select('id')
+        .where('document_id', countryId)
+        .first();
       
-      // Step 1.7.3a: Test file reading and basic parsing
+      if (!countryResult) {
+        return ctx.notFound(`Country not found: ${countryId}`);
+      }
+      const numericCountryId = countryResult.id;
+
+      const jobId = `highway_${Date.now()}`;
+      const startTime = Date.now();
       const geojsonPath = path.join(process.cwd(), '..', '..', 'sample_data', 'highway.geojson');
       
-      // Check if file exists
       if (!fs.existsSync(geojsonPath)) {
-        strapi.log.error(`Highway GeoJSON file not found: ${geojsonPath}`);
+        strapi.log.error(`[${jobId}] Highway GeoJSON file not found: ${geojsonPath}`);
         return ctx.notFound(`GeoJSON file not found at: ${geojsonPath}`);
       }
 
-      // Get file stats
-      const fileStats = fs.statSync(geojsonPath);
-      const fileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
+      const stats = fs.statSync(geojsonPath);
+      const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+      strapi.log.info(`[${jobId}] Starting STREAMING import of ${fileSizeMB} MB file`);
+
+      // @ts-ignore
+      strapi.io.emit('import:progress', {
+        jobId,
+        countryId,
+        fileType: 'highway',
+        phase: 'starting',
+        fileSizeMB,
+      });
+
+      let totalProcessed = 0;
       
-      strapi.log.info(`[${jobId}] Starting highway import`);
-      strapi.log.info(`[${jobId}] File: ${geojsonPath}`);
-      strapi.log.info(`[${jobId}] Size: ${fileSizeMB} MB`);
-      strapi.log.info(`[${jobId}] Country: ${countryId}`);
-
-      // Read and parse GeoJSON (for testing - will use streaming later)
-      const geojsonContent = fs.readFileSync(geojsonPath, 'utf-8');
-      const geojson = JSON.parse(geojsonContent);
-      
-      const featureCount = geojson.features ? geojson.features.length : 0;
-      strapi.log.info(`[${jobId}] Features found: ${featureCount}`);
-      
-      // Step 1.7.3c: Insert first test feature into database
-      let testInsertResult = null;
-      if (geojson.features && geojson.features.length > 0) {
-        const firstFeature = geojson.features[0];
-        const propertyKeys = Object.keys(firstFeature.properties || {});
-        strapi.log.info(`[${jobId}] Sample feature property count: ${propertyKeys.length}`);
-        strapi.log.info(`[${jobId}] Sample feature properties: ${propertyKeys.join(', ')}`);
-        strapi.log.info(`[${jobId}] Sample geometry type: ${firstFeature.geometry?.type}`);
-        strapi.log.info(`[${jobId}] Sample coordinates count: ${firstFeature.geometry?.coordinates?.length || 0}`);
+      const result = await streamGeoJSON(geojsonPath, {
+        batchSize: 500,
         
-        // Show key properties we'll map to database
-        const props = firstFeature.properties;
-        strapi.log.info(`[${jobId}] Key mapped properties:`, {
-          osm_id: props?.osm_id,
-          highway: props?.highway,
-          name: props?.name,
-          ref: props?.ref,
-          surface: props?.surface,
-          maxspeed: props?.maxspeed,
-          lanes: props?.lanes,
-          oneway: props?.oneway,
-        });
-
-        // Insert first feature as test
-        strapi.log.info(`[${jobId}] Inserting first feature into database...`);
-        
-        // Create highway record
-        // Note: name is required, so we provide a fallback based on osm_id or highway type
-        const roadName = props?.name || props?.ref || `${props?.highway || 'road'}-${props?.osm_id || 'unknown'}`;
-        
-        // Generate highway_id (UID) manually since auto-generation seems to have validation issues
-        const highwayId = generateSlug(roadName, props?.osm_id);
-        
-        const highwayData = {
-          highway_id: highwayId,
-          osm_id: props?.osm_id || null,
-          full_id: props?.full_id || null,
-          highway_type: props?.highway || 'other',
-          name: roadName,
-          ref: props?.ref || null,
-          surface: props?.surface || null,
-          maxspeed: props?.maxspeed || null,
-          lanes: props?.lanes ? parseInt(props.lanes) : null,
-          oneway: props?.oneway === 'yes' ? true : (props?.oneway === 'no' ? false : null),
-          country: countryId,
-        };
-        
-        strapi.log.info(`[${jobId}] Generated highway_id: ${highwayId}`);
-
-        const highway = await strapi.entityService.create('api::highway.highway' as any, {
-          data: highwayData,
-        });
-
-        strapi.log.info(`[${jobId}] Highway record created with ID: ${highway.id}`);
-
-        // Create PostGIS geometry
-        if (firstFeature.geometry && firstFeature.geometry.type === 'LineString') {
-          const coordinates = firstFeature.geometry.coordinates;
-          
-          strapi.log.info(`[${jobId}] Creating PostGIS geometry with ${coordinates.length} points`);
-          
-          // Convert coordinates to WKT format for PostGIS
-          const wktCoords = coordinates.map((coord: number[]) => `${coord[0]} ${coord[1]}`).join(', ');
-          const wkt = `LINESTRING(${wktCoords})`;
-          
-          // Insert geometry using PostGIS ST_GeomFromText
+        onBatch: async (features: any[]) => {
           const knex = strapi.db.connection;
-          await knex.raw(`
-            UPDATE highways
-            SET geom = ST_GeomFromText(?, 4326)
-            WHERE id = ?
-          `, [wkt, highway.id]);
-
-          strapi.log.info(`[${jobId}] PostGIS geometry created successfully`);
+          const timestamp = new Date();
+          const { randomUUID } = require('crypto');
           
-          testInsertResult = {
-            highwayId: highway.id,
-            geometryPointCount: coordinates.length,
-            osmId: props?.osm_id,
-            name: props?.name,
-            coordinateCount: coordinates.length,
-            geometryType: 'LineString',
-            usesPostGIS: true,
-          };
-        }
-      }
+          const insertValues: any[] = [];
+          const insertBindings: any[] = [];
+          
+          features.forEach((feature: any) => {
+            const props = feature.properties || {};
+            
+            // Skip if no LineString geometry
+            if (!feature.geometry || feature.geometry.type !== 'LineString') {
+              return;
+            }
+            
+            const roadName = props.name || props.ref || `${props.highway || 'road'}-${props.osm_id || 'unknown'}`;
+            const highwayId = generateSlug(roadName, props.osm_id);
+            const documentId = randomUUID();
+            
+            // Convert LineString to WKT
+            const coordinates = feature.geometry.coordinates;
+            const wktCoords = coordinates.map((coord: number[]) => `${coord[0]} ${coord[1]}`).join(', ');
+            const wkt = `LINESTRING(${wktCoords})`;
+            
+            insertValues.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+            insertBindings.push(
+              documentId,
+              highwayId,
+              props.osm_id || null,
+              props.full_id || null,
+              props.highway || 'other',
+              roadName,
+              props.ref || null,
+              props.surface || null,
+              props.lanes ? parseInt(props.lanes) : null,
+              props.maxspeed || null,
+              props.oneway === 'yes' ? true : (props.oneway === 'no' ? false : null),
+              wkt,
+              timestamp,
+              timestamp,
+              timestamp
+            );
+          });
+          
+          if (insertValues.length > 0) {
+            await knex.raw(`
+              INSERT INTO highways (
+                document_id, highway_id, osm_id, full_id, highway_type, name,
+                ref, surface, lanes, maxspeed, oneway, geom,
+                created_at, updated_at, published_at
+              ) VALUES ${insertValues.join(', ')}
+            `, insertBindings);
+            
+            const highwayIds = await knex('highways')
+              .select('id')
+              .whereIn('highway_id', features.filter((f: any) => {
+                return f.geometry && f.geometry.type === 'LineString';
+              }).map((f: any) => {
+                const props = f.properties || {};
+                const roadName = props.name || props.ref || `${props.highway || 'road'}-${props.osm_id || 'unknown'}`;
+                return generateSlug(roadName, props.osm_id);
+              }))
+              .orderBy('id', 'desc')
+              .limit(insertValues.length);
+            
+            const countryLinkBindings: any[] = [];
+            const countryLinkPlaceholders = highwayIds.map((row: any) => {
+              countryLinkBindings.push(row.id, numericCountryId);
+              return '(?, ?)';
+            }).join(', ');
+            
+            if (countryLinkPlaceholders) {
+              await knex.raw(`
+                INSERT INTO highways_country_lnk (highway_id, country_id)
+                VALUES ${countryLinkPlaceholders}
+              `, countryLinkBindings);
+            }
+          }
+
+          totalProcessed += features.length;
+        },
+        
+        onProgress: (progress) => {
+          const elapsedSeconds = (progress.elapsedTime / 1000).toFixed(1);
+          const featuresPerSecond = progress.elapsedTime > 0
+            ? (progress.processed / (progress.elapsedTime / 1000)).toFixed(0)
+            : '0';
+          
+          // @ts-ignore
+          strapi.io.emit('import:progress', {
+            jobId,
+            countryId,
+            fileType: 'highway',
+            processed: progress.processed,
+            estimatedTotal: progress.estimatedTotal,
+            currentBatch: progress.currentBatch,
+            elapsedTime: progress.elapsedTime,
+            elapsedSeconds,
+            featuresPerSecond,
+          });
+
+          strapi.log.info(`[${jobId}] Progress: ${progress.processed} features | Batch ${progress.currentBatch} | ${elapsedSeconds}s elapsed | ${featuresPerSecond} features/sec`);
+        },
+        
+        onError: (error) => {
+          strapi.log.error(`[${jobId}] Streaming error:`, error);
+          // @ts-ignore
+          strapi.io.emit('import:error', {
+            jobId,
+            countryId,
+            fileType: 'highway',
+            error: error.message,
+          });
+        },
+      });
+
+      const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+      const featuresPerSecond = (result.totalFeatures / (result.elapsedTime / 1000)).toFixed(0);
+      
+      strapi.log.info(`[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s (${result.totalBatches} batches, ${featuresPerSecond} features/sec)`);
+
+      // @ts-ignore
+      strapi.io.emit('import:complete', {
+        jobId,
+        countryId,
+        fileType: 'highway',
+        totalFeatures: result.totalFeatures,
+        elapsedSeconds,
+        featuresPerSecond,
+      });
 
       ctx.body = {
         jobId,
-        message: testInsertResult 
-          ? 'Highway import - first test feature inserted successfully' 
-          : 'Highway import file validated and parsed successfully',
+        message: 'Highway import completed successfully',
         countryId,
         fileType: 'highway',
-        fileInfo: {
-          path: geojsonPath,
-          sizeMB: fileSizeMB,
-          featureCount,
-          geometryType: geojson.type,
+        result: {
+          totalFeatures: result.totalFeatures,
+          totalBatches: result.totalBatches,
+          elapsedSeconds,
+          featuresPerSecond,
         },
-        testInsert: testInsertResult,
-        nextStep: testInsertResult 
-          ? 'Step 1.7.3d: Verify database insertion' 
-          : 'Ready for Step 1.7.3c: Insert first test feature into database',
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -190,6 +241,7 @@ export default {
    * Import amenity.geojson (POIs for passenger spawning)
    * File: sample_data/amenity.geojson (1,427 features, 3.8MB)
    * Target: poi table
+   * Note: Extracts centroids from Polygon/MultiPolygon geometries to store as POINT
    */
   async importAmenity(ctx: any) {
     try {
@@ -199,120 +251,228 @@ export default {
         return ctx.badRequest('countryId is required');
       }
 
-      const jobId = `amenity_${Date.now()}`;
+      // Get the numeric country ID from the document ID using direct SQL
+      const knex = strapi.db.connection;
+      const countryResult = await knex('countries')
+        .select('id')
+        .where('document_id', countryId)
+        .first();
       
-      // Test file reading and basic parsing
+      if (!countryResult) {
+        return ctx.notFound(`Country not found: ${countryId}`);
+      }
+      const numericCountryId = countryResult.id;
+
+      const jobId = `amenity_${Date.now()}`;
+      const startTime = Date.now();
       const geojsonPath = path.join(process.cwd(), '..', '..', 'sample_data', 'amenity.geojson');
       
-      // Check if file exists
       if (!fs.existsSync(geojsonPath)) {
-        strapi.log.error(`Amenity GeoJSON file not found: ${geojsonPath}`);
+        strapi.log.error(`[${jobId}] Amenity GeoJSON file not found: ${geojsonPath}`);
         return ctx.notFound(`GeoJSON file not found at: ${geojsonPath}`);
       }
 
-      // Get file stats
       const stats = fs.statSync(geojsonPath);
       const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-      strapi.log.info(`[${jobId}] File found: ${geojsonPath} (${fileSizeMB} MB)`);
+      strapi.log.info(`[${jobId}] Starting STREAMING import of ${fileSizeMB} MB file`);
 
-      // Read and parse GeoJSON
-      const geojsonContent = fs.readFileSync(geojsonPath, 'utf8');
-      const geojson = JSON.parse(geojsonContent);
-      const featureCount = geojson.features?.length || 0;
+      // @ts-ignore
+      strapi.io.emit('import:progress', {
+        jobId,
+        countryId,
+        fileType: 'amenity',
+        phase: 'starting',
+        fileSizeMB,
+      });
 
-      strapi.log.info(`[${jobId}] Parsed ${featureCount} features`);
-
-      // Insert first feature as test
-      let testInsertResult = null;
+      let totalProcessed = 0;
       
-      if (featureCount > 0) {
-        const firstFeature = geojson.features[0];
-        const props = firstFeature.properties;
+      const result = await streamGeoJSON(geojsonPath, {
+        batchSize: 500,
         
-        strapi.log.info(`[${jobId}] Sample feature properties:`, {
-          osm_id: props?.osm_id,
-          amenity: props?.amenity,
-          name: props?.name,
-          geometry_type: firstFeature.geometry?.type,
-        });
-
-        // Create POI record
-        const poiName = props?.name || `${props?.amenity || 'poi'}-${props?.osm_id || 'unknown'}`;
-        const poiId = generateSlug(poiName, props?.osm_id);
-        
-        const poiData = {
-          poi_id: poiId,
-          osm_id: props?.osm_id || null,
-          full_id: props?.full_id || null,
-          amenity_type: props?.amenity || 'other',
-          name: poiName,
-          country: countryId,
-        };
-
-        const poi = await strapi.entityService.create('api::poi.poi' as any, {
-          data: poiData,
-        });
-
-        strapi.log.info(`[${jobId}] POI record created with ID: ${poi.id}`);
-
-        // Create PostGIS Point geometry (extract centroid from MultiPolygon/Polygon)
-        if (firstFeature.geometry) {
-          let lon: number, lat: number;
+        onBatch: async (features: any[]) => {
+          const knex = strapi.db.connection;
+          const timestamp = new Date();
+          const { randomUUID } = require('crypto');
           
-          // Extract centroid based on geometry type
-          if (firstFeature.geometry.type === 'Point') {
-            [lon, lat] = firstFeature.geometry.coordinates;
-          } else if (firstFeature.geometry.type === 'Polygon') {
-            // Calculate centroid of polygon
-            const coords = firstFeature.geometry.coordinates[0]; // outer ring
-            lon = coords.reduce((sum: number, c: number[]) => sum + c[0], 0) / coords.length;
-            lat = coords.reduce((sum: number, c: number[]) => sum + c[1], 0) / coords.length;
-          } else if (firstFeature.geometry.type === 'MultiPolygon') {
-            // Calculate centroid of first polygon in multipolygon
-            const coords = firstFeature.geometry.coordinates[0][0]; // first polygon, outer ring
-            lon = coords.reduce((sum: number, c: number[]) => sum + c[0], 0) / coords.length;
-            lat = coords.reduce((sum: number, c: number[]) => sum + c[1], 0) / coords.length;
-          } else {
-            throw new Error(`Unsupported geometry type: ${firstFeature.geometry.type}`);
+          const insertValues: any[] = [];
+          const insertBindings: any[] = [];
+          
+          for (const feature of features) {
+            const props = feature.properties || {};
+            
+            // Skip if no geometry
+            if (!feature.geometry) {
+              continue;
+            }
+            
+            const poiName = props.name || props.amenity || `${props.amenity || 'poi'}-${props.osm_id || 'unknown'}`;
+            const poiId = generateSlug(poiName, props.osm_id);
+            const documentId = randomUUID();
+            
+            // Extract centroid coordinates based on geometry type
+            let longitude: number;
+            let latitude: number;
+            let wkt: string;
+            
+            if (feature.geometry.type === 'Point') {
+              const coords = feature.geometry.coordinates;
+              longitude = coords[0];
+              latitude = coords[1];
+              wkt = `POINT(${longitude} ${latitude})`;
+            } else if (feature.geometry.type === 'Polygon') {
+              // Use PostGIS ST_Centroid to extract center point
+              const coords = feature.geometry.coordinates[0]; // exterior ring
+              const wktCoords = coords.map((c: number[]) => `${c[0]} ${c[1]}`).join(', ');
+              const polygonWkt = `POLYGON((${wktCoords}))`;
+              
+              // Calculate centroid in SQL and extract coordinates
+              const centroidResult = await knex.raw(`
+                SELECT ST_X(ST_Centroid(ST_GeomFromText(?, 4326))) as lon,
+                       ST_Y(ST_Centroid(ST_GeomFromText(?, 4326))) as lat
+              `, [polygonWkt, polygonWkt]);
+              
+              longitude = centroidResult.rows[0].lon;
+              latitude = centroidResult.rows[0].lat;
+              wkt = `POINT(${longitude} ${latitude})`;
+            } else if (feature.geometry.type === 'MultiPolygon') {
+              // Use PostGIS ST_Centroid for MultiPolygon
+              const polygons = feature.geometry.coordinates.map((polygon: number[][][]) => {
+                const ring = polygon[0];
+                const wktCoords = ring.map((c: number[]) => `${c[0]} ${c[1]}`).join(', ');
+                return `((${wktCoords}))`;
+              }).join(', ');
+              const multiPolygonWkt = `MULTIPOLYGON(${polygons})`;
+              
+              const centroidResult = await knex.raw(`
+                SELECT ST_X(ST_Centroid(ST_GeomFromText(?, 4326))) as lon,
+                       ST_Y(ST_Centroid(ST_GeomFromText(?, 4326))) as lat
+              `, [multiPolygonWkt, multiPolygonWkt]);
+              
+              longitude = centroidResult.rows[0].lon;
+              latitude = centroidResult.rows[0].lat;
+              wkt = `POINT(${longitude} ${latitude})`;
+            } else {
+              // Skip unsupported geometry types
+              continue;
+            }
+            
+            insertValues.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+            insertBindings.push(
+              documentId,
+              poiId,
+              props.osm_id || null,
+              props.full_id || null,
+              props.amenity || 'other',
+              poiName,
+              props.amenity || null,
+              latitude,
+              longitude,
+              wkt,
+              timestamp,
+              timestamp,
+              timestamp
+            );
           }
           
-          strapi.log.info(`[${jobId}] Extracted centroid: [${lon}, ${lat}]`);
-          
-          // Create PostGIS Point geometry
-          const wkt = `POINT(${lon} ${lat})`;
-          const knex = strapi.db.connection;
-          await knex.raw(`
-            UPDATE pois
-            SET geom = ST_GeomFromText(?, 4326)
-            WHERE id = ?
-          `, [wkt, poi.id]);
+          if (insertValues.length > 0) {
+            await knex.raw(`
+              INSERT INTO pois (
+                document_id, poi_id, osm_id, full_id, poi_type, name,
+                amenity, latitude, longitude, geom,
+                created_at, updated_at, published_at
+              ) VALUES ${insertValues.join(', ')}
+            `, insertBindings);
+            
+            const poiIds = await knex('pois')
+              .select('id')
+              .whereIn('poi_id', features.filter((f: any) => {
+                return f.geometry && ['Point', 'Polygon', 'MultiPolygon'].includes(f.geometry.type);
+              }).map((f: any) => {
+                const props = f.properties || {};
+                const poiName = props.name || props.amenity || `${props.amenity || 'poi'}-${props.osm_id || 'unknown'}`;
+                return generateSlug(poiName, props.osm_id);
+              }))
+              .orderBy('id', 'desc')
+              .limit(insertValues.length);
+            
+            const countryLinkBindings: any[] = [];
+            const countryLinkPlaceholders = poiIds.map((row: any) => {
+              countryLinkBindings.push(row.id, numericCountryId);
+              return '(?, ?)';
+            }).join(', ');
+            
+            if (countryLinkPlaceholders) {
+              await knex.raw(`
+                INSERT INTO pois_country_lnk (poi_id, country_id)
+                VALUES ${countryLinkPlaceholders}
+              `, countryLinkBindings);
+            }
+          }
 
-          strapi.log.info(`[${jobId}] PostGIS Point geometry created successfully`);
+          totalProcessed += features.length;
+        },
+        
+        onProgress: (progress) => {
+          const elapsedSeconds = (progress.elapsedTime / 1000).toFixed(1);
+          const featuresPerSecond = progress.elapsedTime > 0
+            ? (progress.processed / (progress.elapsedTime / 1000)).toFixed(0)
+            : '0';
           
-          testInsertResult = {
-            poiId: poi.id,
-            name: poiName,
-            amenityType: props?.amenity,
-            centroid: [lon, lat],
-            originalGeometryType: firstFeature.geometry.type,
-          };
-        }
-      }
+          // @ts-ignore
+          strapi.io.emit('import:progress', {
+            jobId,
+            countryId,
+            fileType: 'amenity',
+            processed: progress.processed,
+            estimatedTotal: progress.estimatedTotal,
+            currentBatch: progress.currentBatch,
+            elapsedTime: progress.elapsedTime,
+            elapsedSeconds,
+            featuresPerSecond,
+          });
+
+          strapi.log.info(`[${jobId}] Progress: ${progress.processed} features | Batch ${progress.currentBatch} | ${elapsedSeconds}s elapsed | ${featuresPerSecond} features/sec`);
+        },
+        
+        onError: (error) => {
+          strapi.log.error(`[${jobId}] Streaming error:`, error);
+          // @ts-ignore
+          strapi.io.emit('import:error', {
+            jobId,
+            countryId,
+            fileType: 'amenity',
+            error: error.message,
+          });
+        },
+      });
+
+      const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+      const featuresPerSecond = (result.totalFeatures / (result.elapsedTime / 1000)).toFixed(0);
+      
+      strapi.log.info(`[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s (${result.totalBatches} batches, ${featuresPerSecond} features/sec)`);
+
+      // @ts-ignore
+      strapi.io.emit('import:complete', {
+        jobId,
+        countryId,
+        fileType: 'amenity',
+        totalFeatures: result.totalFeatures,
+        elapsedSeconds,
+        featuresPerSecond,
+      });
 
       ctx.body = {
         jobId,
-        message: testInsertResult 
-          ? 'Amenity import - first test feature inserted successfully with PostGIS Point' 
-          : 'Amenity import file validated and parsed successfully',
+        message: 'Amenity import completed successfully',
         countryId,
         fileType: 'amenity',
-        fileInfo: {
-          path: geojsonPath,
-          sizeMB: fileSizeMB,
-          featureCount,
-          geometryType: geojson.type,
+        result: {
+          totalFeatures: result.totalFeatures,
+          totalBatches: result.totalBatches,
+          elapsedSeconds,
+          featuresPerSecond,
         },
-        testInsert: testInsertResult,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -334,119 +494,198 @@ export default {
         return ctx.badRequest('countryId is required');
       }
 
-      const jobId = `landuse_${Date.now()}`;
+      // Get the numeric country ID from the document ID using direct SQL
+      const knex = strapi.db.connection;
+      const countryResult = await knex('countries')
+        .select('id')
+        .where('document_id', countryId)
+        .first();
       
-      // Test file reading and basic parsing
+      if (!countryResult) {
+        return ctx.notFound(`Country not found: ${countryId}`);
+      }
+      const numericCountryId = countryResult.id;
+
+      const jobId = `landuse_${Date.now()}`;
+      const startTime = Date.now();
       const geojsonPath = path.join(process.cwd(), '..', '..', 'sample_data', 'landuse.geojson');
       
-      // Check if file exists
       if (!fs.existsSync(geojsonPath)) {
-        strapi.log.error(`Landuse GeoJSON file not found: ${geojsonPath}`);
+        strapi.log.error(`[${jobId}] Landuse GeoJSON file not found: ${geojsonPath}`);
         return ctx.notFound(`GeoJSON file not found at: ${geojsonPath}`);
       }
 
-      // Get file stats
       const stats = fs.statSync(geojsonPath);
       const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-      strapi.log.info(`[${jobId}] File found: ${geojsonPath} (${fileSizeMB} MB)`);
+      strapi.log.info(`[${jobId}] Starting STREAMING import of ${fileSizeMB} MB file`);
 
-      // Read and parse GeoJSON
-      const geojsonContent = fs.readFileSync(geojsonPath, 'utf8');
-      const geojson = JSON.parse(geojsonContent);
-      const featureCount = geojson.features?.length || 0;
+      // @ts-ignore
+      strapi.io.emit('import:progress', {
+        jobId,
+        countryId,
+        fileType: 'landuse',
+        phase: 'starting',
+        fileSizeMB,
+      });
 
-      strapi.log.info(`[${jobId}] Parsed ${featureCount} features`);
-
-      // Insert first feature as test
-      let testInsertResult = null;
+      let totalProcessed = 0;
       
-      if (featureCount > 0) {
-        const firstFeature = geojson.features[0];
-        const props = firstFeature.properties;
+      const result = await streamGeoJSON(geojsonPath, {
+        batchSize: 500,
         
-        strapi.log.info(`[${jobId}] Sample feature properties:`, {
-          osm_id: props?.osm_id,
-          landuse: props?.landuse,
-          name: props?.name,
-          geometry_type: firstFeature.geometry?.type,
-        });
-
-        // Create landuse_zone record
-        const zoneName = props?.name || `${props?.landuse || 'zone'}-${props?.osm_id || 'unknown'}`;
-        const zoneId = generateSlug(zoneName, props?.osm_id);
-        
-        const zoneData = {
-          zone_id: zoneId,
-          osm_id: props?.osm_id || null,
-          full_id: props?.full_id || null,
-          landuse_type: props?.landuse || 'other',
-          name: zoneName,
-          country: countryId,
-        };
-
-        const zone = await strapi.entityService.create('api::landuse-zone.landuse-zone' as any, {
-          data: zoneData,
-        });
-
-        strapi.log.info(`[${jobId}] Landuse zone record created with ID: ${zone.id}`);
-
-        // Create PostGIS Polygon geometry
-        if (firstFeature.geometry && (firstFeature.geometry.type === 'Polygon' || firstFeature.geometry.type === 'MultiPolygon')) {
-          let wkt: string;
-          
-          if (firstFeature.geometry.type === 'Polygon') {
-            // Convert polygon coordinates to WKT
-            const rings = firstFeature.geometry.coordinates.map((ring: number[][]) => {
-              const coords = ring.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
-              return `(${coords})`;
-            }).join(', ');
-            wkt = `POLYGON(${rings})`;
-          } else {
-            // MultiPolygon - convert to Polygon using first polygon
-            const firstPolygon = firstFeature.geometry.coordinates[0];
-            const rings = firstPolygon.map((ring: number[][]) => {
-              const coords = ring.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
-              return `(${coords})`;
-            }).join(', ');
-            wkt = `POLYGON(${rings})`;
-            strapi.log.warn(`[${jobId}] Converted MultiPolygon to Polygon (using first polygon only)`);
-          }
-          
-          strapi.log.info(`[${jobId}] Creating PostGIS Polygon geometry`);
-          
-          // Insert geometry using PostGIS
+        onBatch: async (features: any[]) => {
           const knex = strapi.db.connection;
-          await knex.raw(`
-            UPDATE landuse_zones
-            SET geom = ST_GeomFromText(?, 4326)
-            WHERE id = ?
-          `, [wkt, zone.id]);
-
-          strapi.log.info(`[${jobId}] PostGIS Polygon geometry created successfully`);
+          const timestamp = new Date();
+          const { randomUUID } = require('crypto');
           
-          testInsertResult = {
-            zoneId: zone.id,
-            name: zoneName,
-            landuseType: props?.landuse,
-            geometryType: firstFeature.geometry.type,
-          };
-        }
-      }
+          const insertValues: any[] = [];
+          const insertBindings: any[] = [];
+          
+          features.forEach((feature: any) => {
+            const props = feature.properties || {};
+            
+            // Skip if no Polygon/MultiPolygon geometry
+            if (!feature.geometry || !['Polygon', 'MultiPolygon'].includes(feature.geometry.type)) {
+              return;
+            }
+            
+            const zoneName = props.name || `${props.landuse || 'zone'}-${props.osm_id || 'unknown'}`;
+            const zoneId = generateSlug(zoneName, props.osm_id);
+            const documentId = randomUUID();
+            
+            // Convert Polygon/MultiPolygon to WKT
+            let wkt: string;
+            
+            if (feature.geometry.type === 'Polygon') {
+              const rings = feature.geometry.coordinates.map((ring: number[][]) => {
+                const coords = ring.map((c: number[]) => `${c[0]} ${c[1]}`).join(', ');
+                return `(${coords})`;
+              }).join(', ');
+              wkt = `POLYGON(${rings})`;
+            } else {
+              // MultiPolygon
+              const polygons = feature.geometry.coordinates.map((polygon: number[][][]) => {
+                const rings = polygon.map((ring: number[][]) => {
+                  const coords = ring.map((c: number[]) => `${c[0]} ${c[1]}`).join(', ');
+                  return `(${coords})`;
+                }).join(', ');
+                return `(${rings})`;
+              }).join(', ');
+              wkt = `MULTIPOLYGON(${polygons})`;
+            }
+            
+            insertValues.push('(?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+            insertBindings.push(
+              documentId,
+              zoneId,
+              props.osm_id || null,
+              props.full_id || null,
+              props.landuse || 'other',
+              zoneName,
+              wkt,
+              timestamp,
+              timestamp,
+              timestamp
+            );
+          });
+          
+          if (insertValues.length > 0) {
+            await knex.raw(`
+              INSERT INTO landuse_zones (
+                document_id, zone_id, osm_id, full_id, zone_type, name,
+                geom, created_at, updated_at, published_at
+              ) VALUES ${insertValues.join(', ')}
+            `, insertBindings);
+            
+            const zoneIds = await knex('landuse_zones')
+              .select('id')
+              .whereIn('zone_id', features.filter((f: any) => {
+                return f.geometry && ['Polygon', 'MultiPolygon'].includes(f.geometry.type);
+              }).map((f: any) => {
+                const props = f.properties || {};
+                const zoneName = props.name || `${props.landuse || 'zone'}-${props.osm_id || 'unknown'}`;
+                return generateSlug(zoneName, props.osm_id);
+              }))
+              .orderBy('id', 'desc')
+              .limit(insertValues.length);
+            
+            const countryLinkBindings: any[] = [];
+            const countryLinkPlaceholders = zoneIds.map((row: any) => {
+              countryLinkBindings.push(row.id, numericCountryId);
+              return '(?, ?)';
+            }).join(', ');
+            
+            if (countryLinkPlaceholders) {
+              await knex.raw(`
+                INSERT INTO landuse_zones_country_lnk (landuse_zone_id, country_id)
+                VALUES ${countryLinkPlaceholders}
+              `, countryLinkBindings);
+            }
+          }
+
+          totalProcessed += features.length;
+        },
+        
+        onProgress: (progress) => {
+          const elapsedSeconds = (progress.elapsedTime / 1000).toFixed(1);
+          const featuresPerSecond = progress.elapsedTime > 0
+            ? (progress.processed / (progress.elapsedTime / 1000)).toFixed(0)
+            : '0';
+          
+          // @ts-ignore
+          strapi.io.emit('import:progress', {
+            jobId,
+            countryId,
+            fileType: 'landuse',
+            processed: progress.processed,
+            estimatedTotal: progress.estimatedTotal,
+            currentBatch: progress.currentBatch,
+            elapsedTime: progress.elapsedTime,
+            elapsedSeconds,
+            featuresPerSecond,
+          });
+
+          strapi.log.info(`[${jobId}] Progress: ${progress.processed} features | Batch ${progress.currentBatch} | ${elapsedSeconds}s elapsed | ${featuresPerSecond} features/sec`);
+        },
+        
+        onError: (error) => {
+          strapi.log.error(`[${jobId}] Streaming error:`, error);
+          // @ts-ignore
+          strapi.io.emit('import:error', {
+            jobId,
+            countryId,
+            fileType: 'landuse',
+            error: error.message,
+          });
+        },
+      });
+
+      const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+      const featuresPerSecond = (result.totalFeatures / (result.elapsedTime / 1000)).toFixed(0);
+      
+      strapi.log.info(`[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s (${result.totalBatches} batches, ${featuresPerSecond} features/sec)`);
+
+      // @ts-ignore
+      strapi.io.emit('import:complete', {
+        jobId,
+        countryId,
+        fileType: 'landuse',
+        totalFeatures: result.totalFeatures,
+        elapsedSeconds,
+        featuresPerSecond,
+      });
 
       ctx.body = {
         jobId,
-        message: testInsertResult 
-          ? 'Landuse import - first test feature inserted successfully with PostGIS Polygon' 
-          : 'Landuse import file validated and parsed successfully',
+        message: 'Landuse import completed successfully',
         countryId,
         fileType: 'landuse',
-        fileInfo: {
-          path: geojsonPath,
-          sizeMB: fileSizeMB,
-          featureCount,
-          geometryType: geojson.type,
+        result: {
+          totalFeatures: result.totalFeatures,
+          totalBatches: result.totalBatches,
+          elapsedSeconds,
+          featuresPerSecond,
         },
-        testInsert: testInsertResult,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -825,9 +1064,14 @@ export default {
               const regionName = props.name || `admin-${adminLevel}-${props.osm_id || 'unknown'}`;
               const documentId = randomUUID(); // Generate UUID for document_id
               
-              // Convert geometry to WKT MultiPolygon
+              // Convert geometry to WKT MultiPolygon and calculate centroid from original coordinates
               let wkt = null;
+              let centerLat = null;
+              let centerLon = null;
+              
               if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+                let firstRing: number[][] = [];
+                
                 if (feature.geometry.type === 'MultiPolygon') {
                   // Already MultiPolygon - convert coordinates to WKT
                   const polygons = feature.geometry.coordinates.map((polygon: number[][][]) => {
@@ -838,6 +1082,8 @@ export default {
                     return `(${rings})`;
                   }).join(', ');
                   wkt = `MULTIPOLYGON(${polygons})`;
+                  // Get first ring for centroid calculation
+                  firstRing = feature.geometry.coordinates[0][0];
                 } else {
                   // Convert single Polygon to MultiPolygon for consistency
                   const rings = feature.geometry.coordinates.map((ring: number[][]) => {
@@ -845,15 +1091,33 @@ export default {
                     return `(${coords})`;
                   }).join(', ');
                   wkt = `MULTIPOLYGON(((${rings})))`;
+                  // Get first ring for centroid calculation
+                  firstRing = feature.geometry.coordinates[0];
+                }
+                
+                // Calculate centroid from original GeoJSON coordinates (preserves precision)
+                if (firstRing && firstRing.length > 0) {
+                  let sumLat = 0;
+                  let sumLon = 0;
+                  firstRing.forEach(coord => {
+                    sumLon += coord[0];
+                    sumLat += coord[1];
+                  });
+                  centerLon = sumLon / firstRing.length;
+                  centerLat = sumLat / firstRing.length;
                 }
               }
               
-              insertValues.push('(?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)');
+              // Insert with area calculation from geometry
+              insertValues.push('(?, ?, ?, ?, ?, ?, ST_Area(ST_GeomFromText(?, 4326)::geography) / 1000000, ST_GeomFromText(?, 4326), ?, ?, ?)');
               insertBindings.push(
                 documentId,                // document_id
                 props.osm_id || null,      // osm_id
                 props.full_id || null,     // full_id
                 regionName,                // name
+                centerLat,                 // center_latitude (from original GeoJSON coords)
+                centerLon,                 // center_longitude (from original GeoJSON coords)
+                wkt,                       // area_sq_km (calculated from geometry)
                 wkt,                       // geom (WKT)
                 timestamp,                 // created_at
                 timestamp,                 // updated_at
@@ -865,7 +1129,8 @@ export default {
             if (insertValues.length > 0) {
               await knex.raw(`
                 INSERT INTO regions (
-                  document_id, osm_id, full_id, name, geom, created_at, updated_at, published_at
+                  document_id, osm_id, full_id, name,
+                  center_latitude, center_longitude, area_sq_km, geom, created_at, updated_at, published_at
                 ) VALUES ${insertValues.join(', ')}
               `, insertBindings);
               
