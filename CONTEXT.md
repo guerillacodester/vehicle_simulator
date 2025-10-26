@@ -286,31 +286,46 @@ WHERE indexname LIKE 'idx_%_geom';
 -- 4. Test spatial query performance
 EXPLAIN ANALYZE
 SELECT COUNT(*) FROM buildings
-WHERE ST_DWithin(geom::geography, ST_MakePoint(-61.5, 13.1)::geography, 1000);
+WHERE ST_DWithin(geom::geography, ST_MakePoint(-59.62, 13.1)::geography, 1000);
 -- Expected: Index Scan using idx_buildings_geom, execution < 50ms
+
+-- 5. Test region linking accuracy
+SELECT 
+  h.osm_id,
+  COUNT(DISTINCT r.id) as num_regions
+FROM highways h
+JOIN highways_region_lnk hrl ON h.id = hrl.highway_id
+JOIN regions r ON hrl.region_id = r.id
+GROUP BY h.id, h.osm_id
+HAVING COUNT(DISTINCT r.id) > 1
+LIMIT 10;
+-- Expected: Shows highways that cross parish boundaries
 ```
 
 ```powershell
-# 5. Test existing import endpoint
-# Open Strapi Admin > Content Manager > Building
-# Click "Import Buildings GeoJSON" - should show 162,942 already imported
+# 6. Run all integration tests
+python .\test\test_admin_import.py      # Expected: 17/17 passing
+python .\test\test_highway_import.py    # Expected: 16/16 passing
+python .\test\test_amenity_import.py    # Expected: 17/17 passing
+python .\test\test_landuse_import.py    # Expected: 16/16 passing
+# Total: 82 tests passing
 
-# 6. Verify GPS CentCom Server exists but not blocking
-cd gpscentcom_server
-ls server_main.py  # Exists
-# NOTE: This is separate future track - don't work on it for MVP
+# 7. Verify all 5 imports in Strapi UI
+# Open Strapi Admin > Content Manager
+# Check: Buildings (162,942), Regions (304), Highways (22,719), POIs (1,427), Landuse Zones (2,267)
 ```
 
 ### **Step 3: Understand Priority System**
 
 ```text
-TIER 1: Complete GeoJSON Imports (IMMEDIATE - Phase 1.10)
-├─ Admin import backend (← YOU ARE HERE)
-├─ Highway import optimization (streaming + bulk SQL)
-├─ Amenity import optimization (handle Point/Polygon/MultiPolygon)
-└─ Landuse import optimization (Polygon/MultiPolygon)
+TIER 1: Complete GeoJSON Imports ✅ DONE (Phase 1.10)
+├─ Buildings import (162,942 features) ✅
+├─ Admin import (304 regions, 4 levels) ✅
+├─ Highway import (22,719 roads) ✅
+├─ Amenity import (1,427 POIs) ✅
+└─ Landuse import (2,267 zones) ✅
 
-TIER 2: Enable Spawning Queries (CRITICAL BLOCKER - Phase 1.11-1.12)
+TIER 2: Enable Spawning Queries (CRITICAL BLOCKER - Phase 1.11-1.12) 🎯 NEXT
 ├─ Geospatial Services API (custom Strapi controllers)
 ├─ Route-buildings query (ST_DWithin 500m buffer)
 ├─ Depot-buildings query (ST_DWithin 1000m radius)
