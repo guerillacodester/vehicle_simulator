@@ -27,11 +27,11 @@ TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
 ### **Where Am I?**
 
 - **Current Focus**: TIER 1 - GeoJSON Import System Completion
-- **Phase**: Phase 1.10 (Optimize Remaining Import Endpoints) - 2/5 tasks complete
-- **Next Immediate Task**: Create `/api/import-geojson/admin` backend endpoint
+- **Phase**: Phase 1.10 (Optimize Remaining Import Endpoints) - 1/5 tasks complete
+- **Next Immediate Task**: Update `/api/import-geojson/admin` endpoint (exists but incomplete - needs streaming + full import)
 - **After Phase 1.10**: Move to TIER 2 - Geospatial Services API (enables spawning)
-- **Blocker**: None - Frontend ready, database seeded, backend implementation needed
-- **Files Ready**: 4 admin level GeoJSON files in sample_data/ (levels 6, 8, 9, 10)
+- **Blocker**: None - All endpoints exist, streaming parser ready, need to update 4 endpoints
+- **Status**: Building complete (streaming ✅), Admin/Highway/Amenity/Landuse incomplete (readFileSync, test only)
 
 **Priority Path** (Option A):
 
@@ -80,19 +80,27 @@ Phase 1.10 (Complete imports)
 
 ### **🎯 TIER 1: IMMEDIATE - GeoJSON Import System (Current Focus)**
 
-- [x] **Phase 1.1-1.9**: Foundation & Buildings Import ✅ COMPLETE
-  - ✅ Country schema + action buttons
+- [x] **Phase 1.1-1.9**: Foundation & Buildings Import ✅ COMPLETE (Oct 25-26, 2025)
+  - ✅ Country schema + action buttons (5 buttons in UI)
   - ✅ Backend API + PostGIS migration (11 tables, 12 GIST indexes)
-  - ✅ Buildings imported (162,942 records at 1166 features/sec)
+  - ✅ Buildings imported (162,942 records at 1166 features/sec, 658MB file)
   - ✅ Admin levels normalized (4 levels with UI dropdown)
+  - ✅ Streaming parser created and working (geojson-stream-parser.ts)
 
-- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (2/5 tasks) ⏳ **NEXT IMMEDIATE**
-  - [x] Admin level selection UI with dropdown (COMPLETE Oct 25, 2025 23:45)
-  - [x] Frontend handler passes adminLevelId and adminLevel to backend (COMPLETE)
-  - [ ] **NOW**: Create `/api/import-geojson/admin` backend endpoint
-  - [ ] Highway import optimization (41MB, ~22,719 features, LineString)
-  - [ ] Amenity import optimization (3.65MB, 1,427 features, Point/Polygon/MultiPolygon)
-  - [ ] Landuse import optimization (4.12MB, 2,267 features, Polygon/MultiPolygon)
+- [ ] **Phase 1.10**: Optimize Remaining Import Endpoints (1/5 tasks) ⏳ **NEXT IMMEDIATE**
+  - [x] Building import with streaming ✅ COMPLETE (162,942 records, 658MB, 1166 features/sec)
+  - [ ] **NOW**: Update `/api/import-geojson/admin` endpoint (exists but incomplete)
+    - ❌ Currently: Only imports first feature as test, hardcoded to level 6, uses readFileSync
+    - ✅ Need: Accept adminLevelId/adminLevel params, use streaming, import all features, support all 4 levels
+  - [ ] Update `/api/import-geojson/highway` endpoint (exists but incomplete)
+    - ❌ Currently: Uses fs.readFileSync, test import only
+    - ✅ Need: Use streaming parser, full import (41MB, ~22,719 features, LineString)
+  - [ ] Update `/api/import-geojson/amenity` endpoint (exists but incomplete)
+    - ❌ Currently: Uses fs.readFileSync, test import only
+    - ✅ Need: Use streaming parser, full import (3.65MB, 1,427 features, Point/Polygon/MultiPolygon)
+  - [ ] Update `/api/import-geojson/landuse` endpoint (exists but incomplete)
+    - ❌ Currently: Uses fs.readFileSync, test import only
+    - ✅ Need: Use streaming parser, full import (4.12MB, 2,267 features, Polygon/MultiPolygon)
 
 ### **🎯 TIER 2: FOUNDATION - Enable Spawning Queries (Required for Simulator)**
 
@@ -144,7 +152,7 @@ Phase 1.10 (Complete imports)
   - Advanced monitoring (Grafana/ELK)
   - CI/CD pipeline with tests
 
-**Total Progress**: 17/92 major steps across GeoJSON + Spawning phases  
+**Total Progress**: 18/92 major steps across GeoJSON + Spawning phases (Building import complete Oct 26)
 **GPS CentCom**: Separate track, deferred until simulator fully functional
 
 ---
@@ -614,15 +622,16 @@ gpscentcom_server
     - TypeScript interfaces: StreamingOptions, StreamProgress, StreamResult
   
 - [ ] **1.10.3** Update ALL 5 import endpoints to use streaming
-  - ⏳ Highway import - needs update to use new streaming utility
-  - ⏳ Update `importAmenity` endpoint (1,427 features, 3.65MB)
-  - ⏳ Update `importLanduse` endpoint (2,267 features, 4.12MB)
-  - ✅ **Building import** - COMPLETED with streaming (628MB file, 500 feature batches, fixed createMany API issue)
-  - ⏳ Update `importAdmin` endpoint (parishes/districts, <1MB)
+  - ⏳ **Admin import** - UPDATE endpoint (exists, imports 1 feature, needs full streaming import)
+  - ⏳ **Highway import** - UPDATE endpoint (exists, uses readFileSync, needs streaming)
+  - ⏳ **Amenity import** - UPDATE endpoint (exists, uses readFileSync, needs streaming)
+  - ⏳ **Landuse import** - UPDATE endpoint (exists, uses readFileSync, needs streaming)
+  - ✅ **Building import** - COMPLETED with streaming (628MB file, 500 feature batches, 162,942 records)
   - Replace all `fs.readFileSync` with streaming parser
   - Process features in batches (500-1000 at a time)
   - Emit Socket.IO progress updates per batch
-  - **NOTE**: Strapi v5 EntityService doesn't have `createMany()` - use loop of `create()` calls
+  - **NOTE**: Strapi v5 EntityService doesn't have `createMany()` - use bulk SQL inserts
+  - **STATUS**: 1/5 complete (Building only), 4 endpoints need conversion to streaming
   
 - [ ] **1.10.4** Test streaming with building.geojson (stress test)
   - Click Building button in UI
@@ -768,7 +777,10 @@ gpscentcom_server
 Following the priority sequence, phases should be executed in this order:
 
 1. ✅ **Phase 1.1-1.9**: Foundation (COMPLETE)
-2. ⏳ **Phase 1.10**: Complete Import Endpoints (CURRENT - 2/5 tasks)
+2. ⏳ **Phase 1.10**: Complete Import Endpoints (CURRENT - 1/5 tasks)
+   - Only Building uses streaming (162,942 records imported)
+   - Admin/Highway/Amenity/Landuse endpoints exist but incomplete
+   - Need to update 4 endpoints: streaming parser + full imports
 3. 🔜 **Phase 1.11**: Geospatial Services API (NEXT - enables spawning)
 4. 🔜 **Phase 1.12**: Database Integration & Validation
 5. 🔜 **Phase 4**: POI-Based Spawning (requires 1.11)
