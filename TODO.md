@@ -1,11 +1,11 @@
 # GeoJSON Import System - Implementation TODO
 
 **Project**: ArkNet Vehicle Simulator  
-**Branch**: branch-0.0.2.6  
+**Branch**: branch-0.0.2.7  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Phase 1.10 COMPLETE - All 5 imports validated: 189,659 features)  
-**Status**: ✅ TIER 1 COMPLETE (All GeoJSON imports: 82/82 tests passing)  
-**Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning 🎯 NEXT → Optimize Performance
+**Updated**: October 26, 2025 (Phase 1.11 COMPLETE - Geospatial Services API operational)  
+**Status**: ✅ TIER 1 & TIER 2 Phase 1.11 COMPLETE (All GeoJSON imports + Geospatial API: 16/16 tests passing)  
+**Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 NEXT
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
 > **📚 Reference**: `GEOJSON_IMPORT_CONTEXT.md` - Detailed file analysis (historical)
@@ -14,9 +14,10 @@
 
 ```text
 TIER 1: Phase 1.10 (Complete GeoJSON imports) ✅ COMPLETE
-TIER 2: Phases 1.11-1.12 (Enable spawning queries) 🎯 CURRENT
-TIER 3: Phases 4-5-6 (Passenger spawning features) 🔜 
-TIER 4: Phases 2-3 (Redis optimization + Geofencing) 🔜
+TIER 2: Phase 1.11 (Geospatial Services API) ✅ COMPLETE
+TIER 3: Phase 1.12 (Database Integration & Validation) 🎯 CURRENT
+TIER 4: Phases 4-5-6 (Passenger spawning features) 🔜 
+TIER 5: Phases 2-3 (Redis optimization + Geofencing) 🔜
 TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
 ```
 
@@ -26,28 +27,35 @@ TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
 
 ### **Where Am I?**
 
-- **Current Focus**: TIER 2 - Geospatial Services API (Enable Spawning)
-- **Phase**: Phase 1.11 (Build API for spatial queries)
-- **Next Immediate Task**: Create geospatial_service/api/routes.py with endpoints for routes, depots, buildings, zones
-- **After Phase 1.11**: Move to Phase 1.12 (Database Integration & Validation)
-- **Blocker**: None - All 5 GeoJSON imports COMPLETE
-- **Status**: Phase 1.10 ✅ 100% COMPLETE
-  - **189,659 total features** imported successfully
-  - **82 integration tests** passing (17 admin + 16 highway + 17 amenity + 16 landuse + building tests)
-  - **All region linking operational**:
-    - Highways: 23,666 links (947 cross boundaries)
-    - POIs: 1,427 links (all within single regions)
-    - Landuse: 2,310 links (43 cross boundaries)
-  - **All country linking operational**: 189,659 links (100% coverage)
-  - **All spatial indexes**: GIST indexes on all geometry columns
-  - **All PostGIS geometries**: Valid with SRID 4326
+- **Current Focus**: TIER 3 - Database Integration & Validation
+- **Phase**: Phase 1.12 (Validate spatial queries and integrate with commuter_simulator)
+- **Next Immediate Task**: Test spatial queries from commuter_simulator, validate performance benchmarks
+- **After Phase 1.12**: Move to Phase 4 (POI-Based Spawning)
+- **Blocker**: None - All 5 GeoJSON imports COMPLETE + Geospatial API operational
+- **Status**: Phase 1.11 ✅ 100% COMPLETE
+  - **FastAPI Geospatial Service**: Running on port 8001
+  - **16/16 integration tests passing**:
+    - Health checks & API info
+    - Reverse geocoding with parish (e.g., "Rockley New Road, near parking, Christ Church")
+    - Geofence detection (2-4ms latency)
+    - Depot catchment queries (50-100ms for 1km radius)
+    - Concurrent performance validated (5 req/sec)
+  - **Real-time performance**:
+    - Geofence: 0.23ms avg (2.31ms max)
+    - Reverse geocode: 2.46ms avg (12.88ms max)
+    - Depot catchment: 94.76ms avg (121ms max)
+  - **All endpoints operational**:
+    - `/geocode/reverse` - Lat/lon → "Road, near POI, Parish"
+    - `/geofence/check` - Point-in-polygon for regions & landuse
+    - `/spatial/depot-catchment` - Buildings within radius
+    - `/spatial/route-buildings` - Buildings along route buffer
 
 **Priority Path** (Option A):
 
 ```text
 Phase 1.10 (Complete imports) ✅ DONE
-  → Phase 1.11 (Geospatial API) 🎯 NEXT
-  → Phase 1.12 (Validation)
+  → Phase 1.11 (Geospatial API) ✅ DONE
+  → Phase 1.12 (Validation) 🎯 NEXT
   → Phases 4/5/6 (Spawning features)
   → Phase 2 (Redis optimization)
   → Phase 3 (Geofencing)
@@ -135,22 +143,46 @@ Phase 1.10 (Complete imports) ✅ DONE
   - **Summary**: ✅ ALL 5 IMPORTS 100% COMPLETE
     - **Total features**: 189,659 (162,942 buildings + 304 regions + 22,719 highways + 1,427 POIs + 2,267 landuse)
     - **All junction tables**: Country links (189,659) + region links (27,707) operational
-    - **All integration tests**: 82 tests passing (17 admin + 16 highway + 17 amenity + 16 landuse + building)
+    - **All integration tests**: 82 Strapi tests passing (17 admin + 16 highway + 17 amenity + 16 landuse + building)
     - **All spatial indexes**: GIST indexes on all geometry columns
     - **All PostGIS geometries**: Valid with SRID 4326
     - **Boundary crossings detected**: 990 features (947 highways + 43 landuse zones)
     - **Performance**: Streaming parsers handle large files (658MB building.geojson) efficiently
+    - **Cleanup**: Removed temporary check_buildings_schema.py and check_landuse_schema.py validation scripts
 
 ### **🎯 TIER 2: FOUNDATION - Enable Spawning Queries (Required for Simulator)**
 
-- [ ] **Phase 1.11**: Geospatial Services API (0/7 steps) - **CRITICAL BLOCKER**
-  - Build queries: routes, depots, buildings, zones
-  - Enables commuter_simulator spawning logic
-  - **Blocks**: Phases 4, 5, 6 (all spawning features)
+- [x] **Phase 1.11**: Geospatial Services API (7/7 steps) ✅ **COMPLETE** (Oct 26, 2025)
+  - [x] Created FastAPI geospatial_service with asyncpg connection pooling
+  - [x] Implemented PostGIS query optimization (bbox + geography distance pattern)
+  - [x] Built reverse geocoding endpoint (highway + POI + parish)
+  - [x] Built geofence check endpoints (region & landuse containment)
+  - [x] Built depot catchment endpoint (buildings within radius)
+  - [x] Built route buildings endpoint (buildings along route buffer)
+  - [x] Created integration test suite (16/16 tests passing)
+  - **Performance validated for real-time async usage**:
+    - Geofence: 0.23ms avg (sub-millisecond!)
+    - Reverse geocode: 2.46ms avg (with parish included)
+    - Depot catchment: 94.76ms avg (1km radius, 3000+ buildings)
+  - **Address format**: "Road name, near POI, Parish" (e.g., "Rockley New Road, near parking, Christ Church")
+  - **Endpoints operational**:
+    - `GET/POST /geocode/reverse` - Reverse geocoding with parish
+    - `POST /geofence/check` - Point-in-polygon checks
+    - `POST /geofence/check-batch` - Batch geofence checks
+    - `GET/POST /spatial/depot-catchment` - Buildings near depot
+    - `POST /spatial/route-buildings` - Buildings along route
+  - **Database optimizations**:
+    - Bounding box prefilter using ST_MakeEnvelope (GIST index friendly)
+    - Geography distance only on small result sets
+    - Longitude degree conversion adjusted by cos(latitude)
+    - In-memory TTL cache (5s) for repeated identical queries
 
-- [ ] **Phase 1.12**: Database Integration & Validation (0/5 steps)
-  - Test spatial queries, validate indexes
-  - Confirms Phase 1.11 works correctly
+- [ ] **Phase 1.12**: Database Integration & Validation (0/5 steps) 🎯 **CURRENT**
+  - [ ] Test spatial queries from commuter_simulator spawning logic
+  - [ ] Validate performance under realistic load (100+ vehicles)
+  - [ ] Document API endpoints for other services
+  - [ ] Create API client wrapper for commuter_simulator
+  - [ ] Validate all spatial indexes are used (EXPLAIN ANALYZE)
 
 ### **🎯 TIER 3: ADVANCED FEATURES - Passenger Spawning System**
 
@@ -166,18 +198,52 @@ Phase 1.10 (Complete imports) ✅ DONE
   - Requires: Phase 5 (active spawning)
   - Vehicle-passenger interaction
 
-### **🎯 TIER 4: OPTIMIZATION - Performance Enhancement (Post-Spawning)**
+### **🎯 TIER 4: PRODUCTION DEPLOYMENT - Infrastructure & Scaling**
 
-- [ ] **Phase 2**: Redis + Reverse Geocoding (0/15 steps)
-  - Install Redis, implement geospatial service
-  - Target: <200ms queries (vs ~2000ms PostgreSQL)
-  - **Optional**: Can work with slower PostgreSQL queries initially
+- [ ] **Phase 2**: Redis Integration (0/12 steps) - **MANDATORY for 1,200 Vehicles**
+  - **When**: Required before deploying to production (100+ vehicles)
+  - **Why**: Position buffering, shared state, horizontal scaling
+  - **Server Requirements**: See production deployment section below
+  - [ ] Install Redis on production server
+  - [ ] Configure Redis for persistence (AOF + RDB)
+  - [ ] Implement position buffering (reduce PostgreSQL writes 10×)
+  - [ ] Add shared session state for GPS CentCom cluster
+  - [ ] Implement device heartbeat tracking (TTL-based)
+  - [ ] Add reverse geocoding cache (1 hour TTL)
+  - [ ] Configure Redis connection pooling
+  - [ ] Test failover scenarios
+  - [ ] Implement batch writes from Redis to PostgreSQL
+  - [ ] Add monitoring for Redis memory usage
+  - [ ] Document Redis backup procedures
+  - [ ] Load test with simulated 1,200 devices
 
-- [ ] **Phase 3**: Geofencing (0/8 steps)
-  - Requires: Phase 2 (Redis)
-  - Real-time geofence detection
+- [ ] **Phase 3**: GPS CentCom Cluster Mode (0/8 steps) - **REQUIRED for 1,200 Vehicles**
+  - **When**: Required before 200+ vehicles
+  - **Why**: Single Node.js process can't handle 1,200 connections
+  - [ ] Implement Node.js cluster mode (6-8 workers)
+  - [ ] Configure worker process management (PM2 or systemd)
+  - [ ] Implement Redis-based session sharing
+  - [ ] Add Nginx load balancing across workers
+  - [ ] Implement rolling restart mechanism (zero downtime)
+  - [ ] Add worker health checks and auto-restart
+  - [ ] Test with 1,200 simulated concurrent connections
+  - [ ] Document cluster architecture and scaling limits
 
-### **🎯 TIER 5: DATA ENHANCEMENT - Historical & Ridership Analytics (Future)**
+### **🎯 TIER 5: OPTIMIZATION - Performance Enhancement**
+
+- [ ] **Phase 4**: Geofencing & Real-Time Alerts (0/8 steps)
+  - **When**: After Phase 2 (Redis) complete
+  - **Why**: Operator notifications for zone violations
+  - [ ] Implement geofence pub/sub (Redis channels)
+  - [ ] Add zone enter/exit detection logic
+  - [ ] Create operator alert dashboard
+  - [ ] Add SMS/email notification integration
+  - [ ] Implement geofence assignment UI
+  - [ ] Add historical geofence violation logs
+  - [ ] Test with 100+ vehicles crossing zones
+  - [ ] Document alerting workflows
+
+### **🎯 TIER 6: DATA ENHANCEMENT - Historical & Ridership Analytics (Future)**
 
 - [ ] **Phase 7**: Temporal Profile System (0/8 steps) - **FUTURE ENHANCEMENT**
   - Create temporal_profiles table (hour, day, rate_multiplier)
@@ -201,7 +267,369 @@ Phase 1.10 (Complete imports) ✅ DONE
 
 **Note**: Current GeoJSON data (189,659 features) provides 80% of spawning model needs. Phase 7-8 adds the missing 20% (temporal patterns, actual ridership) when real-world data becomes available. The existing spawn_weight, peak_hour_multiplier fields in POI/landuse schemas are placeholders ready for calibrated values.
 
-### **📡 SEPARATE TRACK: GPS CentCom Server (Future Production Hardening)**
+---
+
+## 🖥️ **PRODUCTION DEPLOYMENT REQUIREMENTS**
+
+### **Current Development Server:**
+- **OVH VPS vps2023-le-2**: 2 vCores, 2 GB RAM, 40 GB Storage
+- **Suitable for**: MVP development, real-time tracking demo with **30-50 vehicles**
+- **NOT suitable for**: Production deployment at 1,200 vehicle scale
+
+**MVP Capacity Analysis (Real-Time Demo, No Position Storage):**
+```
+Memory allocation:
+├─ PostgreSQL: ~300 MB (routes, stops, POIs - NO position history)
+├─ Strapi: ~300 MB (single instance)
+├─ GPS CentCom: ~100 MB + (devices × 20 KB in-memory state)
+├─ Geospatial API: ~150 MB
+├─ System/OS: ~200 MB
+└─ Available for devices: ~950 MB
+
+Capacity:
+├─ Conservative (stable): 30-40 vehicles (80% RAM utilization)
+├─ Aggressive (max): 50-60 vehicles (95% RAM utilization)
+└─ Bottleneck: RAM (not CPU or storage)
+
+Performance expectations:
+├─ Position updates: <100ms latency (WebSocket in-memory)
+├─ Dashboard queries: <50ms (query in-memory store, not database)
+├─ Geospatial queries: <100ms (PostGIS with indexes)
+└─ No disk I/O bottleneck (no position writes)
+
+Note: Position data storage is SUBSCRIPTION-BASED (free tier = real-time only, paid tier = history + analytics)
+      Free MVP demo: In-memory tracking only | Paid tiers: 7/30/90/365 day retention with analytics API
+```
+
+### **Production Scaling Requirements (1,200 Vehicles):**
+
+**Target Fleet Size**: 1,200 GPS devices (ESP32/STM32 with Rock S0 GPS module)  
+**Update Frequency**: 1 position/5 seconds  
+**Base Load**: 240 position updates/second (in-memory state updates)  
+**Dashboard**: 5-10 operators monitoring fleet  
+**Business Model**: Free tier (real-time only) + Subscription tiers (historical data + analytics)  
+**Position Storage**: Subscription-based (PostgreSQL/InfluxDB for paid tiers, ephemeral for free tier)  
+
+#### **Minimum Single Server Option:**
+
+**OVH VPS Scale-3 or Advance-2:**
+- **12+ vCores** minimum
+- **48-64 GB RAM** minimum
+- **500 GB SSD** minimum
+- **Cost**: ~$150-300/month
+- **Capacity**: 800-1,200 vehicles (at limit)
+- **Risk**: Single point of failure
+
+**Software Stack:**
+```
+├─ GPS CentCom (Node.js Cluster - 6-8 workers)
+├─ Strapi (2 instances for HA)
+├─ Geospatial API (FastAPI - 1-2 instances)
+├─ PostgreSQL (with connection pooling)
+├─ Redis (6-8 GB allocated)
+└─ Nginx (reverse proxy + load balancer)
+```
+
+#### **Recommended Multi-Server Option (High Availability):**
+
+**3× OVH VPS Scale-2:**
+- **4 vCores each, 8 GB RAM each, 160 GB SSD each**
+- **Cost**: ~$120-180/month total
+- **Capacity**: 1,200+ vehicles (400 per server)
+- **Benefit**: High availability, horizontal scaling, redundancy, <5 second failover
+
+**Distribution:**
+```
+Server 1 (VPS Scale-2):
+├─ GPS CentCom Workers 1-2 (400 devices)
+├─ Redis MASTER + Sentinel
+├─ Strapi Instance 1
+├─ PostgreSQL Read Replica (geospatial queries)
+└─ Nginx (reverse proxy)
+
+Server 2 (VPS Scale-2):
+├─ GPS CentCom Workers 3-4 (400 devices)
+├─ Redis REPLICA + Sentinel
+├─ Strapi Instance 2
+├─ PostgreSQL Read Replica (dashboard queries)
+└─ Nginx (reverse proxy)
+
+Server 3 (VPS Scale-2):
+├─ GPS CentCom Workers 5-6 (400 devices)
+├─ Redis REPLICA + Sentinel
+├─ PostgreSQL PRIMARY (write master)
+├─ Geospatial API (FastAPI)
+└─ Nginx (reverse proxy)
+
+External Load Balancer (CloudFlare or OVH)
+```
+
+**Database Synchronization Strategy:**
+
+**PostgreSQL (Single Write Master + Read Replicas):**
+```
+All Writes → PostgreSQL Primary (Server 3)
+   ↓ Streaming Replication (<100ms lag)
+   ├→ Read Replica 1 (Server 1) - Geospatial queries
+   └→ Read Replica 2 (Server 2) - Dashboard queries
+
+Configuration:
+- Primary: wal_level=replica, max_wal_senders=3
+- Replicas: hot_standby=on
+- Failover: Automatic with repmgr or Patroni
+- No sync conflicts (one-way replication)
+```
+
+**Redis (Sentinel HA with Auto-Failover):**
+```
+Redis Master (Server 1) - All writes
+   ↓ Async replication
+   ├→ Redis Replica (Server 2)
+   └→ Redis Replica (Server 3)
+
+Sentinels (all 3 servers) monitor master health:
+- Quorum: 2/3 votes required for failover
+- Detection: 5 seconds down-after-milliseconds
+- Failover: Automatic promotion of replica to master
+- Downtime: ~10 seconds for automatic failover
+```
+
+**Strapi (Active-Active with Shared PostgreSQL):**
+```
+Load Balancer
+   ├→ Strapi Instance 1 (Server 1) ──┐
+   └→ Strapi Instance 2 (Server 2) ──┤
+                                      ↓
+                   PostgreSQL Primary (Server 3)
+
+- Both instances read/write SAME database (no sync needed)
+- Sessions stored in Redis Master (shared state)
+- File uploads: Shared volume or S3 bucket
+- No data conflicts (single source of truth)
+```
+
+**Failover Scenarios:**
+
+| Failure | Detection | Recovery | Downtime | Impact |
+|---------|-----------|----------|----------|--------|
+| Redis Master dies | Sentinel quorum (5s) | Auto-promote replica | ~10 seconds | In-memory state sync delay |
+| PostgreSQL Primary dies | Health check (10s) | Manual/auto promote replica | 30-60 seconds | Reads continue from replicas |
+| Entire Server 1 dies | Load balancer (5s) | Route to Server 2/3 | <5 seconds | 400 devices → 600 each temp |
+| Network partition | Split-brain detection | Sentinel quorum prevents | N/A | State updates paused |
+
+**Position Storage & Monetization Strategy:**
+
+**Free Tier (Real-Time Only):**
+- In-memory state only (current position, route, driver, status)
+- Real-time dashboard access
+- No historical data retention
+- Suitable for: Live tracking, dispatch operations, real-time monitoring
+
+**Subscription Tier (Historical Data + Analytics):**
+- Position history storage (PostgreSQL or InfluxDB/TimescaleDB)
+- Configurable retention (7 days, 30 days, 90 days, 1 year)
+- Analytics API endpoints (route replay, heat maps, performance metrics)
+- Reports & visualizations (distance traveled, idle time, geofence violations)
+- Data export (CSV, JSON, GeoJSON)
+- Monthly fee covers: Storage costs + analytics processing + API access
+
+**Technical Implementation:**
+- **Option A**: PostgreSQL with Redis buffer (short-term: 7-30 days retention)
+  - Use case: Recent history, basic analytics, route replay
+  - Cost: ~$0.50-2/vehicle/month (storage + compute)
+  
+- **Option B**: InfluxDB/TimescaleDB (long-term: 90 days - 1 year retention)
+  - Use case: Advanced analytics, trend analysis, compliance reporting
+  - Cost: ~$2-5/vehicle/month (time-series optimization, higher storage)
+  
+- **Option C**: Hybrid (Redis → PostgreSQL → Cold Storage/S3)
+  - Use case: Multi-tier retention (hot: 7 days, warm: 30 days, cold: 1 year)
+  - Cost: ~$1-3/vehicle/month (tiered pricing based on access frequency)
+
+**Pricing Model Examples:**
+```
+Free Tier:
+├─ Real-time tracking only
+├─ Current position data
+└─ $0/month per vehicle
+
+Basic Plan ($5/vehicle/month):
+├─ 7 days position history
+├─ Basic analytics (distance, idle time)
+├─ Route replay
+└─ CSV export
+
+Professional Plan ($15/vehicle/month):
+├─ 30 days position history
+├─ Advanced analytics (heat maps, performance)
+├─ API access (1000 req/day)
+├─ Automated reports
+└─ GeoJSON export
+
+Enterprise Plan ($30/vehicle/month):
+├─ 1 year position history
+├─ Full analytics suite
+├─ Unlimited API access
+├─ Custom integrations
+├─ SLA guarantee (99.9% uptime)
+└─ Dedicated support
+```
+
+**Revenue Projection (1,200 vehicles):**
+```
+Scenario 1 (Conservative - 30% paid subscribers):
+├─ 360 vehicles × $15/month (Professional) = $5,400/month
+├─ Infrastructure costs: ~$200-300/month (single server)
+└─ Net revenue: ~$5,100/month
+
+Scenario 2 (Moderate - 50% paid subscribers):
+├─ 600 vehicles × $15/month (Professional) = $9,000/month
+├─ Infrastructure costs: ~$300-400/month (upgraded server)
+└─ Net revenue: ~$8,600/month
+
+Scenario 3 (High adoption - 70% paid subscribers):
+├─ 840 vehicles × $15/month (Professional) = $12,600/month
+├─ Infrastructure costs: ~$400-500/month (multi-server)
+└─ Net revenue: ~$12,100/month
+```
+
+**Why Multi-Server vs Single Server:**
+
+| Aspect | Single Server (Advance-2) | Multi-Server (3× Scale-2) |
+|--------|---------------------------|---------------------------|
+| **Cost** | ~$200/month | ~$150/month total |
+| **Complexity** | Low (no sync needed) | Medium (sync configuration) |
+| **Availability** | 99% (single point of failure) | 99.9% (survives server failure) |
+| **Acceptable Downtime** | 30-60 minutes (hardware failure) | <5 seconds (automatic failover) |
+| **Suitable for** | MVP, Pilot, cost-sensitive | Production SLA, mission-critical |
+| **Management Effort** | Low | Medium (monitoring, failover testing) |
+| **Position Storage Impact** | None (in-memory only) | None (in-memory only) |
+
+**Recommendation**: Start with **Single Server** for MVP/Pilot (handles 50-100 vehicles with in-memory state). Migrate to **Multi-Server** when:
+- You have >500 active vehicles
+- SLA requires <5 minute downtime
+- You decide to store position history (adds write load)
+- You have operational experience to manage distributed systems
+- Budget allows for monitoring/alerting infrastructure
+
+External Load Balancer (OVH or CloudFlare)
+```
+
+### **Redis Requirements:**
+
+**Why Redis is MANDATORY for 1,200 vehicles:**
+1. **In-memory state sharing**: GPS CentCom workers share device state across processes
+2. **Dashboard performance**: Query 1,200 positions in <5ms (vs 100-200ms from PostgreSQL)
+3. **Device heartbeat**: TTL-based online/offline detection
+4. **Session state**: Shared sessions across Strapi instances
+5. **Horizontal scaling**: Required for multi-server deployment
+6. **Optional position buffering**: IF storing position history (TBD for production)
+
+**Memory sizing (in-memory state only, no position storage):**
+```
+1,200 vehicle current positions × 200 bytes = 240 KB (current state)
+Device metadata (route, driver, etc.) × 1,200 = ~500 KB
+Session data, heartbeats: ~200 MB
+Dashboard cache: ~100 MB
+Total: ~300 MB active data + 50% overhead = 450 MB minimum
+Recommended allocation: 1-2 GB (comfortable headroom)
+
+IF storing position trails (100 positions per vehicle):
+Position trails: 100 × 200 bytes × 1,200 = 24 MB additional
+Total with trails: ~500 MB + 50% overhead = 750 MB
+Recommended allocation with trails: 2-4 GB
+```
+
+### **PostgreSQL Requirements:**
+
+**Connection pooling (PgBouncer):**
+- Max connections: 100
+- Pool size: 20-30
+- Writes: Configuration data only (routes, stops, POIs)
+- NO position writes (in-memory only for MVP)
+
+**Storage (no position history):**
+```
+Base schema + indexes: ~500 MB
+GeoJSON data (189,659 features): ~4.5 GB
+Routes, stops, schedules: ~500 MB
+Total: ~5.5 GB (static - no growth)
+
+IF position history added later:
+1,200 vehicles × 17,280 updates/day = 20,736,000 positions/day
+Daily growth: ~2 GB
+Monthly growth: ~60 GB
+Recommended: 500 GB minimum, with rotation/archival after 6 months
+```
+1,200 vehicles × 17,280 updates/day = 20,736,000 positions/day
+Daily growth: ~2 GB
+Monthly growth: ~60 GB
+Recommended: 500 GB minimum, with rotation/archival after 6 months
+```
+
+### **Development → Production Migration Path:**
+
+**Phase 1: MVP Demo (Current - 2 vCore, 2 GB)**
+- ✅ Real-time tracking demo with **30-50 vehicles**
+- ✅ In-memory state only (no position storage)
+- ✅ Single GPS CentCom worker (no cluster mode)
+- ✅ No Redis needed (in-memory store sufficient)
+- ✅ All features work for demo/testing
+- ⚠️ NOT suitable for production (no redundancy, limited capacity)
+
+**Phase 2: Prototype Testing (Upgrade to VPS Scale-2)**
+- 🎯 4 vCores, 8 GB RAM, 160 GB SSD (~$40-60/month)
+- 🎯 **100-200 vehicles** capacity
+- 🎯 Add Redis (1-2 GB allocation)
+- 🎯 Test GPS CentCom cluster mode (2-4 workers)
+- 🎯 Deploy 5-20 real prototype devices
+- 🎯 Decide on position storage strategy (PostgreSQL vs InfluxDB vs ephemeral)
+
+**Phase 3: Pilot Deployment (Upgrade to VPS Scale-3)**
+- 🎯 8-12 vCores, 32 GB RAM, 400 GB SSD (~$100-150/month)
+- 🎯 **500-800 vehicles** capacity
+- 🎯 Redis + GPS CentCom cluster operational
+- 🎯 Limited production fleet
+- 🎯 Position storage implemented (if needed)
+- 🎯 Monitoring and alerting configured
+
+**Phase 4: Full Production (VPS Advance-2 or 3× Scale-2)**
+- 🎯 12+ vCores, 64 GB RAM, 500 GB SSD (single server ~$200/month)
+- 🎯 OR: 3× Scale-2 with load balancer (multi-server ~$150/month)
+- 🎯 **1,200 vehicles** full deployment
+- 🎯 Redis cluster (2-4 GB), PostgreSQL replica (if storing positions), full monitoring
+
+### **Critical Pre-Production Checklist:**
+
+Before deploying to production with real GPS devices:
+
+**Single Server Deployment (VPS Advance-2):**
+- [ ] Server upgraded to minimum VPS Advance-2 (12 vCore, 64 GB RAM, 500 GB SSD)
+- [ ] Redis installed and configured with persistence (RDB + AOF)
+- [ ] GPS CentCom cluster mode implemented and tested (6-8 workers)
+- [ ] PostgreSQL connection pooling configured (PgBouncer: 20-30 connections)
+- [ ] Monitoring and alerting configured (CPU, RAM, disk, connection counts)
+- [ ] Backup procedures documented and automated (PostgreSQL + Redis snapshots)
+- [ ] Load tested with 1,200 simulated concurrent connections
+- [ ] Disaster recovery plan documented (backup restoration SLA)
+- [ ] Rolling deployment procedure tested
+
+**Multi-Server Deployment (3× VPS Scale-2) - Additional Requirements:**
+- [ ] PostgreSQL streaming replication configured (Primary → 2 Replicas)
+- [ ] Redis Sentinel configured on all 3 servers (quorum: 2/3)
+- [ ] Strapi session storage moved to Redis (shared state)
+- [ ] Load balancer configured with health checks (CloudFlare or Nginx)
+- [ ] Failover testing completed:
+  - [ ] Redis master failure → auto-promote replica (<10s)
+  - [ ] PostgreSQL primary failure → promote replica (<60s)
+  - [ ] Entire server failure → load balancer routes traffic (<5s)
+- [ ] Network partition handling tested (split-brain scenarios)
+- [ ] Cross-server monitoring configured (centralized dashboard)
+- [ ] Automated failover documented (runbooks for manual intervention)
+
+---
+
+## 📡 **GPS CENTCOM SERVER STATUS**
 
 - ✅ **Current Status**: MVP Demo Ready (FastAPI + WebSocket + In-Memory Store)
 - [ ] **Future Tier 1**: Production-Grade Improvements

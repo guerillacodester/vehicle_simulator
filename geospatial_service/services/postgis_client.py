@@ -5,6 +5,7 @@ Optimized for performance with connection pooling
 
 import asyncpg
 import time
+import decimal
 from typing import List, Dict, Optional, Tuple, Any
 from config.database import db_config
 
@@ -35,15 +36,30 @@ class PostGISClient:
         
         start_time = time.time()
         
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, *args)
-        
-        latency_ms = (time.time() - start_time) * 1000
-        
-        # Convert to list of dicts
-        result = [dict(row) for row in rows]
-        
-        return result
+        try:
+            async with self.pool.acquire() as conn:
+                rows = await conn.fetch(query, *args)
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            # Convert to list of dicts and normalize Decimal -> float for JSON/pydantic
+            result = []
+            for row in rows:
+                d = dict(row)
+                for k, v in d.items():
+                    if isinstance(v, decimal.Decimal):
+                        try:
+                            d[k] = float(v)
+                        except Exception:
+                            d[k] = float(str(v))
+                result.append(d)
+            
+            return result
+        except Exception as e:
+            print(f"❌ SQL Error: {e}")
+            print(f"Query: {query}")
+            print(f"Args: {args}")
+            raise
     
     # ============================================================================
     # REVERSE GEOCODING QUERIES
@@ -60,27 +76,24 @@ class PostGISClient:
         Returns: {name, highway_type, distance_meters}
         Optimized: Uses geometry index first, then computes geography distance
         """
+        # Use a quick bbox (degrees) filter to leverage GiST index, then compute
+        # accurate distances in metres using geography for ordering.
+        # Convert meters to degrees approximately; longitude scale adjusted by cos(lat).
         query = """
-            WITH nearby AS (
-                SELECT 
-                    name,
-                    highway_type,
-                    geom
-                FROM highways
-                WHERE ST_DWithin(
-                    geom,
-                    ST_SetSRID(ST_MakePoint($2, $1), 4326),
-                    $3 / 111320.0  -- Convert meters to degrees (approximate)
-                )
-                LIMIT 50  -- Get nearby candidates using index
+            WITH params AS (
+                SELECT
+                    $1::double precision AS lat,
+                    $2::double precision AS lon,
+                    $3::double precision AS meters,
+                    ($3::double precision / 111320.0) AS deg_lat,
+                    ($3::double precision / (111320.0 * GREATEST(cos(radians($1::double precision)), 0.0001))) AS deg_lon
+            ), nearby AS (
+                SELECT h.name, h.highway_type, h.geom
+                FROM highways h, params p
+                WHERE h.geom && ST_MakeEnvelope(p.lon - p.deg_lon, p.lat - p.deg_lat, p.lon + p.deg_lon, p.lat + p.deg_lat, 4326)
             )
-            SELECT 
-                name,
-                highway_type,
-                ST_Distance(
-                    geom::geography,
-                    ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-                ) as distance_meters
+            SELECT name, highway_type,
+                ST_Distance(geom::geography, ST_SetSRID(ST_MakePoint((SELECT lon FROM params), (SELECT lat FROM params)), 4326)::geography) AS distance_meters
             FROM nearby
             ORDER BY distance_meters ASC
             LIMIT 1
@@ -100,29 +113,22 @@ class PostGISClient:
         Returns: {name, poi_type, amenity, distance_meters}
         Optimized: Uses geometry index first, then computes geography distance
         """
+        # Similar pattern: bbox filter then accurate geography distance
         query = """
-            WITH nearby AS (
-                SELECT 
-                    name,
-                    poi_type,
-                    amenity,
-                    geom
-                FROM pois
-                WHERE ST_DWithin(
-                    geom,
-                    ST_SetSRID(ST_MakePoint($2, $1), 4326),
-                    $3 / 111320.0  -- Convert meters to degrees (approximate)
-                )
-                LIMIT 50  -- Get nearby candidates using index
+            WITH params AS (
+                SELECT
+                    $1::double precision AS lat,
+                    $2::double precision AS lon,
+                    $3::double precision AS meters,
+                    ($3::double precision / 111320.0) AS deg_lat,
+                    ($3::double precision / (111320.0 * GREATEST(cos(radians($1::double precision)), 0.0001))) AS deg_lon
+            ), nearby AS (
+                SELECT p.name, p.poi_type, p.amenity, p.geom
+                FROM pois p, params prm
+                WHERE p.geom && ST_MakeEnvelope(prm.lon - prm.deg_lon, prm.lat - prm.deg_lat, prm.lon + prm.deg_lon, prm.lat + prm.deg_lat, 4326)
             )
-            SELECT 
-                name,
-                poi_type,
-                amenity,
-                ST_Distance(
-                    geom::geography,
-                    ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-                ) as distance_meters
+            SELECT name, poi_type, amenity,
+                ST_Distance(geom::geography, ST_SetSRID(ST_MakePoint((SELECT lon FROM params), (SELECT lat FROM params)), 4326)::geography) AS distance_meters
             FROM nearby
             ORDER BY distance_meters ASC
             LIMIT 1
@@ -149,14 +155,12 @@ class PostGISClient:
                 r.id,
                 r.document_id,
                 r.name,
-                al.region_type
+                'parish' as region_type
             FROM regions r
-            JOIN admin_levels al ON r.admin_level_id = al.id
             WHERE ST_Contains(
                 r.geom,
                 ST_SetSRID(ST_MakePoint($2, $1), 4326)
             )
-            ORDER BY al.admin_level ASC
             LIMIT 1
         """
         
@@ -170,14 +174,14 @@ class PostGISClient:
     ) -> Optional[Dict[str, Any]]:
         """
         Check if point is inside any landuse zone using ST_Contains
-        Returns: {id, document_id, name, landuse_type}
+        Returns: {id, document_id, name, zone_type}
         """
         query = """
             SELECT 
                 id,
                 document_id,
                 name,
-                landuse_type
+                zone_type
             FROM landuse_zones
             WHERE ST_Contains(
                 geom,
@@ -203,24 +207,22 @@ class PostGISClient:
         Get buildings within buffer distance of a route (highway)
         Returns: [{building_id, latitude, longitude, distance_meters}]
         """
+        # Use highway geom bbox to prefilter buildings, then compute accurate distances
         query = """
+            WITH highway_geom AS (
+                SELECT geom FROM highways WHERE document_id = $1 LIMIT 1
+            ), hparams AS (
+                SELECT ST_Envelope(h.geom) AS env, h.geom AS geom FROM highway_geom h
+            )
             SELECT 
                 b.id as building_id,
                 b.document_id,
-                b.latitude,
-                b.longitude,
-                ST_Distance(
-                    b.geom::geography,
-                    h.geom::geography
-                ) as distance_meters
-            FROM buildings b
-            CROSS JOIN highways h
-            WHERE h.document_id = $1
-              AND ST_DWithin(
-                b.geom::geography,
-                h.geom::geography,
-                $2
-              )
+                ST_Y(ST_Centroid(b.geom)) as latitude,
+                ST_X(ST_Centroid(b.geom)) as longitude,
+                ST_Distance(b.geom::geography, (SELECT geom FROM highway_geom)::geography) as distance_meters
+            FROM buildings b, highway_geom hg
+            WHERE b.geom && ST_Envelope(hg.geom)
+              AND ST_DWithin(b.geom::geography, hg.geom::geography, $2)
             ORDER BY distance_meters ASC
             LIMIT $3
         """
@@ -243,35 +245,26 @@ class PostGISClient:
         Returns: [{building_id, latitude, longitude, distance_meters}]
         Optimized: Uses geometry index for fast spatial query
         """
+        # Prefilter with bbox to use GiST index, then compute exact geography distance
         query = """
-            WITH nearby AS (
-                SELECT 
-                    id,
-                    document_id,
-                    latitude,
-                    longitude,
-                    geom
-                FROM buildings
-                WHERE ST_DWithin(
-                    geom,
-                    ST_SetSRID(ST_MakePoint($2, $1), 4326),
-                    $3 / 111320.0  -- Convert meters to degrees (approximate)
-                )
+            WITH params AS (
+                SELECT
+                    $1::double precision AS lat,
+                    $2::double precision AS lon,
+                    $3::double precision AS meters,
+                    ($3::double precision / 111320.0) AS deg_lat,
+                    ($3::double precision / (111320.0 * GREATEST(cos(radians($1::double precision)), 0.0001))) AS deg_lon
+            ), nearby AS (
+                SELECT id, document_id, ST_Centroid(geom) AS centroid
+                FROM buildings b, params p
+                WHERE b.geom && ST_MakeEnvelope(p.lon - p.deg_lon, p.lat - p.deg_lat, p.lon + p.deg_lon, p.lat + p.deg_lat, 4326)
             )
-            SELECT 
-                id as building_id,
-                document_id,
-                latitude,
-                longitude,
-                ST_Distance(
-                    geom::geography,
-                    ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-                ) as distance_meters
+            SELECT id AS building_id, document_id,
+                ST_Y(centroid) AS latitude,
+                ST_X(centroid) AS longitude,
+                ST_Distance(centroid::geography, ST_SetSRID(ST_MakePoint((SELECT lon FROM params), (SELECT lat FROM params)), 4326)::geography) AS distance_meters
             FROM nearby
-            WHERE ST_Distance(
-                geom::geography,
-                ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-            ) <= $3
+            WHERE ST_Distance(centroid::geography, ST_SetSRID(ST_MakePoint((SELECT lon FROM params), (SELECT lat FROM params)), 4326)::geography) <= (SELECT meters FROM params)
             ORDER BY distance_meters ASC
             LIMIT $4
         """

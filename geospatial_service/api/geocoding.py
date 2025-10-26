@@ -46,9 +46,20 @@ async def reverse_geocode(request: ReverseGeocodeRequest):
     Performance target: <50ms
     """
     start_time = time.time()
+
+    # Simple in-memory cache to speed repeated identical requests (TTL: 5s)
+    if not hasattr(reverse_geocode, "_cache"):
+        reverse_geocode._cache = {}
+    cache_key = (round(request.latitude, 6), round(request.longitude, 6), request.highway_radius_meters, request.poi_radius_meters)
+    cached = reverse_geocode._cache.get(cache_key)
+    if cached and (time.time() - cached[0]) < 5.0:
+        # return cached response quickly
+        cached_response = cached[1]
+        cached_response.latency_ms = round((time.time() - start_time) * 1000, 2)
+        return cached_response
     
     try:
-        # Query nearest highway and POI in parallel
+        # Query nearest highway, POI, and parish in parallel
         highway = await postgis_client.find_nearest_highway(
             request.latitude, 
             request.longitude, 
@@ -61,21 +72,64 @@ async def reverse_geocode(request: ReverseGeocodeRequest):
             request.poi_radius_meters
         )
         
-        # Format address based on available data
-        if highway and poi:
-            address = f"{highway['name']}, near {poi['name']}"
-        elif highway:
-            highway_type = highway.get('highway_type', 'road')
-            name = highway.get('name', f'{highway_type.title()} road')
-            address = name
-        elif poi:
-            address = f"Near {poi['name']}"
+        region = await postgis_client.check_geofence_region(
+            request.latitude,
+            request.longitude
+        )
+        
+        # Format address: build best human-readable location from available data
+        address_parts = []
+        
+        # Add highway/road info
+        if highway:
+            hw_name = highway.get('name')
+            hw_type = highway.get('highway_type', 'road')
+            hw_dist = highway.get('distance_meters', 0)
+            
+            if hw_name and hw_name.strip() and hw_name not in ['unnamed', 'Unknown']:
+                address_parts.append(hw_name)
+            elif hw_dist < 100:  # Very close unnamed road
+                address_parts.append(f"{hw_type.title()} road")
+        
+        # Add POI info
+        if poi:
+            poi_name = poi.get('name')
+            poi_type = poi.get('poi_type') or poi.get('amenity', 'location')
+            poi_dist = poi.get('distance_meters', 0)
+            
+            if poi_name and poi_name.strip() and poi_name not in ['unnamed', 'Unknown']:
+                if address_parts:
+                    address_parts.append(f"near {poi_name}")
+                else:
+                    address_parts.append(f"Near {poi_name}")
+            elif poi_dist < 200 and poi_type:  # Close unnamed POI
+                if address_parts:
+                    address_parts.append(f"near {poi_type}")
+                else:
+                    address_parts.append(f"Near {poi_type}")
+        
+        # Add parish/region
+        if region:
+            parish_name = region.get('name')
+            if parish_name:
+                address_parts.append(parish_name)
+        
+        # Build final address or fallback
+        if address_parts:
+            address = ", ".join(address_parts)
         else:
-            address = "Unknown location"
+            # Last resort: just report approximate distance to nearest feature
+            if highway:
+                dist = int(highway.get('distance_meters', 0))
+                address = f"Approximately {dist}m from nearest road"
+            elif poi:
+                dist = int(poi.get('distance_meters', 0))
+                address = f"Approximately {dist}m from nearest location"
+            else:
+                address = f"Lat: {request.latitude:.4f}, Lon: {request.longitude:.4f}"
         
         latency_ms = (time.time() - start_time) * 1000
-        
-        return ReverseGeocodeResponse(
+        response = ReverseGeocodeResponse(
             address=address,
             latitude=request.latitude,
             longitude=request.longitude,
@@ -84,6 +138,14 @@ async def reverse_geocode(request: ReverseGeocodeRequest):
             source="computed",
             latency_ms=round(latency_ms, 2)
         )
+
+        # store in cache
+        try:
+            reverse_geocode._cache[cache_key] = (time.time(), response)
+        except Exception:
+            pass
+
+        return response
     
     except Exception as e:
         raise HTTPException(

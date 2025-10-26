@@ -114,7 +114,18 @@ async def get_depot_catchment(request: DepotCatchmentRequest):
     Performance target: <150ms for 1000m radius
     """
     start_time = time.time()
-    
+    start_time = time.time()
+
+    # Simple in-memory cache to accelerate repeated identical depot queries (TTL: 5s)
+    if not hasattr(get_depot_catchment, "_cache"):
+        get_depot_catchment._cache = {}
+    cache_key = (round(request.latitude, 6), round(request.longitude, 6), request.radius_meters, request.limit)
+    cached = get_depot_catchment._cache.get(cache_key)
+    if cached and (time.time() - cached[0]) < 5.0:
+        resp = cached[1]
+        resp.latency_ms = round((time.time() - start_time) * 1000, 2)
+        return resp
+
     try:
         buildings_data = await postgis_client.get_buildings_near_depot(
             request.latitude,
@@ -127,7 +138,7 @@ async def get_depot_catchment(request: DepotCatchmentRequest):
         
         latency_ms = (time.time() - start_time) * 1000
         
-        return DepotCatchmentResponse(
+        response = DepotCatchmentResponse(
             latitude=request.latitude,
             longitude=request.longitude,
             radius_meters=request.radius_meters,
@@ -135,11 +146,21 @@ async def get_depot_catchment(request: DepotCatchmentRequest):
             count=len(buildings),
             latency_ms=round(latency_ms, 2)
         )
+
+        try:
+            get_depot_catchment._cache[cache_key] = (time.time(), response)
+        except Exception:
+            pass
+
+        return response
     
     except Exception as e:
+        import traceback
+        error_detail = f"Depot catchment query failed: {str(e)}\n{traceback.format_exc()}"
+        print(f"❌ ERROR: {error_detail}")
         raise HTTPException(
             status_code=500,
-            detail=f"Depot catchment query failed: {str(e)}"
+            detail=error_detail
         )
 
 

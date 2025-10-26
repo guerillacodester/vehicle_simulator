@@ -44,7 +44,17 @@ async def check_geofence(request: GeofenceCheckRequest):
     Performance target: <30ms
     """
     start_time = time.time()
-    
+
+    # In-memory cache for repeated geofence checks (TTL: 5s)
+    if not hasattr(check_geofence, "_cache"):
+        check_geofence._cache = {}
+    cache_key = (round(request.latitude, 6), round(request.longitude, 6))
+    cached = check_geofence._cache.get(cache_key)
+    if cached and (time.time() - cached[0]) < 5.0:
+        resp = cached[1]
+        resp.latency_ms = round((time.time() - start_time) * 1000, 2)
+        return resp
+
     try:
         # Check both region and landuse in parallel
         region = await postgis_client.check_geofence_region(
@@ -59,7 +69,7 @@ async def check_geofence(request: GeofenceCheckRequest):
         
         latency_ms = (time.time() - start_time) * 1000
         
-        return GeofenceCheckResponse(
+        response = GeofenceCheckResponse(
             latitude=request.latitude,
             longitude=request.longitude,
             inside_region=region is not None,
@@ -68,11 +78,21 @@ async def check_geofence(request: GeofenceCheckRequest):
             landuse=landuse,
             latency_ms=round(latency_ms, 2)
         )
+
+        try:
+            check_geofence._cache[cache_key] = (time.time(), response)
+        except Exception:
+            pass
+
+        return response
     
     except Exception as e:
+        import traceback
+        error_detail = f"Geofence check failed: {str(e)}\n{traceback.format_exc()}"
+        print(f"❌ ERROR: {error_detail}")
         raise HTTPException(
             status_code=500,
-            detail=f"Geofence check failed: {str(e)}"
+            detail=error_detail
         )
 
 

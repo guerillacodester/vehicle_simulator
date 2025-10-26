@@ -2,10 +2,10 @@
 
 **Project**: ArkNet Fleet Manager & Vehicle Simulator  
 **Repository**: vehicle_simulator  
-**Branch**: branch-0.0.2.6 (NOT main)  
+**Branch**: branch-0.0.2.7 (NOT main)  
 **Date**: October 26, 2025  
-**Status**: ✅ TIER 1 COMPLETE - All GeoJSON Imports Validated (189,659 features, 82 tests passing)  
-**Phase**: TIER 2 NEXT - Geospatial Services API (Phase 1.11 - Enable Spawning Queries)
+**Status**: ✅ TIER 1 & TIER 2 Phase 1.11 COMPLETE - Geospatial Services API Operational  
+**Phase**: TIER 3 NEXT - Database Integration & Validation (Phase 1.12)
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -189,7 +189,7 @@ SPATIAL:
 - GTFS-compliant transit data (routes, stops, shapes)
 
 FUTURE (TIER 4):
-- Redis - Reverse geocoding cache (<200ms target)
+- Redis - **MANDATORY for 1,200 vehicles** (position buffering, dashboard caching, cluster state)
 - Geofencing service - Real-time zone detection
 ```
 
@@ -197,13 +197,22 @@ FUTURE (TIER 4):
 
 | Question | Answer | Rationale |
 |----------|--------|-----------|
-| Which branch? | **branch-0.0.2.6** (NOT main) | Active development branch |
+| Which branch? | **branch-0.0.2.7** (NOT main) | Active development branch |
 | Single source of truth? | **Strapi** (all writes via Entity Service API) | Prevents data corruption |
 | Spatial data storage? | **PostGIS geometry columns** (NOT lat/lon pairs) | 10-100x faster queries, 90% less storage |
 | Import pattern? | **Streaming parser + bulk SQL** (500-1000 features/batch) | Memory efficient, real-time progress |
-| Priority sequence? | **TIER 1→2→3→4** (imports → spawning → optimization) | Dependencies: spawning needs Geospatial API, not Redis |
+| Priority sequence? | **TIER 1→2→3→4** (imports → API → spawning → optimization) | Phase 1.11 (Geospatial API) complete, enables all spawning |
 | GPS CentCom status? | **Documented, separate future track** | MVP demo ready, needs hardening for production fleet |
+| Geospatial Service? | **FastAPI on port 8001** (asyncpg + PostGIS) | Real-time spatial queries (0.23-95ms latencies) |
 | Where is Conductor Service? | **DOESN'T EXIST** (event-based assignment in spawn strategies) | Architecture clarification Oct 25 |
+| Production scale? | **1,200 vehicles** (ESP32/STM32 + Rock S0 GPS) | One-way position reporting @ 1 update/5sec = 240 updates/sec |
+| MVP server capacity? | **OVH VPS 2 vCore, 2GB RAM - 30-50 vehicles** | Real-time demo (in-memory only, no position storage) |
+| Production server? | **12+ vCores, 64GB RAM, 500GB SSD** OR **3× Scale-2 multi-server** | Single server at limit or distributed for redundancy |
+| Business model? | **Freemium + Subscription** (Free: real-time only, Paid: history + analytics) | $5-30/vehicle/month for historical data API |
+| Position storage? | **Subscription-based** (free tier: ephemeral, paid tiers: 7-365 days) | PostgreSQL/InfluxDB for paid subscribers only |
+| Redis for MVP? | **NO** (not needed) | In-memory store sufficient for 30-50 vehicles |
+| Redis for production? | **YES** (mandatory) | Required for 1,200 vehicles (shared state, dashboard cache, session mgmt) |
+| Cluster mode needed? | **YES** for 1,200 vehicles | Single Node.js process can't handle 1,200 concurrent connections |
 
 ---
 
@@ -217,7 +226,7 @@ git clone <repo-url> vehicle_simulator
 cd vehicle_simulator
 
 # 2. Checkout correct branch
-git checkout branch-0.0.2.6
+git checkout branch-0.0.2.7
 
 # 3. Install Strapi dependencies
 cd arknet_fleet_manager/arknet-fleet-api
@@ -303,14 +312,21 @@ LIMIT 10;
 ```
 
 ```powershell
-# 6. Run all integration tests
-python .\test\test_admin_import.py      # Expected: 17/17 passing
-python .\test\test_highway_import.py    # Expected: 16/16 passing
-python .\test\test_amenity_import.py    # Expected: 17/17 passing
-python .\test\test_landuse_import.py    # Expected: 16/16 passing
-# Total: 82 tests passing
+# 6. Run integration tests
+python .\test\test_admin_import.py      # Expected: 17/17 passing (Strapi imports)
+python .\test\test_highway_import.py    # Expected: 16/16 passing (Strapi imports)
+python .\test\test_amenity_import.py    # Expected: 17/17 passing (Strapi imports)
+python .\test\test_landuse_import.py    # Expected: 16/16 passing (Strapi imports)
+python .\test\test_geospatial_api.py    # Expected: 16/16 passing (FastAPI service)
+# Total: 82 Strapi tests + 16 API tests = 98 tests passing
 
-# 7. Verify all 5 imports in Strapi UI
+# 7. Start Geospatial Services API
+cd geospatial_service
+python main.py  # Runs on http://localhost:8001
+# Expected: "✅ PostGIS connection pool initialized (5-20 connections)"
+# Expected: "Buildings: 162,942; Highways: 27,719; POIs: 1,427; Landuse zones: 2,267; Regions: 11"
+
+# 8. Verify all 5 imports in Strapi UI
 # Open Strapi Admin > Content Manager
 # Check: Buildings (162,942), Regions (304), Highways (22,719), POIs (1,427), Landuse Zones (2,267)
 ```
@@ -325,18 +341,27 @@ TIER 1: Complete GeoJSON Imports ✅ DONE (Phase 1.10)
 ├─ Amenity import (1,427 POIs) ✅
 └─ Landuse import (2,267 zones) ✅
 
-TIER 2: Enable Spawning Queries (CRITICAL BLOCKER - Phase 1.11-1.12) 🎯 NEXT
-├─ Geospatial Services API (custom Strapi controllers)
-├─ Route-buildings query (ST_DWithin 500m buffer)
-├─ Depot-buildings query (ST_DWithin 1000m radius)
-└─ Zone-containing query (ST_Contains point in polygon)
+TIER 2: Enable Spawning Queries ✅ DONE (Phase 1.11)
+├─ FastAPI Geospatial Services (port 8001) ✅
+├─ Reverse geocoding with parish ✅
+├─ Geofence detection (0.23ms avg) ✅
+├─ Depot catchment query (94ms avg) ✅
+├─ Route buildings query ✅
+└─ Integration tests (16/16 passing) ✅
 
-TIER 3: Passenger Spawning Features (Phase 4-5-6)
+TIER 3: Database Integration & Validation (Phase 1.12) 🎯 NEXT
+├─ Test queries from commuter_simulator
+├─ Validate performance under load (100+ vehicles)
+├─ Document API endpoints
+├─ Create API client wrapper
+└─ Validate spatial indexes (EXPLAIN ANALYZE)
+
+TIER 4: Passenger Spawning Features (Phase 4-5-6)
 ├─ POI-based spawning (Phase 4)
 ├─ Depot-based spawning (Phase 5)
 └─ Route-based spawning (Phase 6)
 
-TIER 4: Redis Optimization (DEFERRED - Phase 2-3)
+TIER 5: Redis Optimization (DEFERRED - Phase 2-3)
 ├─ Reverse geocoding cache (<200ms target)
 └─ Geofencing service (real-time zone detection)
 
@@ -625,16 +650,118 @@ SUCCESS CRITERIA:
 │  │   • Auto-cleanup of stale devices (120s)                                                       │ │
 │  │   • Route-based filtering (/route/{code})                                                      │ │
 │  │                                                                                                │ │
-│  │  ❌ Production Gaps (Real Fleet - 100+ vehicles):                                              │ │
-│  │   • No persistence (in-memory only, data lost on restart)                                      │ │
-│  │   • Shared auth token (all devices use same token)                                             │ │
-│  │   • No horizontal scaling (single process limitation)                                          │ │
-│  │   • No AESGCM server support (binary codec client-side only)                                   │ │
-│  │   • No metrics/observability (basic logging only)                                              │ │
+│  │  ⚠️ Production Requirements (1,200 vehicles @ 240 updates/sec):                                │ │
+│  │   • MANDATORY: Redis cluster (position buffering, shared state across workers)                 │ │
+│  │   • MANDATORY: Node.js cluster mode (6-8 workers, 150-200 connections each)                    │ │
+│  │   • MANDATORY: Server upgrade (12+ vCores, 64GB RAM, 500GB SSD minimum)                        │ │
+│  │   • RECOMMENDED: Multi-server deployment (3× Scale-2 for HA)                                   │ │
+│  │   • Per-device auth tokens (not single shared token)                                           │ │
+│  │   • PostgreSQL batch writes (10-second intervals via Redis buffer)                             │ │
+│  │   • AESGCM server-side decoding support                                                        │ │
+│  │   • Prometheus metrics, structured logging, health checks                                      │ │
 │  │                                                                                                │ │
-│  │  🎯 Future Hardening (SEPARATE TRACK - after MVP spawning complete):                           │ │
-│  │   Priority 1: Redis/Postgres persistence, per-device auth, structured logging                  │ │
-│  │   Priority 2: Horizontal scaling, AESGCM server, Prometheus metrics, CI/CD                     │ │
+│  │  🎯 Deployment Phases:                                                                          │ │
+│  │   MVP (Current - 2GB RAM): Development only, 10-20 simulated vehicles, no Redis                │ │
+│  │   Prototype (VPS Scale-2 - 8GB RAM): 50-100 vehicles, add Redis, test cluster mode             │ │
+│  │   Pilot (VPS Scale-3 - 32GB RAM): 100-500 vehicles, cluster mode operational                   │ │
+│  │   Production (VPS Advance-2 or 3× Scale-2): 1,200 vehicles, full HA, monitoring                │ │
+│  │                                                                                                │ │
+│  │  📊 Production Architecture (1,200 vehicles):                                                   │ │
+│  │  ┌────────────────────────────────────────────────────────────────────────────────────┐       │ │
+│  │  │ ESP32/STM32 + Rock S0 GPS (1,200 devices)                                          │       │ │
+│  │  │   ↓ 1 position/5sec × 1,200 = 240 updates/sec                                      │       │ │
+│  │  │ Nginx Load Balancer (round-robin)                                                  │       │ │
+│  │  │   ↓                                                                                 │       │ │
+│  │  │ GPS CentCom Cluster (6-8 Node.js workers)                                          │       │ │
+│  │  │   ├─ Worker 1-2: 200 devices each                                                  │       │ │
+│  │  │   ├─ Worker 3-4: 200 devices each                                                  │       │ │
+│  │  │   └─ Worker 5-6: 200 devices each                                                  │       │ │
+│  │  │   ↓ Write to Redis (in-memory state, fast)                                         │       │ │
+│  │  │ Redis (2-4 GB allocated for in-memory state)                                       │       │ │
+│  │  │   ├─ Current positions: 1,200 × 200 bytes = 240 KB                                 │       │ │
+│  │  │   ├─ Device metadata (route, driver, etc.): ~500 KB                                │       │ │
+│  │  │   ├─ Session state: Worker coordination, device → worker mapping                   │       │ │
+│  │  │   ├─ Dashboard cache: GET /devices cached for <5ms response                        │       │ │
+│  │  │   └─ Heartbeat TTL: Auto-expire offline devices                                    │       │ │
+│  │  │   ↓ Optional: Position history storage (TBD)                                       │       │ │
+│  │  │ PostgreSQL + PostGIS (with PgBouncer connection pooling)                           │       │ │
+│  │  │   ├─ Static data: Routes, stops, POIs, GeoJSON (~5 GB)                             │       │ │
+│  │  │   └─ IF position storage: ~2 GB/day growth (optional, TBD)                         │       │ │
+│  │  │ Strapi (2 instances for HA - redundancy, not load)                                 │       │ │
+│  │  │ Geospatial API (FastAPI - 1-2 instances)                                           │       │ │
+│  │  │ Dashboard (Operators query Redis for real-time, PostgreSQL for config)             │       │ │
+│  │  └────────────────────────────────────────────────────────────────────────────────────┘       │ │
+│  │                                                                                                │ │
+│  │  � **Business Model - Subscription-Based Position Storage:**                                  │ │
+│  │                                                                                                │ │
+│  │   **Free Tier (Real-Time Only):**                                                              │ │
+│  │    • In-memory state only (current position, route, driver, status)                           │ │
+│  │    • Real-time dashboard access                                                                │ │
+│  │    • No historical data retention                                                              │ │
+│  │    • Revenue: $0 (customer acquisition, upsell opportunity)                                    │ │
+│  │                                                                                                │ │
+│  │   **Subscription Tiers (Historical Data + Analytics API):**                                    │ │
+│  │    • Basic ($5/vehicle/month): 7 days history, route replay, CSV export                       │ │
+│  │    • Professional ($15/vehicle/month): 30 days, analytics, heat maps, API access              │ │
+│  │    • Enterprise ($30/vehicle/month): 1 year, full analytics, unlimited API, SLA               │ │
+│  │                                                                                                │ │
+│  │   **Technical Implementation:**                                                                │ │
+│  │    • PostgreSQL: Short-term retention (7-30 days) - lower cost                                │ │
+│  │    • InfluxDB/TimescaleDB: Long-term retention (90-365 days) - optimized time-series          │ │
+│  │    • Hybrid: Redis → PostgreSQL → S3 cold storage (tiered pricing)                            │ │
+│  │                                                                                                │ │
+│  │   **Revenue Projection (1,200 vehicles):**                                                     │ │
+│  │    • 30% adoption (360 paid): $5,400/month - $300 infra = $5,100 net                          │ │
+│  │    • 50% adoption (600 paid): $9,000/month - $400 infra = $8,600 net                          │ │
+│  │    • 70% adoption (840 paid): $12,600/month - $500 infra = $12,100 net                        │ │
+│  │                                                                                                │ │
+│  │  🔄 **Multi-Server Database Synchronization Strategy:**                                        │ │
+│  │  ┌────────────────────────────────────────────────────────────────────────────────────┐       │ │
+│  │  │ PostgreSQL (Write Master + Read Replicas):                                          │       │ │
+│  │  │  Server 3: PostgreSQL PRIMARY (all writes)                                          │       │ │
+│  │  │     ↓ Built-in Streaming Replication (<100ms lag)                                   │       │ │
+│  │  │  Server 1: Read Replica (geospatial queries)                                        │       │ │
+│  │  │  Server 2: Read Replica (dashboard queries)                                         │       │ │
+│  │  │                                                                                      │       │ │
+│  │  │  Configuration:                                                                      │       │ │
+│  │  │   • Primary: wal_level=replica, max_wal_senders=3                                   │       │ │
+│  │  │   • Replicas: hot_standby=on (read-only queries allowed)                            │       │ │
+│  │  │   • Failover: Automated with repmgr or Patroni (30-60s downtime)                    │       │ │
+│  │  │   • NO sync conflicts (one-way replication only)                                    │       │ │
+│  │  │                                                                                      │       │ │
+│  │  │ Redis (Sentinel HA with Auto-Failover):                                             │       │ │
+│  │  │  Server 1: Redis MASTER (all writes) + Sentinel                                     │       │ │
+│  │  │     ↓ Async replication                                                             │       │ │
+│  │  │  Server 2: Redis REPLICA + Sentinel                                                 │       │ │
+│  │  │  Server 3: Redis REPLICA + Sentinel                                                 │       │ │
+│  │  │                                                                                      │       │ │
+│  │  │  Sentinel Configuration:                                                            │       │ │
+│  │  │   • Quorum: 2/3 votes required for failover                                         │       │ │
+│  │  │   • Detection: 5 seconds down-after-milliseconds                                    │       │ │
+│  │  │   • Auto-failover: Promote replica to master (~10s downtime)                        │       │ │
+│  │  │   • All services reconfigure automatically to new master                            │       │ │
+│  │  │                                                                                      │       │ │
+│  │  │ Strapi (Active-Active with Shared Database):                                        │       │ │
+│  │  │  Load Balancer → Strapi Instance 1 (Server 1) ──┐                                   │       │ │
+│  │  │                → Strapi Instance 2 (Server 2) ──┤                                   │       │ │
+│  │  │                                                  ↓                                   │       │ │
+│  │  │                         PostgreSQL Primary (Server 3)                               │       │ │
+│  │  │                                                                                      │       │ │
+│  │  │   • Both instances read/write SAME database (NO database sync needed)               │       │ │
+│  │  │   • Sessions stored in Redis Master (shared state across instances)                 │       │ │
+│  │  │   • File uploads: Shared volume (NFS) or S3 bucket                                  │       │ │
+│  │  │   • NO data conflicts (single PostgreSQL primary = single source of truth)          │       │ │
+│  │  │                                                                                      │       │ │
+│  │  │ Failover Impact Table:                                                              │       │ │
+│  │  │  ┌──────────────────┬──────────────┬─────────────┬────────────┬─────────────┐      │       │ │
+│  │  │  │ Component Fails  │ Detection    │ Recovery    │ Downtime   │ Impact      │      │       │ │
+│  │  │  ├──────────────────┼──────────────┼─────────────┼────────────┼─────────────┤      │       │ │
+│  │  │  │ Redis Master     │ Sentinel (5s)│ Auto-promote│ ~10s       │ Write buffer│      │       │ │
+│  │  │  │ PostgreSQL Pri   │ Health (10s) │ Manual/Auto │ 30-60s     │ Reads OK    │      │       │ │
+│  │  │  │ Entire Server 1  │ LB (5s)      │ Route away  │ <5s        │ 400→600 dev │      │       │ │
+│  │  │  │ Network partition│ Sentinel     │ Quorum      │ N/A        │ Write pause │      │       │ │
+│  │  │  └──────────────────┴──────────────┴─────────────┴────────────┴─────────────┘      │       │ │
+│  │  └────────────────────────────────────────────────────────────────────────────────────┘       │ │
 │  └───────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────┘
