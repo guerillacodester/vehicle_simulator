@@ -865,6 +865,26 @@ SUCCESS CRITERIA:
 │  ⏳ Depot-based spawning (Phase 5)                                                                  │
 │  ⏳ Route-based spawning (Phase 6)                                                                  │
 │                                                                                                      │
+│ 🎯 SPAWN-CONFIG SCHEMA (Oct 26, 2025): Intuitive Data-Driven Spawning Configuration                 │
+│  ✅ Redesigned with SIMPLE component-based architecture (separate tables by category)                │
+│  ✅ Components Created:                                                                               │
+│    • spawning.building-weight - Buildings (residential, commercial, office, school, etc.)            │
+│    • spawning.poi-weight - POIs (bus_station, marketplace, hospital, etc.)                           │
+│    • spawning.landuse-weight - Landuse zones (residential, commercial, industrial, etc.)             │
+│    • spawning.hourly-pattern - 24-hour spawn rates (1.0=normal, 2.5=peak rush hour)                  │
+│    • spawning.day-multiplier - Day-of-week multipliers (weekday 1.0, weekend 0.7)                    │
+│    • spawning.distribution-params - Poisson lambda, spawn constraints                                │
+│  ✅ Simple Mental Model:                                                                              │
+│    final_spawn_probability = weight × peak_multiplier × hourly_rate × day_multiplier                 │
+│  ✅ UX Features:                                                                                      │
+│    • Three collapsible sections: Buildings, POIs, Landuse (separate grid tables)                     │
+│    • Each feature: base weight (1.0-5.0) + peak_multiplier + is_active toggle                        │
+│    • No JSON blob editing needed for common use cases                                                 │
+│    • Editable grids with validation (can't enter text as numbers)                                    │
+│  📁 Files:                                                                                            │
+│    • arknet-fleet-api/src/api/spawn-config/content-types/spawn-config/schema.json                    │
+│    • arknet-fleet-api/src/components/spawning/*.json (6 components)                                  │
+│                                                                                                       │
 │ TIER 4 (OPTIMIZATION - Phase 2-3): Performance Enhancements                                         │
 │  🔮 Redis reverse geocoding (<200ms target)                                                         │
 │  🔮 Geofencing service (real-time zone detection)                                                   │

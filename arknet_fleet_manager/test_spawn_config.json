@@ -1,0 +1,78 @@
+{
+  "data": {
+    "name": "Test City Default Pattern",
+    "description": "Default temporal-spatial spawning pattern for testing",
+    "strategy_type": "mixed",
+    "temporal": {
+      "description": "Temporal spawning patterns - hourly weights and day-of-week multipliers",
+      "hourly_weights": [
+        0.2, 0.15, 0.1, 0.1, 0.3, 0.8, 1.5, 2.5, 2.8, 2.0, 1.2, 1.0,
+        1.0, 0.9, 0.8, 0.9, 1.5, 2.3, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2
+      ],
+      "day_of_week_multipliers": {
+        "monday": 1.0,
+        "tuesday": 1.0,
+        "wednesday": 1.0,
+        "thursday": 1.0,
+        "friday": 1.0,
+        "saturday": 0.7,
+        "sunday": 0.5
+      },
+      "holiday_multiplier": 0.3
+    },
+    "spatial": {
+      "description": "Spatial feature weights by OSM type",
+      "buildings": {
+        "residential": 2.0,
+        "apartments": 2.5,
+        "commercial": 1.5,
+        "office": 1.8,
+        "school": 2.5
+      },
+      "pois": {
+        "bus_station": 3.0,
+        "marketplace": 2.5,
+        "school": 2.5
+      },
+      "landuse": {
+        "residential": 2.0,
+        "commercial": 2.5
+      }
+    },
+    "distribution": {
+      "description": "Poisson distribution parameters",
+      "poisson_lambda_base": 3.5,
+      "max_spawns_per_cycle": 50,
+      "min_spawn_interval_seconds": 5,
+      "max_spawn_radius_meters": 800,
+      "min_distance_between_spawns_meters": 50
+    },
+    "feature_filters": {
+      "depot_based": {
+        "enabled": true,
+        "active_features": ["buildings", "pois"],
+        "buffer_meters": 500
+      },
+      "route_based": {
+        "enabled": true,
+        "active_features": ["buildings", "pois", "landuse"],
+        "buffer_meters": 800
+      }
+    },
+    "temporal_feature_mapping": {
+      "morning_peak": {
+        "hours": [6, 7, 8, 9],
+        "active_building_types": ["residential", "apartments"],
+        "active_poi_types": ["bus_station"],
+        "active_landuse_types": ["residential"]
+      },
+      "evening_peak": {
+        "hours": [16, 17, 18, 19],
+        "active_building_types": ["office", "commercial"],
+        "active_poi_types": ["bus_station"],
+        "active_landuse_types": ["commercial"]
+      }
+    },
+    "is_active": true
+  }
+}

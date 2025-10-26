@@ -3,8 +3,8 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Phase 1.12 Progress - Geospatial Client migrated to commuter_simulator)  
-**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (2/5 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
+**Updated**: October 26, 2025 (Phase 1.12 Progress - spawn-config schema redesigned with components)  
+**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (3/6 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
 **Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 IN PROGRESS
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
@@ -179,7 +179,7 @@ Phase 1.10 (Complete imports) ✅ DONE
     - Longitude degree conversion adjusted by cos(latitude)
     - In-memory TTL cache (5s) for repeated identical queries
 
-- [ ] **Phase 1.12**: Database Integration & Validation (2/5 steps) 🎯 **CURRENT**
+- [x] **Phase 1.12**: Database Integration & Validation (3/6 steps) 🎯 **CURRENT**
   - [x] Create API client wrapper for commuter_simulator
     - ✅ `commuter_simulator/infrastructure/geospatial/client.py` - Python client wrapper
     - ✅ Tested: reverse geocoding (105ms), geofencing (3ms), depot catchment (55ms)
@@ -192,6 +192,22 @@ Phase 1.10 (Complete imports) ✅ DONE
     - ✅ Depot catchment: 7-54ms (suitable for spawning)
     - ✅ Concurrent load: 0.5 queries/sec (20 concurrent)
     - ⚠️ Note: commuter_service_deprecated folder retained for reference only
+  - [x] Design data-driven spawn-config schema for OSM features
+    - ✅ Redesigned with SIMPLE component-based architecture (separate tables per category)
+    - ✅ Created 6 Strapi components - clean separation by feature type:
+      - `spawning.building-weight` - Buildings table (residential, commercial, office, school, etc.)
+      - `spawning.poi-weight` - POIs table (bus_station, marketplace, hospital, etc.)
+      - `spawning.landuse-weight` - Landuse zones table (residential, commercial, industrial, etc.)
+      - `spawning.hourly-pattern` - 24-hour spawn rates (1.0=normal, 2.5=peak)
+      - `spawning.day-multiplier` - Day-of-week multipliers (weekday vs weekend)
+      - `spawning.distribution-params` - Poisson lambda, spawn constraints
+    - ✅ Each feature has: base weight + peak_multiplier + is_active toggle
+    - ✅ Simple mental model: final_spawn_probability = weight × peak_multiplier × hourly_rate × day_multiplier
+    - ✅ UX: Three collapsible sections (Buildings, POIs, Landuse) with editable grid tables
+    - ✅ No JSON blobs needed for common use cases
+    - 📁 Files:
+      - `arknet-fleet-api/src/api/spawn-config/content-types/spawn-config/schema.json`
+      - `arknet-fleet-api/src/components/spawning/*.json` (6 components)
   - [ ] Validate performance under realistic load (100+ vehicles)
   - [ ] Document API endpoints for other services
   - [ ] Validate all spatial indexes are used (EXPLAIN ANALYZE)

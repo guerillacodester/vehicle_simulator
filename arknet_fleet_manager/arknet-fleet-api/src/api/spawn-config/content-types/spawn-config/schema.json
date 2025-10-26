@@ -5,11 +5,11 @@
     "singularName": "spawn-config",
     "pluralName": "spawn-configs",
     "displayName": "Spawn Configuration",
-    "description": "Configuration for passenger spawning algorithms per country"
+    "description": "Simple, intuitive passenger spawning configuration with separate tables per feature category"
   },
   "options": {
     "draftAndPublish": false,
-    "comment": "Country-specific spawning parameters and strategies"
+    "comment": "Clean separation: Buildings, POIs, Landuse in separate collapsible sections"
   },
   "pluginOptions": {},
   "attributes": {
@@ -21,110 +21,37 @@
     "description": {
       "type": "text"
     },
-    "strategy_type": {
-      "type": "enumeration",
-      "enum": [
-        "depot_based",
-        "route_based",
-        "poi_based",
-        "zone_based",
-        "mixed"
-      ],
-      "default": "mixed",
-      "required": true
+    "building_weights": {
+      "type": "component",
+      "repeatable": true,
+      "component": "spawning.building-weight"
     },
-    "base_spawn_rate": {
-      "type": "decimal",
-      "default": 1,
-      "min": 0,
-      "max": 100
+    "poi_weights": {
+      "type": "component",
+      "repeatable": true,
+      "component": "spawning.poi-weight"
     },
-    "peak_hours_start": {
-      "type": "time",
-      "default": "07:00"
+    "landuse_weights": {
+      "type": "component",
+      "repeatable": true,
+      "component": "spawning.landuse-weight"
     },
-    "peak_hours_end": {
-      "type": "time",
-      "default": "09:00"
+    "hourly_spawn_rates": {
+      "type": "component",
+      "repeatable": true,
+      "component": "spawning.hourly-pattern"
     },
-    "evening_peak_start": {
-      "type": "time",
-      "default": "16:00"
+    "day_multipliers": {
+      "type": "component",
+      "repeatable": true,
+      "component": "spawning.day-multiplier"
     },
-    "evening_peak_end": {
-      "type": "time",
-      "default": "18:00"
-    },
-    "peak_multiplier": {
-      "type": "decimal",
-      "default": 2,
-      "min": 0,
-      "max": 10
-    },
-    "off_peak_multiplier": {
-      "type": "decimal",
-      "default": 0.5,
-      "min": 0,
-      "max": 10
-    },
-    "weekend_multiplier": {
-      "type": "decimal",
-      "default": 0.7,
-      "min": 0,
-      "max": 10
-    },
-    "depot_spawn_enabled": {
-      "type": "boolean",
-      "default": true
-    },
-    "route_spawn_enabled": {
-      "type": "boolean",
-      "default": true
-    },
-    "poi_spawn_enabled": {
-      "type": "boolean",
-      "default": true
-    },
-    "zone_spawn_enabled": {
-      "type": "boolean",
-      "default": false
-    },
-    "max_spawn_radius_km": {
-      "type": "decimal",
-      "default": 5,
-      "min": 0,
-      "max": 100
-    },
-    "min_distance_between_spawns_m": {
-      "type": "decimal",
-      "default": 50,
-      "min": 0,
-      "max": 1000
-    },
-    "poi_type_weights": {
-      "type": "json",
-      "default": {
-        "bus_station": 3,
-        "marketplace": 2.5,
-        "school": 2,
-        "hospital": 1.5,
-        "office": 1.8,
-        "residential": 1.2,
-        "shopping_center": 2.2
-      }
-    },
-    "zone_type_weights": {
-      "type": "json",
-      "default": {
-        "residential": 2,
-        "commercial": 2.5,
-        "industrial": 1.5,
-        "mixed_use": 2.2
-      }
-    },
-    "time_based_modifiers": {
-      "type": "json",
-      "default": []
+    "distribution_params": {
+      "type": "component",
+      "repeatable": true,
+      "component": "spawning.distribution-params",
+      "required": true,
+      "max": 1
     },
     "is_active": {
       "type": "boolean",
