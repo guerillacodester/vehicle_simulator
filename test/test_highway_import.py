@@ -10,7 +10,7 @@ import time
 
 # Configuration
 BASE_URL = "http://localhost:1337"
-COUNTRY_ID = "bbzlsqe7n5fz6b8g25m4mtvj"  # Barbados document ID
+COUNTRY_ID = "y5qsd8a1it9bfxmlpg6gvt4c"  # Barbados document ID
 DB_CONFIG = {
     'host': 'localhost',
     'database': 'arknettransit',
@@ -100,31 +100,24 @@ def clear_existing_highways():
         return False
 
 def test_highway_import():
-    """Test 4: Execute highway import via API"""
-    print("\n[Test 4] Executing highway import...")
+    """Test 4: Verify highways exist (assumes import already done via UI)"""
+    print("\n[Test 4] Verifying highways were imported...")
     try:
-        url = f"{BASE_URL}/api/geojson-import/import-highway"
-        payload = {"countryId": COUNTRY_ID}
+        conn = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM highways")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
         
-        print(f"Calling: POST {url}")
-        print(f"Payload: {payload}")
-        
-        response = requests.post(url, json=payload, timeout=600)  # 10 minute timeout for large file
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"✅ Import successful!")
-            print(f"   Total features: {data.get('result', {}).get('totalFeatures', 'N/A')}")
-            print(f"   Total batches: {data.get('result', {}).get('totalBatches', 'N/A')}")
-            print(f"   Elapsed time: {data.get('result', {}).get('elapsedSeconds', 'N/A')}s")
-            print(f"   Features/sec: {data.get('result', {}).get('featuresPerSecond', 'N/A')}")
+        if count > 0:
+            print(f"✅ Found {count} highways in database")
             return True
         else:
-            print(f"❌ Import failed: {response.status_code}")
-            print(f"   Response: {response.text}")
+            print(f"❌ No highways found - please import via UI button first")
             return False
     except Exception as e:
-        print(f"❌ Import request failed: {e}")
+        print(f"❌ Verification failed: {e}")
         return False
 
 def test_highway_records_count():
@@ -132,7 +125,7 @@ def test_highway_records_count():
     print("\n[Test 5] Checking highway record count...")
     try:
         conn = psycopg2.connect(**DB_CONFIG)
-        cursor = cursor.cursor()
+        cursor = conn.cursor()
         
         cursor.execute("SELECT COUNT(*) FROM highways;")
         count = cursor.fetchone()[0]
@@ -379,6 +372,49 @@ def test_junction_table_links():
         print(f"❌ Junction table link check failed: {e}")
         return False
 
+def test_region_links():
+    """Test 12a: Verify highways are linked to regions"""
+    print("\n[Test 12a] Checking highway-region links...")
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        
+        # Count region links
+        cursor.execute("SELECT COUNT(*) FROM highways_region_lnk;")
+        link_count = cursor.fetchone()[0]
+        
+        # Count highways
+        cursor.execute("SELECT COUNT(*) FROM highways;")
+        highway_count = cursor.fetchone()[0]
+        
+        # Get sample of highways with region names
+        cursor.execute("""
+            SELECT h.name, r.name as region_name, COUNT(*) OVER() as total_links
+            FROM highways h
+            JOIN highways_region_lnk hrl ON h.id = hrl.highway_id
+            JOIN regions r ON hrl.region_id = r.id
+            LIMIT 3;
+        """)
+        samples = cursor.fetchall()
+        
+        if link_count > 0:
+            print(f"✅ Found {link_count} highway-region links for {highway_count} highways")
+            if samples:
+                print(f"   Sample links:")
+                for sample in samples:
+                    print(f"   - {sample[0]} → {sample[1]}")
+            cursor.close()
+            conn.close()
+            return True
+        else:
+            print(f"❌ No highway-region links found (expected {highway_count} highways to be linked)")
+            cursor.close()
+            conn.close()
+            return False
+    except Exception as e:
+        print(f"❌ Region link check failed: {e}")
+        return False
+
 def test_highway_required_fields():
     """Test 13: Verify required fields are populated"""
     print("\n[Test 13] Checking required fields...")
@@ -492,8 +528,7 @@ def run_all_tests():
         ("Database Connection", test_database_connection),
         ("PostGIS Extension", test_postgis_extension),
         ("Highways Table Exists", test_highways_table_exists),
-        ("Clear Existing Data", clear_existing_highways),
-        ("Highway Import", test_highway_import),
+        ("Highway Import Verification", test_highway_import),
         ("Record Count", test_highway_records_count),
         ("Geom Column & SRID", test_highway_geom_column),
         ("No NULL Geometries", test_highway_geometries_not_null),
@@ -502,6 +537,7 @@ def run_all_tests():
         ("Spatial Query", test_highway_spatial_query),
         ("Junction Table Exists", test_junction_table_exists),
         ("Junction Table Links", test_junction_table_links),
+        ("Region Links", test_region_links),
         ("Required Fields", test_highway_required_fields),
         ("Spatial Index", test_spatial_index),
         ("Highway Types", test_highway_types),

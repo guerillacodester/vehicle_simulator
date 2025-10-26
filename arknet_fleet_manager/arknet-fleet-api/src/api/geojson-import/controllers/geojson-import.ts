@@ -87,7 +87,6 @@ export default {
         batchSize: 500,
         
         onBatch: async (features: any[]) => {
-          const knex = strapi.db.connection;
           const timestamp = new Date();
           const { randomUUID } = require('crypto');
           
@@ -208,6 +207,32 @@ export default {
       
       strapi.log.info(`[${jobId}] ✅ Import COMPLETE: ${result.totalFeatures} features in ${elapsedSeconds}s (${result.totalBatches} batches, ${featuresPerSecond} features/sec)`);
 
+      // Link all highways to regions via spatial intersection (after import completes)
+      const regionLinkStart = Date.now();
+      strapi.log.info(`[${jobId}] Linking highways to regions...`);
+      
+      // @ts-ignore
+      strapi.io.emit('import:progress', {
+        jobId,
+        countryId,
+        fileType: 'highway',
+        phase: 'linking-regions',
+        message: 'Linking highways to regions...',
+      });
+
+      await knex.raw(`
+        INSERT INTO highways_region_lnk (highway_id, region_id)
+        SELECT h.id, r.id
+        FROM highways h
+        JOIN regions r ON ST_Intersects(h.geom, r.geom)
+        WHERE h.id NOT IN (SELECT highway_id FROM highways_region_lnk)
+      `);
+      
+      const regionLinkResult = await knex('highways_region_lnk').count('* as count').first();
+      const regionLinkCount = regionLinkResult?.count || 0;
+      const regionLinkElapsed = ((Date.now() - regionLinkStart) / 1000).toFixed(1);
+      strapi.log.info(`[${jobId}] ✅ Region linking COMPLETE: ${regionLinkCount} links created in ${regionLinkElapsed}s`);
+
       // @ts-ignore
       strapi.io.emit('import:complete', {
         jobId,
@@ -216,6 +241,8 @@ export default {
         totalFeatures: result.totalFeatures,
         elapsedSeconds,
         featuresPerSecond,
+        regionLinks: regionLinkCount,
+        regionLinkElapsed,
       });
 
       ctx.body = {
@@ -228,6 +255,8 @@ export default {
           totalBatches: result.totalBatches,
           elapsedSeconds,
           featuresPerSecond,
+          regionLinks: regionLinkCount,
+          regionLinkElapsed,
         },
       };
     } catch (error) {
