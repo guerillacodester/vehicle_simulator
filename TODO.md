@@ -1,11 +1,11 @@
 # GeoJSON Import System - Implementation TODO
 
 **Project**: ArkNet Vehicle Simulator  
-**Branch**: branch-0.0.2.7  
+**Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Phase 1.11 COMPLETE - Geospatial Services API operational)  
-**Status**: ✅ TIER 1 & TIER 2 Phase 1.11 COMPLETE (All GeoJSON imports + Geospatial API: 16/16 tests passing)  
-**Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 NEXT
+**Updated**: October 26, 2025 (Phase 1.12 Progress - Geospatial Client migrated to commuter_simulator)  
+**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (2/5 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
+**Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 IN PROGRESS
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
 > **📚 Reference**: `GEOJSON_IMPORT_CONTEXT.md` - Detailed file analysis (historical)
@@ -75,7 +75,7 @@ Phase 1.10 (Complete imports) ✅ DONE
 - 🚨 **GIST indexes required** - For all PostGIS geometry columns
 - 🚨 **GTFS compliance** - Follow GTFS standards for stops, shapes, routes
 - 🚨 **Buildings table REQUIRED** - Foundation for realistic passenger spawning (see CONTEXT.md "Passenger Spawning Architecture")
-- 🚨 **commuter_simulator is active** - `commuter_service/` is DEPRECATED (being phased out)
+- 🚨 **commuter_simulator is active** - `commuter_service_deprecated/` is DEPRECATED (DO NOT USE)
 - ⚠️ **Streaming parser required** - building.geojson = 658MB (cannot load into memory)
 - ⚠️ **All 5 datasets needed** - Buildings, Landuse, Amenities, Admin, Highways work together for spawning model
 - ⚠️ **Centroid extraction required** - amenity.geojson has MultiPolygon, schema expects Point
@@ -84,10 +84,12 @@ Phase 1.10 (Complete imports) ✅ DONE
 ### **Files to Read Before Starting**
 
 1. `CONTEXT.md` - **READ "PASSENGER SPAWNING ARCHITECTURE" AND "DATABASE ARCHITECTURE ISSUES" SECTIONS FIRST**
-2. `commuter_simulator/README.md` - New architecture (Single Source of Truth pattern)
+2. `commuter_simulator/README.md` - New architecture (Single Source of Truth pattern) ✅ **ACTIVE**
 3. `arknet_fleet_manager/arknet-fleet-api/migrate_all_to_postgis.sql` - Migration script
 4. `src/admin/button-handlers.ts` - Frontend handlers (387 lines)
 5. `src/api/geojson-import/controllers/geojson-import.ts` - All import endpoints (uses PostGIS)
+
+**Note**: `commuter_service_deprecated/` folder is retained for reference only - DO NOT USE in new development
 
 ---
 
@@ -179,16 +181,17 @@ Phase 1.10 (Complete imports) ✅ DONE
 
 - [ ] **Phase 1.12**: Database Integration & Validation (2/5 steps) 🎯 **CURRENT**
   - [x] Create API client wrapper for commuter_simulator
-    - ✅ `geospatial_service/geospatial_client.py` - Python client wrapper
+    - ✅ `commuter_simulator/infrastructure/geospatial/client.py` - Python client wrapper
     - ✅ Tested: reverse geocoding (105ms), geofencing (3ms), depot catchment (55ms)
-    - ✅ Test: `geospatial_service/tests/test_client_manual.py`
+    - ✅ Test: `commuter_simulator/tests/integration/test_geospatial_api.py`
   - [x] Test spatial queries from commuter_simulator spawning logic
-    - ✅ Integration test: `commuter_service/tests/test_geospatial_integration.py`
+    - ✅ Integration test: `commuter_simulator/tests/integration/test_geospatial_api.py`
     - ✅ Reverse geocoding: 4-20ms (fast enough for real-time)
     - ✅ Geofence checks: 3-5ms (sub-50ms target met)
     - ✅ Building queries: 13-59ms (good performance)
     - ✅ Depot catchment: 7-54ms (suitable for spawning)
     - ✅ Concurrent load: 0.5 queries/sec (20 concurrent)
+    - ⚠️ Note: commuter_service_deprecated folder retained for reference only
   - [ ] Validate performance under realistic load (100+ vehicles)
   - [ ] Document API endpoints for other services
   - [ ] Validate all spatial indexes are used (EXPLAIN ANALYZE)

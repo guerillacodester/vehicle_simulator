@@ -807,10 +807,12 @@ SUCCESS CRITERIA:
 │ ⚠️  DEPRECATED SYSTEMS - Do NOT use for new development                                             │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                      │
-│  ⛔ commuter_service/ (Python - Being Phased Out)                                                   │
+│  ⛔ commuter_service_deprecated/ (Python - DEPRECATED October 26, 2025)                             │
 │   • Tight coupling to Strapi internals                                                              │
-│   • Replaced by: commuter_simulator/ (clean architecture)                                           │
-│   • Status: Keep for reference, do not enhance                                                      │
+│   • Mixed concerns, no Single Source of Truth pattern                                               │
+│   • Replaced by: commuter_simulator/ (clean architecture with Infrastructure layer)                 │
+│   • Status: Retained for reference only - DO NOT USE or enhance                                     │
+│   • See: commuter_service_deprecated/DEPRECATED.md for migration guide                              │
 │                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
