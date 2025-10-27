@@ -5,12 +5,75 @@ Buildings, POIs, and routes for passenger spawning
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Tuple
 import time
 
 from services.postgis_client import postgis_client
 
 router = APIRouter(prefix="/spatial", tags=["Spatial Queries"])
+
+
+class RouteGeometry(BaseModel):
+    """Route geometry with calculated metrics"""
+    route_id: str
+    short_name: str
+    long_name: str
+    coordinates: List[List[float]]  # [[lon, lat], [lon, lat], ...]
+    num_segments: int
+    num_points: int
+    total_distance_meters: float
+    latency_ms: float
+
+
+@router.get("/route-geometry/{route_id}", response_model=RouteGeometry)
+async def get_route_geometry(route_id: str):
+    """
+    Get complete route geometry with all segments concatenated.
+    
+    **SINGLE SOURCE OF TRUTH** for route geometry calculations.
+    All services must use this endpoint instead of calculating locally.
+    
+    Returns:
+    - Full route coordinates (all segments concatenated)
+    - Total distance in meters (from segment cost fields)
+    - Number of segments and points
+    
+    Performance target: <50ms
+    """
+    start_time = time.time()
+    
+    try:
+        route_data = await postgis_client.get_route_geometry(route_id)
+        
+        if not route_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Route not found: {route_id}"
+            )
+        
+        latency_ms = (time.time() - start_time) * 1000
+        
+        return RouteGeometry(
+            route_id=route_data['route_id'],
+            short_name=route_data['short_name'],
+            long_name=route_data['long_name'],
+            coordinates=route_data['coordinates'],
+            num_segments=route_data['num_segments'],
+            num_points=route_data['num_points'],
+            total_distance_meters=route_data['total_distance_meters'],
+            latency_ms=round(latency_ms, 2)
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_detail = f"Route geometry query failed: {str(e)}\n{traceback.format_exc()}"
+        print(f"❌ ROUTE GEOMETRY ERROR: {error_detail}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail
+        )
 
 
 class RouteBuilding(BaseModel):

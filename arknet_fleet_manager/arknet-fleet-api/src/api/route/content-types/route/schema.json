@@ -105,6 +105,12 @@
           "editable": false
         }
       }
+    },
+    "spawn_config": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::spawn-config.spawn-config",
+      "inversedBy": "route"
     }
   }
 }

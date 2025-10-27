@@ -272,6 +272,84 @@ class PostGISClient:
         return await self.execute_query(query, latitude, longitude, radius_meters, limit)
     
     # ============================================================================
+    # ROUTE GEOMETRY QUERIES
+    # ============================================================================
+    
+    async def get_route_geometry(self, route_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get complete route geometry with all segments concatenated.
+        
+        **SINGLE SOURCE OF TRUTH** for route distance calculations.
+        
+        Returns:
+        - route_id: document_id
+        - short_name: route number
+        - long_name: route name
+        - coordinates: [[lon, lat], [lon, lat], ...] (all segments concatenated)
+        - num_segments: number of LineString features
+        - num_points: total coordinate points
+        - total_distance_meters: sum of all segment costs
+        """
+        if not self.pool:
+            await self.connect()
+        
+        query = """
+            SELECT
+                document_id,
+                short_name,
+                long_name,
+                geojson_data
+            FROM routes
+            WHERE document_id = $1
+        """
+        
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(query, route_id)
+        
+        if not row:
+            return None
+        
+        # IMPORTANT: geojson_data might be a string or dict depending on asyncpg version
+        import json
+        geojson = row['geojson_data']
+        if isinstance(geojson, str):
+            geojson = json.loads(geojson)
+        
+        if geojson.get('type') != 'FeatureCollection':
+            raise ValueError(f"Route {route_id} has invalid GeoJSON type: {geojson.get('type')}")
+        
+        features = geojson.get('features', [])
+        
+        if not features:
+            raise ValueError(f"Route {route_id} has no geometry features")
+        
+        # Concatenate all segment coordinates
+        all_coords = []
+        total_distance = 0.0
+        
+        for i, feature in enumerate(features):
+            segment_coords = feature['geometry']['coordinates']
+            cost = feature['properties'].get('cost', 0)
+            total_distance += cost
+            
+            if i == 0:
+                # First segment: add all coordinates
+                all_coords.extend(segment_coords)
+            else:
+                # Subsequent segments: skip first coordinate to avoid duplicates
+                all_coords.extend(segment_coords[1:])
+        
+        return {
+            'route_id': row['document_id'],
+            'short_name': row['short_name'],
+            'long_name': row['long_name'],
+            'coordinates': all_coords,
+            'num_segments': len(features),
+            'num_points': len(all_coords),
+            'total_distance_meters': total_distance
+        }
+    
+    # ============================================================================
     # STATISTICS
     # ============================================================================
     

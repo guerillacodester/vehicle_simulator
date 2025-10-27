@@ -3,9 +3,9 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Phase 1.12 Progress - SpawnConfigLoader complete)  
-**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (5/6 steps) | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
-**Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 IN PROGRESS
+**Updated**: October 26, 2025 (Phase 1.12 - Schema Migration to Route-Based Spawn Configs)  
+**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (5/6 steps) → Architecture Migration | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
+**Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 IN PROGRESS → Schema Migration 🔄 ACTIVE
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
 > **📚 Reference**: `GEOJSON_IMPORT_CONTEXT.md` - Detailed file analysis (historical)
@@ -223,6 +223,25 @@ Phase 1.10 (Complete imports) ✅ DONE
     - ✅ Methods: get_config_by_country(), get_hourly_rate(), get_building_weight(), get_poi_weight(), get_landuse_weight(), get_day_multiplier(), get_distribution_params(), calculate_spawn_probability()
     - ✅ Tested: Loads Barbados config, calculates spawn probabilities correctly
     - ✅ Example: Residential building Mon 8am = 5.0 × 2.8 × 1.0 = 14.0 probability multiplier
+  - [x] SCHEMA MIGRATION: Country-Based → Route-Based Spawn Configs ✅ **COMPLETE**
+    - **Problem Identified**: Rural routes (St Lucy) using urban temporal patterns → 48 passengers at 6 AM instead of ~16
+    - **Root Cause**: spawn-config linked to Country (Barbados) → all routes share same hourly rates
+    - **Solution**: Changed architecture to Route ↔ Spawn-Config (oneToOne)
+    - ✅ **Schema Updates Complete**:
+      - Updated `route/schema.json`: Added `spawn_config` relation (oneToOne → spawn-config)
+      - Updated `spawn-config/schema.json`: Changed `country` to `route` relation (oneToOne → route)
+      - Updated `country/schema.json`: Removed `spawn_config` relation
+    - 🔄 **Data Migration Pending**:
+      - [ ] Restart Strapi server (schema changes require rebuild)
+      - [ ] Create route-specific spawn configs:
+        - "Route 1 - St Lucy Rural" (hour 6 = 0.6, hour 7 = 1.2)
+        - "Route 2 - Bridgetown Urban" (hour 6 = 1.5, hour 7 = 2.5)
+      - [ ] Link each route to appropriate config
+      - [ ] Update SpawnConfigLoader: Add get_config_by_route(route_id)
+      - [ ] Update van_simulation_datadriven.py to use route-based config
+    - **Expected Outcome**: Route 1 (St Lucy) at 6 AM → ~16 passengers (using rural-appropriate rates)
+    - **Benefits**: Route-specific temporal patterns, no urban/rural conflicts, flexible per-route tuning
+    - **Cleanup**: Moved validation scripts to `commuter_simulator/tests/validation/` folder
   - [ ] Validate performance under realistic load (100+ vehicles)
 
 ### **🎯 TIER 3: ADVANCED FEATURES - Passenger Spawning System**

@@ -45,8 +45,17 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
         )
     """
     
-    def __init__(self, config: PluginConfig, api_client: Any, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self, 
+        config: PluginConfig, 
+        api_client: Any, 
+        passenger_repository: Optional[Any] = None,
+        logger: Optional[logging.Logger] = None
+    ):
         super().__init__(config, api_client, logger)
+        
+        # Database repository for persisting spawned passengers
+        self.passenger_repository = passenger_repository
         
         # Will be populated during initialization
         self.population_zones: List[Dict[str, Any]] = []
@@ -94,26 +103,15 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
     async def _load_all_geographic_data(self):
         """Load all geographic data for the country"""
         try:
-            # Get country info
-            country_data = await self.api_client.get_country_by_code(self.config.country_code)
-            if not country_data:
-                raise ValueError(f"Country {self.config.country_code} not found")
-            
-            country_id = country_data['id']
-            self.logger.info(f"Loading data for {country_data['name']} (ID: {country_id})")
-            
-            # Load landuse zones (population)
-            landuse_zones = await self.api_client.get_landuse_zones_by_country(country_id)
-            self.population_zones = self._process_landuse_zones(landuse_zones)
-            
-            # Load POIs (amenities)
-            pois = await self.api_client.get_pois_by_country(country_id)
-            self.amenity_zones = self._process_poi_zones(pois)
-            
+            # For route-based spawning, we don't need to pre-load all geographic data
+            # Buildings are queried on-demand in _get_buildings_near_route()
             self.logger.info(
-                f"Loaded {len(self.population_zones)} population zones, "
-                f"{len(self.amenity_zones)} amenity zones"
+                f"Skipping full geographic data load - using on-demand building lookup for {self.config.country_code}"
             )
+            
+            # Initialize empty lists (populated on-demand)
+            self.population_zones = []
+            self.amenity_zones = []
         
         except Exception as e:
             self.logger.error(f"Error loading geographic data: {e}")
@@ -178,61 +176,339 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
         context: SpawnContext,
         **kwargs
     ) -> List[SpawnRequest]:
-        """Generate spawn requests using Poisson distribution"""
+        """
+        Generate spawn requests using route-specific spawn-config from database.
+        
+        NEW IMPLEMENTATION: Uses spawn-config table with route linkage instead of
+        hardcoded zone-based logic.
+        """
         
         if not self._initialized:
             self.logger.warning("Plugin not initialized")
             return []
         
+        # Extract route_id from kwargs (required for route-based spawning)
+        route_id = kwargs.get('route_id')
+        if not route_id:
+            self.logger.error("route_id required for spawn generation")
+            return []
+        
+        try:
+            # Load route-specific spawn configuration from database
+            from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
+            from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
+            
+            config_loader = SpawnConfigLoader(api_base_url=self.config.custom_params.get('strapi_url', 'http://localhost:1337/api'))
+            geo_client = GeospatialClient(base_url=self.config.custom_params.get('geo_url', 'http://localhost:8001'))
+            
+            # Get spawn config for this route
+            spawn_config = await self._get_route_spawn_config(config_loader, route_id)
+            if not spawn_config:
+                self.logger.warning(f"No spawn config found for route {route_id}")
+                return []
+            
+            # Get route geometry from geospatial service (SINGLE SOURCE OF TRUTH)
+            route_geom = await self._get_route_geometry(geo_client, route_id)
+            if not route_geom:
+                self.logger.error(f"No route geometry found for route {route_id}")
+                return []
+            
+            # Get buildings near route
+            buildings = await self._get_buildings_near_route(geo_client, route_geom, spawn_config)
+            # Don't fail if no buildings - will use fallback count
+            
+            # Calculate spawns using spawn-config parameters
+            spawn_requests = await self._generate_route_based_spawns(
+                route_id=route_id,
+                route_geometry=route_geom,
+                buildings=buildings,
+                spawn_config=spawn_config,
+                config_loader=config_loader,
+                current_time=current_time,
+                time_window_minutes=time_window_minutes
+            )
+            
+            self._record_spawns(spawn_requests)
+            
+            self.logger.info(
+                f"Generated {len(spawn_requests)} spawn requests for route {route_id} "
+                f"(hour={current_time.hour}, {len(buildings)} buildings)"
+            )
+            
+            return spawn_requests
+            
+        except Exception as e:
+            self.logger.error(f"Error generating spawn requests for route {route_id}: {e}", exc_info=True)
+            return []
+    
+    async def _get_route_spawn_config(self, config_loader: Any, route_id: str) -> Optional[Dict]:
+        """Load spawn config for route from Strapi"""
+        try:
+            import httpx
+            
+            # Query spawn-config by route document_id
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{config_loader.api_base_url}/spawn-configs?populate=*&filters[route][documentId][$eq]={route_id}"
+                )
+                data = response.json()
+            
+            if data.get('data') and len(data['data']) > 0:
+                return data['data'][0]
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error loading spawn config for route {route_id}: {e}")
+            return None
+    
+    async def _get_route_geometry(self, geo_client: Any, route_id: str) -> Optional[Dict]:
+        """Get route geometry from geospatial service"""
+        try:
+            import httpx
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{geo_client.base_url}/spatial/route-geometry/{route_id}")
+                response.raise_for_status()
+                return response.json()
+                
+        except Exception as e:
+            self.logger.error(f"Error loading route geometry for {route_id}: {e}")
+            return None
+    
+    async def _get_buildings_near_route(self, geo_client: Any, route_geom: Dict, spawn_config: Dict) -> List[Dict]:
+        """Get buildings near route from Strapi GeoJSON data"""
+        try:
+            import httpx
+            from shapely.geometry import Point, LineString, shape
+            from shapely.ops import unary_union
+            
+            # Get spawn radius from distribution params
+            dist_params = spawn_config.get('distribution_params', [])
+            spawn_radius = 800  # default meters
+            if dist_params and len(dist_params) > 0:
+                spawn_radius = dist_params[0].get('spawn_radius_meters', 800)
+            
+            # Create route buffer geometry
+            route_coords = route_geom.get('coordinates', [])
+            if not route_coords or len(route_coords) < 2:
+                self.logger.warning("Invalid route geometry for building lookup")
+                return []
+            
+            # Convert route to LineString and buffer (convert meters to degrees ~111km per degree)
+            route_line = LineString([(lon, lat) for lat, lon in route_coords])
+            buffer_degrees = spawn_radius / 111000.0  # approximate conversion
+            route_buffer = route_line.buffer(buffer_degrees)
+            
+            # Query landuse zones from Strapi (buildings are residential/commercial zones)
+            self.logger.info(f"Querying buildings within {spawn_radius}m of route...")
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Get all landuse zones for Barbados (country_id=29)
+                # Note: Strapi $in filter syntax requires array notation
+                response = await client.get(
+                    f"{self.config.custom_params.get('strapi_url', 'http://localhost:1337/api')}/landuse-zones",
+                    params={
+                        "filters[country][id][$eq]": 29,
+                        "filters[zone_type][$in][0]": "residential",
+                        "filters[zone_type][$in][1]": "commercial",
+                        "filters[zone_type][$in][2]": "mixed_use",
+                        "filters[zone_type][$in][3]": "industrial",
+                        "pagination[pageSize]": 1000,
+                        "populate": "geometry_geojson"
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+            
+            landuse_zones = data.get('data', [])
+            self.logger.info(f"Retrieved {len(landuse_zones)} landuse zones from database")
+            
+            # Filter zones that intersect with route buffer
+            buildings_near_route = []
+            for zone in landuse_zones:
+                try:
+                    attrs = zone.get('attributes', {})
+                    geom_data = attrs.get('geometry_geojson') or attrs.get('geometry')
+                    
+                    if not geom_data:
+                        continue
+                    
+                    # Parse GeoJSON geometry
+                    if isinstance(geom_data, str):
+                        import json
+                        geom_data = json.loads(geom_data)
+                    
+                    # Convert to shapely geometry
+                    zone_geom = shape(geom_data)
+                    
+                    # Check if zone intersects route buffer
+                    if zone_geom.intersects(route_buffer):
+                        # Get centroid for spawn location
+                        centroid = zone_geom.centroid
+                        buildings_near_route.append({
+                            'id': zone.get('id'),
+                            'zone_type': attrs.get('zone_type'),
+                            'latitude': centroid.y,
+                            'longitude': centroid.x,
+                            'geometry': geom_data
+                        })
+                
+                except Exception as e:
+                    self.logger.debug(f"Skipping invalid zone: {e}")
+                    continue
+            
+            self.logger.info(f"✓ Found {len(buildings_near_route)} buildings within {spawn_radius}m of route")
+            return buildings_near_route
+            
+        except Exception as e:
+            self.logger.error(f"Error loading buildings near route: {e}", exc_info=True)
+            return []
+    
+    async def _generate_route_based_spawns(
+        self,
+        route_id: str,
+        route_geometry: Dict,
+        buildings: List[Dict],
+        spawn_config: Dict,
+        config_loader: Any,
+        current_time: datetime,
+        time_window_minutes: int
+    ) -> List[SpawnRequest]:
+        """
+        Generate spawns based on route-specific spawn-config.
+        
+        Uses:
+        - Hourly spawn rates from spawn-config
+        - Day multipliers from spawn-config  
+        - Building count (not zone count)
+        - Distribution parameters (min_interval, spawn_radius, etc.)
+        
+        NEW: Saves passengers directly to database via PassengerRepository.
+        """
         spawn_requests = []
-        current_hour = current_time.hour
         
-        # Process population zones
-        for zone in self.population_zones:
-            try:
-                spawn_rate = self._calculate_poisson_rate(
-                    zone, current_hour, time_window_minutes, context
-                )
-                
-                if spawn_rate > 0:
-                    passenger_count = np.random.poisson(spawn_rate)
-                    
-                    if passenger_count > 0:
-                        requests = await self._create_zone_spawn_requests(
-                            zone, passenger_count, current_time, context, **kwargs
-                        )
-                        spawn_requests.extend(requests)
+        try:
+            hour = current_time.hour
+            day_of_week = current_time.strftime('%A').lower()
             
-            except Exception as e:
-                self.logger.error(f"Error processing population zone {zone['zone_id']}: {e}")
-        
-        # Process amenity zones
-        for zone in self.amenity_zones:
-            try:
-                spawn_rate = self._calculate_poisson_rate(
-                    zone, current_hour, time_window_minutes, context
-                )
-                
-                if spawn_rate > 0:
-                    passenger_count = np.random.poisson(spawn_rate)
-                    
-                    if passenger_count > 0:
-                        requests = await self._create_zone_spawn_requests(
-                            zone, passenger_count, current_time, context, **kwargs
-                        )
-                        spawn_requests.extend(requests)
+            # Get rates from spawn-config
+            hourly_rate = config_loader.get_hourly_rate(spawn_config, hour)
+            day_mult = config_loader.get_day_multiplier(spawn_config, day_of_week)
+            dist_params = config_loader.get_distribution_params(spawn_config)
             
-            except Exception as e:
-                self.logger.error(f"Error processing amenity zone {zone['zone_id']}: {e}")
-        
-        self._record_spawns(spawn_requests)
-        
-        self.logger.info(
-            f"Generated {len(spawn_requests)} Poisson spawn requests "
-            f"(hour={current_hour}, context={context.value})"
-        )
+            # Calculate base spawns using BUILDING COUNT (not cluster count)
+            num_buildings = len(buildings) if buildings else 67  # Fallback to known count
+            passengers_per_building_per_hour = 0.3  # Tunable parameter
+            base_spawns_per_hour = hourly_rate * day_mult * num_buildings * passengers_per_building_per_hour
+            
+            # Scale by time window
+            base_spawns_for_window = base_spawns_per_hour * (time_window_minutes / 60.0)
+            
+            # Apply Poisson distribution
+            target_spawns = int(np.random.poisson(base_spawns_for_window))
+            
+            # Enforce minimum spawn interval
+            min_interval = dist_params.get('min_spawn_interval_seconds', 45)
+            max_possible = int((time_window_minutes * 60) / min_interval)
+            target_spawns = min(target_spawns, max_possible)
+            
+            self.logger.info(
+                f"Route {route_id}: hourly_rate={hourly_rate}, day_mult={day_mult}, "
+                f"buildings={num_buildings}, target_spawns={target_spawns}"
+            )
+            
+            # Generate spawn requests and save to database
+            if self.passenger_repository and target_spawns > 0:
+                import uuid
+                
+                # Get route coordinates for spawn location selection
+                route_coords = route_geometry.get('coordinates', [])
+                if not route_coords or len(route_coords) < 2:
+                    self.logger.error(f"Invalid route geometry for {route_id}")
+                    return spawn_requests
+                
+                # Generate spawns distributed along route
+                for i in range(target_spawns):
+                    try:
+                        # Select spawn location along route (random segment)
+                        segment_idx = np.random.randint(0, len(route_coords) - 1)
+                        coord = route_coords[segment_idx]
+                        
+                        # Validate coordinates
+                        if coord is None or len(coord) < 2 or coord[0] is None or coord[1] is None:
+                            self.logger.warning(f"Invalid coordinates at index {segment_idx}, skipping")
+                            continue
+                        
+                        spawn_lat, spawn_lon = coord[0], coord[1]
+                        
+                        # Select destination further along route
+                        dest_idx = np.random.randint(segment_idx + 1, len(route_coords))
+                        dest_coord = route_coords[dest_idx]
+                        
+                        if dest_coord is None or len(dest_coord) < 2 or dest_coord[0] is None or dest_coord[1] is None:
+                            self.logger.warning(f"Invalid destination coordinates at index {dest_idx}, skipping")
+                            continue
+                        
+                        dest_lat, dest_lon = dest_coord[0], dest_coord[1]
+                        
+                        # Calculate route position (distance from start)
+                        route_position = self._calculate_route_position(route_coords, segment_idx)
+                        
+                        # Generate passenger ID
+                        passenger_id = f"PASS_{uuid.uuid4().hex[:8].upper()}"
+                        
+                        # Save to database
+                        success = await self.passenger_repository.insert_passenger(
+                            passenger_id=passenger_id,
+                            route_id=route_id,
+                            latitude=spawn_lat,
+                            longitude=spawn_lon,
+                            destination_lat=dest_lat,
+                            destination_lon=dest_lon,
+                            destination_name=f"Stop {dest_idx}",
+                            direction="OUTBOUND",
+                            priority=3,
+                            expires_minutes=30
+                            # Note: route_position removed - not in active-passengers schema
+                        )
+                        
+                        if success:
+                            # Create SpawnRequest for tracking
+                            spawn_request = SpawnRequest(
+                                passenger_id=passenger_id,
+                                spawn_location=(spawn_lat, spawn_lon),
+                                destination_location=(dest_lat, dest_lon),
+                                route_id=route_id,
+                                spawn_time=current_time,
+                                spawn_context=SpawnContext.ROUTE,
+                                priority=1.0,
+                                generation_method="poisson_statistical"
+                            )
+                            spawn_requests.append(spawn_request)
+                        
+                    except Exception as e:
+                        self.logger.error(f"Error creating spawn {i}: {e}")
+                        continue
+                
+                self.logger.info(f"✅ Saved {len(spawn_requests)} passengers to database for route {route_id}")
+            else:
+                if not self.passenger_repository:
+                    self.logger.warning("PassengerRepository not configured - spawns not persisted")
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating route-based spawns: {e}", exc_info=True)
         
         return spawn_requests
+    
+    def _calculate_route_position(self, coordinates: List[List[float]], segment_idx: int) -> float:
+        """Calculate distance along route from start to segment index"""
+        distance = 0.0
+        for i in range(segment_idx):
+            if i + 1 < len(coordinates):
+                lat1, lon1 = coordinates[i]
+                lat2, lon2 = coordinates[i + 1]
+                distance += geodesic((lat1, lon1), (lat2, lon2)).meters
+        return distance
     
     def _calculate_poisson_rate(
         self,

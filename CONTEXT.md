@@ -883,6 +883,17 @@ SUCCESS CRITERIA:
 │    • No JSON blob editing needed for common use cases                                                 │
 │    • Editable grids with validation (can't enter text as numbers)                                    │
 │  ✅ Relationship: country ↔ spawn-config (oneToOne, bidirectional, auto-created by Strapi)           │
+│  ⚠️  MIGRATION: Changed to Route ↔ Spawn-Config (oneToOne) - Oct 26, 2025                            │
+│    • Problem: Rural routes using urban temporal patterns (48 passengers at 6 AM St Lucy)             │
+│    • Cause: Country-based config → all routes share same hourly rates                                │
+│    • Solution: Route-based configs → each route has appropriate temporal patterns                    │
+│    • Schema changes complete:                                                                        │
+│      - route/schema.json: Added spawn_config relation (oneToOne)                                     │
+│      - spawn-config/schema.json: Changed country → route relation                                    │
+│      - country/schema.json: Removed spawn_config relation                                            │
+│    • Pending: Restart Strapi, create route-specific configs, update SpawnConfigLoader               │
+│    • Expected: Route 1 (St Lucy) at 6 AM → ~16 passengers (hour 6 rate = 0.6 vs 1.5)                │
+│    • Validation scripts: Moved to commuter_simulator/tests/validation/ folder                       │
 │  ✅ Seed Data: "Barbados Typical Weekday" with realistic commuter patterns                            │
 │    • Morning peak (8am): 2.8x spawn rate, residential buildings 2.5x multiplier                       │
 │    • Evening peak (5pm): 2.3x spawn rate, commercial buildings 1.8x multiplier                        │

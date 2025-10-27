@@ -51,6 +51,7 @@
       "repeatable": true,
       "component": "spawning.distribution-params",
       "required": true,
+      "min": 1,
       "max": 1
     },
     "is_active": {
@@ -58,10 +59,10 @@
       "default": true,
       "required": true
     },
-    "country": {
+    "route": {
       "type": "relation",
       "relation": "oneToOne",
-      "target": "api::country.country",
+      "target": "api::route.route",
       "inversedBy": "spawn_config"
     }
   }

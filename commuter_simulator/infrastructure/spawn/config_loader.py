@@ -388,9 +388,9 @@ class SpawnConfigLoader:
         params = dist_params_list[0]
         
         return {
-            "poisson_lambda": params.get("poisson_lambda", 3.5),
+            "poisson_lambda": params.get("poisson_lambda_base", 3.5),
             "max_spawns_per_cycle": params.get("max_spawns_per_cycle", 50),
-            "spawn_radius_meters": params.get("spawn_radius_meters", 800),
+            "spawn_radius_meters": params.get("max_spawn_radius_meters", 800),
             "min_spawn_interval_seconds": params.get("min_spawn_interval_seconds", 60)
         }
     
