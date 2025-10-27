@@ -2375,3 +2375,52 @@ git push origin branch-0.0.2.6
 
 **Last Updated**: October 25, 2025  
 **Next Session**: Step 1.4 - Design Button Configuration
+
+---
+
+##  PHASE 1.12 TEST ANALYSIS - Vehicle Simulation & Passenger Pickup (October 27, 2025)
+
+### Bug Fixes Applied
+-  Fixed timezone-aware datetime comparison (naive vs aware UTC)
+-  Commuter spawn now auto-resets ALL passengers (not just per-route)
+-  Report shows spawn time, pickup time, and route distances
+-  Added pickup summary with total/average wait times
+
+### Test Scenario 1: Time Range Spawn (5PM-6PM, Monday)
+
+**Spawn Configuration**:
+- Route: gg3pv3z19hhm117v9xth5ezq (12.9 km, 389 points)
+- Time Range: 17:00-18:00 (1 hour, 10-min intervals)
+- Total Generated: 12 passengers
+
+**Results**:
+- Picked Up: 5 passengers (41.7%)
+- Missed: 7 passengers (58.3%, all "not_spawned_yet")
+- Total Wait Time: 3674 seconds (61.2 min)
+- Avg Wait: 735 seconds (12.2 min per passenger)
+
+**Wait Times**: 414-1197 seconds (6.9-19.9 min range) - realistic for urban transit
+
+**Vehicle Departure**: 17:05:00
+- Caught passengers spawning at 17:00-17:10
+- Missed passengers spawning at 17:20+ (too late)
+
+### Realism Assessment
+ REALISTIC:
+- Wait times match urban transit patterns
+- Early spawners prioritized (5-10 min wait)
+- Late spawners missed (vehicle already passed)
+- Clustering on middle-to-end route section
+
+ TO INVESTIGATE:
+- Early-route pickup distribution
+- Impact of departure time
+- Spawn location bias toward end of route
+
+### Recommendations
+1. Test earlier departure (16:50) for early-spawn coverage
+2. Test later departure (17:20) for late-spawn coverage
+3. Test broader range (16:00-18:00) for full analysis
+4. Test different speeds (20, 40, 50 km/h)
+5. Implement automated scenario testing
+

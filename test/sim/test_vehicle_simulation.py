@@ -21,6 +21,7 @@ import argparse
 from datetime import datetime, timedelta, timezone
 import math
 import httpx
+import time  # Add time for delay
 
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Calculate distance between two points in meters."""
@@ -123,6 +124,7 @@ async def main():
         attrs = p.get('attributes', p)
         all_passengers.append({
             'id': p.get('id'),
+            'documentId': p.get('documentId'),  # Store documentId as well
             'passenger_id': attrs.get('passenger_id'),
             'latitude': attrs.get('latitude'),
             'longitude': attrs.get('longitude'),
@@ -188,12 +190,17 @@ async def main():
                 'wait_time_seconds': wait_time_seconds
             })
             
-            # Remove from database
+            # Remove from database (use documentId for Strapi v5)
             async with httpx.AsyncClient() as client:
                 try:
-                    await client.delete(f"http://localhost:1337/api/active-passengers/{passenger['id']}")
+                    delete_url = f"http://localhost:1337/api/active-passengers/{passenger['documentId']}"
+                    delete_response = await client.delete(delete_url)
+                    if delete_response.status_code in (200, 204):
+                        print(f"[OK] Deleted passenger {passenger['passenger_id']}")
+                    else:
+                        print(f"[WARNING] Delete returned status {delete_response.status_code} for {passenger['passenger_id']}")
                 except Exception as e:
-                    print(f"WARNING: Failed to delete passenger {passenger['passenger_id']}: {e}")
+                    print(f"[ERROR] Failed to delete passenger {passenger['passenger_id']}: {e}")
         else:
             # MISSED!
             reason = 'not_spawned_yet' if passenger_spawn_time >= current_time else 'too_far_from_route'
@@ -216,22 +223,31 @@ async def main():
     print("="*150)
     
     if picked_up_passengers:
-        print(f"\n{'Seq':<5} {'Passenger ID':<15} {'Spawn Time':<12} {'Pickup Time':<12} {'Wait (s)':<10} {'Dist fr Start (m)':<18} {'Dist fr End (m)':<16}")
+        print(f"\n{'Seq':<5} {'Passenger ID':<15} {'Spawn Time':<12} {'Pickup Time':<12} {'Wait (min)':<12} {'Dist fr Start (m)':<18} {'Dist fr End (m)':<16}")
         print("-" * 150)
         
+        total_wait_seconds = 0
         for idx, p in enumerate(picked_up_passengers, 1):
             dist_from_start = p['route_position']
             dist_from_end = total_route_distance - p['route_position']
+            wait_minutes = p['wait_time_seconds'] / 60.0
+            total_wait_seconds += p['wait_time_seconds']
             
             print(
                 f"{idx:<5} "
                 f"{p['passenger_id']:<15} "
                 f"{p['spawn_time'].strftime('%H:%M:%S'):<12} "
                 f"{p['pickup_time'].strftime('%H:%M:%S'):<12} "
-                f"{p['wait_time_seconds']:<10.0f} "
+                f"{wait_minutes:<12.1f} "
                 f"{dist_from_start:<18.1f} "
                 f"{dist_from_end:<16.1f}"
             )
+        
+        # Summary statistics
+        avg_wait_minutes = total_wait_seconds / len(picked_up_passengers) / 60.0
+        print(f"\nSummary: {len(picked_up_passengers)} passengers picked up")
+        print(f"  Total Wait Time: {total_wait_seconds/60.0:.1f} minutes ({total_wait_seconds} seconds)")
+        print(f"  Average Wait: {avg_wait_minutes:.1f} minutes")
     else:
         print("\nNo passengers picked up")
     
@@ -253,6 +269,18 @@ async def main():
                 f"{dist_from_start:<18.1f} "
                 f"{dist_from_end:<16.1f}"
             )
+    
+    # Summary statistics
+    if picked_up_passengers:
+        total_wait_time = sum(p['wait_time_seconds'] for p in picked_up_passengers)
+        avg_wait_time = total_wait_time / len(picked_up_passengers)
+        
+        print(f"\n" + "="*150)
+        print("PICKUP SUMMARY")
+        print("="*150)
+        print(f"Total Passengers Picked Up: {len(picked_up_passengers)}")
+        print(f"Total Wait Time (all passengers): {total_wait_time:.0f} seconds ({total_wait_time/60:.1f} minutes)")
+        print(f"Average Wait Time per Passenger: {avg_wait_time:.0f} seconds ({avg_wait_time/60:.1f} minutes)")
     
     print("\n" + "="*120)
     print("VEHICLE SIMULATION COMPLETE")
