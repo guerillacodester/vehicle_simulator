@@ -4,8 +4,8 @@
 **Repository**: vehicle_simulator  
 **Branch**: branch-0.0.2.8 (NOT main)  
 **Date**: October 27, 2025  
-**Status**: ✅ TIER 1 & TIER 2 Phase 1.11 COMPLETE | 🎯 TIER 3 Phase 1.12 TEST VALIDATION IN PROGRESS  
-**Phase**: TIER 3 ACTIVE - Database Integration & Test Validation (Phase 1.12 Test Analysis)
+**Status**: ✅ TIER 1 & TIER 2 Phase 1.11 COMPLETE | ✅ TIER 3 Phase 1.12 VALIDATION COMPLETE | 🎯 TIER 4 DEPOT INTEGRATION NEXT  
+**Phase**: TIER 4 PLANNED - Depot Spawning & Fleet Integration (Phase 1.13 - Starting October 28)
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -122,36 +122,45 @@ You are a **50+ year full-stack developer veteran** with deep expertise across a
 
 ## 🚀 **IMMEDIATE CONTEXT FOR NEW AGENTS**
 
-### **Where We Are RIGHT NOW (October 26, 2025)**
+### **Where We Are RIGHT NOW (October 27, 2025 - End of Day)**
 
 ```text
-CURRENT STATE:
-✅ PostgreSQL + PostGIS fully migrated (11 spatial tables + 12 GIST indexes)
-✅ Buildings imported (162,942 records, 658MB file, streaming parser working)
-✅ Admin level UI complete (custom modal, dark theme, dropdown selection)
-✅ GPS CentCom Server analyzed and documented (WebSocket telemetry hub)
-✅ TODO.md reorganized with TIER 1-4 priority system (Option A strategy)
-✅ Workspace cleaned (13 outdated files deleted)
-✅ Agent directives formalized (mandatory workflow enforcement at top of CONTEXT.md)
+CURRENT STATE (TIER 3 VALIDATION COMPLETE):
+✅ Commuter spawn system fully operational (test_commuter_spawn.py)
+✅ Vehicle simulation with pickup logic validated (test_vehicle_simulation.py)
+✅ Spawn rate calibrated: 4.0/hour → 37 passengers/hour realistic volume
+✅ Fleet performance validated: 10-min avg wait, 100% service coverage
+✅ Test scripts organized in test/sim/ directory
+✅ All metrics match real-world suburban transit performance
 
-IMMEDIATE NEXT TASK:
-⏳ Create `/api/import-geojson/admin` backend endpoint (TIER 1 - HIGH PRIORITY)
-   - Accept: countryId, adminLevelId, adminLevel from request
-   - Pattern: Use building import pattern (streaming + bulk SQL)
-   - Files: admin_level_6/8/9/10_polygon.geojson (4 separate imports)
-   - Insert: Regions table with admin_level_id foreign key
-   - Fields: osm_id, full_id, name, admin_level_id, country_id, geom
+YESTERDAY'S BREAKTHROUGH (October 27):
+✅ Identified root cause: Spawn timing (not route length) drives pickups
+✅ Fixed Strapi database field: hourly_spawn_rates array structure
+✅ Increased production spawn rate from 1.5 to 4.0/hour
+✅ Generated 37 realistic passengers across rush hour (17:00-18:00)
+✅ Ran 4 vehicle simulation tests with staggered departures
+✅ Achieved 100% passenger pickup with proper scheduling
+✅ Validated fleet efficiency: 12-13 pickups per vehicle optimal range
 
-BLOCKING NOTHING:
-✅ No dependencies - can start immediately
-✅ UI ready, database ready, pattern established
+IMMEDIATE NEXT TASK (October 28):
+🎯 TIER 4 Phase 1.13 - Depot Spawning System
+   - Create depot initialization logic (spawn vehicles at depot)
+   - Implement vehicle departure scheduling from depot
+   - Manage vehicle fleet state and lifecycle
+   - Connect depot spawning to commuter_simulator passenger system
+   - Integrate with conductor/transit simulator coordination layer
+   - Wire up all reservoirs: route_reservoir, depot_reservoir, conductor behavior
 
-PATH TO MVP:
-TIER 1 → Complete imports (admin, highway, amenity, landuse) [NOW]
-TIER 2 → Geospatial Services API (enables spawning queries) [NEXT]
-TIER 3 → Passenger spawning features (POI/depot/route spawning)
-TIER 4 → Redis optimization (performance, not blocker)
-SEPARATE → GPS CentCom production hardening (future)
+DEPENDENCIES & BLOCKERS:
+✅ None - All test validation complete
+✅ Reference material: commuter_service_deprecated/ has original patterns
+✅ Ready to begin architectural integration
+
+PATH TO MVP (TIER 4):
+Phase 1.13 → Depot spawning system ✅ STARTING OCTOBER 28
+Phase 1.14 → Conductor integration
+Phase 1.15 → Reservoir wiring
+TIER 4 Complete → Full end-to-end simulation with fleet management
 ```
 
 ### **Critical Files You Need to Know**

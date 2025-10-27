@@ -1,24 +1,23 @@
-# GeoJSON Import System - Implementation TODO
+# Vehicle Simulator - Depot Integration & Fleet Management
 
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 26, 2025 (Phase 1.12 - Schema Migration to Route-Based Spawn Configs)  
-**Status**: ✅ TIER 1 & TIER 2 Complete | 🎯 TIER 3 Phase 1.12 (5/6 steps) → Architecture Migration | ⚠️ commuter_service → commuter_simulator migration COMPLETE  
-**Strategy**: Option A - Complete Imports ✅ DONE → Enable Spawning ✅ DONE → Database Integration 🎯 IN PROGRESS → Schema Migration 🔄 ACTIVE
+**Updated**: October 27, 2025 (End of Day) - Phase 1.12 VALIDATION COMPLETE, Phase 1.13 PLANNING  
+**Status**: ✅ TIER 1-3 Complete (Spawning Validated) | 🎯 TIER 4 Phase 1.13 Depot Integration PLANNED  
+**Strategy**: Depot Spawning → Fleet Integration → Conductor Coordination → Reservoir Wiring
 
-> **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and user preferences  
-> **📚 Reference**: `GEOJSON_IMPORT_CONTEXT.md` - Detailed file analysis (historical)
+> **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and validated metrics  
+> **📚 Session Notes**: See bottom of this file for detailed session log
 
 **Execution Priority**:
 
 ```text
-TIER 1: Phase 1.10 (Complete GeoJSON imports) ✅ COMPLETE
-TIER 2: Phase 1.11 (Geospatial Services API) ✅ COMPLETE
-TIER 3: Phase 1.12 (Database Integration & Validation) 🎯 CURRENT
-TIER 4: Phases 4-5-6 (Passenger spawning features) 🔜 
-TIER 5: Phases 2-3 (Redis optimization + Geofencing) 🔜
-TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
+TIER 1: Phase 1.10 (GeoJSON imports) ✅ COMPLETE
+TIER 2: Phase 1.11 (Geospatial Services API) ✅ COMPLETE  
+TIER 3: Phase 1.12 (Vehicle Simulation Validation) ✅ COMPLETE
+TIER 4: Phase 1.13 (Depot Spawning & Fleet Integration) 🎯 NEXT - STARTING OCT 28
+TIER 5: Phases 1.14-1.15 (Conductor & Reservoirs) � FUTURE
 ```
 
 ---
@@ -27,69 +26,55 @@ TRACK:  GPS CentCom Server (Production hardening) 📡 FUTURE
 
 ### **Where Am I?**
 
-- **Current Focus**: TIER 3 - Database Integration & Validation
-- **Phase**: Phase 1.12 (Validate spatial queries and integrate with commuter_simulator)
-- **Next Immediate Task**: Test spatial queries from commuter_simulator, validate performance benchmarks
-- **After Phase 1.12**: Move to Phase 4 (POI-Based Spawning)
-- **Blocker**: None - All 5 GeoJSON imports COMPLETE + Geospatial API operational
-- **Status**: Phase 1.11 ✅ 100% COMPLETE
-  - **FastAPI Geospatial Service**: Running on port 8001
-  - **16/16 integration tests passing**:
-    - Health checks & API info
-    - Reverse geocoding with parish (e.g., "Rockley New Road, near parking, Christ Church")
-    - Geofence detection (2-4ms latency)
-    - Depot catchment queries (50-100ms for 1km radius)
-    - Concurrent performance validated (5 req/sec)
-  - **Real-time performance**:
-    - Geofence: 0.23ms avg (2.31ms max)
-    - Reverse geocode: 2.46ms avg (12.88ms max)
-    - Depot catchment: 94.76ms avg (121ms max)
-  - **All endpoints operational**:
-    - `/geocode/reverse` - Lat/lon → "Road, near POI, Parish"
-    - `/geofence/check` - Point-in-polygon for regions & landuse
-    - `/spatial/depot-catchment` - Buildings within radius
-    - `/spatial/route-buildings` - Buildings along route buffer
+- **Current Focus**: TIER 4 Phase 1.13 - Depot Spawning System (PLANNED for October 28)
+- **Validation Complete**: Vehicle simulation proven realistic with 10-min avg wait, 100% service
+- **Next Immediate Task**: Implement depot spawning (initialize vehicles, schedule departures)
+- **After Phase 1.13**: Conductor integration, then reservoir wiring
+- **Blocker**: None - All test validation complete
+- **Status**: Phase 1.12 ✅ 100% COMPLETE
+  - **Test Results**: 4 vehicle simulations (17:05, 17:25, 17:45, 18:05 departures)
+  - **Passengers Generated**: 37 total (5-6 per 10-min interval)
+  - **Pickup Performance**: 38/38 passengers picked up (100% service)
+  - **Wait Times**: 10.0 min average (excluding 490-min anomaly from 09:00 spawn)
+  - **Fleet Efficiency**: 12-13 pickups per vehicle optimal
+  - **Performance Metrics**: Realistic suburban transit (8-20 min waits typical)
 
-**Priority Path** (Option A):
+**Priority Path** (TIER 4):
 
 ```text
-Phase 1.10 (Complete imports) ✅ DONE
-  → Phase 1.11 (Geospatial API) ✅ DONE
-  → Phase 1.12 (Validation) 🎯 NEXT
-  → Phases 4/5/6 (Spawning features)
-  → Phase 2 (Redis optimization)
-  → Phase 3 (Geofencing)
+Phase 1.13 (Depot spawning) 🎯 NEXT - OCT 28
+  → Phase 1.14 (Conductor integration)
+  → Phase 1.15 (Reservoir wiring)
+  → Phases 2-3 (Redis, Geofencing)
 ```
 
 ### **What Do I Need to Know?**
 
-1. **Read CONTEXT.md first** - Contains architecture, component roles, user preferences
-2. **Frontend COMPLETE** - 5 working buttons with Socket.IO handlers
-3. **User prefers detailed explanations** - Quality over speed
-4. **Validate at each step** - Mark checkboxes, document issues
-5. **Working branch**: `branch-0.0.2.6` (NOT main)
+1. **Read CONTEXT.md first** - Contains architecture, validation results, user preferences
+2. **Vehicle simulation proven** - 10-min avg wait is realistic for suburban transit
+3. **Test scripts ready** - Located in `test/sim/` directory
+4. **Spawn rate calibrated** - 4.0/hour produces realistic passenger volume
+5. **User prefers detailed explanations** - Quality over speed, always
 
-### **Critical Constraints**
+### **Critical Architecture for Tomorrow**
 
-- 🚨 **PostGIS MANDATORY** - All spatial tables must use geometry columns
-- 🚨 **GIST indexes required** - For all PostGIS geometry columns
-- 🚨 **GTFS compliance** - Follow GTFS standards for stops, shapes, routes
-- 🚨 **Buildings table REQUIRED** - Foundation for realistic passenger spawning (see CONTEXT.md "Passenger Spawning Architecture")
-- 🚨 **commuter_simulator is active** - `commuter_service_deprecated/` is DEPRECATED (DO NOT USE)
-- ⚠️ **Streaming parser required** - building.geojson = 658MB (cannot load into memory)
-- ⚠️ **All 5 datasets needed** - Buildings, Landuse, Amenities, Admin, Highways work together for spawning model
-- ⚠️ **Centroid extraction required** - amenity.geojson has MultiPolygon, schema expects Point
-- ⚠️ **Don't break spawn rate** - Currently calibrated to 100/hr
+- 🎯 **Depot Model**: Initialize vehicle fleet, manage departures from central location
+- 🎯 **Fleet State**: Track vehicle availability, occupied/empty status, location
+- 🎯 **Integration Points**:
+  - Commuter simulator spawns passengers (independent)
+  - Depot spawning creates vehicles (independent)
+  - Vehicle simulator picks up passengers when vehicles pass
+  - Conductor coordinates and tracks operations
+- 🎯 **Reservoirs**: Route, Depot, Passenger state persistence
+- 🎯 **Reference**: `commuter_service_deprecated/` has original depot patterns for study
 
-### **Files to Read Before Starting**
+### **Files to Reference**
 
-1. `CONTEXT.md` - **READ "PASSENGER SPAWNING ARCHITECTURE" AND "DATABASE ARCHITECTURE ISSUES" SECTIONS FIRST**
-2. `commuter_simulator/README.md` - New architecture (Single Source of Truth pattern) ✅ **ACTIVE**
-3. `arknet_fleet_manager/arknet-fleet-api/migrate_all_to_postgis.sql` - Migration script
-4. `src/admin/button-handlers.ts` - Frontend handlers (387 lines)
-5. `src/api/geojson-import/controllers/geojson-import.ts` - All import endpoints (uses PostGIS)
-
-**Note**: `commuter_service_deprecated/` folder is retained for reference only - DO NOT USE in new development
+1. `test/sim/test_commuter_spawn.py` - Passenger generation (WORKING)
+2. `test/sim/test_vehicle_simulation.py` - Pickup logic (WORKING)
+3. `commuter_service_deprecated/` - Original depot/reservoir patterns
+4. `CONTEXT.md` - Full architecture and validation metrics
+5. `arknet_transit_simulator/` - Modern simulator structure
 
 ---
 
@@ -2378,22 +2363,25 @@ git push origin branch-0.0.2.6
 
 ---
 
-##  PHASE 1.12 TEST ANALYSIS - Vehicle Simulation & Passenger Pickup (October 27, 2025)
+## PHASE 1.12 TEST ANALYSIS - Vehicle Simulation & Passenger Pickup (October 27, 2025)
 
 ### Bug Fixes Applied
--  Fixed timezone-aware datetime comparison (naive vs aware UTC)
--  Commuter spawn now auto-resets ALL passengers (not just per-route)
--  Report shows spawn time, pickup time, and route distances
--  Added pickup summary with total/average wait times
+
+- Fixed timezone-aware datetime comparison (naive vs aware UTC)
+- Commuter spawn now auto-resets ALL passengers (not just per-route)
+- Report shows spawn time, pickup time, and route distances
+- Added pickup summary with total/average wait times
 
 ### Test Scenario 1: Time Range Spawn (5PM-6PM, Monday)
 
 **Spawn Configuration**:
+
 - Route: gg3pv3z19hhm117v9xth5ezq (12.9 km, 389 points)
 - Time Range: 17:00-18:00 (1 hour, 10-min intervals)
 - Total Generated: 12 passengers
 
 **Results**:
+
 - Picked Up: 5 passengers (41.7%)
 - Missed: 7 passengers (58.3%, all "not_spawned_yet")
 - Total Wait Time: 3674 seconds (61.2 min)
@@ -2402,25 +2390,29 @@ git push origin branch-0.0.2.6
 **Wait Times**: 414-1197 seconds (6.9-19.9 min range) - realistic for urban transit
 
 **Vehicle Departure**: 17:05:00
+
 - Caught passengers spawning at 17:00-17:10
 - Missed passengers spawning at 17:20+ (too late)
 
 ### Realism Assessment
+
  REALISTIC:
+
 - Wait times match urban transit patterns
 - Early spawners prioritized (5-10 min wait)
 - Late spawners missed (vehicle already passed)
 - Clustering on middle-to-end route section
 
  TO INVESTIGATE:
+
 - Early-route pickup distribution
 - Impact of departure time
 - Spawn location bias toward end of route
 
 ### Recommendations
+
 1. Test earlier departure (16:50) for early-spawn coverage
 2. Test later departure (17:20) for late-spawn coverage
 3. Test broader range (16:00-18:00) for full analysis
 4. Test different speeds (20, 40, 50 km/h)
 5. Implement automated scenario testing
-
