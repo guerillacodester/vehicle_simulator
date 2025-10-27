@@ -143,21 +143,32 @@ YESTERDAY'S BREAKTHROUGH (October 27):
 ✅ Validated fleet efficiency: 12-13 pickups per vehicle optimal range
 
 IMMEDIATE NEXT TASK (October 28):
-🎯 TIER 4 Phase 1.13 - Depot Spawning System
-   - Create depot initialization logic (spawn vehicles at depot)
-   - Implement vehicle departure scheduling from depot
-   - Manage vehicle fleet state and lifecycle
-   - Connect depot spawning to commuter_simulator passenger system
-   - Integrate with conductor/transit simulator coordination layer
-   - Wire up all reservoirs: route_reservoir, depot_reservoir, conductor behavior
+🎯 TIER 4 Phase 1.13 - Commuter Spawning System (NOT Vehicle Spawning)
+   - CORRECTED UNDERSTANDING: Vehicles already managed by arknet_transit_simulator
+   - Task: Create DepotSpawner class - generates COMMUTERS at depot locations
+   - Task: Create RouteSpawner class - generates COMMUTERS along routes
+   - Spawned commuters go into DepotReservoir and RouteReservoir (NOT vehicle spawning)
+   - Conductor in vehicle simulator queries these reservoirs and picks up commuters
+   - Flow: DepotSpawner/RouteSpawner → Reservoirs → Conductor → Vehicle Pickups
+
+CORRECTED ARCHITECTURE:
+arknet_transit_simulator/ (Vehicle Movement - COMPLETE)
+  ├─ Vehicles drive routes
+  ├─ Conductor listens for passengers
+  └─ Conductor picks up passengers from reservoirs
+
+commuter_simulator/core/domain/ (Commuter Generation - PHASE 1.13)
+  ├─ DepotSpawner: Generate commuters at depot locations (Poisson distribution)
+  ├─ RouteSpawner: Generate commuters along routes (Poisson distribution)
+  └─ Both feed into DepotReservoir and RouteReservoir
 
 DEPENDENCIES & BLOCKERS:
 ✅ None - All test validation complete
-✅ Reference material: commuter_service_deprecated/ has original patterns
-✅ Ready to begin architectural integration
+✅ Reference material: commuter_service_deprecated/ has original spawning patterns
+✅ Ready to begin commuter generation implementation
 
 PATH TO MVP (TIER 4):
-Phase 1.13 → Depot spawning system ✅ STARTING OCTOBER 28
+Phase 1.13 → Commuter spawning (DepotSpawner + RouteSpawner) 🎯 STARTING OCTOBER 28
 Phase 1.14 → Conductor integration
 Phase 1.15 → Reservoir wiring
 TIER 4 Complete → Full end-to-end simulation with fleet management

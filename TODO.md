@@ -1,11 +1,11 @@
-# Vehicle Simulator - Depot Integration & Fleet Management
+# Vehicle Simulator - Commuter Spawning & Fleet Coordination
 
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 27, 2025 (End of Day) - Phase 1.12 VALIDATION COMPLETE, Phase 1.13 PLANNING  
-**Status**: ✅ TIER 1-3 Complete (Spawning Validated) | 🎯 TIER 4 Phase 1.13 Depot Integration PLANNED  
-**Strategy**: Depot Spawning → Fleet Integration → Conductor Coordination → Reservoir Wiring
+**Updated**: October 27, 2025 (End of Day) - Phase 1.12 VALIDATION COMPLETE, Architecture Clarified  
+**Status**: ✅ TIER 1-3 Complete (Vehicle Simulation Validated) | 🎯 TIER 4 Phase 1.13 Commuter Spawning NEXT  
+**Strategy**: Commuter Spawning (DepotSpawner + RouteSpawner) → Conductor Integration → Reservoir Wiring
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and validated metrics  
 > **📚 Session Notes**: See bottom of this file for detailed session log
@@ -26,10 +26,11 @@ TIER 5: Phases 1.14-1.15 (Conductor & Reservoirs) � FUTURE
 
 ### **Where Am I?**
 
-- **Current Focus**: TIER 4 Phase 1.13 - Depot Spawning System (PLANNED for October 28)
-- **Validation Complete**: Vehicle simulation proven realistic with 10-min avg wait, 100% service
-- **Next Immediate Task**: Implement depot spawning (initialize vehicles, schedule departures)
-- **After Phase 1.13**: Conductor integration, then reservoir wiring
+- **Current Focus**: TIER 4 Phase 1.13 - Commuter Spawning System (STARTING October 28)
+- **Validation Complete**: Vehicle simulation proven realistic with 10-min avg wait, 100% service coverage
+- **CORRECTED UNDERSTANDING**: Vehicles managed by arknet_transit_simulator. We need to create DepotSpawner and RouteSpawner to generate COMMUTERS (passengers), not vehicles
+- **Next Immediate Task**: Implement DepotSpawner class - generates commuters at depot locations with Poisson distribution
+- **After Phase 1.13**: RouteSpawner implementation, then Conductor integration
 - **Blocker**: None - All test validation complete
 - **Status**: Phase 1.12 ✅ 100% COMPLETE
   - **Test Results**: 4 vehicle simulations (17:05, 17:25, 17:45, 18:05 departures)
@@ -56,25 +57,38 @@ Phase 1.13 (Depot spawning) 🎯 NEXT - OCT 28
 4. **Spawn rate calibrated** - 4.0/hour produces realistic passenger volume
 5. **User prefers detailed explanations** - Quality over speed, always
 
-### **Critical Architecture for Tomorrow**
+### **Critical Architecture for Phase 1.13**
 
-- 🎯 **Depot Model**: Initialize vehicle fleet, manage departures from central location
-- 🎯 **Fleet State**: Track vehicle availability, occupied/empty status, location
-- 🎯 **Integration Points**:
-  - Commuter simulator spawns passengers (independent)
-  - Depot spawning creates vehicles (independent)
-  - Vehicle simulator picks up passengers when vehicles pass
-  - Conductor coordinates and tracks operations
-- 🎯 **Reservoirs**: Route, Depot, Passenger state persistence
-- 🎯 **Reference**: `commuter_service_deprecated/` has original depot patterns for study
+- 🎯 **DepotSpawner**: Generate COMMUTERS at depot locations (Poisson distribution)
+  - NOT vehicle spawning (vehicles managed by arknet_transit_simulator)
+  - Spawns passengers with realistic wait time distributions
+  - Places commuters into DepotReservoir for Conductor to pick up
+  
+- 🎯 **RouteSpawner**: Generate COMMUTERS along route segments (Poisson distribution)
+  - Spawns passengers with spatial distribution along routes
+  - Places commuters into RouteReservoir for Conductor to pick up
+  
+- 🎯 **Integration Flow**:
+  - DepotSpawner → DepotReservoir ↘
+  - RouteSpawner → RouteReservoir ↘ → Conductor (in vehicle) → Vehicle Pickups
+  
+- 🎯 **Reservoirs**: Already exist in commuter_service_deprecated/
+  - DepotReservoir: FIFO queue of commuters waiting at depots
+  - RouteReservoir: Spatial grid of commuters along routes
+  
+- 🎯 **Reference**: `commuter_service_deprecated/` has original spawning patterns
+  - `poisson_geojson_spawner.py` - Statistical passenger generation
+  - `depot_reservoir.py` - Depot commuter queue
+  - `route_reservoir.py` - Route commuter grid### **Files to Reference**
 
-### **Files to Reference**
-
-1. `test/sim/test_commuter_spawn.py` - Passenger generation (WORKING)
+1. `test/sim/test_route_spawn.py` - Passenger generation test (WORKING)
 2. `test/sim/test_vehicle_simulation.py` - Pickup logic (WORKING)
-3. `commuter_service_deprecated/` - Original depot/reservoir patterns
-4. `CONTEXT.md` - Full architecture and validation metrics
-5. `arknet_transit_simulator/` - Modern simulator structure
+3. `commuter_simulator/core/domain/spawning_plugin.py` - Plugin architecture for spawners
+4. `commuter_service_deprecated/poisson_geojson_spawner.py` - Original Poisson spawning
+5. `commuter_service_deprecated/depot_reservoir.py` - Depot commuter queue
+6. `commuter_service_deprecated/route_reservoir.py` - Route commuter grid
+7. `arknet_transit_simulator/vehicle/conductor.py` - Conductor pickup logic
+8. `CONTEXT.md` - Full architecture and validation metrics
 
 ---
 
