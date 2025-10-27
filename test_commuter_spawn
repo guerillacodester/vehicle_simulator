@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+"""
+Commuter Spawn Test - Generate passengers for a route
+Usage: ./test_commuter_spawn gg3pv3z19hhm117v9xth5ezq Monday 09:00:00
+"""
+
+import sys
+import asyncio
+from pathlib import Path
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from commuter_simulator.tests.sim.test_commuter_spawn import main
+
+if __name__ == '__main__':
+    asyncio.run(main())

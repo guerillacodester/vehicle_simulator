@@ -74,6 +74,13 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 
 async def main():
+    # Add project root to path so imports work from anywhere
+    import sys
+    from pathlib import Path
+    project_root = Path(__file__).parent.parent.parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
         description="Generate commuter spawns for a route on a specific day/time or time range",
