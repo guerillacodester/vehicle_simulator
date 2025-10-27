@@ -290,19 +290,16 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
                 self.logger.error("spawn_radius_meters not found in distribution_params - this is REQUIRED")
                 return []
             
-            # Extract route coordinates
+            # Extract route coordinates from geometry
             route_coords = route_geom.get('coordinates', [])
-            if not route_coords or len(route_coords) < 2:
-                self.logger.warning("Invalid route geometry for building lookup")
+            if not route_coords:
+                self.logger.error("No coordinates found in route geometry")
                 return []
-            
-            # Convert from GeoJSON [lon, lat] to (lat, lon) tuples for geospatial service
-            route_lat_lon = [(lat, lon) for lon, lat in route_coords]
             
             # Use geospatial service to find buildings along route
             self.logger.info(f"Querying buildings within {spawn_radius}m of route via geospatial service...")
             result = geo_client.buildings_along_route(
-                route_coordinates=route_lat_lon,
+                route_coordinates=route_coords,
                 buffer_meters=spawn_radius,
                 limit=200
             )
@@ -372,12 +369,17 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
             # Spatial: building/landuse clusters provide base demand
             # Temporal: hourly_rate is a time-of-day multiplier on that base demand
             num_buildings = len(buildings) if buildings else 0
+            
+            # FAIL HARD if no buildings found - do not use fallback estimates
             if num_buildings == 0:
-                self.logger.warning("No buildings found - using conservative estimate based on route length")
-                # Estimate buildings based on route length and typical urban density
-                route_coords = route_geometry.get('coordinates', [])
-                route_length_km = len(route_coords) * 0.001  # Rough estimate
-                num_buildings = max(5, int(route_length_km * 10))  # ~10 buildings per km as fallback
+                self.logger.error(
+                    f"❌ SPAWN FAILED: No buildings found near route {route_id} within {spawn_config.get('distribution_params', [{}])[0].get('spawn_radius_meters', 500)}m. "
+                    f"This indicates missing geospatial data. "
+                    f"ACTION REQUIRED: (1) Verify PostGIS has building data imported for this region, "
+                    f"(2) Run building import scripts from geospatial_service/, or "
+                    f"(3) Update spawn_config distribution_params with 'explicit_building_count' if data import is pending."
+                )
+                return spawn_requests
             
             passengers_per_building_per_hour = dist_params['passengers_per_building_per_hour']
             

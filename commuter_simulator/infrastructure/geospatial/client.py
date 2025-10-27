@@ -186,16 +186,16 @@ class GeospatialClient:
     
     def buildings_along_route(
         self,
-        route_coordinates: List[Tuple[float, float]],
+        route_coordinates: list,
         buffer_meters: int = 500,
         limit: int = 100
     ) -> Dict:
         """
-        Find buildings within buffer of route polyline.
+        Find buildings within buffer of a route by querying multiple points.
         Used for route-based passenger spawning.
         
         Args:
-            route_coordinates: List of (lat, lon) tuples defining route
+            route_coordinates: List of [lon, lat] pairs representing the route
             buffer_meters: Buffer distance in meters (default: 500)
             limit: Maximum results to return (default: 100)
         
@@ -207,17 +207,49 @@ class GeospatialClient:
             }
         """
         try:
-            response = requests.post(
-                f"{self.base_url}/spatial/route-buildings",
-                json={
-                    "coordinates": [[lon, lat] for lat, lon in route_coordinates],
-                    "buffer_meters": buffer_meters,
-                    "limit": limit
-                },
-                timeout=self.timeout * 2  # Route queries can be slower
-            )
-            response.raise_for_status()
-            return response.json()
+            # Sample points along the route to ensure good coverage
+            # Use every Nth point to keep queries efficient
+            sample_interval = max(1, len(route_coordinates) // 10)  # Sample ~10 points
+            sampled_points = route_coordinates[::sample_interval]
+            
+            if not sampled_points:
+                sampled_points = route_coordinates[:1]  # At least use start point
+            
+            # Track unique buildings by ID to avoid duplicates
+            unique_buildings = {}
+            total_latency = 0
+            
+            # Query buildings at each sampled point
+            for lon, lat in sampled_points:
+                response = requests.get(
+                    f"{self.base_url}/spatial/nearby-buildings",
+                    params={
+                        "lat": lat,
+                        "lon": lon,
+                        "radius_meters": buffer_meters,
+                        "limit": limit
+                    },
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                total_latency += data.get('latency_ms', 0)
+                
+                # Collect unique buildings
+                for building in data.get('buildings', []):
+                    bid = building.get('building_id')
+                    if bid not in unique_buildings:
+                        unique_buildings[bid] = building
+            
+            # Convert to list and truncate to limit
+            buildings_list = list(unique_buildings.values())[:limit]
+            
+            return {
+                "count": len(buildings_list),
+                "buildings": buildings_list,
+                "latency_ms": round(total_latency, 2)
+            }
         except Exception as e:
             logger.error(f"Route buildings search failed: {e}")
             return {
