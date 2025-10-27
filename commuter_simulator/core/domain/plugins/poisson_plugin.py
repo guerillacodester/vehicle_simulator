@@ -277,87 +277,54 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
             return None
     
     async def _get_buildings_near_route(self, geo_client: Any, route_geom: Dict, spawn_config: Dict) -> List[Dict]:
-        """Get buildings near route from Strapi GeoJSON data"""
+        """Get buildings near route using geospatial service"""
         try:
-            import httpx
-            from shapely.geometry import Point, LineString, shape
-            from shapely.ops import unary_union
+            # Get spawn radius from distribution params (database is source of truth)
+            dist_params = spawn_config.get('distribution_params', {})
+            if isinstance(dist_params, list) and len(dist_params) > 0:
+                dist_params = dist_params[0]
             
-            # Get spawn radius from distribution params
-            dist_params = spawn_config.get('distribution_params', [])
-            spawn_radius = 800  # default meters
-            if dist_params and len(dist_params) > 0:
-                spawn_radius = dist_params[0].get('spawn_radius_meters', 800)
+            # Spawn radius MUST come from config
+            spawn_radius = dist_params.get('spawn_radius_meters')
+            if spawn_radius is None:
+                self.logger.error("spawn_radius_meters not found in distribution_params - this is REQUIRED")
+                return []
             
-            # Create route buffer geometry
+            # Extract route coordinates
             route_coords = route_geom.get('coordinates', [])
             if not route_coords or len(route_coords) < 2:
                 self.logger.warning("Invalid route geometry for building lookup")
                 return []
             
-            # Convert route to LineString and buffer (convert meters to degrees ~111km per degree)
-            route_line = LineString([(lon, lat) for lat, lon in route_coords])
-            buffer_degrees = spawn_radius / 111000.0  # approximate conversion
-            route_buffer = route_line.buffer(buffer_degrees)
+            # Convert from GeoJSON [lon, lat] to (lat, lon) tuples for geospatial service
+            route_lat_lon = [(lat, lon) for lon, lat in route_coords]
             
-            # Query landuse zones from Strapi (buildings are residential/commercial zones)
-            self.logger.info(f"Querying buildings within {spawn_radius}m of route...")
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                # Get all landuse zones for Barbados (country_id=29)
-                # Note: Strapi $in filter syntax requires array notation
-                response = await client.get(
-                    f"{self.config.custom_params.get('strapi_url', 'http://localhost:1337/api')}/landuse-zones",
-                    params={
-                        "filters[country][id][$eq]": 29,
-                        "filters[zone_type][$in][0]": "residential",
-                        "filters[zone_type][$in][1]": "commercial",
-                        "filters[zone_type][$in][2]": "mixed_use",
-                        "filters[zone_type][$in][3]": "industrial",
-                        "pagination[pageSize]": 1000,
-                        "populate": "geometry_geojson"
-                    }
-                )
-                response.raise_for_status()
-                data = response.json()
+            # Use geospatial service to find buildings along route
+            self.logger.info(f"Querying buildings within {spawn_radius}m of route via geospatial service...")
+            result = geo_client.buildings_along_route(
+                route_coordinates=route_lat_lon,
+                buffer_meters=spawn_radius,
+                limit=200
+            )
             
-            landuse_zones = data.get('data', [])
-            self.logger.info(f"Retrieved {len(landuse_zones)} landuse zones from database")
+            buildings = result.get('buildings', [])
+            self.logger.info(f"✓ Found {len(buildings)} buildings within {spawn_radius}m of route")
             
-            # Filter zones that intersect with route buffer
+            # Convert geospatial service response to our internal format
             buildings_near_route = []
-            for zone in landuse_zones:
+            for building in buildings:
                 try:
-                    attrs = zone.get('attributes', {})
-                    geom_data = attrs.get('geometry_geojson') or attrs.get('geometry')
-                    
-                    if not geom_data:
-                        continue
-                    
-                    # Parse GeoJSON geometry
-                    if isinstance(geom_data, str):
-                        import json
-                        geom_data = json.loads(geom_data)
-                    
-                    # Convert to shapely geometry
-                    zone_geom = shape(geom_data)
-                    
-                    # Check if zone intersects route buffer
-                    if zone_geom.intersects(route_buffer):
-                        # Get centroid for spawn location
-                        centroid = zone_geom.centroid
-                        buildings_near_route.append({
-                            'id': zone.get('id'),
-                            'zone_type': attrs.get('zone_type'),
-                            'latitude': centroid.y,
-                            'longitude': centroid.x,
-                            'geometry': geom_data
-                        })
-                
+                    buildings_near_route.append({
+                        'id': building.get('id') or building.get('osm_id'),
+                        'building_type': building.get('building') or building.get('building_type', 'unknown'),
+                        'latitude': building.get('latitude') or building.get('lat'),
+                        'longitude': building.get('longitude') or building.get('lon'),
+                        'geometry': building.get('geometry')
+                    })
                 except Exception as e:
-                    self.logger.debug(f"Skipping invalid zone: {e}")
+                    self.logger.debug(f"Skipping invalid building: {e}")
                     continue
             
-            self.logger.info(f"✓ Found {len(buildings_near_route)} buildings within {spawn_radius}m of route")
             return buildings_near_route
             
         except Exception as e:
@@ -391,17 +358,36 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
             hour = current_time.hour
             day_of_week = current_time.strftime('%A').lower()
             
-            # Get rates from spawn-config
+            # Get ALL rates from spawn-config (database is source of truth)
             hourly_rate = config_loader.get_hourly_rate(spawn_config, hour)
             day_mult = config_loader.get_day_multiplier(spawn_config, day_of_week)
             dist_params = config_loader.get_distribution_params(spawn_config)
             
-            # Calculate base spawns using BUILDING COUNT (not cluster count)
-            num_buildings = len(buildings) if buildings else 67  # Fallback to known count
-            passengers_per_building_per_hour = 0.3  # Tunable parameter
-            base_spawns_per_hour = hourly_rate * day_mult * num_buildings * passengers_per_building_per_hour
+            # Validate all required parameters are present
+            if not dist_params.get('passengers_per_building_per_hour'):
+                self.logger.error("passengers_per_building_per_hour not in spawn config distribution_params")
+                return spawn_requests
             
-            # Scale by time window
+            # Calculate base spawns combining BOTH spatial and temporal factors
+            # Spatial: building/landuse clusters provide base demand
+            # Temporal: hourly_rate is a time-of-day multiplier on that base demand
+            num_buildings = len(buildings) if buildings else 0
+            if num_buildings == 0:
+                self.logger.warning("No buildings found - using conservative estimate based on route length")
+                # Estimate buildings based on route length and typical urban density
+                route_coords = route_geometry.get('coordinates', [])
+                route_length_km = len(route_coords) * 0.001  # Rough estimate
+                num_buildings = max(5, int(route_length_km * 10))  # ~10 buildings per km as fallback
+            
+            passengers_per_building_per_hour = dist_params['passengers_per_building_per_hour']
+            
+            # Base spawns from spatial distribution (building/landuse density)
+            spatial_base_spawns = num_buildings * passengers_per_building_per_hour
+            
+            # Apply temporal multiplier (hourly_rate) and day multiplier
+            base_spawns_per_hour = spatial_base_spawns * hourly_rate * day_mult
+            
+            # Scale by time window (e.g., 10 minutes = 10/60 of hourly rate)
             base_spawns_for_window = base_spawns_per_hour * (time_window_minutes / 60.0)
             
             # Apply Poisson distribution
@@ -409,12 +395,15 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
             
             # Enforce minimum spawn interval
             min_interval = dist_params.get('min_spawn_interval_seconds', 45)
+            if not min_interval:
+                self.logger.error("min_spawn_interval_seconds not in spawn config")
+                return spawn_requests
             max_possible = int((time_window_minutes * 60) / min_interval)
             target_spawns = min(target_spawns, max_possible)
             
             self.logger.info(
-                f"Route {route_id}: hourly_rate={hourly_rate}, day_mult={day_mult}, "
-                f"buildings={num_buildings}, target_spawns={target_spawns}"
+                f"Route {route_id}: spatial_base={spatial_base_spawns:.1f} × hourly_rate={hourly_rate} × day_mult={day_mult} = "
+                f"hourly={base_spawns_per_hour:.1f}, target_spawns={target_spawns}"
             )
             
             # Generate spawn requests and save to database
@@ -427,11 +416,28 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
                     self.logger.error(f"Invalid route geometry for {route_id}")
                     return spawn_requests
                 
+                # Calculate cumulative distances along route for minimum distance enforcement
+                cumulative_distances = [0.0]
+                for j in range(1, len(route_coords)):
+                    coord1 = route_coords[j-1]
+                    coord2 = route_coords[j]
+                    if coord1 and coord2 and len(coord1) >= 2 and len(coord2) >= 2:
+                        segment_dist = self._haversine_distance(coord1[0], coord1[1], coord2[0], coord2[1])
+                        cumulative_distances.append(cumulative_distances[-1] + segment_dist)
+                    else:
+                        cumulative_distances.append(cumulative_distances[-1])
+                
+                total_route_distance = cumulative_distances[-1] if cumulative_distances else 0
+                
                 # Generate spawns distributed along route
                 for i in range(target_spawns):
                     try:
-                        # Select spawn location along route (random segment)
-                        segment_idx = np.random.randint(0, len(route_coords) - 1)
+                        # Step 1: Randomly select boarding location along entire route
+                        max_spawn_idx = len(route_coords) - 1
+                        if max_spawn_idx <= 0:
+                            continue
+                        
+                        segment_idx = np.random.randint(0, max_spawn_idx)
                         coord = route_coords[segment_idx]
                         
                         # Validate coordinates
@@ -440,9 +446,53 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
                             continue
                         
                         spawn_lat, spawn_lon = coord[0], coord[1]
+                        spawn_distance = cumulative_distances[segment_idx]
                         
-                        # Select destination further along route
-                        dest_idx = np.random.randint(segment_idx + 1, len(route_coords))
+                        # Calculate remaining distance to route end
+                        remaining_distance = total_route_distance - spawn_distance
+                        
+                        # Step 2: Select trip distance - INDEPENDENT of boarding position
+                        # Trip distance follows configured distribution regardless of where passenger boards
+                        # Only constrained by: minimum trip distance and remaining route
+                        
+                        # Get trip distance parameters from spawn config (database is source of truth)
+                        min_trip_distance = dist_params.get('min_trip_distance_meters')
+                        max_trip_ratio = dist_params.get('max_trip_distance_ratio')
+                        trip_mean = dist_params.get('trip_distance_mean_meters')
+                        trip_std = dist_params.get('trip_distance_std_meters')
+                        
+                        if not all([min_trip_distance, max_trip_ratio, trip_mean, trip_std]):
+                            self.logger.error(f"Missing trip distance params: min={min_trip_distance}, ratio={max_trip_ratio}, mean={trip_mean}, std={trip_std}")
+                            continue
+                        
+                        max_trip_distance = remaining_distance * max_trip_ratio
+                        
+                        if max_trip_distance < min_trip_distance:
+                            # Passenger is too close to end, skip
+                            continue
+                        
+                        # Use configured normal distribution
+                        # This is independent of position - the clipping handles spatial constraints naturally
+                        trip_distance = np.random.normal(loc=trip_mean, scale=trip_std)
+                        trip_distance = np.clip(trip_distance, min_trip_distance, max_trip_distance)
+                        
+                        # Step 3: Find destination at target trip distance from boarding point
+                        target_dest_distance = spawn_distance + trip_distance
+                        
+                        # Find closest index to target distance
+                        dest_idx = None
+                        min_distance_diff = float('inf')
+                        
+                        for idx in range(segment_idx + 1, len(route_coords)):
+                            dist_diff = abs(cumulative_distances[idx] - target_dest_distance)
+                            if dist_diff < min_distance_diff:
+                                min_distance_diff = dist_diff
+                                dest_idx = idx
+                        
+                        if dest_idx is None or dest_idx <= segment_idx:
+                            # Couldn't find valid destination
+                            continue
+                        
                         dest_coord = route_coords[dest_idx]
                         
                         if dest_coord is None or len(dest_coord) < 2 or dest_coord[0] is None or dest_coord[1] is None:
@@ -468,7 +518,8 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
                             destination_name=f"Stop {dest_idx}",
                             direction="OUTBOUND",
                             priority=3,
-                            expires_minutes=30
+                            expires_minutes=30,
+                            spawned_at=current_time
                             # Note: route_position removed - not in active-passengers schema
                         )
                         
@@ -662,6 +713,20 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
         return 1.0
     
     # Helper methods (simplified from original)
+    
+    def _haversine_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate haversine distance in meters between two coordinates"""
+        import math
+        R = 6371000  # Earth radius in meters
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        delta_phi = math.radians(lat2 - lat1)
+        delta_lambda = math.radians(lon2 - lon1)
+        
+        a = math.sin(delta_phi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
+        return R * c
     
     def _estimate_population_density(self, landuse_type: str) -> float:
         """Estimate population density (adjusted for realistic spawning)"""

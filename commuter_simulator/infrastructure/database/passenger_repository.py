@@ -70,7 +70,8 @@ class PassengerRepository:
         direction: Optional[str] = None,
         priority: int = 3,
         expires_minutes: int = 30,
-        route_position: Optional[float] = None
+        route_position: Optional[float] = None,
+        spawned_at: Optional[datetime] = None
     ) -> bool:
         """
         Insert a new passenger via Strapi API.
@@ -88,6 +89,7 @@ class PassengerRepository:
             priority: Priority level (1-5, default 3)
             expires_minutes: Minutes until passenger expires (default 30)
             route_position: Optional distance along route in meters
+            spawned_at: Optional spawn time (uses current time if not provided)
         
         Returns:
             True if insert successful, False otherwise
@@ -96,7 +98,8 @@ class PassengerRepository:
             self.logger.error("[PassengerRepository] Session not connected")
             return False
         
-        spawned_at = datetime.utcnow()
+        if spawned_at is None:
+            spawned_at = datetime.utcnow()
         expires_at = spawned_at + timedelta(minutes=expires_minutes)
         
         data = {

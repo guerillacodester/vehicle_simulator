@@ -18,7 +18,7 @@ Example:
 
 import asyncio
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import math
 import httpx
 
@@ -50,13 +50,14 @@ async def main():
     
     args = parser.parse_args()
     
-    # Parse departure time
+    # Parse departure time (use UTC for consistency)
     try:
         time_parts = args.depart.split(':')
         hour = int(time_parts[0])
         minute = int(time_parts[1])
         second = int(time_parts[2]) if len(time_parts) > 2 else 0
-        DEPART_TIME = datetime.now().replace(hour=hour, minute=minute, second=second, microsecond=0)
+        # Create timezone-aware UTC datetime
+        DEPART_TIME = datetime.now(timezone.utc).replace(hour=hour, minute=minute, second=second, microsecond=0)
     except Exception as e:
         print(f"ERROR: Invalid departure time format '{args.depart}'. Use HH:MM:SS (e.g., 09:05:00)")
         return
@@ -118,7 +119,8 @@ async def main():
     
     all_passengers = []
     for p in all_passengers_data.get('data', []):
-        attrs = p.get('attributes', {})
+        # Handle both Strapi v4 (attributes) and v5 (flat) formats
+        attrs = p.get('attributes', p)
         all_passengers.append({
             'id': p.get('id'),
             'passenger_id': attrs.get('passenger_id'),
@@ -181,6 +183,7 @@ async def main():
             wait_time_seconds = (current_time - passenger_spawn_time).total_seconds()
             picked_up_passengers.append({
                 **passenger,
+                'spawn_time': passenger_spawn_time,
                 'pickup_time': current_time,
                 'wait_time_seconds': wait_time_seconds
             })
@@ -204,45 +207,51 @@ async def main():
     print(f"  Picked up: {len(picked_up_passengers)} passengers (deleted from database)")
     print(f"  Missed: {len(missed_passengers)} passengers (left in database)")
     
+    # Get total route distance
+    total_route_distance = cumulative_distances[-1] if cumulative_distances else 0
+    
     # Output results
-    print("\n" + "="*120)
+    print("\n" + "="*150)
     print("PICKED-UP PASSENGERS REPORT")
-    print("="*120)
+    print("="*150)
     
     if picked_up_passengers:
-        print(f"\n{'Seq':<5} {'Passenger ID':<15} {'Pickup Time':<12} {'Wait (s)':<10} {'Board Lat':<11} {'Board Lon':<12} {'Alight Lat':<11} {'Alight Lon':<12} {'Distance (m)':<12}")
-        print("-" * 120)
+        print(f"\n{'Seq':<5} {'Passenger ID':<15} {'Spawn Time':<12} {'Pickup Time':<12} {'Wait (s)':<10} {'Dist fr Start (m)':<18} {'Dist fr End (m)':<16}")
+        print("-" * 150)
         
         for idx, p in enumerate(picked_up_passengers, 1):
-            board_to_alight_dist = haversine_distance(
-                p['latitude'], p['longitude'],
-                p['destination_lat'], p['destination_lon']
-            )
+            dist_from_start = p['route_position']
+            dist_from_end = total_route_distance - p['route_position']
             
             print(
                 f"{idx:<5} "
                 f"{p['passenger_id']:<15} "
+                f"{p['spawn_time'].strftime('%H:%M:%S'):<12} "
                 f"{p['pickup_time'].strftime('%H:%M:%S'):<12} "
                 f"{p['wait_time_seconds']:<10.0f} "
-                f"{p['latitude']:<11.6f} "
-                f"{p['longitude']:<12.6f} "
-                f"{p['destination_lat']:<11.6f} "
-                f"{p['destination_lon']:<12.6f} "
-                f"{board_to_alight_dist:<12.1f}"
+                f"{dist_from_start:<18.1f} "
+                f"{dist_from_end:<16.1f}"
             )
     else:
         print("\nNo passengers picked up")
     
     if missed_passengers:
         print(f"\n\nMISSED PASSENGERS ({len(missed_passengers)}) - LEFT IN DATABASE:")
-        print(f"{'Passenger ID':<15} {'Reason':<25} {'Dist to Route (m)':<20} {'Vehicle Time':<15}")
-        print("-" * 80)
-        for p in missed_passengers:
+        print(f"{'Seq':<5} {'Passenger ID':<15} {'Spawn Time':<12} {'Vehicle Time':<12} {'Reason':<25} {'Dist fr Start (m)':<18} {'Dist fr End (m)':<16}")
+        print("-" * 150)
+        for idx, p in enumerate(missed_passengers, 1):
+            dist_from_start = p['route_position']
+            dist_from_end = total_route_distance - p['route_position']
+            spawn_time = datetime.fromisoformat(p['spawned_at'].replace('Z', '+00:00'))
+            
             print(
+                f"{idx:<5} "
                 f"{p['passenger_id']:<15} "
+                f"{spawn_time.strftime('%H:%M:%S'):<12} "
+                f"{p['vehicle_arrival_time'].strftime('%H:%M:%S'):<12} "
                 f"{p['reason']:<25} "
-                f"{p['distance_to_route']:<20.1f} "
-                f"{p['vehicle_arrival_time'].strftime('%H:%M:%S'):<15}"
+                f"{dist_from_start:<18.1f} "
+                f"{dist_from_end:<16.1f}"
             )
     
     print("\n" + "="*120)

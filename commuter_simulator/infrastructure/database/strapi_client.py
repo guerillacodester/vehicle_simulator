@@ -139,6 +139,13 @@ class StrapiApiClient:
             for item in data.get('data', []):
                 attrs = item.get('attributes', item)
                 
+                # Get activity_level, default to 1.0 if not provided or None
+                activity_level = attrs.get('activity_level', 1.0)
+                if activity_level is None:
+                    activity_level = 1.0
+                else:
+                    activity_level = float(activity_level)
+                
                 depot = DepotData(
                     id=item['id'],
                     depot_id=attrs.get('depot_id', f"DEPOT_{item['id']}"),
@@ -149,7 +156,7 @@ class StrapiApiClient:
                     longitude=attrs.get('longitude'),
                     capacity=attrs.get('capacity', 50),
                     is_active=attrs.get('is_active', True),
-                    activity_level=float(attrs.get('activity_level', 1.0))
+                    activity_level=activity_level
                 )
                 depots.append(depot)
             

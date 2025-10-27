@@ -2,44 +2,65 @@
   "collectionName": "components_spawning_distribution_params",
   "info": {
     "displayName": "Distribution Parameters",
-    "description": "Poisson distribution and spawn constraint parameters"
+    "description": "Poisson distribution and spawn constraint parameters for passenger generation"
   },
   "options": {},
   "attributes": {
-    "poisson_lambda_base": {
+    "passengers_per_building_per_hour": {
       "type": "decimal",
       "required": true,
-      "default": 3.5,
-      "min": 0,
-      "max": 50
+      "default": 0.3,
+      "min": 0.01,
+      "max": 10.0,
+      "description": "Base passenger generation rate per building per hour (spatial factor)"
     },
-    "max_spawns_per_cycle": {
-      "type": "integer",
-      "required": true,
-      "default": 50,
-      "min": 1,
-      "max": 1000
-    },
-    "min_spawn_interval_seconds": {
-      "type": "integer",
-      "required": true,
-      "default": 5,
-      "min": 1,
-      "max": 300
-    },
-    "max_spawn_radius_meters": {
+    "spawn_radius_meters": {
       "type": "integer",
       "required": true,
       "default": 800,
       "min": 100,
-      "max": 5000
+      "max": 5000,
+      "description": "Search radius around route for identifying buildings/landuse zones"
     },
-    "min_distance_between_spawns_meters": {
+    "min_trip_distance_meters": {
       "type": "integer",
       "required": true,
-      "default": 50,
-      "min": 0,
-      "max": 1000
+      "default": 250,
+      "min": 50,
+      "max": 5000,
+      "description": "Minimum trip distance for generated passengers"
+    },
+    "trip_distance_mean_meters": {
+      "type": "integer",
+      "required": true,
+      "default": 2000,
+      "min": 500,
+      "max": 50000,
+      "description": "Mean of normal distribution for trip distances"
+    },
+    "trip_distance_std_meters": {
+      "type": "integer",
+      "required": true,
+      "default": 1000,
+      "min": 100,
+      "max": 10000,
+      "description": "Standard deviation of normal distribution for trip distances"
+    },
+    "max_trip_distance_ratio": {
+      "type": "decimal",
+      "required": true,
+      "default": 0.95,
+      "min": 0.5,
+      "max": 1.0,
+      "description": "Maximum trip distance as ratio of remaining route (0.95 = up to 95% of remaining)"
+    },
+    "min_spawn_interval_seconds": {
+      "type": "integer",
+      "required": true,
+      "default": 45,
+      "min": 1,
+      "max": 300,
+      "description": "Minimum time between consecutive spawn events"
     }
   }
 }

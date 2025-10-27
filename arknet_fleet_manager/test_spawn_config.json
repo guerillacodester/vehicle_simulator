@@ -39,13 +39,15 @@
         "commercial": 2.5
       }
     },
-    "distribution": {
-      "description": "Poisson distribution parameters",
-      "poisson_lambda_base": 3.5,
-      "max_spawns_per_cycle": 50,
-      "min_spawn_interval_seconds": 5,
-      "max_spawn_radius_meters": 800,
-      "min_distance_between_spawns_meters": 50
+    "distribution_params": {
+      "description": "Poisson distribution and spawn constraint parameters",
+      "passengers_per_building_per_hour": 0.3,
+      "spawn_radius_meters": 800,
+      "min_trip_distance_meters": 250,
+      "trip_distance_mean_meters": 2000,
+      "trip_distance_std_meters": 1000,
+      "max_trip_distance_ratio": 0.95,
+      "min_spawn_interval_seconds": 45
     },
     "feature_filters": {
       "depot_based": {

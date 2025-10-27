@@ -361,37 +361,47 @@ class SpawnConfigLoader:
     
     def get_distribution_params(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get Poisson distribution parameters for spawning.
+        Get ALL distribution parameters for spawning (database is source of truth).
         
         Args:
             config: Spawn config from get_config_by_country()
             
         Returns:
-            Dictionary with keys:
-                - poisson_lambda: Mean spawn rate (e.g., 3.5)
-                - max_spawns_per_cycle: Maximum spawns per iteration (e.g., 50)
-                - spawn_radius_meters: Search radius for features (e.g., 800)
-                - min_spawn_interval_seconds: Minimum time between spawns (e.g., 60)
+            Dictionary with ALL spawn configuration keys:
+                - passengers_per_building_per_hour: Spatial density factor (e.g., 0.3)
+                - spawn_radius_meters: Search radius for buildings (e.g., 800)
+                - min_trip_distance_meters: Minimum trip distance (e.g., 250)
+                - trip_distance_mean_meters: Mean of trip distance normal dist (e.g., 2000)
+                - trip_distance_std_meters: Std dev of trip distance dist (e.g., 1000)
+                - max_trip_distance_ratio: Max trip as ratio of remaining route (e.g., 0.95)
+                - min_spawn_interval_seconds: Minimum time between spawns (e.g., 45)
         """
         dist_params_list = config.get("distribution_params", [])
         
         if not dist_params_list or len(dist_params_list) == 0:
-            logger.warning("No distribution_params found, using defaults")
+            logger.error("CRITICAL: No distribution_params found in spawn config - using emergency defaults")
             return {
-                "poisson_lambda": 3.5,
-                "max_spawns_per_cycle": 50,
+                "passengers_per_building_per_hour": 0.3,
                 "spawn_radius_meters": 800,
-                "min_spawn_interval_seconds": 60
+                "min_trip_distance_meters": 250,
+                "trip_distance_mean_meters": 2000,
+                "trip_distance_std_meters": 1000,
+                "max_trip_distance_ratio": 0.95,
+                "min_spawn_interval_seconds": 45
             }
         
         # Take first entry (should be only one due to max:1 constraint)
         params = dist_params_list[0]
         
+        # Extract all parameters from database (NO hardcoded values in code)
         return {
-            "poisson_lambda": params.get("poisson_lambda_base", 3.5),
-            "max_spawns_per_cycle": params.get("max_spawns_per_cycle", 50),
-            "spawn_radius_meters": params.get("max_spawn_radius_meters", 800),
-            "min_spawn_interval_seconds": params.get("min_spawn_interval_seconds", 60)
+            "passengers_per_building_per_hour": params.get("passengers_per_building_per_hour"),
+            "spawn_radius_meters": params.get("spawn_radius_meters"),
+            "min_trip_distance_meters": params.get("min_trip_distance_meters"),
+            "trip_distance_mean_meters": params.get("trip_distance_mean_meters"),
+            "trip_distance_std_meters": params.get("trip_distance_std_meters"),
+            "max_trip_distance_ratio": params.get("max_trip_distance_ratio"),
+            "min_spawn_interval_seconds": params.get("min_spawn_interval_seconds")
         }
     
     def calculate_spawn_probability(
