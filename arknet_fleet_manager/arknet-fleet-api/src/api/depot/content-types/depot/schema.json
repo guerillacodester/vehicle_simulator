@@ -71,6 +71,12 @@
       "relation": "oneToMany",
       "target": "api::driver.driver",
       "mappedBy": "home_depot"
+    },
+    "associated_routes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::route-depot.route-depot",
+      "mappedBy": "depot"
     }
   }
 }

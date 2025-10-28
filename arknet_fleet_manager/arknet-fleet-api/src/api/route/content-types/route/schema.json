@@ -111,6 +111,12 @@
       "relation": "oneToOne",
       "target": "api::spawn-config.spawn-config",
       "inversedBy": "route"
+    },
+    "associated_depots": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::route-depot.route-depot",
+      "mappedBy": "route"
     }
   }
 }

@@ -78,7 +78,8 @@ TIER 6: Phases 1.14-1.15 (Conductor & Reservoirs) 📋 FUTURE
 ```text
 Route-Depot Association 🎯 NEXT - OCT 28
   - Create route-depots junction table in Strapi
-  - Precompute geospatial depot-route associations (5km proximity threshold)
+  - Precompute depot-route associations (walking distance ~500m to route endpoints)
+  - CORRECTED: Depots are bus stations; routes associate only if start/end within walking distance
   - Update DepotSpawner to query associated routes (replace hardcoded list)
   - Wire existing RouteSpawner to coordinator (replace MockRouteSpawner)
   - Add PostgreSQL LISTEN/NOTIFY triggers for PubSub pattern
@@ -104,16 +105,17 @@ Route-Depot Association 🎯 NEXT - OCT 28
 ### **Critical Architecture for TIER 5**
 
 - 🎯 **Route-Depot Junction Table**: Explicit many-to-many relationships
-  - Precomputed geospatial associations (5km proximity from route geometry)
-  - Fields: route_id, depot_id, is_terminus, distance_from_route_m, created_at
+  - **CORRECTED SEMANTICS** (Oct 28): Depots are bus stations/terminals where passengers wait for buses
+  - **Association Logic**: Route associates with depot ONLY if route START or END point within walking distance (~500m)
+  - Fields: route_id, depot_id, distance_from_route_m, is_start_terminus, is_end_terminus, precomputed_at
   - Eliminates runtime geospatial calculations for depot-route connections
-  - Enables realistic spawning (depots serve specific routes, not random assignment)
+  - Enables realistic spawning (passengers at depot board routes that actually service that depot)
   
 - 🎯 **Updated DepotSpawner Logic**:
   - Query associated routes from route-depots junction table via Strapi API
   - Replace hardcoded `available_routes` parameter with database lookup
   - Weighted route selection based on distance or route priority
-  - Realistic passenger assignment (depots serve specific routes, not random)
+  - **Realistic behavior**: Passengers at depot only board routes with endpoints at that depot (not random routes)
 
 - 🎯 **RouteSpawner Integration** (DISCOVERED COMPLETE - Oct 28):
   - ✅ RouteSpawner fully implemented (287 lines) at `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
@@ -2622,15 +2624,17 @@ git push origin branch-0.0.2.6
 
 1. **Route-Depot Junction Table** 🎯 NEXT
    - Create route-depots collection in Strapi
-   - Schema: route_id, depot_id, is_terminus, distance_from_route_m, created_at
-   - Precompute geospatial associations (5km proximity threshold)
+   - Schema: route_id, depot_id, distance_from_route_m, is_start_terminus, is_end_terminus, precomputed_at
+   - **CORRECTED SEMANTICS**: Depots are bus stations/terminals where passengers wait
+   - **Association Logic**: Route associated with depot ONLY if route START or END point within walking distance (~500m)
    - Bidirectional relations (routes ↔ depots)
 
 2. **Update DepotSpawner Logic**
    - Add `_load_associated_routes()` method to query Strapi API
-   - Query associated routes from route-depots table
+   - Query associated routes from route-depots table (routes that stop at this depot)
    - Weighted random selection from depot's associated routes
    - Remove hardcoded `available_routes` parameter
+   - **Realistic behavior**: Passengers at depot only board routes servicing that depot
 
 3. **Wire RouteSpawner to Coordinator** (REVISED - Implementation exists!)
    - Replace MockRouteSpawner with real RouteSpawner in main.py

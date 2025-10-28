@@ -155,12 +155,12 @@ YESTERDAY'S ARCHITECTURAL DECISIONS (October 28):
 ✅ Two-mode API architecture validated (Strapi = CRUD, GeospatialService = spatial queries)
 ✅ Route-depot junction table design approved (explicit relationships, precomputed distances)
 ✅ PubSub pattern recommended (PostgreSQL LISTEN/NOTIFY, not direct spawner integration)
-✅ Depot-route association semantics clarified (depot spawns for associated routes, not random)
+✅ **CORRECTED SEMANTICS** (Oct 28): Depots are bus stations; routes associate only if endpoints within ~500m walking distance
 
 IMMEDIATE NEXT TASK (October 28 - REVISED):
 🎯 TIER 5 - Route-Depot Association & RouteSpawner Integration (33% scope reduction)
    - Create route-depots junction table in Strapi schema
-   - Precompute geospatial depot-route associations (5km proximity threshold)
+   - **CORRECTED**: Precompute depot-route associations (walking distance ~500m to route START/END points only)
    - Update DepotSpawner to query associated routes (replace hardcoded list)
    - Wire existing RouteSpawner to coordinator (replace MockRouteSpawner)
    - Add PubSub via PostgreSQL LISTEN/NOTIFY for reservoir visualization
@@ -2021,9 +2021,10 @@ config = {
 
 **1. Route-Depot Junction Table** 🎯 NEXT
 - Create `route-depots` collection in Strapi
-- Schema: route_id, depot_id, is_terminus, distance_from_route_m, created_at
-- Precompute geospatial associations using GeospatialService
-- Proximity threshold: 5km (configurable)
+- Schema: route_id, depot_id, distance_from_route_m, is_start_terminus, is_end_terminus, precomputed_at
+- **CORRECTED SEMANTICS** (Oct 28): Depots are bus stations/terminals where passengers wait for buses
+- **Association Logic**: Route associates with depot ONLY if route START or END point within walking distance (~500m)
+- Precompute geospatial associations using GeospatialService (calculate distance to route endpoints only)
 - Bidirectional relations: routes ↔ depots
 
 **2. Update DepotSpawner Logic**
@@ -2031,6 +2032,7 @@ config = {
 - Query from `/api/route-depots?filters[depot_id][$eq]=X&populate=route`
 - Replace hardcoded `available_routes` parameter with database lookup
 - Weighted random selection from depot's associated routes
+- **Realistic behavior**: Passengers at depot only board routes that actually service that depot (endpoints within walking distance)
 
 **3. Wire RouteSpawner to Coordinator** (REVISED - Implementation exists!)
 - Replace MockRouteSpawner with real RouteSpawner in main.py
@@ -2146,4 +2148,57 @@ docs(tier5): document RouteSpawner discovery and revise TIER 5 plan
 
 ---
 
+### **Route-Depot Association Semantics Correction - October 28, 2025**
+
+**Context**: During TIER 5 Step 1 implementation, user corrected fundamental assumption about depot-route relationships.
+
+**Original (INCORRECT) Assumption**:
+- Proximity threshold: 5km
+- Association logic: Depot associates with route if within 5km of ANY point along route
+- Intended use: Broad spatial coverage for spawning
+
+**Corrected Understanding**:
+- **Depots are bus stations/terminals** where passengers wait for buses
+- **Association logic**: Route associates with depot ONLY if route START or END point within walking distance (~500m)
+- **Proximity threshold**: ~500 meters (5-10 minute walk to bus station)
+- **Intended use**: Realistic passenger behavior - passengers at depot board routes that actually service that depot
+
+**Schema Changes**:
+- Changed field: `is_terminus` → split into `is_start_terminus` and `is_end_terminus`
+- Changed description: "distance to nearest point on route" → "distance to nearest route endpoint"
+- Distance calculation: Only to route START/END points, not any point along route
+
+**Impact on Precompute Script** (Step 3):
+1. Query route geometry from GeospatialService to get START and END coordinates
+2. For each depot, calculate distance to route START point and route END point separately
+3. Create association ONLY if either distance <= 500m
+4. Set `is_start_terminus=true` if START within range
+5. Set `is_end_terminus=true` if END within range
+6. Store `distance_from_route_m` as minimum of the two distances
+
+**Realistic Example**:
+```
+Route 1: Bridge Street Station (start) → Harbor Terminal (end) [12km route]
+Depot "Bridge Street Station": lat=13.10, lon=-59.61
+
+Association:
+  - Distance to Route 1 START: 50m ✅ (within 500m threshold)
+  - Distance to Route 1 END: 12km ❌ (beyond threshold)
+  - Result: Create association with is_start_terminus=true, distance_from_route_m=50
+
+Passengers at Bridge Street Station depot:
+  - Can board Route 1 (travels to Harbor Terminal)
+  - Realistic behavior: Station serves this route's starting point
+```
+
+**Files Updated**:
+- `arknet_fleet_manager/arknet-fleet-api/src/api/route-depot/content-types/route-depot/schema.json`: Updated field names and descriptions
+- `TODO.md`: Updated association logic description, proximity threshold corrected to ~500m
+- `CONTEXT.md`: Added semantic correction notes, updated all references to association logic
+
+**Next Action**: Continue with TIER 5 Step 1 - Test route-depot schema in Strapi admin after server restart
+
+---
+
 > **🎯 HANDOFF COMPLETE**: A fresh agent with this CONTEXT.md + TODO.md can rebuild the environment, understand all architectural decisions, and continue to production-grade MVP without external context or chat history.
+

@@ -1,0 +1,51 @@
+{
+  "kind": "collectionType",
+  "collectionName": "route_depots",
+  "info": {
+    "singularName": "route-depot",
+    "pluralName": "route-depots",
+    "displayName": "Route-Depot Association",
+    "description": "Junction table for route-depot spatial associations"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "route": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::route.route",
+      "inversedBy": "associated_depots"
+    },
+    "depot": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::depot.depot",
+      "inversedBy": "associated_routes"
+    },
+    "distance_from_route_m": {
+      "type": "float",
+      "required": true,
+      "min": 0,
+      "description": "Distance from depot to nearest route endpoint (start or end point, in meters)"
+    },
+    "is_start_terminus": {
+      "type": "boolean",
+      "required": true,
+      "default": false,
+      "description": "True if depot is within walking distance of route start point"
+    },
+    "is_end_terminus": {
+      "type": "boolean",
+      "required": true,
+      "default": false,
+      "description": "True if depot is within walking distance of route end point"
+    },
+    "precomputed_at": {
+      "type": "datetime",
+      "required": false,
+      "description": "Timestamp when this association was last computed"
+    }
+  }
+}
