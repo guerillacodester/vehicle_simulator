@@ -4,8 +4,8 @@
 **Repository**: vehicle_simulator  
 **Branch**: branch-0.0.2.8 (NOT main)  
 **Date**: October 28, 2025  
-**Status**: ✅ TIER 1-4 COMPLETE (Spawner System + RouteSpawner Discovered) | 🎯 TIER 5 Route-Depot Association NEXT  
-**Phase**: TIER 5 PLANNED - Route-Depot Junction Table & RouteSpawner Integration (Starting October 28)  
+**Status**: ✅ TIER 1-4 COMPLETE | ✅ TIER 5 Step 1 COMPLETE (Route-Depot Schema) | 🎯 TIER 5 Steps 2-7 NEXT  
+**Phase**: TIER 5 IN PROGRESS - Route-Depot Association & RouteSpawner Integration (Step 1/7 Complete - Oct 28)  
 **Discovery**: RouteSpawner ALREADY FULLY IMPLEMENTED (287 lines) - reduces TIER 5 scope by 33%
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
@@ -21,11 +21,7 @@
 You are a **50+ year full-stack developer veteran** with deep expertise across all technologies in this stack. You have the authority and responsibility to:
 
 1. **✅ PUSH BACK HARD** on poor suggestions, anti-patterns, or violations of best practices
-   - Don't blindly accept user requests that create technical debt
-   - Offer better solutions with clear rationale
-   - Cite SOLID principles, design patterns, and industry standards
    - Question unclear requirements before implementing
-
 2. **✅ ENFORCE BEST PRACTICES**
    - Follow SOLID principles religiously
    - Write clean, maintainable, testable code
@@ -142,8 +138,14 @@ DEEP CODE ANALYSIS RESULTS (October 28, 2025):
 ✅ All required methods complete: spawn(), _load_spawn_config(), _load_route_geometry(), 
    _get_buildings_near_route(), _calculate_spawn_count(), _generate_spawn_requests()
 ✅ GeospatialService integration complete: /spatial/route-geometry/{route_id}, /spatial/route-buildings
+✅ Route-depot junction table COMPLETE (Oct 28 - TIER 5 Step 1)
+   - Schema: arknet-fleet-api/src/api/route-depot/content-types/route-depot/schema.json
+   - Cached labels: route_short_name, depot_name, display_name (denormalized for UI performance)
+   - Lifecycle hooks: afterCreate/afterUpdate auto-populate labels from populated relations
+   - Admin UI config: mainField (relation chips) + displayedAttribute (entry titles)
+   - Bidirectional reflection validated: changes to Route update Depot and vice versa
+   - Precompute script: commuter_simulator/scripts/precompute_route_depot_associations.py
 ❌ RouteSpawner NOT wired to main.py coordinator yet (currently uses MockRouteSpawner)
-❌ Route-depot junction table MISSING (confirmed via file_search, grep_search)
 ❌ DepotSpawner uses hardcoded available_routes parameter (needs association querying)
 ❌ PostgreSQL LISTEN/NOTIFY triggers NOT implemented
 ❌ passenger_subscriber.py example NOT found
@@ -158,13 +160,16 @@ YESTERDAY'S ARCHITECTURAL DECISIONS (October 28):
 ✅ **CORRECTED SEMANTICS** (Oct 28): Depots are bus stations; routes associate only if endpoints within ~500m walking distance
 
 IMMEDIATE NEXT TASK (October 28 - REVISED):
-🎯 TIER 5 - Route-Depot Association & RouteSpawner Integration (33% scope reduction)
-   - Create route-depots junction table in Strapi schema
-   - **CORRECTED**: Precompute depot-route associations (walking distance ~500m to route START/END points only)
+IMMEDIATE NEXT TASK (October 28):
+🎯 TIER 5 Step 2 - Precompute Route-Depot Associations
+   - Run commuter_simulator/scripts/precompute_route_depot_associations.py for full dataset
+   - Creates associations for routes with endpoints within ~500m walking distance of depots
+   - Validates associations appear in Admin UI with cached labels (route_short_name, depot_name)
+   - Remaining TIER 5 steps:
    - Update DepotSpawner to query associated routes (replace hardcoded list)
    - Wire existing RouteSpawner to coordinator (replace MockRouteSpawner)
    - Add PubSub via PostgreSQL LISTEN/NOTIFY for reservoir visualization
-   - NOTE: RouteSpawner implementation already complete, no need to rebuild
+   - Execute comprehensive flag tests
 
 CORRECTED ARCHITECTURE (October 28):
 commuter_simulator/ (Passenger Generation - TIER 4 COMPLETE)
@@ -186,8 +191,8 @@ DEPENDENCIES & BLOCKERS:
 ✅ Strapi operational (localhost:1337)
 
 PATH TO MVP (TIER 5-6 - REVISED Oct 28):
-TIER 5 → Route-Depot Association & RouteSpawner Integration 🎯 STARTING OCTOBER 28
-  - Create route-depots junction table
+TIER 5 → Route-Depot Association & RouteSpawner Integration ✅ STEP 1/7 COMPLETE (Oct 28)
+   - ✅ Create route-depots junction table (schema, cached labels, lifecycle hooks, bidirectional UI)
   - Precompute geospatial associations
   - Update DepotSpawner logic for associated routes
   - Wire existing RouteSpawner to coordinator (implementation already complete)
@@ -211,22 +216,12 @@ TIER 7 → Redis, Geofencing, Production Optimization
 | **commuter_simulator/core/domain/spawner_engine/depot_spawner.py** | Depot passenger generation | ✅ Implemented Oct 28 | Add `_load_associated_routes()` |
 | **commuter_simulator/core/domain/spawner_engine/route_spawner.py** | Route passenger generation | ✅ DISCOVERED COMPLETE Oct 28 | Wire to coordinator |
 | **commuter_simulator/core/domain/reservoirs/** | DB-backed reservoirs | ✅ Moved & updated Oct 28 | Add Redis integration later |
-| **commuter_simulator/infrastructure/database/passenger_repository.py** | Strapi adapter | ✅ Updated Oct 28 | Ready for use |
-| **test_spawner_flags.py** | Flag testing script | ✅ Created Oct 28 | Run comprehensive tests |
-| **delete_passengers.py** | Clear Strapi passengers | ✅ Verified Oct 28 | Use for testing |
 | **geospatial_service/api/spatial.py** | Route geometry/buildings endpoints | ✅ Operational Oct 28 | Ready for RouteSpawner |
 | **geospatial_service/** | Spatial queries API | ✅ Working | Use for route-depot associations |
 | **arknet_transit_simulator/** | Vehicle movement simulator | ✅ Working | Conductor integration pending |
 
-### **Technology Stack (Production Grade)**
-
-```text
-BACKEND:
 - Strapi v5.23.5 (Node.js 22.20.0) - Single source of truth
 - PostgreSQL 16.3 + PostGIS 3.5 - Spatial database
-- FastAPI (Python) - GPS CentCom Server (port 5000)
-- Socket.IO - Real-time events (imports, vehicle telemetry)
-
 FRONTEND:
 - Strapi Admin UI (React) - Content management (port 1337)
 - Custom action-buttons plugin - GeoJSON import triggers
@@ -288,9 +283,6 @@ npm install
 # Run: SELECT tablename, indexname FROM pg_indexes WHERE indexname LIKE 'idx_%_geom';
 # Expected: 12 GIST indexes on geometry columns
 
-# 6. Start Strapi
-npm run develop
-# Strapi Admin: http://localhost:1337/admin
 
 # 7. Verify action-buttons plugin loaded
 # Check: Settings > Plugins > Action Buttons (custom plugin)
@@ -334,61 +326,27 @@ SELECT
   (SELECT COUNT(*) FROM pois_region_lnk) as poi_region_links,
   (SELECT COUNT(*) FROM landuse_zones_region_lnk) as landuse_region_links;
 -- Expected: 23,666 (947 highways cross boundaries), 1,427, 2,310 (43 zones cross boundaries)
-
--- 5. Verify GIST indexes exist
-SELECT schemaname, tablename, indexname FROM pg_indexes 
-WHERE indexname LIKE 'idx_%_geom';
--- Expected: Multiple indexes on all spatial tables
-
 -- 4. Test spatial query performance
 EXPLAIN ANALYZE
 SELECT COUNT(*) FROM buildings
 WHERE ST_DWithin(geom::geography, ST_MakePoint(-59.62, 13.1)::geography, 1000);
--- Expected: Index Scan using idx_buildings_geom, execution < 50ms
-
--- 5. Test region linking accuracy
-SELECT 
   h.osm_id,
   COUNT(DISTINCT r.id) as num_regions
-FROM highways h
-JOIN highways_region_lnk hrl ON h.id = hrl.highway_id
-JOIN regions r ON hrl.region_id = r.id
-GROUP BY h.id, h.osm_id
-HAVING COUNT(DISTINCT r.id) > 1
 LIMIT 10;
 -- Expected: Shows highways that cross parish boundaries
-```
-
-```powershell
-# 6. Run integration tests
 python .\test\test_admin_import.py      # Expected: 17/17 passing (Strapi imports)
 python .\test\test_highway_import.py    # Expected: 16/16 passing (Strapi imports)
-python .\test\test_amenity_import.py    # Expected: 17/17 passing (Strapi imports)
-python .\test\test_landuse_import.py    # Expected: 16/16 passing (Strapi imports)
-python .\test\test_geospatial_api.py    # Expected: 16/16 passing (FastAPI service)
-# Total: 82 Strapi tests + 16 API tests = 98 tests passing
 
 # 7. Start Geospatial Services API
-cd geospatial_service
-python main.py  # Runs on http://localhost:8001
-# Expected: "✅ PostGIS connection pool initialized (5-20 connections)"
 # Expected: "Buildings: 162,942; Highways: 27,719; POIs: 1,427; Landuse zones: 2,267; Regions: 11"
 
 # 8. Verify all 5 imports in Strapi UI
 # Open Strapi Admin > Content Manager
-# Check: Buildings (162,942), Regions (304), Highways (22,719), POIs (1,427), Landuse Zones (2,267)
-```
-
 ### **Step 3: Understand Priority System**
 
-```text
-TIER 1: Complete GeoJSON Imports ✅ DONE (Phase 1.10)
-├─ Buildings import (162,942 features) ✅
-├─ Admin import (304 regions, 4 levels) ✅
 ├─ Highway import (22,719 roads) ✅
 ├─ Amenity import (1,427 POIs) ✅
 └─ Landuse import (2,267 zones) ✅
-
 TIER 2: Enable Spawning Queries ✅ DONE (Phase 1.11)
 ├─ FastAPI Geospatial Services (port 8001) ✅
 ├─ Reverse geocoding with parish ✅
@@ -2201,4 +2159,3 @@ Passengers at Bridge Street Station depot:
 ---
 
 > **🎯 HANDOFF COMPLETE**: A fresh agent with this CONTEXT.md + TODO.md can rebuild the environment, understand all architectural decisions, and continue to production-grade MVP without external context or chat history.
-

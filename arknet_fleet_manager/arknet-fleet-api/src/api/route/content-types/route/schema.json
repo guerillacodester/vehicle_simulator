@@ -10,7 +10,12 @@
   "options": {
     "draftAndPublish": false
   },
-  "pluginOptions": {},
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true,
+      "displayedAttribute": "short_name"
+    }
+  },
   "attributes": {
     "short_name": {
       "type": "string",
@@ -116,7 +121,8 @@
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::route-depot.route-depot",
-      "mappedBy": "route"
+      "mappedBy": "route",
+      "mainField": "display_name"
     }
   }
 }

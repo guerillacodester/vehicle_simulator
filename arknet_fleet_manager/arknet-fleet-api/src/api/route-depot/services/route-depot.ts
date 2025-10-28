@@ -1,3 +1,3 @@
 import { factories } from '@strapi/strapi';
 
-export default factories.createCoreService('api::route-depot.route-depot');
+export default factories.createCoreService('api::route-depot.route-depot' as any);

@@ -139,5 +139,48 @@ export default {
     
     process.on('SIGTERM', gracefulShutdown);
     process.on('SIGINT', gracefulShutdown);
+
+    // Backfill cached labels on route-depot associations so admin UI shows readable names
+    try {
+      console.log('[Bootstrap] Backfilling route-depot cached labels (route_short_name, depot_name, display_name)...');
+      const missing = await strapi.entityService.findMany('api::route-depot.route-depot' as any, {
+        filters: {
+          $or: [
+            { route_short_name: { $null: true } },
+            { depot_name: { $null: true } },
+            { display_name: { $null: true } }
+          ],
+        },
+        populate: {
+          route: { fields: ['short_name'] },
+          depot: { fields: ['name'] },
+        },
+        limit: 1000,
+      });
+
+      if (Array.isArray(missing) && missing.length > 0) {
+        let updated = 0;
+        for (const rec of missing as any[]) {
+          const data: any = {};
+          const routeShort = rec?.route_short_name ?? rec?.route?.short_name;
+          const depotName = rec?.depot_name ?? rec?.depot?.name;
+          if (!rec?.route_short_name && routeShort) data.route_short_name = routeShort;
+          if (!rec?.depot_name && depotName) data.depot_name = depotName;
+          if (!rec?.display_name && depotName && rec?.distance_from_route_m !== undefined) {
+            const rounded = Math.round(rec.distance_from_route_m);
+            data.display_name = `${depotName} - ${rounded}m`;
+          }
+          if (Object.keys(data).length > 0) {
+            await strapi.entityService.update('api::route-depot.route-depot' as any, rec.id, { data });
+            updated += 1;
+          }
+        }
+        console.log(`[Bootstrap] ✓ Backfilled ${updated} route-depot records`);
+      } else {
+        console.log('[Bootstrap] ✓ No route-depot records needed backfilling');
+      }
+    } catch (err) {
+      console.error('[Bootstrap] ⚠️ Failed to backfill route-depot cached labels:', err);
+    }
   },
 };

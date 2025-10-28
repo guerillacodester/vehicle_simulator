@@ -1,6 +1,26 @@
 export default {
   routes: [
     {
+      method: 'POST',
+      path: '/route-depots/backfill-labels',
+      handler: 'route-depot.backfillLabels',
+      config: {
+        policies: [],
+        middlewares: [],
+        auth: false,
+      },
+    },
+    {
+      method: 'GET',
+      path: '/route-depots/debug-columns',
+      handler: 'route-depot.debugColumns',
+      config: {
+        policies: [],
+        middlewares: [],
+        auth: false,
+      },
+    },
+    {
       method: 'GET',
       path: '/route-depots',
       handler: 'route-depot.find',

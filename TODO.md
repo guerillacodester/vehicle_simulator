@@ -23,7 +23,7 @@ TIER 4: Spawner System Implementation ✅ COMPLETE (Oct 28)
   - End-to-end testing: 4 passengers spawned, verified in Strapi ✅
   - Fresh spawn verification: Confirmed new passenger generation ✅
   - MockRouteSpawner: Test implementation for flag testing ✅
-TIER 5: Route-Depot Association & RouteSpawner Integration 🎯 NEXT (Oct 28)
+TIER 5: Route-Depot Association & RouteSpawner Integration ✅ STEP 1 COMPLETE (Oct 28)
   - Create route-depots junction table in Strapi
   - Precompute geospatial depot-route associations
   - Wire existing RouteSpawner to coordinator (DISCOVERED: Already fully implemented - 287 lines)
@@ -38,7 +38,7 @@ TIER 6: Phases 1.14-1.15 (Conductor & Reservoirs) 📋 FUTURE
 
 ### **Where Am I?**
 
-- **Current Focus**: TIER 5 - Route-Depot Association & Full RouteSpawner (STARTING October 28)
+- **Current Focus**: TIER 5 Step 1 ✅ COMPLETE - Route-Depot Association Schema (October 28)
 - **Spawner System Status**: ✅ COMPLETE
   - DepotSpawner: Fully implemented with Poisson distribution and default config fallback
   - SpawnerCoordinator: Implemented with enable/disable flag support (single-run and continuous modes)
@@ -2622,12 +2622,18 @@ git push origin branch-0.0.2.6
 
 **REVISED TIER 5 TASKS** (33% scope reduction):
 
-1. **Route-Depot Junction Table** 🎯 NEXT
-   - Create route-depots collection in Strapi
-   - Schema: route_id, depot_id, distance_from_route_m, is_start_terminus, is_end_terminus, precomputed_at
-   - **CORRECTED SEMANTICS**: Depots are bus stations/terminals where passengers wait
-   - **Association Logic**: Route associated with depot ONLY if route START or END point within walking distance (~500m)
-   - Bidirectional relations (routes ↔ depots)
+1. **Route-Depot Junction Table** ✅ COMPLETE (Oct 28, 2025)
+   - ✅ Created route-depot content type in Strapi with full CRUD
+   - ✅ Schema: route, depot (relations), distance_from_route_m, is_start_terminus, is_end_terminus, precomputed_at
+   - ✅ Added cached label fields: display_name, route_short_name, depot_name
+   - ✅ Lifecycle hooks: auto-populate cached labels on create/update
+   - ✅ Admin UI configuration: mainField for readable relation chips, displayedAttribute for entry titles
+   - ✅ **CORRECTED SEMANTICS**: Depots are bus stations/terminals where passengers wait
+   - ✅ **Association Logic**: Routes associate with depot ONLY if START or END point within walking distance (~500m)
+   - ✅ Bidirectional relations (routes ↔ depots) with proper UI display
+   - ✅ Tested: Create/update/delete operations reflect on both Route and Depot sides
+   - ✅ Python precompute script: Calculates nearest depot to route endpoints, creates associations via API
+   - ✅ Files: schema.json (route-depot, route, depot), lifecycles.ts, precompute_route_depot_associations.py
 
 2. **Update DepotSpawner Logic**
    - Add `_load_associated_routes()` method to query Strapi API

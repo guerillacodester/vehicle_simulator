@@ -10,19 +10,44 @@
   "options": {
     "draftAndPublish": false
   },
-  "pluginOptions": {},
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true,
+      "displayedAttribute": "display_name"
+    }
+  },
   "attributes": {
+    "display_name": {
+      "type": "string",
+      "required": false,
+      "private": false,
+      "description": "Auto-generated display name for UI (e.g., 'Speightstown Bus Terminal - 223m')"
+    },
+    "route_short_name": {
+      "type": "string",
+      "required": false,
+      "private": false,
+      "description": "Cached route short name for UI display on Depot -> associated_routes"
+    },
+    "depot_name": {
+      "type": "string",
+      "required": false,
+      "private": false,
+      "description": "Cached depot name for UI display and display_name composition"
+    },
     "route": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::route.route",
-      "inversedBy": "associated_depots"
+      "inversedBy": "associated_depots",
+      "mainField": "short_name"
     },
     "depot": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::depot.depot",
-      "inversedBy": "associated_routes"
+      "inversedBy": "associated_routes",
+      "mainField": "name"
     },
     "distance_from_route_m": {
       "type": "float",

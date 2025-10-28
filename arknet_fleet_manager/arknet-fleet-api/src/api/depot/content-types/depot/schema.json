@@ -10,7 +10,12 @@
   "options": {
     "draftAndPublish": false
   },
-  "pluginOptions": {},
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true,
+      "displayedAttribute": "name"
+    }
+  },
   "attributes": {
     "depot_id": {
       "type": "uid",
@@ -76,7 +81,8 @@
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::route-depot.route-depot",
-      "mappedBy": "depot"
+      "mappedBy": "depot",
+      "mainField": "route_short_name"
     }
   }
 }
