@@ -1,3 +1,0 @@
-"""
-Commuter Simulator REST API
-"""

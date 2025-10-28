@@ -408,7 +408,7 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
                 f"hourly={base_spawns_per_hour:.1f}, target_spawns={target_spawns}"
             )
             
-            # Generate spawn requests and save to database
+            # Generate spawn requests and save to database (using batch insert for performance)
             if self.passenger_repository and target_spawns > 0:
                 import uuid
                 
@@ -431,7 +431,10 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
                 
                 total_route_distance = cumulative_distances[-1] if cumulative_distances else 0
                 
-                # Generate spawns distributed along route
+                # STEP 1: Generate all spawn data (don't save yet - batch later)
+                passengers_to_insert = []
+                spawn_requests = []
+                
                 for i in range(target_spawns):
                     try:
                         # Step 1: Randomly select boarding location along entire route
@@ -509,41 +512,60 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
                         # Generate passenger ID
                         passenger_id = f"PASS_{uuid.uuid4().hex[:8].upper()}"
                         
-                        # Save to database
-                        success = await self.passenger_repository.insert_passenger(
-                            passenger_id=passenger_id,
-                            route_id=route_id,
-                            latitude=spawn_lat,
-                            longitude=spawn_lon,
-                            destination_lat=dest_lat,
-                            destination_lon=dest_lon,
-                            destination_name=f"Stop {dest_idx}",
-                            direction="OUTBOUND",
-                            priority=3,
-                            expires_minutes=30,
-                            spawned_at=current_time
-                            # Note: route_position removed - not in active-passengers schema
-                        )
+                        # Add to batch (don't insert yet)
+                        passengers_to_insert.append({
+                            'passenger_id': passenger_id,
+                            'route_id': route_id,
+                            'latitude': spawn_lat,
+                            'longitude': spawn_lon,
+                            'destination_lat': dest_lat,
+                            'destination_lon': dest_lon,
+                            'destination_name': f"Stop {dest_idx}",
+                            'direction': "OUTBOUND",
+                            'priority': 3,
+                            'expires_minutes': 30,
+                            'spawned_at': current_time
+                        })
                         
-                        if success:
-                            # Create SpawnRequest for tracking
-                            spawn_request = SpawnRequest(
-                                passenger_id=passenger_id,
-                                spawn_location=(spawn_lat, spawn_lon),
-                                destination_location=(dest_lat, dest_lon),
-                                route_id=route_id,
-                                spawn_time=current_time,
-                                spawn_context=SpawnContext.ROUTE,
-                                priority=1.0,
-                                generation_method="poisson_statistical"
-                            )
-                            spawn_requests.append(spawn_request)
+                        # Create SpawnRequest for tracking (we'll add after successful insert)
+                        spawn_requests.append({
+                            'passenger_id': passenger_id,
+                            'spawn_location': (spawn_lat, spawn_lon),
+                            'destination_location': (dest_lat, dest_lon),
+                            'route_id': route_id,
+                            'spawn_time': current_time,
+                            'spawn_context': SpawnContext.ROUTE,
+                            'priority': 1.0,
+                            'generation_method': "poisson_statistical"
+                        })
                         
                     except Exception as e:
                         self.logger.error(f"Error creating spawn {i}: {e}")
                         continue
                 
-                self.logger.info(f"✅ Saved {len(spawn_requests)} passengers to database for route {route_id}")
+                # STEP 2: Batch insert all passengers concurrently (much faster than sequential)
+                if passengers_to_insert:
+                    successful, failed = await self.passenger_repository.bulk_insert_passengers(passengers_to_insert)
+                    
+                    # Convert spawn request dicts to SpawnRequest objects (only for successful inserts)
+                    actual_spawn_requests = []
+                    for i, sr_dict in enumerate(spawn_requests[:successful]):
+                        try:
+                            actual_spawn_requests.append(SpawnRequest(
+                                passenger_id=sr_dict['passenger_id'],
+                                spawn_location=sr_dict['spawn_location'],
+                                destination_location=sr_dict['destination_location'],
+                                route_id=sr_dict['route_id'],
+                                spawn_time=sr_dict['spawn_time'],
+                                spawn_context=sr_dict['spawn_context'],
+                                priority=sr_dict['priority'],
+                                generation_method=sr_dict['generation_method']
+                            ))
+                        except Exception as e:
+                            self.logger.debug(f"Error creating SpawnRequest {i}: {e}")
+                    
+                    spawn_requests = actual_spawn_requests
+                    self.logger.info(f"✅ Batch inserted {successful} passengers to database for route {route_id} ({failed} failed)")
             else:
                 if not self.passenger_repository:
                     self.logger.warning("PassengerRepository not configured - spawns not persisted")

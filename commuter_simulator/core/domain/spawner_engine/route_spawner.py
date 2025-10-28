@@ -19,7 +19,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import random
 
-from commuter_simulator.core.domain.spawner.spawner import SpawnerInterface, SpawnRequest, ReservoirInterface
+from commuter_simulator.core.domain.spawner_engine.base_spawner import SpawnerInterface, SpawnRequest, ReservoirInterface
 from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
 from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
 

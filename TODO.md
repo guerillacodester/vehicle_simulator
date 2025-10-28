@@ -3,9 +3,9 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 27, 2025 (End of Day) - Phase 1.12 VALIDATION COMPLETE, Architecture Clarified  
-**Status**: ✅ TIER 1-3 Complete (Vehicle Simulation Validated) | 🎯 TIER 4 Phase 1.13 Commuter Spawning NEXT  
-**Strategy**: Commuter Spawning (DepotSpawner + RouteSpawner) → Conductor Integration → Reservoir Wiring
+**Updated**: October 28, 2025 - Spawner Architecture Complete, Route-Depot Association Designed  
+**Status**: ✅ Spawner System Implemented & Tested | 🎯 Route-Depot Junction Table NEXT  
+**Strategy**: Single Entrypoint → SpawnerCoordinator → DepotSpawner + RouteSpawner → Reservoirs
 
 > **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and validated metrics  
 > **📚 Session Notes**: See bottom of this file for detailed session log
@@ -16,8 +16,19 @@
 TIER 1: Phase 1.10 (GeoJSON imports) ✅ COMPLETE
 TIER 2: Phase 1.11 (Geospatial Services API) ✅ COMPLETE  
 TIER 3: Phase 1.12 (Vehicle Simulation Validation) ✅ COMPLETE
-TIER 4: Phase 1.13 (Depot Spawning & Fleet Integration) 🎯 NEXT - STARTING OCT 28
-TIER 5: Phases 1.14-1.15 (Conductor & Reservoirs) � FUTURE
+TIER 4: Spawner System Implementation ✅ COMPLETE (Oct 28)
+  - DepotSpawner: Poisson-distributed passenger generation at depots ✅
+  - SpawnerCoordinator: Orchestrates multiple spawners with enable/disable flags ✅
+  - Single entrypoint (main.py): Config-driven spawner control ✅
+  - End-to-end testing: 4 passengers spawned, verified in Strapi ✅
+  - Fresh spawn verification: Confirmed new passenger generation ✅
+  - MockRouteSpawner: Test implementation for flag testing ✅
+TIER 5: Route-Depot Association & Full RouteSpawner 🎯 NEXT (Oct 28)
+  - Create route-depots junction table in Strapi
+  - Precompute geospatial depot-route associations
+  - Implement full RouteSpawner with geospatial integration
+  - Add PubSub via PostgreSQL LISTEN/NOTIFY for reservoir visualization
+TIER 6: Phases 1.14-1.15 (Conductor & Reservoirs) 📋 FUTURE
 ```
 
 ---
@@ -26,69 +37,107 @@ TIER 5: Phases 1.14-1.15 (Conductor & Reservoirs) � FUTURE
 
 ### **Where Am I?**
 
-- **Current Focus**: TIER 4 Phase 1.13 - Commuter Spawning System (STARTING October 28)
-- **Validation Complete**: Vehicle simulation proven realistic with 10-min avg wait, 100% service coverage
-- **CORRECTED UNDERSTANDING**: Vehicles managed by arknet_transit_simulator. We need to create DepotSpawner and RouteSpawner to generate COMMUTERS (passengers), not vehicles
-- **Next Immediate Task**: Implement DepotSpawner class - generates commuters at depot locations with Poisson distribution
-- **After Phase 1.13**: RouteSpawner implementation, then Conductor integration
-- **Blocker**: None - All test validation complete
-- **Status**: Phase 1.12 ✅ 100% COMPLETE
-  - **Test Results**: 4 vehicle simulations (17:05, 17:25, 17:45, 18:05 departures)
-  - **Passengers Generated**: 37 total (5-6 per 10-min interval)
-  - **Pickup Performance**: 38/38 passengers picked up (100% service)
-  - **Wait Times**: 10.0 min average (excluding 490-min anomaly from 09:00 spawn)
-  - **Fleet Efficiency**: 12-13 pickups per vehicle optimal
-  - **Performance Metrics**: Realistic suburban transit (8-20 min waits typical)
+- **Current Focus**: TIER 5 - Route-Depot Association & Full RouteSpawner (STARTING October 28)
+- **Spawner System Status**: ✅ COMPLETE
+  - DepotSpawner: Fully implemented with Poisson distribution and default config fallback
+  - SpawnerCoordinator: Implemented with enable/disable flag support (single-run and continuous modes)
+  - main.py: Single entrypoint with config-driven spawner control
+  - Testing: End-to-end validation complete (4 passengers spawned successfully)
+  - Fresh spawn verified: Deleted DB, re-ran, confirmed new passengers with matching timestamps
+- **Architectural Decisions Made** (October 28):
+  - ✅ Single entrypoint pattern (NOT separate sub-entrypoints)
+  - ✅ Coordinator pattern for orchestrating multiple spawners
+  - ✅ Config-driven enable/disable flags (enable_depotspawner, enable_routespawner)
+  - ✅ Two-mode API architecture validated (Strapi = CRUD, GeospatialService = spatial queries)
+  - ✅ Route-depot junction table design approved (explicit relationships, precomputed distances)
+  - ✅ PubSub pattern recommended (PostgreSQL LISTEN/NOTIFY, not direct spawner integration)
+- **Next Immediate Task**: Create route-depots junction table in Strapi schema
+- **After Route-Depot Association**: Implement full RouteSpawner with geospatial integration
+- **Blocker**: None - All architectural decisions finalized
+- **Status**: TIER 4 ✅ 100% COMPLETE
+  - **Spawner Implementation**: DepotSpawner + SpawnerCoordinator + main.py entrypoint
+  - **Test Results**: 4 passengers spawned (λ=2.20 from spatial × hourly × day multipliers)
+  - **Bulk Insert**: 4/4 successful (100% success rate)
+  - **Database Verification**: All passengers persisted to Strapi with correct fields
+  - **Fresh Spawn Test**: Confirmed new passenger generation (not old data)
+  - **MockRouteSpawner**: Created for testing without full geospatial dependencies
 
-**Priority Path** (TIER 4):
+**Priority Path** (TIER 5):
 
 ```text
-Phase 1.13 (Depot spawning) 🎯 NEXT - OCT 28
+Route-Depot Association 🎯 NEXT - OCT 28
+  - Create route-depots junction table in Strapi
+  - Precompute geospatial depot-route associations (5km proximity threshold)
+  - Update DepotSpawner to query associated routes
+  - Implement full RouteSpawner with geospatial integration
   → Phase 1.14 (Conductor integration)
-  → Phase 1.15 (Reservoir wiring)
-  → Phases 2-3 (Redis, Geofencing)
+  → Phase 1.15 (Reservoir wiring & PubSub)
+  → Phases 2-3 (Redis, Geofencing, Production Optimization)
 ```
 
 ### **What Do I Need to Know?**
 
 1. **Read CONTEXT.md first** - Contains architecture, validation results, user preferences
-2. **Vehicle simulation proven** - 10-min avg wait is realistic for suburban transit
-3. **Test scripts ready** - Located in `test/sim/` directory
-4. **Spawn rate calibrated** - 4.0/hour produces realistic passenger volume
-5. **User prefers detailed explanations** - Quality over speed, always
+2. **Spawner system implemented** - DepotSpawner, SpawnerCoordinator, main.py all working
+3. **Architectural decisions finalized** (Oct 28):
+   - Single entrypoint with coordinator pattern (NOT separate sub-entrypoints)
+   - Config-driven enable/disable flags for spawner control
+   - Two-mode API: Strapi (CRUD) + GeospatialService (spatial queries)
+   - Route-depot junction table with precomputed associations
+   - PubSub via PostgreSQL LISTEN/NOTIFY (not direct spawner integration)
+4. **Test results validated** - 4 passengers spawned successfully, 100% persisted to Strapi
+5. **User prefers detailed explanations** - Quality over speed, pushback on poor suggestions
 
-### **Critical Architecture for Phase 1.13**
+### **Critical Architecture for TIER 5**
 
-- 🎯 **DepotSpawner**: Generate COMMUTERS at depot locations (Poisson distribution)
-  - NOT vehicle spawning (vehicles managed by arknet_transit_simulator)
-  - Spawns passengers with realistic wait time distributions
-  - Places commuters into DepotReservoir for Conductor to pick up
+- 🎯 **Route-Depot Junction Table**: Explicit many-to-many relationships
+  - Precomputed geospatial associations (5km proximity from route geometry)
+  - Fields: route_id, depot_id, is_terminus, distance_from_route_m, created_at
+  - Eliminates runtime geospatial calculations for depot-route connections
+  - Enables realistic spawning (depots serve specific routes, not random assignment)
   
-- 🎯 **RouteSpawner**: Generate COMMUTERS along route segments (Poisson distribution)
-  - Spawns passengers with spatial distribution along routes
-  - Places commuters into RouteReservoir for Conductor to pick up
+- 🎯 **Updated DepotSpawner Logic**:
+  - Query associated routes from route-depots table
+  - Weighted random selection from depot's associated routes
+  - Generate passengers for selected route only (not random route assignment)
   
-- 🎯 **Integration Flow**:
-  - DepotSpawner → DepotReservoir ↘
-  - RouteSpawner → RouteReservoir ↘ → Conductor (in vehicle) → Vehicle Pickups
+- 🎯 **Full RouteSpawner Implementation**:
+  - Load route geometry from geospatial service
+  - Query buildings along route (geospatial API: /spatial/route-buildings)
+  - Calculate Poisson spawn count (spatial × hourly × day multipliers)
+  - Spatially distribute passengers along route using building weights
+  - Integrate with Strapi spawn-configs for route-specific parameters
   
-- 🎯 **Reservoirs**: Already exist in commuter_service_deprecated/
-  - DepotReservoir: FIFO queue of commuters waiting at depots
-  - RouteReservoir: Spatial grid of commuters along routes
+- 🎯 **API Architecture** (Two-Mode Validated):
+  - Mode 1: Strapi REST API (localhost:1337) - CRUD operations
+    - /api/routes → Route master data
+    - /api/depots → Depot master data
+    - /api/route-depots → NEW junction table
+    - /api/spawn-configs → Spawning configuration
+    - /api/active-passengers → Live passenger records
+  - Mode 2: Geospatial Service (localhost:8001) - Spatial queries (READ-ONLY)
+    - /route-geometry/{route_id} → PostGIS geometry queries
+    - /route-buildings → Spatial joins (buildings near route)
+    - /depot-catchment → Depot proximity searches
+    - /nearby-buildings → POI/building proximity searches
   
-- 🎯 **Reference**: `commuter_service_deprecated/` has original spawning patterns
-  - `poisson_geojson_spawner.py` - Statistical passenger generation
-  - `depot_reservoir.py` - Depot commuter queue
-  - `route_reservoir.py` - Route commuter grid### **Files to Reference**
+- 🎯 **PubSub for Visualization** (Recommended Pattern):
+  - PostgreSQL LISTEN/NOTIFY on active_passengers table
+  - Trigger-based notifications on INSERT/UPDATE/DELETE
+  - Zero overhead on spawner (DB handles pub/sub)
+  - Subscribers connect to DB, not spawner
+  - Automatic replay/buffering built-in### **Files to Reference**
 
-1. `test/sim/test_route_spawn.py` - Passenger generation test (WORKING)
-2. `test/sim/test_vehicle_simulation.py` - Pickup logic (WORKING)
-3. `commuter_simulator/core/domain/spawning_plugin.py` - Plugin architecture for spawners
-4. `commuter_service_deprecated/poisson_geojson_spawner.py` - Original Poisson spawning
-5. `commuter_service_deprecated/depot_reservoir.py` - Depot commuter queue
-6. `commuter_service_deprecated/route_reservoir.py` - Route commuter grid
-7. `arknet_transit_simulator/vehicle/conductor.py` - Conductor pickup logic
-8. `CONTEXT.md` - Full architecture and validation metrics
+1. `commuter_simulator/main.py` - Single entrypoint for spawner system ✅ COMPLETE
+2. `commuter_simulator/services/spawner_coordinator.py` - Spawner orchestration ✅ COMPLETE
+3. `commuter_simulator/core/domain/spawner_engine/depot_spawner.py` - Depot passenger generation ✅ COMPLETE
+4. `commuter_simulator/core/domain/reservoirs/depot_reservoir.py` - DB-backed depot reservoir ✅ COMPLETE
+5. `commuter_simulator/core/domain/reservoirs/route_reservoir.py` - DB-backed route reservoir ✅ COMPLETE
+6. `commuter_simulator/infrastructure/database/passenger_repository.py` - Strapi adapter ✅ COMPLETE
+7. `test_spawner_flags.py` - Comprehensive enable/disable flag testing 📋 CREATED (not yet run)
+8. `delete_passengers.py` - Utility for clearing Strapi passengers ✅ WORKING
+9. `commuter_service_deprecated/` - Original spawning patterns (reference only)
+10. `CONTEXT.md` - Full architecture and validation metrics ✅ UPDATED
 
 ---
 
@@ -2374,6 +2423,174 @@ git push origin branch-0.0.2.6
 
 **Last Updated**: October 25, 2025  
 **Next Session**: Step 1.4 - Design Button Configuration
+
+---
+
+## 🏗️ **TIER 4 SPAWNER SYSTEM IMPLEMENTATION - October 28, 2025**
+
+### **Architectural Decisions & Pushback Analysis**
+
+#### **Decision 1: Single Entrypoint vs Separate Sub-Entrypoints**
+
+**User Proposal**: "The commuter_simulator will have a single entrypoint that will start the spawn_engine with separate sub-entrypoints for depot/route spawners"
+
+**Agent Pushback**: ✅ ACCEPTED (with modifications)
+- **Pattern**: Single main.py entrypoint with SpawnerCoordinator orchestration
+- **Rationale**: 
+  - Avoid complexity of multiple CLI entrypoints
+  - Use coordinator pattern for spawner management
+  - Config-driven control (enable/disable flags)
+  - Shared resource initialization (PassengerRepository, Reservoirs)
+- **Implementation**: `commuter_simulator/main.py` + `services/spawner_coordinator.py`
+
+#### **Decision 2: Depot-Route Association Logic**
+
+**User Proposal**: "Depot spawner will spawn at the depot associated with the route that is chosen"
+
+**Agent Pushback**: ❌ REJECTED (inverted responsibility)
+- **Problem**: Creates tight coupling, breaks single responsibility
+- **Better Design**: 
+  - DepotSpawner: Spawns passengers AT depot for ANY associated route
+  - RouteSpawner: Spawns passengers ALONG route geometry
+  - These are different passenger generation patterns, not route-dependent variations
+- **Implementation**: DepotSpawner queries depot's associated routes, selects one via weighted random
+
+#### **Decision 3: Two-Mode API Architecture**
+
+**User Concern**: "Maybe we need to move all geospatial API requests to geospatial_service... check if we have two modes of API access"
+
+**Agent Analysis**: ✅ TWO-MODE IS CORRECT
+- **Mode 1**: Strapi REST API (localhost:1337) - CRUD operations
+  - /api/routes, /api/depots, /api/spawn-configs, /api/active-passengers
+  - Single source of truth for master data
+- **Mode 2**: Geospatial Service (localhost:8001) - Spatial queries (READ-ONLY)
+  - /route-geometry, /route-buildings, /depot-catchment, /nearby-buildings
+  - PostGIS spatial calculations isolated from Strapi
+- **Rationale**: Separation of concerns, performance isolation, single source of truth maintained
+
+#### **Decision 4: Route-Depot Junction Table**
+
+**Agent Recommendation**: ✅ CREATE EXPLICIT RELATIONSHIPS
+- **Pattern**: Many-to-many junction table with precomputed geospatial data
+- **Schema**: route_id, depot_id, is_terminus, distance_from_route_m, created_at
+- **Benefits**:
+  - No runtime geospatial calculations (query once, cache forever)
+  - Explicit relationships match real-world operations
+  - Performance optimization (indexed lookups vs spatial queries)
+- **Current State**: Uses 5km proximity threshold from route geometry
+- **Recommended**: Precompute during route/depot creation, store in route-depots table
+
+#### **Decision 5: PubSub for Reservoir Visualization**
+
+**User Request**: "3rd parties can pubsub subscribe into reservoirs as commuters are being spawned"
+
+**Agent Recommendation**: ✅ GOOD IDEA (with pattern recommendation)
+- **Pattern**: PostgreSQL LISTEN/NOTIFY (not direct spawner integration)
+- **Rationale**:
+  - Zero overhead on spawner (DB handles pub/sub)
+  - Subscribers connect to DB, not spawner
+  - Automatic replay/buffering built-in
+  - No backpressure issues
+- **Alternative Rejected**: Direct pub/sub in spawner (performance overhead, blocking concerns)
+
+### **Implementation Summary (October 28)**
+
+#### **Files Created/Modified**:
+
+1. **`commuter_simulator/core/domain/spawner_engine/depot_spawner.py`** ✅ COMPLETE
+   - Poisson-distributed passenger generation at depot locations
+   - Configurable spawn rates (spatial, hourly, day multipliers)
+   - Default config fallback if Strapi config unavailable
+   - Methods: `spawn()`, `_load_spawn_config()`, `_calculate_spawn_count()`, `_generate_spawn_requests()`
+
+2. **`commuter_simulator/services/spawner_coordinator.py`** ✅ COMPLETE
+   - Orchestrates multiple spawners with enable/disable control
+   - Supports single-run and continuous modes
+   - Config-driven spawner filtering (enable_{spawnerclass} flags)
+   - Methods: `start()`, `_get_enabled_spawners()`, `_run_single_cycle()`, `_run_continuous()`, `_log_aggregate_stats()`
+
+3. **`commuter_simulator/main.py`** ✅ COMPLETE
+   - Single entrypoint for spawner system
+   - Creates shared resources (PassengerRepository, Reservoirs)
+   - Config dict controls enable_routespawner and enable_depotspawner flags
+   - MockRouteSpawner for testing (λ=1.5, simplified implementation)
+
+4. **`commuter_simulator/core/domain/reservoirs/`** ✅ MOVED & UPDATED
+   - Moved from project root to correct location (commuter_simulator/core/domain/reservoirs/)
+   - `depot_reservoir.py`: DB-backed with optional Redis (enable_redis_cache flag)
+   - `route_reservoir.py`: DB-backed with optional Redis (enable_redis_cache flag)
+   - Updated imports and docstrings
+
+5. **`commuter_simulator/infrastructure/database/passenger_repository.py`** ✅ UPDATED
+   - Added `get_waiting_passengers_by_route(route_id, limit)` helper
+   - Added `get_waiting_passengers_by_depot(depot_id, limit)` helper
+   - Both helpers return simplified passenger dicts with route_id/depot_id fields
+
+6. **`test_spawner_flags.py`** ✅ CREATED
+   - Comprehensive test of enable/disable flag combinations
+   - Tests 4 scenarios: depot-only, route-only, both, neither
+   - Uses MockRouteSpawner for testing without geospatial dependencies
+   - Not yet executed (user cancelled before running)
+
+7. **`delete_passengers.py`** ✅ VERIFIED
+   - Utility for clearing Strapi active-passengers table
+   - Used for testing fresh passenger generation
+   - Confirmed working (deleted 6 passengers, verified 0 remaining)
+
+#### **Test Results (October 28)**:
+
+**End-to-End Test** (python -m commuter_simulator.main):
+- Spawn calculation: λ = spatial(2.0) × hourly(1.0) × day(1.1) = 2.20
+- Passengers spawned: 4 (Poisson distribution with λ=2.20)
+- Bulk insert: 4 successful, 0 failed (100% success rate)
+- Database verification: All 4 passengers persisted to Strapi with correct fields
+- Fields verified: depot_id, route_id, status=WAITING, spawned_at, expires_at (30min TTL)
+
+**Fresh Spawn Verification**:
+- Deleted all 6 passengers from database (confirmed 0 remaining)
+- Ran spawner twice: first run = 0 passengers (Poisson randomness), second run = 1 passenger
+- Verified new passenger with matching timestamp (09:45:20.980Z)
+- Confirmed fresh generation (not old data)
+
+**Logging Format Fix**:
+- Fixed double-escaped %% in logging.basicConfig format string
+- Corrected to single % for proper formatting
+
+#### **Pending Work (TIER 5)**:
+
+1. **Route-Depot Junction Table** 🎯 NEXT
+   - Create route-depots collection in Strapi
+   - Schema: route_id, depot_id, is_terminus, distance_from_route_m, created_at
+   - Precompute geospatial associations (5km proximity threshold)
+   - Bidirectional relations (routes ↔ depots)
+
+2. **Update DepotSpawner Logic**
+   - Query associated routes from route-depots table
+   - Weighted random selection from depot's associated routes
+   - Remove random route assignment (use explicit associations)
+
+3. **Full RouteSpawner Implementation**
+   - Load route geometry from geospatial service
+   - Query buildings along route (/spatial/route-buildings)
+   - Calculate Poisson spawn count (spatial × hourly × day multipliers)
+   - Spatially distribute passengers along route using building weights
+   - Integrate with Strapi spawn-configs for route-specific parameters
+
+4. **PubSub Implementation**
+   - PostgreSQL LISTEN/NOTIFY on active_passengers table
+   - Trigger-based notifications on INSERT/UPDATE/DELETE
+   - Subscriber examples for 3rd-party visualization
+
+5. **Comprehensive Flag Testing**
+   - Run test_spawner_flags.py with all 4 scenarios
+   - Verify coordinator correctly filters spawners based on enable flags
+   - Test depot-only, route-only, both, neither configurations
+
+6. **Redis Implementation** (Deferred)
+   - Install Redis client library
+   - Implement startup loader for static route/geojson data
+   - Implement cache-aside pattern in reservoirs
+   - Enable Redis caching flag integration
 
 ---
 

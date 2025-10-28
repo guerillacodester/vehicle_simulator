@@ -1,9 +1,8 @@
-"""
+﻿"""
 Commuter Simulator - Main Entry Point
-=====================================
 
-Single entry point for starting the commuter simulator service.
-Orchestrates depot and route reservoirs with the simulator engine.
+Single entry point for commuter spawning system.
+Orchestrates DepotSpawner and RouteSpawner with enable/disable control.
 """
 
 import asyncio
@@ -15,144 +14,128 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from commuter_simulator.infrastructure.database import StrapiApiClient
-from commuter_simulator.services.socketio import SocketIOService, ServiceType
-from commuter_simulator.core.domain.simulator_engine import SimulatorEngine
+from commuter_simulator.services.spawner_coordinator import SpawnerCoordinator
+from commuter_simulator.core.domain.spawner_engine import DepotSpawner, SpawnerInterface, SpawnRequest
+from commuter_simulator.core.domain.reservoirs import RouteReservoir, DepotReservoir
+from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+import random
+import uuid
 
 
-class CommuterSimulatorService:
-    """
-    Main service orchestrator for the commuter simulator.
+class MockRouteSpawner(SpawnerInterface):
+    """Simplified RouteSpawner for testing enable/disable flags (no geospatial deps)"""
     
-    Manages:
-    - Simulator engine (statistical passenger generation)
-    - Depot reservoir (depot-based spawning)
-    - Route reservoir (route-based spawning)
-    - Socket.IO communication
-    """
+    def __init__(self, reservoir, config, route_id: str):
+        super().__init__(reservoir, config)
+        self.route_id = route_id
+        self.logger = logging.getLogger(self.__class__.__name__)
     
-    def __init__(
-        self,
-        strapi_url: str = "http://localhost:1337",
-        socketio_url: str = "http://localhost:1337"
-    ):
-        self.strapi_url = strapi_url
-        self.socketio_url = socketio_url
+    async def spawn(self, current_time: datetime, time_window_minutes: int = 60):
+        """Generate test passengers along route"""
+        # Simple Poisson calculation (λ=1.5 for testing)
+        import numpy as np
+        spawn_count = np.random.poisson(1.5)
         
-        # Configure logging
-        self.logger = self._setup_logging()
+        self.logger.info(f"Route {self.route_id}: spawning {spawn_count} passengers (test mode)")
         
-        # Core services
-        self.api_client: StrapiApiClient = None
-        self.simulator_engine: SimulatorEngine = None
+        spawn_requests = []
+        for i in range(spawn_count):
+            passenger_id = f"ROUTE_{self.route_id}_{uuid.uuid4().hex[:8].upper()}"
+            spawn_requests.append(SpawnRequest(
+                passenger_id=passenger_id,
+                spawn_location=(33.75 + random.uniform(-0.01, 0.01), -84.39 + random.uniform(-0.01, 0.01)),
+                destination_location=(33.75 + random.uniform(-0.01, 0.01), -84.39 + random.uniform(-0.01, 0.01)),
+                route_id=self.route_id,
+                spawn_time=current_time,
+                spawn_context="ROUTE",
+                priority=1.0,
+                generation_method="poisson_test"
+            ))
         
-        # Statistics
-        self.stats = {
-            "started_at": None,
-            "depot_spawns": 0,
-            "route_spawns": 0,
-            "total_spawns": 0
-        }
-    
-    def _setup_logging(self) -> logging.Logger:
-        """Configure logging"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        return logging.getLogger(__name__)
-    
-    async def start(self):
-        """Start all services"""
-        self.logger.info("="*80)
-        self.logger.info("COMMUTER SIMULATOR - STARTING")
-        self.logger.info("="*80)
-        self.stats["started_at"] = datetime.now().isoformat()
-        
-        try:
-            # Initialize API client (single source of truth)
-            self.logger.info("[1/3] Initializing Strapi API client...")
-            self.api_client = StrapiApiClient(self.strapi_url)
-            await self.api_client.connect()
-            
-            # Initialize simulator engine
-            self.logger.info("[2/3] Initializing simulator engine...")
-            self.simulator_engine = SimulatorEngine(
-                api_client=self.api_client,
-                socketio_url=self.socketio_url
-            )
-            await self.simulator_engine.initialize()
-            
-            # Start simulation
-            self.logger.info("[3/3] Starting simulation...")
-            await self.simulator_engine.start()
-            
-            self.logger.info("="*80)
-            self.logger.info("✓ COMMUTER SIMULATOR RUNNING")
-            self.logger.info("="*80)
-            
-            # Keep running
-            while True:
-                await asyncio.sleep(60)
-                self._print_stats()
-                
-        except KeyboardInterrupt:
-            self.logger.info("\n⚠️  Shutdown requested...")
-            await self.stop()
-        except Exception as e:
-            self.logger.error(f"✗ Fatal error: {e}", exc_info=True)
-            await self.stop()
-            raise
-    
-    async def stop(self):
-        """Stop all services"""
-        self.logger.info("="*80)
-        self.logger.info("STOPPING SERVICES")
-        self.logger.info("="*80)
-        
-        if self.simulator_engine:
-            await self.simulator_engine.stop()
-        
-        if self.api_client:
-            await self.api_client.close()
-        
-        self._print_final_stats()
-        self.logger.info("✓ Shutdown complete")
-    
-    def _print_stats(self):
-        """Print current statistics"""
-        if self.simulator_engine:
-            stats = self.simulator_engine.get_stats()
-            self.logger.info(f"Statistics: {stats}")
-    
-    def _print_final_stats(self):
-        """Print final statistics"""
-        self.logger.info("="*80)
-        self.logger.info("FINAL STATISTICS")
-        self.logger.info("="*80)
-        
-        if self.simulator_engine:
-            stats = self.simulator_engine.get_stats()
-            for key, value in stats.items():
-                self.logger.info(f"  {key}: {value}")
+        return spawn_requests
 
 
 async def main():
-    """Main entry point"""
-    service = CommuterSimulatorService(
-        strapi_url="http://localhost:1337",
-        socketio_url="http://localhost:1337"
-    )
+    """Main entrypoint for commuter spawning system"""
     
-    await service.start()
+    config = {
+        'enable_routespawner': False,
+        'enable_depotspawner': True,
+        'enable_redis_cache': False,
+        'continuous_mode': False,
+        'spawn_interval_seconds': 60,
+    }
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    logger = logging.getLogger(__name__)
+    
+    logger.info("="*80)
+    logger.info("COMMUTER SPAWNING SYSTEM - STARTING")
+    logger.info("="*80)
+    
+    passenger_repo = None
+    
+    try:
+        logger.info(" [1/4] Initializing PassengerRepository...")
+        passenger_repo = PassengerRepository(strapi_url="http://localhost:1337")
+        await passenger_repo.connect()
+        logger.info(" PassengerRepository connected")
+        
+        logger.info("  [2/4] Creating reservoirs...")
+        
+        route_reservoir = RouteReservoir(
+            passenger_repository=passenger_repo,
+            enable_redis_cache=False
+        )
+        
+        depot_reservoir = DepotReservoir(
+            depot_id="DEPOT_01",
+            passenger_repository=passenger_repo,
+            enable_redis_cache=False
+        )
+        logger.info(" Reservoirs created")
+        
+        logger.info(" [3/4] Creating spawners...")
+        
+        # RouteSpawner (mock for testing)
+        route_spawner = MockRouteSpawner(
+            reservoir=route_reservoir,
+            config={},
+            route_id="TEST_ROUTE_1"
+        )
+        
+        # DepotSpawner
+        depot_spawner = DepotSpawner(
+            reservoir=depot_reservoir,
+            config={},
+            depot_id="DEPOT_01",
+            depot_location=(33.7490, -84.3880),
+            available_routes=["route_1", "route_2"]
+        )
+        logger.info(" Spawners created")
+        
+        logger.info(" [4/4] Starting coordinator...")
+        spawners = [route_spawner, depot_spawner]
+        coordinator = SpawnerCoordinator(spawners=spawners, config=config)
+        await coordinator.start(current_time=datetime.utcnow(), time_window_minutes=60)
+        
+        logger.info("="*80)
+        logger.info(" SPAWNING CYCLE COMPLETE")
+        logger.info("="*80)
+        
+    except KeyboardInterrupt:
+        logger.info("  Shutting down...")
+    except Exception as e:
+        logger.error(f" Error: {e}", exc_info=True)
+    finally:
+        if passenger_repo:
+            await passenger_repo.disconnect()
+        logger.info(" Shutdown complete")
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n✓ Shutdown complete")
-    except Exception as e:
-        print(f"\n✗ Fatal error: {e}")
-        sys.exit(1)
+    asyncio.run(main())

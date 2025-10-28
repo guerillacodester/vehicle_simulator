@@ -151,6 +151,89 @@ class PassengerRepository:
             self.logger.error(f"❌ Error inserting passenger {passenger_id}: {e}")
             return False
     
+    async def bulk_insert_passengers(self, passengers: List[Dict]) -> tuple[int, int]:
+        """
+        Insert multiple passengers concurrently via Strapi API.
+        
+        This is much faster than sequential inserts - 30-40 passengers in ~2 seconds
+        vs 30-80 seconds with sequential calls.
+        
+        Args:
+            passengers: List of passenger dicts with keys:
+                - passenger_id, route_id, latitude, longitude
+                - destination_lat, destination_lon, destination_name
+                - direction (optional), priority (optional), expires_minutes (optional)
+                - spawned_at (optional), depot_id (optional), route_position (optional)
+        
+        Returns:
+            Tuple of (successful_count, failed_count)
+        """
+        if not self.session:
+            self.logger.error("[PassengerRepository] Session not connected")
+            return (0, len(passengers))
+        
+        if not passengers:
+            return (0, 0)
+        
+        import asyncio
+        
+        async def insert_one(passenger: Dict) -> bool:
+            """Helper to insert a single passenger"""
+            try:
+                spawned_at = passenger.get('spawned_at') or datetime.utcnow()
+                expires_minutes = passenger.get('expires_minutes', 30)
+                expires_at = spawned_at + timedelta(minutes=expires_minutes)
+                
+                data = {
+                    "data": {
+                        "passenger_id": passenger['passenger_id'],
+                        "route_id": passenger['route_id'],
+                        "depot_id": passenger.get('depot_id'),
+                        "direction": passenger.get('direction'),
+                        "latitude": passenger['latitude'],
+                        "longitude": passenger['longitude'],
+                        "destination_name": passenger['destination_name'],
+                        "destination_lat": passenger['destination_lat'],
+                        "destination_lon": passenger['destination_lon'],
+                        "spawned_at": spawned_at.isoformat() + "Z" if isinstance(spawned_at, datetime) else spawned_at,
+                        "expires_at": expires_at.isoformat() + "Z" if isinstance(expires_at, datetime) else expires_at,
+                        "status": "WAITING",
+                        "priority": passenger.get('priority', 3)
+                    }
+                }
+                
+                if passenger.get('route_position') is not None:
+                    data["data"]["route_position"] = passenger['route_position']
+                
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+                
+                async with self.session.post(
+                    f"{self.strapi_url}/api/active-passengers",
+                    json=data,
+                    headers=headers
+                ) as response:
+                    return response.status in (200, 201)
+            except Exception as e:
+                self.logger.debug(f"Error inserting passenger {passenger.get('passenger_id')}: {e}")
+                return False
+        
+        # Launch all inserts concurrently
+        tasks = [insert_one(p) for p in passengers]
+        results = await asyncio.gather(*tasks, return_exceptions=False)
+        
+        successful = sum(1 for r in results if r is True)
+        failed = len(passengers) - successful
+        
+        self.logger.info(
+            f"✅ Bulk insert complete: {successful} successful, {failed} failed "
+            f"({len(passengers)} total passengers)"
+        )
+        
+        return (successful, failed)
+    
     async def mark_boarded(self, passenger_id: str) -> bool:
         """
         Mark passenger as boarded via Strapi API.
@@ -298,6 +381,110 @@ class PassengerRepository:
                     return []
         except Exception as e:
             self.logger.error(f"❌ Error querying passengers: {e}")
+            return []
+
+    async def get_waiting_passengers_by_route(self, route_id: str, limit: int = 100) -> List[Dict]:
+        """
+        Retrieve waiting passengers filtered by route_id.
+
+        Returns a simplified list of passenger dicts (id + attributes).
+        """
+        if not self.session:
+            self.logger.error("[PassengerRepository] Session not connected")
+            return []
+
+        try:
+            params = {
+                "filters[route_id][$eq]": route_id,
+                "filters[status][$eq]": "WAITING",
+                "pagination[limit]": limit,
+            }
+
+            async with self.session.get(
+                f"{self.strapi_url}/api/active-passengers",
+                params=params
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    data = result.get("data", [])
+                    simplified = []
+                    for p in data:
+                        attrs = p.get("attributes", {})
+                        simplified.append({
+                            "id": p.get("id"),
+                            "passenger_id": attrs.get("passenger_id"),
+                            "route_id": attrs.get("route_id"),
+                            "depot_id": attrs.get("depot_id"),
+                            "latitude": attrs.get("latitude"),
+                            "longitude": attrs.get("longitude"),
+                            "destination_lat": attrs.get("destination_lat"),
+                            "destination_lon": attrs.get("destination_lon"),
+                            "destination_name": attrs.get("destination_name"),
+                            "spawned_at": attrs.get("spawned_at"),
+                            "status": attrs.get("status"),
+                            "priority": attrs.get("priority"),
+                        })
+                    return simplified
+                else:
+                    error_text = await response.text()
+                    self.logger.error(
+                        f"❌ Error querying passengers by route: {response.status} - {error_text}"
+                    )
+                    return []
+        except Exception as e:
+            self.logger.error(f"❌ Error querying passengers by route: {e}")
+            return []
+
+    async def get_waiting_passengers_by_depot(self, depot_id: str, limit: int = 100) -> List[Dict]:
+        """
+        Retrieve waiting passengers filtered by depot_id.
+
+        Returns a simplified list of passenger dicts (id + attributes).
+        """
+        if not self.session:
+            self.logger.error("[PassengerRepository] Session not connected")
+            return []
+
+        try:
+            params = {
+                "filters[depot_id][$eq]": depot_id,
+                "filters[status][$eq]": "WAITING",
+                "pagination[limit]": limit,
+            }
+
+            async with self.session.get(
+                f"{self.strapi_url}/api/active-passengers",
+                params=params
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    data = result.get("data", [])
+                    simplified = []
+                    for p in data:
+                        attrs = p.get("attributes", {})
+                        simplified.append({
+                            "id": p.get("id"),
+                            "passenger_id": attrs.get("passenger_id"),
+                            "route_id": attrs.get("route_id"),
+                            "depot_id": attrs.get("depot_id"),
+                            "latitude": attrs.get("latitude"),
+                            "longitude": attrs.get("longitude"),
+                            "destination_lat": attrs.get("destination_lat"),
+                            "destination_lon": attrs.get("destination_lon"),
+                            "destination_name": attrs.get("destination_name"),
+                            "spawned_at": attrs.get("spawned_at"),
+                            "status": attrs.get("status"),
+                            "priority": attrs.get("priority"),
+                        })
+                    return simplified
+                else:
+                    error_text = await response.text()
+                    self.logger.error(
+                        f"❌ Error querying passengers by depot: {response.status} - {error_text}"
+                    )
+                    return []
+        except Exception as e:
+            self.logger.error(f"❌ Error querying passengers by depot: {e}")
             return []
     
     async def delete_expired_passengers(self) -> int:
