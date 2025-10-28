@@ -141,6 +141,32 @@ Route-Depot Association 🎯 NEXT - OCT 28
 
 ---
 
+## 🧹 Deprecated folder: evaluation + actions
+
+Decision (Oct 28, 2025): Keep `commuter_service_deprecated/` for reference only through end of TIER 6; remove during Phase 2 (production hardening). No code will be ported verbatim—only concepts.
+
+- [ ] RouteSpawner: Implement along-route destination selection
+  - Ensure destinations remain on the route geometry (concept inspired by `_select_destination_along_route`)
+  - Use GeospatialService/PostGIS data, not shapely/geodesic
+  - Acceptance: RouteSpawner generates spawn/destination pairs strictly on-route
+
+- [ ] Temporal/context multipliers → align with spawn-configs
+  - Reconcile depot vs route temporal patterns and zone multipliers with existing spawn-config schema
+  - Document mapping; avoid hard-coded multipliers in code
+  - Acceptance: Documented mapping + used by Route/Depot spawners via config
+
+- [ ] Reservoir observability and expiration notes
+  - Add minimal stats counters and TTL/expiration behavior notes to new reservoirs (non-blocking)
+  - Acceptance: Basic metrics available and TTL strategy documented
+
+- [ ] Remove `commuter_service_deprecated/` after TIER 6
+  - Verify zero imports/references, update docs, and delete folder
+  - Acceptance: Folder removed; build/tests unaffected; CONTEXT/TODO updated
+
+Notes: Do NOT port shapely/geopy spatial logic or log-normal destination selection across arbitrary zones; all spatial computation remains in PostGIS via Strapi/GeospatialService.
+
+---
+
 ## 📊 **OVERALL PROGRESS**
 
 **Priority Sequence**: Option A - Complete GeoJSON Import → Enable Spawning → Optimize Performance

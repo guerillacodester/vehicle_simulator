@@ -495,7 +495,17 @@ SUCCESS CRITERIA:
 │  │  │  • /api/highways           • /api/pois             • /api/landuse-zones            │       │ │
 │  │  │  • /api/buildings          • /api/depots           • /api/vehicles                 │       │ │
 │  │  │  • /api/regions            • /api/admin-levels     • /api/geofences                │       │ │
-│  │  │  • /api/drivers            • /api/conductors       • /api/passengers               │       │ │
+│  🔎 Evaluation (October 28, 2025)                                                                   │
+│   • Keep through end of TIER 6 for reference only; schedule removal in Phase 2 (production hardening)│
+│   • Salvageable concepts to inform new implementation (no code copy/paste):                          │
+│     - Strategy abstractions: Depot/Route/Mixed spawn strategies and manager (spawn_interface.py)     │
+│     - Along-route destination selection ensuring destinations stay on route geometry                 │
+│       (see poisson_geojson_spawner._select_destination_along_route)                                  │
+│     - Temporal/context multipliers (depot vs route patterns; zone-specific modifiers)                │
+│     - Reservoir observability ideas: basic stats and expiration/TTL patterns                         │
+│   • Do NOT port: shapely/geopy spatial math, log-normal selection across arbitrary zones,            │
+│     or any direct DB/API scatter—our architecture is Strapi (CRUD) + GeospatialService (spatial).    │
+│   • Action items are tracked in TODO.md under "Deprecated folder: evaluation + actions".            │
 │  │  │                                                                                      │       │ │
 │  │  │ All writes MUST go through Strapi Entity Service API (no direct DB writes)         │       │ │
 │  │  └────────────────────────────────────────────────────────────────────────────────────┘       │ │
