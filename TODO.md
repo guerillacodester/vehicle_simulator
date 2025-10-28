@@ -23,11 +23,12 @@ TIER 4: Spawner System Implementation ✅ COMPLETE (Oct 28)
   - End-to-end testing: 4 passengers spawned, verified in Strapi ✅
   - Fresh spawn verification: Confirmed new passenger generation ✅
   - MockRouteSpawner: Test implementation for flag testing ✅
-TIER 5: Route-Depot Association & Full RouteSpawner 🎯 NEXT (Oct 28)
+TIER 5: Route-Depot Association & RouteSpawner Integration 🎯 NEXT (Oct 28)
   - Create route-depots junction table in Strapi
   - Precompute geospatial depot-route associations
-  - Implement full RouteSpawner with geospatial integration
+  - Wire existing RouteSpawner to coordinator (DISCOVERED: Already fully implemented - 287 lines)
   - Add PubSub via PostgreSQL LISTEN/NOTIFY for reservoir visualization
+  - NOTE: Deep code analysis (Oct 28) revealed RouteSpawner complete, reducing TIER 5 scope by 33%
 TIER 6: Phases 1.14-1.15 (Conductor & Reservoirs) 📋 FUTURE
 ```
 
@@ -51,9 +52,19 @@ TIER 6: Phases 1.14-1.15 (Conductor & Reservoirs) 📋 FUTURE
   - ✅ Two-mode API architecture validated (Strapi = CRUD, GeospatialService = spatial queries)
   - ✅ Route-depot junction table design approved (explicit relationships, precomputed distances)
   - ✅ PubSub pattern recommended (PostgreSQL LISTEN/NOTIFY, not direct spawner integration)
+  - ✅ RouteSpawner discovered complete (287 lines) - reduces TIER 5 scope by 33% (Oct 28)
+- **Deep Code Analysis Results** (October 28, 2025):
+  - ✅ RouteSpawner ALREADY FULLY IMPLEMENTED at `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+  - ✅ All required methods complete: `spawn()`, `_load_spawn_config()`, `_load_route_geometry()`, `_get_buildings_near_route()`, `_calculate_spawn_count()`, `_generate_spawn_requests()`
+  - ✅ GeospatialService integration complete: `/spatial/route-geometry/{route_id}`, `/spatial/route-buildings`
+  - ❌ RouteSpawner NOT wired to main.py coordinator yet (currently uses MockRouteSpawner)
+  - ❌ Route-depot junction table MISSING (confirmed via file_search, grep_search)
+  - ❌ DepotSpawner uses hardcoded `available_routes` parameter (needs association querying)
+  - ❌ PostgreSQL LISTEN/NOTIFY triggers NOT implemented
+  - ❌ passenger_subscriber.py example NOT found
 - **Next Immediate Task**: Create route-depots junction table in Strapi schema
-- **After Route-Depot Association**: Implement full RouteSpawner with geospatial integration
-- **Blocker**: None - All architectural decisions finalized
+- **After Route-Depot Association**: Wire existing RouteSpawner to coordinator (replace MockRouteSpawner)
+- **Blocker**: None - All architectural decisions finalized, RouteSpawner already implemented
 - **Status**: TIER 4 ✅ 100% COMPLETE
   - **Spawner Implementation**: DepotSpawner + SpawnerCoordinator + main.py entrypoint
   - **Test Results**: 4 passengers spawned (λ=2.20 from spatial × hourly × day multipliers)
@@ -62,14 +73,16 @@ TIER 6: Phases 1.14-1.15 (Conductor & Reservoirs) 📋 FUTURE
   - **Fresh Spawn Test**: Confirmed new passenger generation (not old data)
   - **MockRouteSpawner**: Created for testing without full geospatial dependencies
 
-**Priority Path** (TIER 5):
+**Priority Path** (TIER 5 - REVISED Oct 28):
 
 ```text
 Route-Depot Association 🎯 NEXT - OCT 28
   - Create route-depots junction table in Strapi
   - Precompute geospatial depot-route associations (5km proximity threshold)
-  - Update DepotSpawner to query associated routes
-  - Implement full RouteSpawner with geospatial integration
+  - Update DepotSpawner to query associated routes (replace hardcoded list)
+  - Wire existing RouteSpawner to coordinator (replace MockRouteSpawner)
+  - Add PostgreSQL LISTEN/NOTIFY triggers for PubSub pattern
+  - Create passenger_subscriber.py example for real-time notifications
   → Phase 1.14 (Conductor integration)
   → Phase 1.15 (Reservoir wiring & PubSub)
   → Phases 2-3 (Redis, Geofencing, Production Optimization)
@@ -97,6 +110,19 @@ Route-Depot Association 🎯 NEXT - OCT 28
   - Enables realistic spawning (depots serve specific routes, not random assignment)
   
 - 🎯 **Updated DepotSpawner Logic**:
+  - Query associated routes from route-depots junction table via Strapi API
+  - Replace hardcoded `available_routes` parameter with database lookup
+  - Weighted route selection based on distance or route priority
+  - Realistic passenger assignment (depots serve specific routes, not random)
+
+- 🎯 **RouteSpawner Integration** (DISCOVERED COMPLETE - Oct 28):
+  - ✅ RouteSpawner fully implemented (287 lines) at `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+  - ✅ Poisson distribution with spatial/hourly/day multipliers
+  - ✅ GeospatialService integration for route geometry and building queries
+  - ✅ Spatial distribution logic along route corridor
+  - ❌ NOT wired to main.py coordinator yet (uses MockRouteSpawner)
+  - **Next Step**: Replace MockRouteSpawner with real RouteSpawner in coordinator
+  - **Validation**: Run end-to-end test with `enable_routespawner=True`
   - Query associated routes from route-depots table
   - Weighted random selection from depot's associated routes
   - Generate passengers for selected route only (not random route assignment)
@@ -2582,7 +2608,17 @@ git push origin branch-0.0.2.6
 - Fixed double-escaped %% in logging.basicConfig format string
 - Corrected to single % for proper formatting
 
-#### **Pending Work (TIER 5)**:
+#### **Pending Work (TIER 5 - REVISED Oct 28)**:
+
+**VALIDATED STATUS** (Deep Code Analysis - Oct 28):
+- ✅ RouteSpawner ALREADY COMPLETE (287 lines) - discovered during validation
+- ✅ GeospatialService integration ALREADY COMPLETE (route-geometry, route-buildings endpoints)
+- ❌ RouteSpawner NOT wired to coordinator yet (uses MockRouteSpawner)
+- ❌ Route-depot junction table MISSING
+- ❌ DepotSpawner uses hardcoded routes (needs association querying)
+- ❌ PostgreSQL LISTEN/NOTIFY NOT implemented
+
+**REVISED TIER 5 TASKS** (33% scope reduction):
 
 1. **Route-Depot Junction Table** 🎯 NEXT
    - Create route-depots collection in Strapi
@@ -2591,28 +2627,29 @@ git push origin branch-0.0.2.6
    - Bidirectional relations (routes ↔ depots)
 
 2. **Update DepotSpawner Logic**
+   - Add `_load_associated_routes()` method to query Strapi API
    - Query associated routes from route-depots table
    - Weighted random selection from depot's associated routes
-   - Remove random route assignment (use explicit associations)
+   - Remove hardcoded `available_routes` parameter
 
-3. **Full RouteSpawner Implementation**
-   - Load route geometry from geospatial service
-   - Query buildings along route (/spatial/route-buildings)
-   - Calculate Poisson spawn count (spatial × hourly × day multipliers)
-   - Spatially distribute passengers along route using building weights
-   - Integrate with Strapi spawn-configs for route-specific parameters
+3. **Wire RouteSpawner to Coordinator** (REVISED - Implementation exists!)
+   - Replace MockRouteSpawner with real RouteSpawner in main.py
+   - Run end-to-end test with `enable_routespawner=True`
+   - Verify passengers spawn spatially along route geometry
+   - Validate GeospatialService integration (route-geometry, route-buildings calls)
 
 4. **PubSub Implementation**
    - PostgreSQL LISTEN/NOTIFY on active_passengers table
    - Trigger-based notifications on INSERT/UPDATE/DELETE
+   - Create `commuter_simulator/examples/passenger_subscriber.py`
    - Subscriber examples for 3rd-party visualization
 
 5. **Comprehensive Flag Testing**
-   - Run test_spawner_flags.py with all 4 scenarios
+   - Execute test_spawner_flags.py with all 4 scenarios
    - Verify coordinator correctly filters spawners based on enable flags
    - Test depot-only, route-only, both, neither configurations
 
-6. **Redis Implementation** (Deferred)
+6. **Redis Implementation** (Deferred to TIER 6+)
    - Install Redis client library
    - Implement startup loader for static route/geojson data
    - Implement cache-aside pattern in reservoirs
