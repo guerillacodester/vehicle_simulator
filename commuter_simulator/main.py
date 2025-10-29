@@ -15,51 +15,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from commuter_simulator.services.spawner_coordinator import SpawnerCoordinator
-from commuter_simulator.core.domain.spawner_engine import DepotSpawner, SpawnerInterface, SpawnRequest
+from commuter_simulator.core.domain.spawner_engine import DepotSpawner, RouteSpawner, SpawnerInterface, SpawnRequest
 from commuter_simulator.core.domain.reservoirs import RouteReservoir, DepotReservoir
 from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
+from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
 import random
 import uuid
-
-
-class MockRouteSpawner(SpawnerInterface):
-    """Simplified RouteSpawner for testing enable/disable flags (no geospatial deps)"""
-    
-    def __init__(self, reservoir, config, route_id: str):
-        super().__init__(reservoir, config)
-        self.route_id = route_id
-        self.logger = logging.getLogger(self.__class__.__name__)
-    
-    async def spawn(self, current_time: datetime, time_window_minutes: int = 60):
-        """Generate test passengers along route"""
-        # Simple Poisson calculation (λ=1.5 for testing)
-        import numpy as np
-        spawn_count = np.random.poisson(1.5)
-        
-        self.logger.info(f"Route {self.route_id}: spawning {spawn_count} passengers (test mode)")
-        
-        spawn_requests = []
-        for i in range(spawn_count):
-            passenger_id = f"ROUTE_{self.route_id}_{uuid.uuid4().hex[:8].upper()}"
-            spawn_requests.append(SpawnRequest(
-                passenger_id=passenger_id,
-                spawn_location=(33.75 + random.uniform(-0.01, 0.01), -84.39 + random.uniform(-0.01, 0.01)),
-                destination_location=(33.75 + random.uniform(-0.01, 0.01), -84.39 + random.uniform(-0.01, 0.01)),
-                route_id=self.route_id,
-                spawn_time=current_time,
-                spawn_context="ROUTE",
-                priority=1.0,
-                generation_method="poisson_test"
-            ))
-        
-        return spawn_requests
 
 
 async def main():
     """Main entrypoint for commuter spawning system"""
     
     config = {
-        'enable_routespawner': False,
+        'enable_routespawner': True,  # Now using real RouteSpawner
         'enable_depotspawner': True,
         'enable_redis_cache': False,
         'continuous_mode': False,
@@ -101,20 +70,28 @@ async def main():
         
         logger.info(" [3/4] Creating spawners...")
         
-        # RouteSpawner (mock for testing)
-        route_spawner = MockRouteSpawner(
+        # Initialize config loader and geospatial client
+        config_loader = SpawnConfigLoader(api_base_url="http://localhost:1337/api")
+        geo_client = GeospatialClient(base_url="http://localhost:8001")
+        
+        # RouteSpawner - using Route 1 (documentId from Strapi)
+        route_spawner = RouteSpawner(
             reservoir=route_reservoir,
             config={},
-            route_id="TEST_ROUTE_1"
+            route_id="gg3pv3z19hhm117v9xth5ezq",  # Route 1 documentId
+            config_loader=config_loader,
+            geo_client=geo_client
         )
         
-        # DepotSpawner
+        # DepotSpawner - uses Speightstown Bus Terminal with documentId
         depot_spawner = DepotSpawner(
             reservoir=depot_reservoir,
             config={},
-            depot_id="DEPOT_01",
-            depot_location=(33.7490, -84.3880),
-            available_routes=["route_1", "route_2"]
+            depot_id="SPT_NORTH_01",
+            depot_location=(13.252068, -59.642543),  # Speightstown coordinates
+            depot_document_id="ft3t8jc5jnzg461uod6to898",  # Strapi v5 documentId
+            strapi_url="http://localhost:1337",
+            available_routes=None  # Will query from route-depots junction table
         )
         logger.info(" Spawners created")
         

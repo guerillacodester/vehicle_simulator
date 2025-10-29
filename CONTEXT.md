@@ -2159,3 +2159,49 @@ Passengers at Bridge Street Station depot:
 ---
 
 > **🎯 HANDOFF COMPLETE**: A fresh agent with this CONTEXT.md + TODO.md can rebuild the environment, understand all architectural decisions, and continue to production-grade MVP without external context or chat history.
+
+---
+
+## 📄 Passenger Manifest (shared contract)
+
+To avoid reinventing the wheel when building the production UI, we've centralized the manifest computation in a reusable module.
+
+- Source: `commuter_simulator/services/manifest_builder.py`
+- API: `commuter_simulator/api/manifest_api.py` (FastAPI, port 8002)
+- Consumers: CLI (`commuter_simulator/scripts/console/list_passengers.py`), HTTP API, and future UI
+- Ordering: Ascending by `route_position_m` when a `route_id` is provided (distance from start of the route). Otherwise, positions are 0 and ordering is unspecified.
+- Reverse geocoding: Via GeospatialService `/geocode/reverse` with small in-memory cache and bounded concurrency (env `GEOCODE_CONCURRENCY`, default 5)
+- Resilience: Timeouts and graceful fallbacks (`start_address`/`stop_address` may be "-")
+
+### ManifestRow fields (stable)
+
+- index: int
+- spawned_at: string (ISO 8601)
+- passenger_id: string
+- route_id: string
+- depot_id: string
+- latitude: float
+- longitude: float
+- destination_lat: float
+- destination_lon: float
+- status: string (e.g., WAITING, BOARDED)
+- route_position_m: float (meters from route start to nearest route vertex)
+- travel_distance_km: float
+- start_address: string (reverse geocoded)
+- stop_address: string (reverse geocoded)
+- trip_summary: string ("Start Address → Stop Address | km")
+
+### How to use
+
+- **HTTP API** (recommended for UI):
+  - Start: `uvicorn commuter_simulator.api.manifest_api:app --port 8002`
+  - Endpoint: `GET http://localhost:8002/api/manifest?route=<id>&limit=100`
+  - Returns: `{"count": N, "route_id": "...", "passengers": [...], "ordered_by_route_position": true}`
+  - Docs: <http://localhost:8002/docs>
+- Python import (for backend integrations):
+  - `from commuter_simulator.services.manifest_builder import enrich_manifest_rows`
+  - Call `await enrich_manifest_rows(rows, route_id)` where `rows` are raw Strapi `active-passengers` records (attributes-flattened)
+- Console/diagnostics:
+  - `python -m commuter_simulator.scripts.console.list_passengers --route <id> --json`
+
+This contract is now the single source of truth for manifest formatting and ordering.

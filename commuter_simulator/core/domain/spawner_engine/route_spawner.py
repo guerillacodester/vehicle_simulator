@@ -228,7 +228,8 @@ class RouteSpawner(SpawnerInterface):
             lambda_param = spatial_base * hourly_rate * day_mult * (time_window_minutes / 60.0)
             
             # Generate Poisson-distributed count
-            spawn_count = random.poisson(lambda_param) if lambda_param > 0 else 0
+            import numpy as np
+            spawn_count = np.random.poisson(lambda_param) if lambda_param > 0 else 0
             
             self.logger.info(
                 f"Spawn calculation: spatial={spatial_base} × hourly={hourly_rate} × day={day_mult} "

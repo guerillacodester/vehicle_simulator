@@ -39,7 +39,9 @@ class DepotSpawner(SpawnerInterface):
         config: Dict[str, Any],
         depot_id: str,
         depot_location: tuple,  # (lat, lon)
-        available_routes: List[str],
+        available_routes: Optional[List[str]] = None,
+        depot_document_id: Optional[str] = None,
+        strapi_url: str = "http://localhost:1337",
         config_loader: Optional[SpawnConfigLoader] = None,
         geo_client: Optional[GeospatialClient] = None
     ):
@@ -51,14 +53,18 @@ class DepotSpawner(SpawnerInterface):
             config: Base configuration dict
             depot_id: Unique depot identifier
             depot_location: (lat, lon) of depot
-            available_routes: List of route IDs passengers can board
+            available_routes: List of route IDs passengers can board (optional - will query if None)
+            depot_document_id: Strapi v5 documentId for querying associated routes (optional)
+            strapi_url: Base URL for Strapi API (default: http://localhost:1337)
             config_loader: For loading depot spawn configuration (optional)
             geo_client: For querying buildings near depot (optional)
         """
         super().__init__(reservoir, config)
         self.depot_id = depot_id
         self.depot_location = depot_location  # (lat, lon)
-        self.available_routes = available_routes
+        self.available_routes = available_routes  # Can be None - will query from DB
+        self.depot_document_id = depot_document_id
+        self.strapi_url = strapi_url
         self.config_loader = config_loader
         self.geo_client = geo_client
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -66,6 +72,7 @@ class DepotSpawner(SpawnerInterface):
         # Cache for depot data
         self._spawn_config_cache = None
         self._buildings_cache = None
+        self._associated_routes_cache = None
     
     async def spawn(self, current_time: datetime, time_window_minutes: int = 60) -> List[SpawnRequest]:
         """
@@ -73,11 +80,12 @@ class DepotSpawner(SpawnerInterface):
         
         Algorithm:
         1. Load depot spawn config (or use defaults)
-        2. Query buildings near depot (population density - optional)
-        3. Calculate spawn count using Poisson distribution
-        4. Apply day-of-week and hourly multipliers
-        5. Generate passengers at depot location
-        6. Assign random destination routes
+        2. Load associated routes from database (if not provided in constructor)
+        3. Query buildings near depot (population density - optional)
+        4. Calculate spawn count using Poisson distribution
+        5. Apply day-of-week and hourly multipliers
+        6. Generate passengers at depot location
+        7. Assign random destination routes from associated routes
         
         Args:
             current_time: Current simulation time
@@ -89,6 +97,10 @@ class DepotSpawner(SpawnerInterface):
         try:
             # Load configuration (optional - can use defaults)
             spawn_config = await self._load_spawn_config()
+            
+            # Load associated routes if not provided in constructor
+            if self.available_routes is None:
+                self.available_routes = await self._load_associated_routes()
             
             # Calculate spawn count
             spawn_count = await self._calculate_spawn_count(
@@ -166,6 +178,69 @@ class DepotSpawner(SpawnerInterface):
             self.logger.warning(f"Error loading depot spawn config: {e}, using defaults")
             return await self._load_spawn_config()
     
+    async def _load_associated_routes(self) -> List[str]:
+        """
+        Load associated routes from Strapi route-depot junction table.
+        
+        Returns:
+            List of route short_names that serve this depot.
+            Returns empty list if no associations found or on error.
+        """
+        if self._associated_routes_cache:
+            return self._associated_routes_cache
+        
+        if not self.depot_document_id:
+            self.logger.warning(
+                f"No depot_document_id provided for depot {self.depot_id}, cannot query associated routes"
+            )
+            return []
+        
+        try:
+            import httpx
+            
+            # Query route-depots where depot matches this depot's documentId
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                url = (
+                    f"{self.strapi_url}/api/route-depots?"
+                    f"filters[depot][documentId][$eq]={self.depot_document_id}&"
+                    f"fields[0]=route_short_name&"
+                    f"fields[1]=distance_from_route_m&"
+                    f"fields[2]=is_start_terminus&"
+                    f"fields[3]=is_end_terminus&"
+                    f"pagination[pageSize]=100"
+                )
+                
+                response = await client.get(url)
+                response.raise_for_status()
+                data = response.json()
+            
+            associations = data.get('data', [])
+            
+            if not associations:
+                self.logger.warning(
+                    f"No associated routes found for depot {self.depot_id} (documentId={self.depot_document_id})"
+                )
+                return []
+            
+            # Extract route short names from cached labels
+            route_names = []
+            for assoc in associations:
+                attrs = assoc.get('attributes', assoc)
+                route_short_name = attrs.get('route_short_name')
+                if route_short_name:
+                    route_names.append(route_short_name)
+            
+            self._associated_routes_cache = route_names
+            self.logger.info(
+                f"Loaded {len(route_names)} associated routes for depot {self.depot_id}: {route_names}"
+            )
+            
+            return route_names
+            
+        except Exception as e:
+            self.logger.error(f"Error loading associated routes for depot {self.depot_id}: {e}")
+            return []
+    
     async def _calculate_spawn_count(
         self,
         spawn_config: Dict[str, Any],
@@ -214,6 +289,13 @@ class DepotSpawner(SpawnerInterface):
         current_time: datetime
     ) -> List[SpawnRequest]:
         """Generate individual spawn requests at depot location"""
+        # If no routes available, cannot spawn passengers
+        if not self.available_routes:
+            self.logger.warning(
+                f"Depot {self.depot_id} has no available routes - cannot spawn passengers"
+            )
+            return []
+        
         spawn_requests = []
         
         for i in range(spawn_count):
@@ -221,8 +303,8 @@ class DepotSpawner(SpawnerInterface):
                 # All passengers spawn at depot location
                 spawn_lat, spawn_lon = self.depot_location
                 
-                # Randomly assign destination route
-                destination_route = random.choice(self.available_routes) if self.available_routes else "UNKNOWN"
+                # Randomly assign destination route from associated routes
+                destination_route = random.choice(self.available_routes)
                 
                 # Generate unique passenger ID
                 passenger_id = f"DEPOT_{self.depot_id}_{uuid.uuid4().hex[:8].upper()}"
