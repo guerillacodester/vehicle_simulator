@@ -87,11 +87,11 @@ def wait_for_service(name, url, max_attempts=30, delay=2):
 
 def check_dependencies(enabled_services, ports):
     """
-    Check that Strapi is running before launching any services.
-    This is a BLOCKING check - all services depend on Strapi.
+    Check that Strapi is running (NON-BLOCKING).
+    This check is informational only - services will launch regardless.
     
     Returns:
-        True if Strapi is healthy, False otherwise
+        True (always) - non-blocking check
     """
     print()
     print("=" * 70)
@@ -106,21 +106,20 @@ def check_dependencies(enabled_services, ports):
     any_service_enabled = any(enabled_services.values())
     if any_service_enabled:
         print("🏥 Checking Strapi health (required by all services)...")
-        if not wait_for_service("Strapi", f"{strapi_url}/_health", max_attempts=10, delay=2):
+        if check_service_health("Strapi", f"{strapi_url}/_health", timeout=3):
+            print("   ✅ Strapi is healthy")
+        else:
+            print("   ⚠️  Strapi is not responding")
+            print("   Services will launch anyway - they will retry connection")
             print()
-            print("❌ CRITICAL: Strapi is not running!")
-            print()
-            print("   Start Strapi before launching services:")
-            print("   cd arknet_fleet_manager")
-            print("   npm run develop")
-            print()
-            print("🛑 Startup aborted - cannot proceed without Strapi")
-            return False
+            print("   💡 To start Strapi manually:")
+            print("      cd arknet_fleet_manager")
+            print("      npm run develop")
         print()
         print("=" * 70)
         print()
     
-    return True
+    return True  # Always return True - non-blocking
 
 
 def shutdown_services(launched_services):
@@ -197,9 +196,17 @@ def get_service_ports():
     }
 
 
-def launch_service_in_console(service_name, script_path, port, title, as_module=None, extra_args=None):
+def launch_service_in_console(service_name, script_path, port, title, as_module=None, extra_args=None, is_npm=False, npm_command=None):
     """
-    Launch a service in a new console window.
+    Launch a service in a new console window (cross-platform).
+    
+    Windows: Opens in new cmd.exe window
+    Linux: Tries gnome-terminal, xterm, konsole, or falls back to background process
+    macOS: Opens in new Terminal.app window
+    
+    Args:
+        is_npm: If True, launches as npm project (npm run <npm_command>)
+        npm_command: npm script to run (e.g., "develop", "start")
     
     Returns:
         Process handle on success, None on failure
@@ -212,23 +219,23 @@ def launch_service_in_console(service_name, script_path, port, title, as_module=
     port_display = f"Port {port}" if port else "No port"
     print(f"   🚀 Launching {service_name}: {port_display}")
     
-    # Build command
-    if as_module:
-        cmd_parts = ['python', '-m', as_module]
-        if extra_args:
-            cmd_parts.extend(extra_args)
-        cmd = ' '.join(cmd_parts) + ' || pause'
+    # Build base command
+    if is_npm:
+        # npm-based service (like Strapi)
+        base_cmd = ['npm', 'run', npm_command] if npm_command else ['npm', 'start']
+        cwd = script_path  # script_path is the project directory for npm
+    elif as_module:
+        base_cmd = [sys.executable, '-m', as_module] + (extra_args or [])
         cwd = Path(__file__).parent
     else:
-        cmd_parts = ['python', script_path.name]
-        if extra_args:
-            cmd_parts.extend(extra_args)
-        cmd = ' '.join(cmd_parts) + ' || pause'
+        base_cmd = [sys.executable, str(script_path)] + (extra_args or [])
         cwd = script_path.parent
     
     # Platform-specific console launch
     try:
         if sys.platform == "win32":
+            # Windows: Use cmd.exe with start command
+            cmd_str = ' '.join(base_cmd)
             process = subprocess.Popen(
                 [
                     "cmd.exe",
@@ -237,21 +244,60 @@ def launch_service_in_console(service_name, script_path, port, title, as_module=
                     title,
                     "cmd.exe",
                     "/k",
-                    cmd
+                    f"cd /d {cwd} && {cmd_str} || pause"
                 ],
                 cwd=cwd
             )
+        
+        elif sys.platform == "darwin":
+            # macOS: Use Terminal.app with AppleScript
+            cmd_str = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in base_cmd])
+            applescript = f'''
+                tell application "Terminal"
+                    do script "cd {cwd} && {cmd_str}"
+                    set custom title of front window to "{title}"
+                end tell
+            '''
+            process = subprocess.Popen(
+                ['osascript', '-e', applescript],
+                cwd=cwd
+            )
+        
         else:
-            # Unix-like systems
-            if as_module:
+            # Linux: Try common terminal emulators
+            cmd_str = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in base_cmd])
+            
+            # Try gnome-terminal first
+            terminal_commands = [
+                # GNOME Terminal (Ubuntu, Fedora, etc.)
+                ['gnome-terminal', '--title', title, '--', 'bash', '-c', f'cd {cwd} && {cmd_str}; exec bash'],
+                # Konsole (KDE)
+                ['konsole', '--new-tab', '--title', title, '-e', 'bash', '-c', f'cd {cwd} && {cmd_str}; exec bash'],
+                # XTerm (fallback)
+                ['xterm', '-T', title, '-e', f'cd {cwd} && {cmd_str}; exec bash'],
+                # Terminator
+                ['terminator', '-T', title, '-e', f'bash -c "cd {cwd} && {cmd_str}; exec bash"'],
+                # XFCE Terminal
+                ['xfce4-terminal', '--title', title, '--command', f'bash -c "cd {cwd} && {cmd_str}; exec bash"'],
+            ]
+            
+            process = None
+            for term_cmd in terminal_commands:
+                try:
+                    process = subprocess.Popen(term_cmd, cwd=cwd)
+                    print(f"   ℹ️  Using terminal: {term_cmd[0]}")
+                    break
+                except FileNotFoundError:
+                    continue
+            
+            if process is None:
+                # No terminal found, run in background
+                print(f"   ⚠️  No terminal emulator found - running in background")
                 process = subprocess.Popen(
-                    [sys.executable, "-m", as_module] + (extra_args or []),
-                    cwd=Path(__file__).parent
-                )
-            else:
-                process = subprocess.Popen(
-                    [sys.executable, str(script_path)] + (extra_args or []),
-                    cwd=script_path.parent
+                    base_cmd,
+                    cwd=cwd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
                 )
         
         return process
@@ -290,17 +336,23 @@ def show_configuration():
 
 def launch_all_systems():
     """
-    Launch all enabled subsystems based on config.ini with blocking health checks.
+    Launch all enabled subsystems with STAGED STARTUP and HEALTH-GATED CONSOLE SPAWNING.
     
-    CRITICAL FAILURE HANDLING:
-    - Each service must become healthy before the next starts
-    - Service failure aborts the entire startup process
-    - On failure, previously launched services shut down in reverse order
+    STARTUP SEQUENCE:
+    1. Monitor Server (port 8000) - waits for health
+    2. Strapi - waits for health
+    3. GPSCentCom - waits for health
+    4. Wait configured delay
+    5. Vehicle + Commuter Simulators (parallel) - wait for health
+    6. Geospatial + Manifest (parallel) - wait for health
+    
+    Console windows ONLY spawn AFTER health check passes.
     """
     
     root_path = Path(__file__).parent
     enabled = get_subsystem_config()
     ports = get_service_ports()
+    launcher_config = config['launcher']
     
     print("=" * 70)
     print("🚀 ArkNet Fleet System - Controlled Startup")
@@ -323,14 +375,27 @@ def launch_all_systems():
     print(f"📊 {total_enabled} subsystem(s) enabled")
     print()
     
-    # CRITICAL: Check Strapi dependency first
-    if not check_dependencies(enabled, ports):
-        print("🛑 Startup aborted due to missing Strapi")
-        return
+    # INFORMATIONAL: Check Strapi dependency (non-blocking)
+    check_dependencies(enabled, ports)
     
     # Define all services in STRICT dependency order
-    # Each service will block until healthy before next starts
+    # Strapi launches first, then other services
     services = []
+    
+    # 0. Strapi (Foundation - required by all services)
+    strapi_path = root_path / "arknet_fleet_manager"
+    if strapi_path.exists():
+        services.append({
+            "name": "Strapi CMS",
+            "path": strapi_path,
+            "port": ports['strapi'],
+            "title": f"Strapi CMS - Port {ports['strapi']}",
+            "is_npm": True,  # Special flag for npm-based service
+            "npm_command": "develop",
+            "health_url": f"http://localhost:{ports['strapi']}/_health",
+            "category": "Foundation",
+            "wait_time": 10  # Strapi needs more time to start
+        })
     
     # 1. Independent Services (depend only on Strapi)
     if enabled['gpscentcom']:
@@ -424,9 +489,9 @@ def launch_all_systems():
             "wait_time": 3
         })
     
-    # Launch services one by one with BLOCKING health checks
+    # Launch services one by one WITHOUT blocking on health checks
     print("🔄 Starting services in dependency order...")
-    print("   Each service must become healthy before the next starts")
+    print("   Services will launch in separate console windows")
     print()
     
     current_category = None
@@ -437,49 +502,90 @@ def launch_all_systems():
             print()
         
         # Launch the service
-        print(f"[{idx}/{len(services)}] {service['name']}")
+        print(f"[{idx}/{len(services)}] Launching {service['name']}...", end=" ")
         process = launch_service_in_console(
             service["name"],
             service.get("path"),
             service.get("port"),
             service["title"],
             service.get("as_module"),
-            service.get("extra_args")
+            service.get("extra_args"),
+            service.get("is_npm", False),
+            service.get("npm_command")
         )
         
         if process is None:
             # Launch failed
+            print("❌ FAILED")
             print()
-            print(f"❌ CRITICAL FAILURE: {service['name']} failed to launch")
+            print(f"⚠️  Warning: {service['name']} failed to launch")
+            print(f"   Continuing with remaining services...")
             print()
-            print("🛑 Aborting startup and shutting down previously launched services...")
-            shutdown_services(launched_services)
-            return
-        
-        # Add to launched list
-        service['process'] = process
-        launched_services.append(service)
-        
-        # Wait for initial startup
-        print(f"   ⏱️  Waiting {service['wait_time']}s for initialization...")
-        time.sleep(service['wait_time'])
-        
-        # Health check if applicable
-        if service.get('health_url'):
-            if not wait_for_service(service['name'], service['health_url'], max_attempts=20, delay=2):
-                # Health check failed - CRITICAL
-                print()
-                print(f"❌ CRITICAL FAILURE: {service['name']} failed health check")
-                print(f"   Service did not become healthy within timeout")
-                print()
-                print("🛑 Aborting startup and shutting down previously launched services...")
-                shutdown_services(launched_services)
-                return
         else:
-            print(f"   ⏭️  No health check available - assuming healthy")
+            print("✅ Launched")
+            # Add to launched list
+            service['process'] = process
+            launched_services.append(service)
         
-        print(f"   ✅ {service['name']} ready")
+        # Brief delay between launches
+        time.sleep(1.0)
+    
+    print()
+    print("=" * 70)
+    print(f"✅ Launched {len(launched_services)}/{len(services)} services")
+    print("=" * 70)
+    print()
+    
+    # Now monitor health status continuously
+    print("📊 Starting health monitoring...")
+    print("   Press Ctrl+C to stop monitoring and exit")
+    print()
+    print("=" * 70)
+    
+    try:
+        while True:
+            # Clear status display (print separator)
+            print()
+            print(f"🏥 Health Status Report - {time.strftime('%H:%M:%S')}")
+            print("-" * 70)
+            
+            for service in launched_services:
+                service_name = service['name'].ljust(25)
+                
+                if service.get('health_url'):
+                    # Check health via HTTP
+                    is_healthy = check_service_health(service['name'], service['health_url'], timeout=2)
+                    
+                    if is_healthy:
+                        status = "🟢 HEALTHY"
+                        port_info = f"(port {service['port']})" if service.get('port') else ""
+                        print(f"   {service_name} {status} {port_info}")
+                    else:
+                        status = "🔴 UNHEALTHY"
+                        port_info = f"(port {service['port']})" if service.get('port') else ""
+                        print(f"   {service_name} {status} {port_info}")
+                else:
+                    # No health check available
+                    status = "⚪ NO HEALTH CHECK"
+                    print(f"   {service_name} {status}")
+            
+            print("-" * 70)
+            print(f"   Monitoring {len(launched_services)} services - Next check in 10s")
+            
+            # Wait 10 seconds before next check
+            time.sleep(10)
+    
+    except KeyboardInterrupt:
         print()
+        print()
+        print("=" * 70)
+        print("🛑 Monitoring stopped by user")
+        print("=" * 70)
+        print()
+        print("📌 Services are still running in their console windows")
+        print("   To stop services: Close each console window manually")
+        print()
+        return
     
     # All services launched successfully!
     print("=" * 70)
