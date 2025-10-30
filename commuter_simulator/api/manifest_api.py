@@ -7,7 +7,7 @@ FastAPI service providing enriched passenger manifests for UI consumption.
 Wraps the manifest_builder to provide HTTP access to ordered, geocoded passenger data.
 
 Usage:
-    uvicorn commuter_simulator.api.manifest_api:app --host 0.0.0.0 --port 8002
+    uvicorn commuter_simulator.api.manifest_api:app --host 0.0.0.0 --port 4000
 
 Endpoints:
     GET /api/manifest - Query passenger manifest with filters
@@ -140,4 +140,4 @@ async def get_manifest(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=4000)

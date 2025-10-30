@@ -8,7 +8,7 @@ import time
 import json
 
 # API base URL
-BASE_URL = "http://localhost:8001"
+BASE_URL = "http://localhost:6000"
 
 # Test coordinates in Barbados
 BRIDGETOWN_CENTER = {"lat": 13.0969, "lon": -59.6145}  # Bridgetown center

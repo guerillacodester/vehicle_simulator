@@ -230,7 +230,7 @@ class DepotManager(StateMachine, IDepotManager):
                 status = vehicle.get('status', 'unknown')
                 reg_code = vehicle.get('reg_code', 'Unknown')
                 
-                if status in ['available', 'in_service']:
+                if status in ['available', 'in_service', 'active']:
                     active_vehicles.append((reg_code, status))
                 else:
                     inactive_vehicles.append((reg_code, status))

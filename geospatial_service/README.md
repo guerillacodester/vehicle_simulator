@@ -23,7 +23,7 @@ Provides optimized PostGIS spatial operations without going through Strapi's ORM
 **Phase 2 (Production - Future)**: Separate FastAPI service
 
 - Location: `geospatial_service/` (this folder)
-- Access: `http://localhost:8001/*`
+- Access: `http://localhost:6000/*`
 - Independent scaling and optimization
 - Direct PostGIS connection (read-only)
 

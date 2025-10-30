@@ -199,7 +199,7 @@ class PoissonGeoJSONPlugin(BaseSpawningPlugin):
             from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
             
             config_loader = SpawnConfigLoader(api_base_url=self.config.custom_params.get('strapi_url', 'http://localhost:1337/api'))
-            geo_client = GeospatialClient(base_url=self.config.custom_params.get('geo_url', 'http://localhost:8001'))
+            geo_client = GeospatialClient(base_url=self.config.custom_params.get('geo_url', 'http://localhost:6000'))
             
             # Get spawn config for this route
             spawn_config = await self._get_route_spawn_config(config_loader, route_id)

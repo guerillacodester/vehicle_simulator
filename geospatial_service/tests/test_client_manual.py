@@ -2,7 +2,7 @@
 Quick manual test of GeospatialClient
 
 Run this to verify the client works before running full pytest suite.
-Requires: Geospatial API running at http://localhost:8001
+Requires: Geospatial API running at http://localhost:6000
 
 Usage:
     python -m geospatial_service.tests.test_client_manual
@@ -19,7 +19,7 @@ def main():
     # Test 1: Client initialization
     print("Test 1: Initializing client...")
     try:
-        client = GeospatialClient(base_url="http://localhost:8001")
+        client = GeospatialClient(base_url="http://localhost:6000")
         print("✅ Client created successfully\n")
     except Exception as e:
         print(f"❌ Failed to create client: {e}")

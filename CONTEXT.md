@@ -3,10 +3,10 @@
 **Project**: ArkNet Fleet Manager & Vehicle Simulator  
 **Repository**: vehicle_simulator  
 **Branch**: branch-0.0.2.8 (NOT main)  
-**Date**: October 28, 2025  
-**Status**: ✅ TIER 1-4 COMPLETE | ✅ TIER 5 Step 1 COMPLETE (Route-Depot Schema) | 🎯 TIER 5 Steps 2-7 NEXT  
-**Phase**: TIER 5 IN PROGRESS - Route-Depot Association & RouteSpawner Integration (Step 1/7 Complete - Oct 28)  
-**Discovery**: RouteSpawner ALREADY FULLY IMPLEMENTED (287 lines) - reduces TIER 5 scope by 33%
+**Date**: October 30, 2025  
+**Status**: ✅ TIER 1-4.5 COMPLETE | 🎯 TIER 5 Route-Depot Association NEXT  
+**Phase**: HTTP Services Consolidated, GPS Client Library Created  
+**Latest**: ArkNet Fleet Services API unified backend (arknet_fleet_services.py) - Oct 30
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -19,6 +19,12 @@
 ### **Your Role & Authority**
 
 You are a **50+ year full-stack developer veteran** with deep expertise across all technologies in this stack. You have the authority and responsibility to:
+
+### **⚠️ CRITICAL: NO NEW MARKDOWN FILES**
+- **NEVER create new .md files** for documentation, summaries, or analysis
+- All information goes into **CONTEXT.md** or **TODO.md** ONLY
+- Exception: Module-specific READMEs inside their own directories (e.g., `gps_telemetry_client/README.md`)
+- If you need to document something, add a section to CONTEXT.md or TODO.md
 
 1. **✅ PUSH BACK HARD** on poor suggestions, anti-patterns, or violations of best practices
    - Question unclear requirements before implementing
@@ -171,13 +177,24 @@ IMMEDIATE NEXT TASK (October 28):
    - Add PubSub via PostgreSQL LISTEN/NOTIFY for reservoir visualization
    - Execute comprehensive flag tests
 
-CORRECTED ARCHITECTURE (October 28):
-commuter_simulator/ (Passenger Generation - TIER 4 COMPLETE)
+CLEAN ARCHITECTURE (October 29 - REFACTORED):
+commuter_simulator/ (Passenger Generation - CLEAN ARCHITECTURE)
   ├─ main.py: Single entrypoint with SpawnerCoordinator
-  ├─ services/spawner_coordinator.py: Orchestrates spawners
-  ├─ core/domain/spawner_engine/depot_spawner.py: Depot passenger generation
-  ├─ core/domain/reservoirs/: DB-backed reservoirs with optional Redis
-  └─ infrastructure/database/passenger_repository.py: Strapi adapter
+  ├─ domain/: Pure business logic (no external dependencies)
+  │   └─ services/
+  │       ├─ spawning/: DepotSpawner, RouteSpawner, base interfaces
+  │       └─ reservoirs/: RouteReservoir, DepotReservoir
+  ├─ application/: Use cases and orchestration
+  │   ├─ coordinators/: SpawnerCoordinator
+  │   └─ queries/: manifest_query (enrichment logic)
+  ├─ infrastructure/: External systems
+  │   ├─ persistence/strapi/: PassengerRepository
+  │   ├─ geospatial/: GeospatialClient
+  │   ├─ config/: SpawnConfigLoader
+  │   └─ events/: PostgreSQL LISTEN/NOTIFY
+  └─ interfaces/: Entry points
+      ├─ http/: FastAPI manifest API (port 4000)
+      └─ cli/: list_passengers console tool
 
 arknet_transit_simulator/ (Vehicle Movement - COMPLETE)
   ├─ Vehicles drive routes
@@ -186,8 +203,9 @@ arknet_transit_simulator/ (Vehicle Movement - COMPLETE)
 
 DEPENDENCIES & BLOCKERS:
 ✅ None - All spawner implementation complete
+✅ Clean architecture refactoring complete (Oct 29)
 ✅ Ready for route-depot junction table creation
-✅ GeospatialService operational (localhost:8001)
+✅ GeospatialService operational (localhost:6000)
 ✅ Strapi operational (localhost:1337)
 
 PATH TO MVP (TIER 5-6 - REVISED Oct 28):
@@ -209,13 +227,17 @@ TIER 7 → Redis, Geofencing, Production Optimization
 
 | File | Purpose | Status | Next Action |
 |------|---------|--------|-------------|
-| **CONTEXT.md** (this file) | Master architecture, all decisions | ✅ Updated Oct 28 | Reference for patterns |
+| **CONTEXT.md** (this file) | Master architecture, all decisions | ✅ Updated Oct 29 | Reference for patterns |
 | **TODO.md** | TIER 1-5 task sequence, detailed session logs | ✅ Updated Oct 28 | Follow execution order |
-| **commuter_simulator/main.py** | Single entrypoint for spawner system | ✅ Implemented Oct 28 | Wire RouteSpawner (replace Mock) |
-| **commuter_simulator/services/spawner_coordinator.py** | Spawner orchestration | ✅ Implemented Oct 28 | Ready for use |
-| **commuter_simulator/core/domain/spawner_engine/depot_spawner.py** | Depot passenger generation | ✅ Implemented Oct 28 | Add `_load_associated_routes()` |
-| **commuter_simulator/core/domain/spawner_engine/route_spawner.py** | Route passenger generation | ✅ DISCOVERED COMPLETE Oct 28 | Wire to coordinator |
-| **commuter_simulator/core/domain/reservoirs/** | DB-backed reservoirs | ✅ Moved & updated Oct 28 | Add Redis integration later |
+| **commuter_simulator/ARCHITECTURE.md** | Clean architecture guide | ✅ Created Oct 29 | Reference for layer rules |
+| **commuter_simulator/main.py** | Single entrypoint for spawner system | ✅ Updated Oct 29 | Wire RouteSpawner (replace Mock) |
+| **commuter_simulator/application/coordinators/spawner_coordinator.py** | Spawner orchestration | ✅ Refactored Oct 29 | Ready for use |
+| **commuter_simulator/domain/services/spawning/depot_spawner.py** | Depot passenger generation | ✅ Refactored Oct 29 | Add `_load_associated_routes()` |
+| **commuter_simulator/domain/services/spawning/route_spawner.py** | Route passenger generation | ✅ Refactored Oct 29 | Wire to coordinator |
+| **commuter_simulator/domain/services/reservoirs/** | DB-backed reservoirs | ✅ Refactored Oct 29 | Add Redis integration later |
+| **commuter_simulator/application/queries/manifest_query.py** | Enriched manifest builder | ✅ Created Oct 29 | Used by API and CLI |
+| **commuter_simulator/interfaces/http/manifest_api.py** | FastAPI manifest endpoint | ✅ Created Oct 29 | Production ready |
+| **commuter_simulator/interfaces/cli/list_passengers.py** | Console diagnostic tool | ✅ Created Oct 29 | Production ready |
 | **geospatial_service/api/spatial.py** | Route geometry/buildings endpoints | ✅ Operational Oct 28 | Ready for RouteSpawner |
 | **geospatial_service/** | Spatial queries API | ✅ Working | Use for route-depot associations |
 | **arknet_transit_simulator/** | Vehicle movement simulator | ✅ Working | Conductor integration pending |
@@ -348,7 +370,7 @@ python .\test\test_highway_import.py    # Expected: 16/16 passing (Strapi import
 ├─ Amenity import (1,427 POIs) ✅
 └─ Landuse import (2,267 zones) ✅
 TIER 2: Enable Spawning Queries ✅ DONE (Phase 1.11)
-├─ FastAPI Geospatial Services (port 8001) ✅
+├─ FastAPI Geospatial Services (port 6000) ✅
 ├─ Reverse geocoding with parish ✅
 ├─ Geofence detection (0.23ms avg) ✅
 ├─ Depot catchment query (94ms avg) ✅
@@ -788,7 +810,7 @@ SUCCESS CRITERIA:
 │                                                                                                      │
 │  ┌───────────────────────────────────────────────────────────────────────────────────────────────┐ │
 │  │  ⚡ geospatial_service/ (Python FastAPI)                                                       │ │
-│  │  Port: 8001  │  Read-only asyncpg → PostgreSQL                                                │ │
+│  │  Port: 6000  │  Read-only asyncpg → PostgreSQL                                                │ │
 │  │  ─────────────────────────────────────────────────────────────────────────────────────────    │ │
 │  │                                                                                                │ │
 │  │  Purpose: Extract heavy spatial queries from Strapi for >1000 req/s performance                │ │
@@ -1591,7 +1613,7 @@ Mode 1: Strapi REST API (localhost:1337) - CRUD Operations
 ├─ /api/active-passengers → Live passenger records (CRUD)
 └─ /api/operational-configurations → System settings (CRUD)
 
-Mode 2: Geospatial Service (localhost:8001) - Spatial Queries (READ-ONLY)
+Mode 2: Geospatial Service (localhost:6000) - Spatial Queries (READ-ONLY)
 ├─ /route-geometry/{route_id} → PostGIS geometry queries
 ├─ /route-buildings → Spatial joins (buildings near route)
 ├─ /depot-catchment → Spatial queries (depots near coordinates)
@@ -2164,11 +2186,12 @@ Passengers at Bridge Street Station depot:
 
 ## 📄 Passenger Manifest (shared contract)
 
-To avoid reinventing the wheel when building the production UI, we've centralized the manifest computation in a reusable module.
+To avoid reinventing the wheel when building the production UI, we've centralized the manifest computation in a reusable module following clean architecture.
 
-- Source: `commuter_simulator/services/manifest_builder.py`
-- API: `commuter_simulator/api/manifest_api.py` (FastAPI, port 8002)
-- Consumers: CLI (`commuter_simulator/scripts/console/list_passengers.py`), HTTP API, and future UI
+- Source: `commuter_simulator/application/queries/manifest_query.py`
+- API: `commuter_simulator/interfaces/http/manifest_api.py` (FastAPI, port 4000)
+- Consumers: CLI (`commuter_simulator/interfaces/cli/list_passengers.py`), HTTP API, and future UI
+- Architecture: Application layer query (uses domain services and infrastructure clients)
 - Ordering: Ascending by `route_position_m` when a `route_id` is provided (distance from start of the route). Otherwise, positions are 0 and ordering is unspecified.
 - Reverse geocoding: Via GeospatialService `/geocode/reverse` with small in-memory cache and bounded concurrency (env `GEOCODE_CONCURRENCY`, default 5)
 - Resilience: Timeouts and graceful fallbacks (`start_address`/`stop_address` may be "-")
@@ -2194,14 +2217,567 @@ To avoid reinventing the wheel when building the production UI, we've centralize
 ### How to use
 
 - **HTTP API** (recommended for UI):
-  - Start: `uvicorn commuter_simulator.api.manifest_api:app --port 8002`
-  - Endpoint: `GET http://localhost:8002/api/manifest?route=<id>&limit=100`
+  - Start: `uvicorn commuter_simulator.interfaces.http.manifest_api:app --port 4000`
+  - Endpoint: `GET http://localhost:4000/api/manifest?route=<id>&limit=100`
   - Returns: `{"count": N, "route_id": "...", "passengers": [...], "ordered_by_route_position": true}`
-  - Docs: <http://localhost:8002/docs>
+  - Docs: <http://localhost:4000/docs>
 - Python import (for backend integrations):
-  - `from commuter_simulator.services.manifest_builder import enrich_manifest_rows`
+  - `from commuter_simulator.application.queries import enrich_manifest_rows`
   - Call `await enrich_manifest_rows(rows, route_id)` where `rows` are raw Strapi `active-passengers` records (attributes-flattened)
 - Console/diagnostics:
-  - `python -m commuter_simulator.scripts.console.list_passengers --route <id> --json`
+  - `python -m commuter_simulator.interfaces.cli.list_passengers --route <id> --json`
 
 This contract is now the single source of truth for manifest formatting and ordering.
+
+---
+
+## 🏛️ Clean Architecture Refactoring (October 29, 2025)
+
+### Motivation
+
+The original folder structure was ad-hoc with unclear boundaries:
+- `services/` at root level (application or domain?)
+- `api/` at root level (not part of layered architecture)
+- `core/domain/` vs `infrastructure/` confusion
+- Mixed responsibilities making code hard to navigate
+
+### Solution: Clean Architecture Layers
+
+Reorganized to follow **Robert C. Martin's Clean Architecture** with explicit layers and dependency rules.
+
+```
+commuter_simulator/
+├── domain/              # Pure business logic (no external dependencies)
+│   └── services/
+│       ├── spawning/    # DepotSpawner, RouteSpawner
+│       └── reservoirs/  # RouteReservoir, DepotReservoir
+│
+├── application/         # Use cases and orchestration
+│   ├── coordinators/    # SpawnerCoordinator
+│   └── queries/         # manifest_query (enrichment)
+│
+├── infrastructure/      # External systems (Strapi, PostGIS, Redis)
+│   ├── persistence/
+│   │   └── strapi/      # PassengerRepository
+│   ├── geospatial/      # GeospatialClient
+│   ├── config/          # SpawnConfigLoader
+│   └── events/          # LISTEN/NOTIFY
+│
+└── interfaces/          # Entry points (HTTP, CLI)
+    ├── http/            # FastAPI manifest API
+    └── cli/             # list_passengers console tool
+```
+
+### Dependency Rule
+
+**Inward only**: domain ← application ← infrastructure/interfaces
+
+- `domain/` has ZERO external dependencies (pure business logic)
+- `application/` coordinates domain services
+- `infrastructure/` implements domain interfaces
+- `interfaces/` provides entry points (HTTP, CLI)
+
+### Files Moved
+
+| Old Location | New Location | Reason |
+|--------------|--------------|--------|
+| `services/manifest_builder.py` | `application/queries/manifest_query.py` | Application-layer query |
+| `services/spawner_coordinator.py` | `application/coordinators/spawner_coordinator.py` | Orchestration logic |
+| `core/domain/spawner_engine/` | `domain/services/spawning/` | Clearer naming |
+| `core/domain/reservoirs/` | `domain/services/reservoirs/` | Consistent structure |
+| `infrastructure/database/` | `infrastructure/persistence/strapi/` | Organized by system |
+| `infrastructure/spawn/config_loader.py` | `infrastructure/config/spawn_config_loader.py` | Logical grouping |
+| `api/manifest_api.py` | `interfaces/http/manifest_api.py` | Entry point layer |
+| `scripts/console/list_passengers.py` | `interfaces/cli/list_passengers.py` | Entry point layer |
+
+### Import Changes
+
+**Before:**
+```python
+from commuter_simulator.services.manifest_builder import enrich_manifest_rows
+from commuter_simulator.core.domain.spawner_engine import DepotSpawner
+from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+```
+
+**After:**
+```python
+from commuter_simulator.application.queries import enrich_manifest_rows
+from commuter_simulator.domain.services.spawning import DepotSpawner
+from commuter_simulator.infrastructure.persistence.strapi import PassengerRepository
+```
+
+### Benefits
+
+✅ **Testability** - Domain isolated, easy to unit test
+✅ **Maintainability** - Clear boundaries, easy to navigate
+✅ **Scalability** - Add features without breaking existing code
+✅ **Clarity** - New developers understand structure immediately
+✅ **Production-ready** - Solid foundation for UI development
+
+### Verification
+
+All entry points tested and working:
+- ✅ `python -m commuter_simulator.main`
+- ✅ `uvicorn commuter_simulator.interfaces.http.manifest_api:app --port 4000`
+- ✅ `python -m commuter_simulator.interfaces.cli.list_passengers --help`
+
+See `commuter_simulator/ARCHITECTURE.md` for complete layer documentation.
+
+**Refactoring Complete**: October 29, 2025
+
+
+---
+
+##  HTTP SERVICES CONSOLIDATION (October 29-30, 2025)
+
+### Overview
+
+Previously, the system ran 3 separate HTTP services on different ports:
+- GeospatialService (port 6000) - PostGIS spatial queries
+- GPSCentCom API (port 5000) - GPS telemetry hub
+- Passenger Manifest API (port 4000) - Passenger listings
+
+These have been **consolidated into a single FastAPI application** (`arknet_fleet_services.py`) running on **port 8000** to simplify deployment, management, and client configuration.
+
+### Architecture
+
+````powershell
+
+ arknet_fleet_services.py (Port 8000)                               
+─
+                                                                          
+  FastAPI Root Application                                               
+   /geo/*         GeospatialService (mount)                           
+   /manifest/*    Passenger Manifest API (mount)                      
+   /gps/*         GPSCentCom HTTP API (mount)                         
+   /gps/device    GPSCentCom WebSocket (direct route)                 
+                                                                          
+─
+``
+
+### Component Details
+
+**1. GeospatialService (/geo/*)**
+- Source: geospatial_service/main.py
+- Functions: PostGIS spatial queries, reverse geocoding
+- Endpoints:
+  - GET /geo/route-geometry/{route_id}  Route geometry (LineString)
+  - GET /geo/route-buildings  Buildings near route
+  - POST /geo/geocode/reverse  Lat/lon  address
+  - GET /geo/health  Service health check
+
+**2. Passenger Manifest API (/manifest/*)**
+- Source: commuter_simulator/interfaces/http/manifest_api.py
+- Functions: Enriched passenger listings with reverse geocoding
+- Endpoints:
+  - GET /manifest/api/manifest?route=<id>&limit=100  Passenger manifest
+  - GET /manifest/docs  Swagger UI
+  - GET /manifest/health  Service health check
+
+**3. GPSCentCom HTTP API (/gps/*)**
+- Source: gpscentcom_server/api_router.py
+- Functions: GPS telemetry queries, device analytics
+- Endpoints:
+  - GET /gps/health  Server health check
+  - GET /gps/devices  All active devices
+  - GET /gps/route/{code}  Devices on specific route
+  - GET /gps/analytics  System-wide analytics
+  - GET /gps/stream  Server-Sent Events (SSE) telemetry stream
+
+**4. GPSCentCom WebSocket (/gps/device)**
+- Source: Direct route in arknet_fleet_services.py
+- Functions: GPS device telemetry ingestion
+- Protocol: WebSocket (text/binary, JSON/AESGCM)
+- Note: Uses **direct @app.websocket() route** to bypass FastAPI mount() limitation
+
+### WebSocket Mounting Issue
+
+**Problem**: FastAPI's pp.mount() does NOT support WebSocket routes
+
+**Original Attempt**:
+``python
+gpscentcom_app = _load_gpscentcom_app()  # Has @app.websocket("/device")
+app.mount("/gps", gpscentcom_app)        #  WebSocket won't work
+``
+
+**Solution**: Direct WebSocket route on root app
+``python
+@app.websocket("/gps/device")
+async def gpscentcom_device_endpoint(websocket: WebSocket):
+    """Forward to GPSCentCom WebSocket handler"""
+    await websocket.accept()
+    # Import and call GPSCentCom rx_handler logic
+    await handle_device_connection(websocket)
+``
+
+### Server-Sent Events (SSE) Telemetry Stream
+
+**Added**: GET /gps/stream endpoint for real-time client telemetry
+
+**Purpose**: Allows clients to receive GPS telemetry updates via HTTP streaming (alternative to WebSocket for clients)
+
+**Protocol**: Server-Sent Events (SSE) - one-way server  client push
+
+**Features**:
+- Optional filters: ?device_id=<id>&route_code=<code>
+- Broadcasts all telemetry updates from ConnectionManager
+- Auto-reconnect support (browser native)
+- Cross-platform (works in browsers, Python, .NET, etc.)
+
+**Example Usage**:
+``python
+import requests
+
+response = requests.get("http://localhost:8000/gps/stream", stream=True)
+for line in response.iter_lines():
+    if line.startswith(b"data:"):
+        telemetry = json.loads(line[6:])
+        print(f"Vehicle {telemetry['deviceId']} @ {telemetry['lat']},{telemetry['lon']}")
+``
+
+### Benefits of Consolidation
+
+1. **Single Port Configuration**: Clients only need to know http://localhost:8000
+2. **Simplified Deployment**: One process instead of three
+3. **Unified CORS Policy**: Single CORS middleware configuration
+4. **Shared Dependencies**: Single FastAPI instance, shared connection pools
+5. **Easier Monitoring**: One health endpoint, one log stream
+6. **Reduced Resource Usage**: One process overhead instead of three
+
+### Migration Guide (For Clients)
+
+**Old URLs:**
+- http://localhost:6000/route-geometry/123  http://localhost:8000/geo/route-geometry/123
+- http://localhost:5000/health  http://localhost:8000/gps/health
+- http://localhost:4000/api/manifest  http://localhost:8000/manifest/api/manifest
+- ws://localhost:5000/device  ws://localhost:8000/gps/device
+
+**New Universal Base URL**: http://localhost:8000
+
+### File Structure
+
+``
+arknet_fleet_services.py
+ _load_geospatial_app()      # Imports geospatial_service.main:app
+ _load_gpscentcom_app()      # Imports gpscentcom_server.api_router:api_router
+ _load_manifest_app()        # Imports commuter_simulator.interfaces.http.manifest_api:app
+ WebSocket direct route      # @app.websocket("/gps/device")
+ Main FastAPI app            # Mounts /geo, /gps, /manifest
+``
+
+### Running the Service
+
+````powershell
+# Recommended: Launch in separate console window (non-blocking)
+python start_fleet_services.py
+
+# Check service status
+python manage_fleet_services.py status
+
+# Stop the service
+python manage_fleet_services.py stop
+
+# Alternative: Run directly (blocks current terminal)
+python arknet_fleet_services.py
+
+# Production: Run with uvicorn
+uvicorn arknet_fleet_services:app --host 0.0.0.0 --port 8000 --reload
+````
+
+### Health Check
+
+``powershell
+# Verify all services mounted
+curl http://localhost:8000/geo/health        # GeospatialService
+curl http://localhost:8000/gps/health        # GPSCentCom
+curl http://localhost:8000/manifest/health   # Manifest API (if implemented)
+``
+
+---
+
+##  GPS TELEMETRY CLIENT LIBRARY (October 29-30, 2025)
+
+### Overview
+
+An **interface-agnostic Python library** for consuming GPS telemetry from GPSCentCom server.
+
+Designed to be used in **any Python application** (console, GUI, web dashboard, backend services) without coupling to specific UI frameworks.
+
+### Architecture
+
+``
+gps_telemetry_client/
+ __init__.py           # Library exports
+ client.py             # GPSTelemetryClient class
+ models.py             # Pydantic data models (Vehicle, etc.)
+ observers.py          # Observer pattern for event handling
+ test_client.py        # CLI tool (list/watch/poll/analytics)
+ README.md             # Library documentation
+``
+
+### GPSTelemetryClient Class
+
+**Purpose**: HTTP client for GPSCentCom API with both synchronous and asynchronous modes
+
+**Features**:
+- Synchronous HTTP polling (get_vehicles(), get_route_vehicles(), etc.)
+- Asynchronous SSE streaming (stream_telemetry() with observer pattern)
+- Pydantic validation of all responses
+- Automatic JSON parsing and error handling
+
+**Example Usage (HTTP Polling)**:
+``python
+from gps_telemetry_client import GPSTelemetryClient
+
+client = GPSTelemetryClient(base_url="http://localhost:8000")
+
+# Get all vehicles
+vehicles = client.get_vehicles()
+for vehicle in vehicles:
+    print(f"{vehicle.deviceId}: {vehicle.route} @ {vehicle.lat},{vehicle.lon}")
+
+# Get vehicles on specific route
+route_vehicles = client.get_route_vehicles("1A")
+
+# Get system analytics
+analytics = client.get_analytics()
+print(f"Total devices: {analytics.total_devices}")
+``
+
+**Example Usage (SSE Streaming)**:
+``python
+import asyncio
+from gps_telemetry_client import GPSTelemetryClient
+from gps_telemetry_client.observers import CallbackObserver
+
+async def on_telemetry(vehicle):
+    print(f"UPDATE: {vehicle.deviceId} @ {vehicle.lat},{vehicle.lon}")
+
+client = GPSTelemetryClient(base_url="http://localhost:8000")
+observer = CallbackObserver(on_telemetry)
+
+# Stream all telemetry
+await client.stream_telemetry(observers=[observer])
+
+# Stream filtered by route
+await client.stream_telemetry(route_code="1A", observers=[observer])
+``
+
+### Data Models (Pydantic)
+
+**Vehicle** (from /devices and /stream):
+``python
+@dataclass
+class Vehicle:
+    deviceId: str
+    route: str
+    vehicleReg: str
+    lat: float
+    lon: float
+    speed: float
+    heading: float
+    driverId: Optional[str]
+    driverName: Optional[Dict[str, str]]
+    conductorId: Optional[str]
+    timestamp: str
+    lastSeen: str
+``
+
+**AnalyticsResponse** (from /analytics):
+``python
+@dataclass
+class AnalyticsResponse:
+    total_devices: int
+    routes_active: Dict[str, int]
+    avg_speed: float
+    timestamp: str
+``
+
+**HealthResponse** (from /health):
+``python
+@dataclass
+class HealthResponse:
+    status: str
+    store_size: int
+    uptime_seconds: float
+``
+
+### Observer Pattern
+
+**Purpose**: Decouple telemetry consumers from client implementation
+
+**TelemetryObserver (Abstract)**:
+``python
+class TelemetryObserver(ABC):
+    @abstractmethod
+    async def on_vehicle_update(self, vehicle: Vehicle):
+        """Called when vehicle telemetry received"""
+        pass
+``
+
+**CallbackObserver (Concrete)**:
+``python
+class CallbackObserver(TelemetryObserver):
+    def __init__(self, callback: Callable[[Vehicle], Awaitable[None]]):
+        self.callback = callback
+    
+    async def on_vehicle_update(self, vehicle: Vehicle):
+        await self.callback(vehicle)
+``
+
+**Custom Observer Example**:
+``python
+class MapVisualizerObserver(TelemetryObserver):
+    def __init__(self, map_widget):
+        self.map = map_widget
+    
+    async def on_vehicle_update(self, vehicle: Vehicle):
+        self.map.update_marker(
+            id=vehicle.deviceId,
+            lat=vehicle.lat,
+            lon=vehicle.lon,
+            heading=vehicle.heading
+        )
+``
+
+### CLI Tool (	est_client.py)
+
+**Purpose**: Command-line diagnostic tool for GPS telemetry
+
+**Commands**:
+- list - Show all active vehicles (one-time snapshot)
+- watch - Live stream of telemetry updates (SSE)
+- poll - Periodic HTTP polling (default 5s interval)
+- nalytics - System-wide statistics
+
+**Example Usage**:
+``powershell
+# List all vehicles once
+python -m gps_telemetry_client.test_client list
+
+# Watch telemetry stream (SSE)
+python -m gps_telemetry_client.test_client watch
+
+# Watch specific route
+python -m gps_telemetry_client.test_client watch --route 1A
+
+# Poll every 10 seconds
+python -m gps_telemetry_client.test_client poll --interval 10
+
+# Show analytics
+python -m gps_telemetry_client.test_client analytics
+``
+
+### Use Cases
+
+1. **Console Dashboards**:
+   - Import GPSTelemetryClient in Python console apps
+   - Use stream_telemetry() with terminal UI libraries (rich, blessed, etc.)
+
+2. **.NET GUI Applications**:
+   - Call Python library via subprocess or IPC
+   - Or reimplement client in C# following same API contract
+
+3. **Web Dashboards**:
+   - Backend service uses GPSTelemetryClient
+   - Forwards telemetry to frontend via WebSocket/SSE
+   - Example: FastAPI backend with React frontend
+
+4. **Data Analytics Pipelines**:
+   - Use stream_telemetry() to pipe data to Kafka, Redis, or database
+   - Observer pattern allows pluggable data sinks
+
+5. **Testing & Diagnostics**:
+   - CLI tool for manual testing of GPS telemetry flow
+   - Verify device connectivity, route filtering, data quality
+
+### Interface-Agnostic Design
+
+**NO UI Dependencies**:
+- No imports from PyQt, tkinter, Flask, Django, etc.
+- Pure Python + 
+equests + httpx (HTTP client)
+- Pydantic for data validation (no UI coupling)
+
+**Observer Pattern Benefits**:
+- Consumers define HOW to display data (UI logic)
+- Library defines WHEN to notify consumers (business logic)
+- Clean separation of concerns
+
+**Example: Absorbing into WPF .NET GUI**:
+``csharp
+// C# equivalent (pseudo-code)
+public class GPSTelemetryClient
+{
+    public async Task<List<Vehicle>> GetVehiclesAsync() { ... }
+    public async Task StreamTelemetryAsync(Action<Vehicle> onUpdate) { ... }
+}
+
+// WPF application
+var client = new GPSTelemetryClient("http://localhost:8000");
+await client.StreamTelemetryAsync(vehicle =>
+{
+    Dispatcher.Invoke(() =>
+    {
+        MapControl.UpdateMarker(vehicle.DeviceId, vehicle.Lat, vehicle.Lon);
+    });
+});
+``
+
+### Integration with Vehicle Simulator
+
+**Vehicle Simulator** (rknet_transit_simulator) sends telemetry:
+``
+Vehicle  GPSDevice  WebSocket  GPSCentCom (/gps/device)  Store
+``
+
+**GPS Telemetry Client** receives telemetry:
+``
+Store  HTTP/SSE  GPSTelemetryClient  Observers  UI/Console/Analytics
+``
+
+**End-to-End Flow**:
+``
+[Vehicle Simulator]
+     WebSocket (ws://localhost:8000/gps/device)
+[GPSCentCom Server]
+     In-memory store
+[GPSTelemetryClient]
+     HTTP GET /gps/devices (polling)
+     SSE GET /gps/stream (streaming)
+[Observer Pattern]
+     on_vehicle_update(vehicle)
+[UI Application]
+     Display on map/console/dashboard
+``
+
+### Testing
+
+**Test Environment**:
+1. Start ArkNet Fleet Services API: `python start_fleet_services.py` (launches in separate console)
+2. Start vehicle simulator: `python -m arknet_transit_simulator`
+3. Verify telemetry: `python -m gps_telemetry_client.test_client watch`
+
+**Expected Output**:
+``
+Connected to SSE stream: http://localhost:8000/gps/stream
+
+Update: DEVICE_001
+  Route: 1A | Vehicle: BDS-101
+  Position: 13.0975, -59.6142
+  Speed: 45.2 km/h | Heading: 135.0
+  Driver: John Doe (driver_001)
+  Timestamp: 2025-10-30T10:15:23Z
+
+``
+
+### Future Enhancements
+
+1. **Reconnection Logic**: Auto-reconnect SSE stream on disconnect
+2. **Data Buffering**: Queue telemetry updates during processing
+3. **Filtering Options**: Device ID, bounding box, speed threshold
+4. **Historical Playback**: Replay telemetry from database
+5. **Multi-Client Coordination**: Redis pub/sub for distributed clients
+
+---
+

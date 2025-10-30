@@ -252,7 +252,7 @@ Examples - Time Range:
         use_spatial_cache=False,
         custom_params={
             'strapi_url': 'http://localhost:1337/api',
-            'geo_url': 'http://localhost:8001'
+            'geo_url': 'http://localhost:6000'
         }
     )
     
@@ -284,7 +284,7 @@ Examples - Time Range:
     # Get route geometry for ordering passengers
     print("\n[STEP 5/5] Loading route geometry and passenger positions...")
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"http://localhost:8001/spatial/route-geometry/{ROUTE_ID}")
+        response = await client.get(f"http://localhost:6000/spatial/route-geometry/{ROUTE_ID}")
         route_geom = response.json()
     
     route_coords = route_geom['coordinates']  # List of [lat, lon]

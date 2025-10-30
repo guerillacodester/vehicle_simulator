@@ -40,7 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-SPAWNER_SERVICE_URL = "http://localhost:8002"
+SPAWNER_SERVICE_URL = "http://localhost:4000"
 VALID_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
 

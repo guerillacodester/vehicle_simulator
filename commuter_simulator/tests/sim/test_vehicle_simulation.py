@@ -81,7 +81,7 @@ async def main():
     print("\n[STEP 1/3] Loading route geometry...")
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(f"http://localhost:8001/spatial/route-geometry/{ROUTE_ID}")
+            response = await client.get(f"http://localhost:6000/spatial/route-geometry/{ROUTE_ID}")
             response.raise_for_status()
             route_geom = response.json()
         except Exception as e:

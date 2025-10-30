@@ -9,7 +9,7 @@ FastAPI service that:
 Env vars:
 - STRAPI_URL (default: http://localhost:1337)
 - STRAPI_TOKEN (optional, for protected Strapi APIs)
-- GEO_URL (default: http://localhost:8001)
+- GEO_URL (default: http://localhost:6000)
 
 Run:
   uvicorn visualizer.app:app --host 0.0.0.0 --port 8010 --reload
@@ -28,7 +28,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 STRAPI_URL = os.getenv("STRAPI_URL", "http://localhost:1337").rstrip("/")
 STRAPI_TOKEN = os.getenv("STRAPI_TOKEN")
-GEO_URL = os.getenv("GEO_URL", "http://localhost:8001").rstrip("/")
+GEO_URL = os.getenv("GEO_URL", "http://localhost:6000").rstrip("/")
 
 app = FastAPI(title="Passenger Visualizer", version="0.2.0")
 

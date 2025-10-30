@@ -16,16 +16,16 @@ class GeospatialClient:
     """
     Client for Geospatial Services API.
     
-    Phase 1: Uses FastAPI service at http://localhost:8001
+    Phase 1: Uses FastAPI service at http://localhost:6000
     Phase 2: Will support load balancing, retries, caching
     """
     
-    def __init__(self, base_url: str = "http://localhost:8001", timeout: int = 5):
+    def __init__(self, base_url: str = "http://localhost:6000", timeout: int = 5):
         """
         Initialize client.
         
         Args:
-            base_url: Base URL of geospatial service (default: http://localhost:8001)
+            base_url: Base URL of geospatial service (default: http://localhost:6000)
             timeout: Request timeout in seconds (default: 5)
         """
         self.base_url = base_url.rstrip("/")
@@ -310,7 +310,7 @@ class GeospatialClient:
 _default_client: Optional[GeospatialClient] = None
 
 
-def get_client(base_url: str = "http://localhost:8001") -> GeospatialClient:
+def get_client(base_url: str = "http://localhost:6000") -> GeospatialClient:
     """
     Get or create default geospatial client.
     

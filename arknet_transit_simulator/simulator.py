@@ -90,9 +90,10 @@ logger = logging.getLogger(__name__)
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: str = "http://localhost:1337", enable_boarding_after: float = None) -> None:
+    def __init__(self, api_url: str = "http://localhost:1337", enable_boarding_after: float = None, gps_config: dict = None) -> None:
         self.api_url = api_url
         self.enable_boarding_after = enable_boarding_after  # Delay in seconds before auto-enabling boarding
+        self.gps_config = gps_config or {}  # GPS server configuration
         self.dispatcher = None
         self.depot = None
         self._running = False
@@ -328,9 +329,14 @@ class CleanVehicleSimulator:
             
             # Create GPS device for this vehicle
             device_id = f"GPS-{vehicle_assignment.vehicle_id}"
+            
+            # Get GPS server config (use from config or defaults)
+            gps_server_url = self.gps_config.get('server_url', 'ws://localhost:5000')
+            gps_auth_token = self.gps_config.get('auth_token', f"driver-{driver_assignment.driver_id}-token")
+            
             transmitter = WebSocketTransmitter(
-                server_url="ws://localhost:5000",
-                token=f"driver-{driver_assignment.driver_id}-token",
+                server_url=gps_server_url,
+                token=gps_auth_token,
                 device_id=device_id,
                 codec=PacketCodec()
             )

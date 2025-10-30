@@ -179,6 +179,13 @@ class GPSDevice(BaseComponent):
 
         except Exception as e:
             # More user-friendly error message for GPS server connection issues
+            # Log full exception details for debugging
+            import traceback
+            logger.error(f"📡 {self.component_id}: Full connection error details:")
+            logger.error(f"   Exception type: {type(e).__name__}")
+            logger.error(f"   Exception message: {str(e)}")
+            logger.error(f"   Traceback:\n{traceback.format_exc()}")
+            
             if "refused" in str(e).lower() or "1225" in str(e):
                 logger.warning(f"📡 {self.component_id}: Cannot connect to telemetry server - GPS server appears to be offline")
             else:

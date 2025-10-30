@@ -3,12 +3,13 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 28, 2025 - Spawner Architecture Complete, Route-Depot Association Designed  
-**Status**: ✅ Spawner System Implemented & Tested | 🎯 Route-Depot Junction Table NEXT  
+**Updated**: October 30, 2025 - Consolidated HTTP Services, GPS Client Library  
+**Status**: ✅ HTTP Services Consolidated | ✅ GPS Client Library | 🎯 Route-Depot Junction NEXT  
 **Strategy**: Single Entrypoint → SpawnerCoordinator → DepotSpawner + RouteSpawner → Reservoirs
 
-> **📌 Companion Doc**: `CONTEXT.md` - Complete project context, architecture, and validated metrics  
-> **📚 Session Notes**: See bottom of this file for detailed session log
+> **📌 Key Documentation**:
+> - `CONTEXT.md` - Complete project context, architecture, all technical details
+> - `TODO.md` - Task tracking, progress, next steps
 
 **Execution Priority**:
 
@@ -23,7 +24,16 @@ TIER 4: Spawner System Implementation ✅ COMPLETE (Oct 28)
   - End-to-end testing: 4 passengers spawned, verified in Strapi ✅
   - Fresh spawn verification: Confirmed new passenger generation ✅
   - MockRouteSpawner: Test implementation for flag testing ✅
-TIER 5: Route-Depot Association & RouteSpawner Integration ✅ STEP 1 COMPLETE (Oct 28)
+TIER 4.5: HTTP Services Consolidation & Telemetry Client ✅ COMPLETE (Oct 30)
+  - Consolidated HTTP Services: Merged 3 services (GeospatialService, GPSCentCom, Manifest) into one → arknet_fleet_services.py ✅
+  - WebSocket fix: Direct route for GPS devices (FastAPI mount limitation workaround) ✅
+  - SSE endpoint: /gps/stream for real-time client telemetry streaming ✅
+  - GPS Telemetry Client Library: Interface-agnostic Python library → gps_telemetry_client/ ✅
+  - Test CLI: test_client.py with list/watch/poll/analytics commands ✅
+  - Vehicle simulator integration: Fixed GPS URL configuration ✅
+  - End-to-end telemetry flow: Device → WebSocket → Store → HTTP/SSE ✅
+  - File: arknet_fleet_services.py (single FastAPI app on port 8000)
+TIER 5: Route-Depot Association & RouteSpawner Integration 🎯 NEXT
   - Create route-depots junction table in Strapi
   - Precompute geospatial depot-route associations
   - Wire existing RouteSpawner to coordinator (DISCOVERED: Already fully implemented - 287 lines)
@@ -143,7 +153,7 @@ Route-Depot Association 🎯 NEXT - OCT 28
     - /api/route-depots → NEW junction table
     - /api/spawn-configs → Spawning configuration
     - /api/active-passengers → Live passenger records
-  - Mode 2: Geospatial Service (localhost:8001) - Spatial queries (READ-ONLY)
+  - Mode 2: Geospatial Service (localhost:6000) - Spatial queries (READ-ONLY)
     - /route-geometry/{route_id} → PostGIS geometry queries
     - /route-buildings → Spatial joins (buildings near route)
     - /depot-catchment → Depot proximity searches
@@ -2517,7 +2527,7 @@ git push origin branch-0.0.2.6
 - **Mode 1**: Strapi REST API (localhost:1337) - CRUD operations
   - /api/routes, /api/depots, /api/spawn-configs, /api/active-passengers
   - Single source of truth for master data
-- **Mode 2**: Geospatial Service (localhost:8001) - Spatial queries (READ-ONLY)
+- **Mode 2**: Geospatial Service (localhost:6000) - Spatial queries (READ-ONLY)
   - /route-geometry, /route-buildings, /depot-catchment, /nearby-buildings
   - PostGIS spatial calculations isolated from Strapi
 - **Rationale**: Separation of concerns, performance isolation, single source of truth maintained

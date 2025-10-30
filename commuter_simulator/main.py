@@ -14,11 +14,11 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from commuter_simulator.services.spawner_coordinator import SpawnerCoordinator
-from commuter_simulator.core.domain.spawner_engine import DepotSpawner, RouteSpawner, SpawnerInterface, SpawnRequest
-from commuter_simulator.core.domain.reservoirs import RouteReservoir, DepotReservoir
-from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
-from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
+from commuter_simulator.application.coordinators import SpawnerCoordinator
+from commuter_simulator.domain.services.spawning import DepotSpawner, RouteSpawner, SpawnerInterface, SpawnRequest
+from commuter_simulator.domain.services.reservoirs import RouteReservoir, DepotReservoir
+from commuter_simulator.infrastructure.persistence.strapi.passenger_repository import PassengerRepository
+from commuter_simulator.infrastructure.config.spawn_config_loader import SpawnConfigLoader
 from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
 import random
 import uuid
@@ -72,7 +72,7 @@ async def main():
         
         # Initialize config loader and geospatial client
         config_loader = SpawnConfigLoader(api_base_url="http://localhost:1337/api")
-        geo_client = GeospatialClient(base_url="http://localhost:8001")
+        geo_client = GeospatialClient(base_url="http://localhost:6000")
         
         # RouteSpawner - using Route 1 (documentId from Strapi)
         route_spawner = RouteSpawner(

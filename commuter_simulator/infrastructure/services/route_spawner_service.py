@@ -11,7 +11,7 @@ Endpoint:
 Response: NDJSON stream of SpawnRequest objects (1 JSON object per line)
 
 Example:
-  curl "http://localhost:8002/spawn/route/gg3pv3z19hhm117v9xth5ezq?time=09:00:00&day=Monday"
+  curl "http://localhost:4000/spawn/route/gg3pv3z19hhm117v9xth5ezq?time=09:00:00&day=Monday"
   
   Output:
   {"passenger_id":"PASS_ABC12345","spawn_location":[13.32661,-59.61552],...}
@@ -82,7 +82,7 @@ class RouteSpawnerServiceManager:
     def __init__(
         self,
         strapi_url: str = "http://localhost:1337",
-        geo_url: str = "http://localhost:8001"
+        geo_url: str = "http://localhost:6000"
     ):
         self.strapi_url = strapi_url
         self.geo_url = geo_url
@@ -199,7 +199,7 @@ async def startup():
     global service_manager
     service_manager = RouteSpawnerServiceManager(
         strapi_url="http://localhost:1337",
-        geo_url="http://localhost:8001"
+        geo_url="http://localhost:6000"
     )
     await service_manager.initialize()
 
@@ -304,7 +304,7 @@ if __name__ == "__main__":
     ║           ROUTE SPAWNER SERVICE                           ║
     ║                                                           ║
     ║  Streaming endpoint for route passenger spawning         ║
-    ║  Listening on http://localhost:8002                      ║
+    ║  Listening on http://localhost:4000                      ║
     ║                                                           ║
     ║  Example request:                                         ║
     ║  GET /spawn/route/gg3pv3z19hhm117v9xth5ezq             ║
@@ -317,6 +317,6 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8002,
+        port=4000,
         log_level="info"
     )

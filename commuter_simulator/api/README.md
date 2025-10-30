@@ -1,5 +1,9 @@
 # Manifest API
 
+⚠️ **Note**: This directory is deprecated. The API has been moved to clean architecture structure.
+
+**New location**: `commuter_simulator/interfaces/http/manifest_api.py`
+
 FastAPI service providing enriched passenger manifests for UI consumption.
 
 ## Features
@@ -8,7 +12,7 @@ FastAPI service providing enriched passenger manifests for UI consumption.
 - **Flexible filtering**: By route, depot, status, time range
 - **Ordered results**: Sorted by distance from route start when route_id provided
 - **CORS enabled**: Ready for browser consumption
-- **Single source of truth**: Uses `manifest_builder` module (shared with CLI)
+- **Single source of truth**: Uses `manifest_query` module (shared with CLI)
 
 ## Endpoints
 
@@ -77,24 +81,24 @@ pip install fastapi uvicorn httpx
 
 # Set environment variables
 $env:STRAPI_URL = "http://localhost:1337"
-$env:GEO_URL = "http://localhost:8001"
+$env:GEO_URL = "http://localhost:6000"
 $env:STRAPI_TOKEN = "your-token-here"  # Optional
 
-# Run the API
-uvicorn commuter_simulator.api.manifest_api:app --host 0.0.0.0 --port 8002 --reload
+# Run the API (NEW PATH)
+uvicorn commuter_simulator.interfaces.http.manifest_api:app --host 0.0.0.0 --port 4000 --reload
 ```
 
 ### Production
 
 ```powershell
-# Run with multiple workers
-uvicorn commuter_simulator.api.manifest_api:app --host 0.0.0.0 --port 8002 --workers 4
+# Run with multiple workers (NEW PATH)
+uvicorn commuter_simulator.interfaces.http.manifest_api:app --host 0.0.0.0 --port 4000 --workers 4
 ```
 
 ## Environment Variables
 
 - `STRAPI_URL` (default: `http://localhost:1337`): Strapi API base URL
-- `GEO_URL` (default: `http://localhost:8001`): GeospatialService base URL
+- `GEO_URL` (default: `http://localhost:6000`): GeospatialService base URL
 - `STRAPI_TOKEN` (optional): Bearer token for Strapi API authentication
 - `GEOCODE_CONCURRENCY` (default: 5): Max concurrent reverse geocoding requests
 
@@ -102,33 +106,33 @@ uvicorn commuter_simulator.api.manifest_api:app --host 0.0.0.0 --port 8002 --wor
 
 ```powershell
 # Health check
-curl http://localhost:8002/health
+curl http://localhost:4000/health
 
 # Get all passengers (up to 100)
-curl http://localhost:8002/api/manifest
+curl http://localhost:4000/api/manifest
 
 # Get passengers for a specific route (ordered by route position)
-curl "http://localhost:8002/api/manifest?route=1&limit=50"
+curl "http://localhost:4000/api/manifest?route=1&limit=50"
 
 # Filter by status and time range
-curl "http://localhost:8002/api/manifest?status=WAITING&start=2025-10-29T00:00:00Z&end=2025-10-29T23:59:59Z"
+curl "http://localhost:4000/api/manifest?status=WAITING&start=2025-10-29T00:00:00Z&end=2025-10-29T23:59:59Z"
 
 # Get passengers at a specific depot
-curl "http://localhost:8002/api/manifest?depot=DEPOT_01&limit=20"
+curl "http://localhost:4000/api/manifest?depot=DEPOT_01&limit=20"
 ```
 
 ## API Documentation
 
 Once running, visit:
-- Interactive docs: <http://localhost:8002/docs>
-- OpenAPI schema: <http://localhost:8002/openapi.json>
+- Interactive docs: <http://localhost:4000/docs>
+- OpenAPI schema: <http://localhost:4000/openapi.json>
 
 ## Integration with UI
 
 ### Fetch manifest for a route
 
 ```javascript
-const response = await fetch('http://localhost:8002/api/manifest?route=1&limit=100');
+const response = await fetch('http://localhost:4000/api/manifest?route=1&limit=100');
 const data = await response.json();
 
 // Display passengers ordered by route position
@@ -148,7 +152,7 @@ For real-time passenger events, use the streaming endpoint from `visualizer/app.
 ```
 UI/Frontend
     ↓ HTTP GET
-Manifest API (port 8002)
+Manifest API (port 4000)
     ↓ async calls
 ├─ manifest_builder.py (enrichment logic)
 │   ├─ fetch_passengers() → Strapi API

@@ -386,8 +386,17 @@ async def main_async(argv=None):
     if args.mode == 'status':
         return await run_status(args.api_url)
     
+    # Load GPS configuration from environment
+    from arknet_transit_simulator.config.config_loader import ConfigLoader
+    config_loader = ConfigLoader()
+    gps_config = config_loader.get_gps_config()
+    
     # Full initialization for display and depot modes
-    sim = CleanVehicleSimulator(api_url=args.api_url, enable_boarding_after=args.enable_boarding_after)
+    sim = CleanVehicleSimulator(
+        api_url=args.api_url, 
+        enable_boarding_after=args.enable_boarding_after,
+        gps_config=gps_config
+    )
     if not await sim.initialize():
         print("Initialization failed. Exiting.")
         return 1

@@ -8,7 +8,7 @@ What it does:
 
 ## Prereqs
 - Strapi running locally at <http://localhost:1337> with `active-passengers` content type
-- GeospatialService running locally at <http://localhost:8001> (endpoint `/spatial/route-geometry/{route_id}`)
+- GeospatialService running locally at <http://localhost:6000> (endpoint `/spatial/route-geometry/{route_id}`)
 - Python 3.10+
 
 ## Install (Windows PowerShell)
@@ -22,7 +22,9 @@ pip install -r visualizer/requirements.txt
 ```powershell
 # Optional env vars (defaults shown)
 $env:STRAPI_URL = "http://localhost:1337"
-$env:GEO_URL = "http://localhost:8001"
+```powershell
+# Set the GeospatialService URL
+$env:GEO_URL = "http://localhost:6000"
 # If your Strapi requires auth for reads, set a token (role must have read on active-passengers)
 # $env:STRAPI_TOKEN = "<your_strapi_token>"
 
