@@ -1,3 +1,8 @@
+-- PostgreSQL Trigger for Active Passengers NOTIFY Events
+-- 
+-- This file contains PostgreSQL-specific syntax (plpgsql, pg_notify, jsonb)
+-- and should NOT be linted with MSSQL/SQL Server tools.
+--
 -- Create a trigger to publish NOTIFY events on inserts/updates to active_passengers
 -- Assumes Strapi uses table public.active_passengers with common columns shown below.
 -- Adjust field names if your schema differs.

@@ -3,8 +3,8 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.8  
 **Started**: October 25, 2025  
-**Updated**: October 30, 2025 - Consolidated HTTP Services, GPS Client Library  
-**Status**: ✅ HTTP Services Consolidated | ✅ GPS Client Library | 🎯 Route-Depot Junction NEXT  
+**Updated**: October 30, 2025 - Fleet Services Standalone Architecture, Port Configuration Centralized  
+**Status**: ✅ Fleet Services Operational | ✅ GPS Client Library | ✅ Configuration Centralized | 🎯 Route-Depot Junction NEXT  
 **Strategy**: Single Entrypoint → SpawnerCoordinator → DepotSpawner + RouteSpawner → Reservoirs
 
 > **📌 Key Documentation**:
@@ -24,15 +24,17 @@ TIER 4: Spawner System Implementation ✅ COMPLETE (Oct 28)
   - End-to-end testing: 4 passengers spawned, verified in Strapi ✅
   - Fresh spawn verification: Confirmed new passenger generation ✅
   - MockRouteSpawner: Test implementation for flag testing ✅
-TIER 4.5: HTTP Services Consolidation & Telemetry Client ✅ COMPLETE (Oct 30)
-  - Consolidated HTTP Services: Merged 3 services (GeospatialService, GPSCentCom, Manifest) into one → arknet_fleet_services.py ✅
-  - WebSocket fix: Direct route for GPS devices (FastAPI mount limitation workaround) ✅
-  - SSE endpoint: /gps/stream for real-time client telemetry streaming ✅
+TIER 4.5: Fleet Services & Telemetry Infrastructure ✅ COMPLETE (Oct 30)
+  - Standalone services architecture: GPSCentCom (5000), GeospatialService (6000), Manifest API (4000) ✅
+  - Configuration centralized: .env file as single source of truth for all ports/URLs ✅
+  - Unified launcher: start_fleet_services.py launches all 3 services in separate consoles ✅
   - GPS Telemetry Client Library: Interface-agnostic Python library → gps_telemetry_client/ ✅
   - Test CLI: test_client.py with list/watch/poll/analytics commands ✅
-  - Vehicle simulator integration: Fixed GPS URL configuration ✅
-  - End-to-end telemetry flow: Device → WebSocket → Store → HTTP/SSE ✅
-  - File: arknet_fleet_services.py (single FastAPI app on port 8000)
+  - Vehicle simulator integration: WebSocket connection to GPSCentCom on port 5000 ✅
+  - End-to-end telemetry flow: Device → WebSocket → Store → HTTP API ✅
+  - Geospatial service tested: Reverse geocoding working (~18ms response time) ✅
+  - Code cleanup: Removed deprecated unified backend files (arknet_fleet_services.py, etc.) ✅
+  - Files: start_fleet_services.py (launcher), .env (config), FLEET_SERVICES.md (docs)
 TIER 5: Route-Depot Association & RouteSpawner Integration 🎯 NEXT
   - Create route-depots junction table in Strapi
   - Precompute geospatial depot-route associations
@@ -98,6 +100,54 @@ Route-Depot Association 🎯 NEXT - OCT 28
   → Phase 1.15 (Reservoir wiring & PubSub)
   → Phases 2-3 (Redis, Geofencing, Production Optimization)
 ```
+
+---
+
+## 🎉 **RECENT ACCOMPLISHMENTS (October 30, 2025)**
+
+### Fleet Services Architecture Finalized
+
+**Problem**: Attempted unified backend on port 8000 had WebSocket proxy issues  
+**Solution**: Reverted to standalone services architecture for simplicity and reliability
+
+**Achievements**:
+1. ✅ **Port Configuration Centralized**
+   - All ports moved to `.env` file (single source of truth)
+   - Updated all references from old ports (8001→6000, 8002→4000)
+   - No hardcoded ports in codebase (40+ files updated)
+
+2. ✅ **Unified Fleet Launcher**
+   - `start_fleet_services.py` - One command to launch all services
+   - Reads configuration from `.env`
+   - Launches 3 services in separate console windows
+   - Displays all endpoints on startup
+
+3. ✅ **End-to-End Testing Validated**
+   - GPSCentCom (5000): GPS device connected, telemetry flowing
+   - GeospatialService (6000): Reverse geocoding working (~18ms)
+   - Manifest API (4000): Health checks passing
+   - GPS client polling live data every 2 seconds
+
+4. ✅ **Code Cleanup**
+   - Removed 5 deprecated files (arknet_fleet_services.py, etc.)
+   - Root directory now has only essential launcher
+   - Documentation updated (CONTEXT.md, FLEET_SERVICES.md)
+
+**Current Service Ports**:
+- GPSCentCom: `http://localhost:5000`, `ws://localhost:5000/device`
+- GeospatialService: `http://localhost:6000`
+- Manifest API: `http://localhost:4000`
+
+**Test Results**:
+```
+✅ GPSCentCom: {"status":"ok","devices":1}
+✅ GeospatialService: {"status":"healthy","database":"connected","latency_ms":18.38}
+✅ Manifest API: {"status":"ok","service":"manifest_api"}
+✅ GPS Client: Polling live GPS data (GPS-ZR102 on Route 1)
+✅ Reverse Geocoding: "footway-784848147, near RBC, Saint Michael"
+```
+
+---
 
 ### **What Do I Need to Know?**
 
@@ -919,6 +969,7 @@ Before deploying to production with real GPS devices:
 5. **No monitoring/metrics** - No Prometheus, no structured logging
 6. **No rate limiting** - Vulnerable to DoS attacks
 7. **No unit tests** - Zero automated testing
+8. **Single server connection** - No redundant server failover for GPS devices
 
 ### **Production Roadmap** (from `gpscentcom_server/TODO.md`)
 
@@ -931,6 +982,45 @@ Before deploying to production with real GPS devices:
 - [ ] Per-device identifiers + token pairs
 - [ ] Unit tests for core modules
 - [ ] Graceful shutdown improvements
+- [ ] **Redundant server list for GPS device failover** - **HIGH PRIORITY**
+
+**Redundant GPS Server Architecture** (Future Enhancement):
+
+GPS devices should support automatic failover to redundant servers:
+
+```python
+# Future GPS Device Configuration
+transmitter = WebSocketTransmitter(
+    servers=[
+        {"url": "wss://gps-primary.example.com", "priority": 1},
+        {"url": "wss://gps-secondary.example.com", "priority": 2},
+        {"url": "wss://gps-backup.example.com", "priority": 3}
+    ],
+    token=token,
+    device_id=device_id,
+    failover_config={
+        "retry_primary_interval": 300,  # Try primary every 5 min
+        "max_failover_attempts": 3,     # Try 3 servers before cycling
+        "health_check_interval": 30      # Check connection every 30s
+    }
+)
+```
+
+**Failover Behavior**:
+- Connect to highest priority available server
+- Automatically failover to next server if connection fails
+- Periodically attempt to reconnect to higher priority servers
+- Maintain connection state across failover events
+- No data loss during server switching (buffered transmission)
+
+**Implementation Requirements**:
+- [ ] Multi-server configuration in GPS device
+- [ ] Priority-based server selection algorithm
+- [ ] Automatic failover on connection loss
+- [ ] Periodic health checks to prefer primary server
+- [ ] Server list updates via configuration or API
+- [ ] Telemetry tracking which server is active
+- [ ] Load balancing across redundant servers (optional)
 
 **MVP Complete** (foundation for real deployment):
 

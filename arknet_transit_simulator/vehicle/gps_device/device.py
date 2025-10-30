@@ -3,6 +3,7 @@ import time
 import threading
 import asyncio
 import logging
+import websockets
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -131,14 +132,51 @@ class GPSDevice(BaseComponent):
         asyncio.run(self._async_transmitter())
 
     async def _async_transmitter(self):
-        """Async worker: connect once, then send packets."""
-        try:
-            # Connect the existing transmitter
-            await self.transmitter.connect()
-            logger.info(f"GPS device {self.component_id} transmitter connected")
-
-            # Continuously read from buffer and send
-            while not self._stop.is_set():
+        """
+        Async worker: connect and send packets with automatic reconnection.
+        
+        This method implements resilient connection handling for hardware GPS devices:
+        - Attempts to connect on startup
+        - Automatically reconnects if connection drops
+        - Continues operating even when GPS server is unavailable
+        - Buffers data during disconnection (up to buffer capacity)
+        
+        Suitable for real-world deployment where network interruptions are expected.
+        """
+        connection_retry_delay = 5.0  # Seconds between reconnection attempts
+        max_consecutive_errors = 3    # Max errors before forcing reconnect
+        connected = False
+        consecutive_errors = 0
+        
+        logger.info(f"📡 {self.component_id}: Transmitter worker started")
+        
+        while not self._stop.is_set():
+            try:
+                # ===== CONNECTION PHASE =====
+                if not connected:
+                    try:
+                        logger.info(f"📡 {self.component_id}: Attempting to connect to GPS server...")
+                        await self.transmitter.connect()
+                        connected = True
+                        consecutive_errors = 0
+                        logger.info(f"📡 {self.component_id}: ✅ Connected to GPS server")
+                    except Exception as e:
+                        # Connection failed - log and retry
+                        import traceback
+                        if "refused" in str(e).lower() or "1225" in str(e):
+                            logger.warning(f"📡 {self.component_id}: GPS server not available - will retry in {connection_retry_delay}s")
+                        else:
+                            logger.error(f"📡 {self.component_id}: Connection failed: {type(e).__name__}: {e}")
+                            logger.debug(f"   Traceback:\n{traceback.format_exc()}")
+                        
+                        # Wait before retry, checking stop flag periodically
+                        for _ in range(int(connection_retry_delay * 10)):
+                            if self._stop.is_set():
+                                break
+                            await asyncio.sleep(0.1)
+                        continue
+                
+                # ===== TRANSMISSION PHASE =====
                 try:
                     # Read data from buffer with timeout
                     data = await asyncio.to_thread(self.rxtx_buffer.read, timeout=1.0)
@@ -170,33 +208,72 @@ class GPSDevice(BaseComponent):
                             # Assume it's already a TelemetryPacket
                             await self.transmitter.send(data)
                         
+                        # Reset error counter on successful send
+                        consecutive_errors = 0
+                        
                 except asyncio.TimeoutError:
                     # Normal timeout, continue loop
                     continue
+                    
+                except websockets.exceptions.ConnectionClosed as e:
+                    # Connection dropped during transmission
+                    logger.warning(f"📡 {self.component_id}: Connection closed by server - will reconnect")
+                    connected = False
+                    consecutive_errors = 0
+                    # Close and clear the transmitter to force fresh connection
+                    try:
+                        await self.transmitter.close()
+                    except:
+                        pass
+                    continue
+                    
+                except (OSError, ConnectionError, websockets.exceptions.WebSocketException) as e:
+                    # Network error during transmission
+                    consecutive_errors += 1
+                    logger.warning(f"📡 {self.component_id}: Network error during transmission ({consecutive_errors}/{max_consecutive_errors}): {e}")
+                    
+                    if consecutive_errors >= max_consecutive_errors:
+                        logger.warning(f"📡 {self.component_id}: Too many consecutive errors - forcing reconnect")
+                        connected = False
+                        consecutive_errors = 0
+                        try:
+                            await self.transmitter.close()
+                        except:
+                            pass
+                    else:
+                        # Brief pause before retry
+                        await asyncio.sleep(1.0)
+                    continue
+                    
                 except Exception as e:
-                    logger.error(f"Error in transmitter for {self.component_id}: {e}")
+                    # Unexpected error - log but don't crash
+                    logger.error(f"📡 {self.component_id}: Unexpected transmission error: {type(e).__name__}: {e}")
+                    consecutive_errors += 1
+                    
+                    if consecutive_errors >= max_consecutive_errors:
+                        logger.warning(f"📡 {self.component_id}: Too many errors - forcing reconnect")
+                        connected = False
+                        consecutive_errors = 0
+                    
                     await asyncio.sleep(1.0)
+                    continue
 
-        except Exception as e:
-            # More user-friendly error message for GPS server connection issues
-            # Log full exception details for debugging
-            import traceback
-            logger.error(f"📡 {self.component_id}: Full connection error details:")
-            logger.error(f"   Exception type: {type(e).__name__}")
-            logger.error(f"   Exception message: {str(e)}")
-            logger.error(f"   Traceback:\n{traceback.format_exc()}")
-            
-            if "refused" in str(e).lower() or "1225" in str(e):
-                logger.warning(f"📡 {self.component_id}: Cannot connect to telemetry server - GPS server appears to be offline")
-            else:
-                logger.error(f"📡 {self.component_id}: Connection error - {e}")
-        
-        finally:
-            try:
-                await self.transmitter.close()
-                logger.info(f"GPS device {self.component_id} transmitter disconnected")
             except Exception as e:
-                logger.error(f"Error disconnecting transmitter for {self.component_id}: {e}")
+                # Outer exception handler - should rarely trigger
+                import traceback
+                logger.error(f"📡 {self.component_id}: Critical error in transmitter loop:")
+                logger.error(f"   {type(e).__name__}: {e}")
+                logger.error(f"   Traceback:\n{traceback.format_exc()}")
+                connected = False
+                await asyncio.sleep(connection_retry_delay)
+        
+        # ===== SHUTDOWN PHASE =====
+        logger.info(f"📡 {self.component_id}: Transmitter worker stopping...")
+        try:
+            await self.transmitter.close()
+            logger.info(f"📡 {self.component_id}: Transmitter disconnected cleanly")
+        except Exception as e:
+            logger.error(f"📡 {self.component_id}: Error during shutdown: {e}")
 
     # -------------------- Lifecycle --------------------
 

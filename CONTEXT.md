@@ -5,8 +5,8 @@
 **Branch**: branch-0.0.2.8 (NOT main)  
 **Date**: October 30, 2025  
 **Status**: ✅ TIER 1-4.5 COMPLETE | 🎯 TIER 5 Route-Depot Association NEXT  
-**Phase**: HTTP Services Consolidated, GPS Client Library Created  
-**Latest**: ArkNet Fleet Services API unified backend (arknet_fleet_services.py) - Oct 30
+**Phase**: Fleet Services Standalone Architecture, Configuration Centralized  
+**Latest**: Standalone fleet services with .env configuration (start_fleet_services.py) - Oct 30
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -1488,7 +1488,7 @@ python -m commuter_simulator
 ---
 
 **Document Maintainer**: Update this document as architecture evolves  
-**Last Updated**: October 28, 2025  
+**Last Updated**: October 30, 2025 (GPS Device Reconnection + Redundant Server Planning)  
 **Next Review**: After TIER 5 (Route-Depot Association & Full RouteSpawner complete)
 
 ---
@@ -2325,35 +2325,53 @@ See `commuter_simulator/ARCHITECTURE.md` for complete layer documentation.
 
 **Refactoring Complete**: October 29, 2025
 
-
 ---
 
-##  HTTP SERVICES CONSOLIDATION (October 29-30, 2025)
+## FLEET SERVICES ARCHITECTURE (October 29-30, 2025)
 
 ### Overview
 
-Previously, the system ran 3 separate HTTP services on different ports:
-- GeospatialService (port 6000) - PostGIS spatial queries
-- GPSCentCom API (port 5000) - GPS telemetry hub
-- Passenger Manifest API (port 4000) - Passenger listings
+The system runs 3 separate HTTP services on different ports (standalone architecture):
+- **GPSCentCom Server** (port 5000) - GPS telemetry hub with HTTP API and WebSocket
+- **GeospatialService** (port 6000) - PostGIS spatial queries and reverse geocoding
+- **Manifest API** (port 4000) - Passenger manifest enrichment with geocoding
 
-These have been **consolidated into a single FastAPI application** (`arknet_fleet_services.py`) running on **port 8000** to simplify deployment, management, and client configuration.
+**Architecture Decision**: After attempting a unified backend on port 8000, the standalone approach was chosen due to:
+- WebSocket proxy complexity in unified FastAPI mounts
+- Simpler deployment and debugging
+- Independent service scaling
+- Clearer separation of concerns
 
 ### Architecture
 
-````powershell
-
- arknet_fleet_services.py (Port 8000)                               
-─
-                                                                          
-  FastAPI Root Application                                               
-   /geo/*         GeospatialService (mount)                           
-   /manifest/*    Passenger Manifest API (mount)                      
-   /gps/*         GPSCentCom HTTP API (mount)                         
-   /gps/device    GPSCentCom WebSocket (direct route)                 
-                                                                          
-─
-``
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Fleet Services - Standalone Architecture                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │ GPSCentCom Server (Port 5000)                      │    │
+│  │ - HTTP API: /health, /devices, /analytics          │    │
+│  │ - WebSocket: /device (GPS telemetry ingestion)     │    │
+│  └────────────────────────────────────────────────────┘    │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │ GeospatialService (Port 6000)                      │    │
+│  │ - /geocode/reverse (reverse geocoding)             │    │
+│  │ - /route-geometry/{id} (route geometry)            │    │
+│  │ - /spatial/* (spatial queries)                     │    │
+│  └────────────────────────────────────────────────────┘    │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │ Manifest API (Port 4000)                           │    │
+│  │ - /api/manifest (enriched passenger listings)      │    │
+│  │ - /health (service health)                         │    │
+│  └────────────────────────────────────────────────────┘    │
+│                                                              │
+│  Configuration: .env (single source of truth)               │
+│  Launcher: start_fleet_services.py                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Component Details
 
@@ -2428,7 +2446,7 @@ async def gpscentcom_device_endpoint(websocket: WebSocket):
 ``python
 import requests
 
-response = requests.get("http://localhost:8000/gps/stream", stream=True)
+response = requests.get("<http://localhost:8000/gps/stream>", stream=True)
 for line in response.iter_lines():
     if line.startswith(b"data:"):
         telemetry = json.loads(line[6:])
@@ -2437,7 +2455,7 @@ for line in response.iter_lines():
 
 ### Benefits of Consolidation
 
-1. **Single Port Configuration**: Clients only need to know http://localhost:8000
+1. **Single Port Configuration**: Clients only need to know <http://localhost:8000>
 2. **Simplified Deployment**: One process instead of three
 3. **Unified CORS Policy**: Single CORS middleware configuration
 4. **Shared Dependencies**: Single FastAPI instance, shared connection pools
@@ -2447,12 +2465,12 @@ for line in response.iter_lines():
 ### Migration Guide (For Clients)
 
 **Old URLs:**
-- http://localhost:6000/route-geometry/123  http://localhost:8000/geo/route-geometry/123
-- http://localhost:5000/health  http://localhost:8000/gps/health
-- http://localhost:4000/api/manifest  http://localhost:8000/manifest/api/manifest
+- <http://localhost:6000/route-geometry/123>  <http://localhost:8000/geo/route-geometry/123>
+- <http://localhost:5000/health>  <http://localhost:8000/gps/health>
+- <http://localhost:4000/api/manifest>  <http://localhost:8000/manifest/api/manifest>
 - ws://localhost:5000/device  ws://localhost:8000/gps/device
 
-**New Universal Base URL**: http://localhost:8000
+**New Universal Base URL**: <http://localhost:8000>
 
 ### File Structure
 
@@ -2465,47 +2483,86 @@ arknet_fleet_services.py
  Main FastAPI app            # Mounts /geo, /gps, /manifest
 ``
 
-### Running the Service
+### Launching Services
 
-````powershell
-# Recommended: Launch in separate console window (non-blocking)
+**Production Launcher** (Recommended):
+```powershell
 python start_fleet_services.py
+```
 
-# Check service status
-python manage_fleet_services.py status
+This will:
+1. Load configuration from `.env`
+2. Launch 3 services in separate console windows:
+   - GPSCentCom Server (port 5000)
+   - GeospatialService (port 6000)
+   - Manifest API (port 4000)
+3. Display all service endpoints
 
-# Stop the service
-python manage_fleet_services.py stop
+**Manual Launch** (Development):
+```powershell
+# GPSCentCom
+cd gpscentcom_server
+python server_main.py
 
-# Alternative: Run directly (blocks current terminal)
-python arknet_fleet_services.py
+# GeospatialService
+cd geospatial_service
+python main.py
 
-# Production: Run with uvicorn
-uvicorn arknet_fleet_services:app --host 0.0.0.0 --port 8000 --reload
-````
+# Manifest API
+python -m commuter_simulator.interfaces.http.manifest_api
+```
 
-### Health Check
+### Health Checks
 
-``powershell
-# Verify all services mounted
-curl http://localhost:8000/geo/health        # GeospatialService
-curl http://localhost:8000/gps/health        # GPSCentCom
-curl http://localhost:8000/manifest/health   # Manifest API (if implemented)
-``
+```powershell
+# Verify all services are running
+curl http://localhost:5000/health   # GPSCentCom
+curl http://localhost:6000/health   # GeospatialService
+curl http://localhost:4000/health   # Manifest API
+```
+
+**Expected Responses**:
+- GPSCentCom: `{"status":"ok","uptime_sec":120,"devices":0}`
+- GeospatialService: `{"status":"healthy","database":"connected","features":{...}}`
+- Manifest API: `{"status":"ok","service":"manifest_api","timestamp":"..."}`
+
+### Verified Test Results (October 30, 2025)
+
+✅ **All Services Operational**:
+1. **GPSCentCom** (Port 5000): Health check passed, GPS device connected (GPS-ZR102)
+2. **GeospatialService** (Port 6000): Reverse geocoding working (~18ms response time)
+3. **Manifest API** (Port 4000): Service responding to health checks
+
+✅ **End-to-End Testing**:
+- Unified launcher successfully started all 3 services
+- GPS telemetry client polling live data every 2 seconds
+- Geospatial reverse geocoding: "footway-784848147, near RBC, Saint Michael"
+- All configuration loaded from `.env` file
+
+### Code Cleanup (October 30, 2025)
+
+**Removed obsolete files** (unified backend approach abandoned):
+- `arknet_fleet_services.py` - Deprecated unified service on port 8000
+- `manage_fleet_services.py` - Management utility for unified service
+- `run_fleet_services.py` - Wrapper for unified service
+- `test_gps_telemetry.py` - Hardcoded test for port 8000
+- `test_mock_gps_device.py` - Hardcoded mock device for port 8000
+
+**Reason for removal**: After attempting unified backend, standalone architecture chosen for simplicity, better WebSocket support, and clearer separation of concerns.
 
 ---
 
-##  GPS TELEMETRY CLIENT LIBRARY (October 29-30, 2025)
+## GPS TELEMETRY CLIENT LIBRARY (October 29-30, 2025)
 
-### Overview
+### Client Library Overview
 
 An **interface-agnostic Python library** for consuming GPS telemetry from GPSCentCom server.
 
 Designed to be used in **any Python application** (console, GUI, web dashboard, backend services) without coupling to specific UI frameworks.
 
-### Architecture
+### Library Structure
 
-``
+```
 gps_telemetry_client/
  __init__.py           # Library exports
  client.py             # GPSTelemetryClient class
@@ -2513,7 +2570,7 @@ gps_telemetry_client/
  observers.py          # Observer pattern for event handling
  test_client.py        # CLI tool (list/watch/poll/analytics)
  README.md             # Library documentation
-``
+```
 
 ### GPSTelemetryClient Class
 
@@ -2526,10 +2583,11 @@ gps_telemetry_client/
 - Automatic JSON parsing and error handling
 
 **Example Usage (HTTP Polling)**:
-``python
+
+```python
 from gps_telemetry_client import GPSTelemetryClient
 
-client = GPSTelemetryClient(base_url="http://localhost:8000")
+client = GPSTelemetryClient(base_url="http://localhost:5000")
 
 # Get all vehicles
 vehicles = client.get_vehicles()
@@ -2542,10 +2600,11 @@ route_vehicles = client.get_route_vehicles("1A")
 # Get system analytics
 analytics = client.get_analytics()
 print(f"Total devices: {analytics.total_devices}")
-``
+```
 
 **Example Usage (SSE Streaming)**:
-``python
+
+```python
 import asyncio
 from gps_telemetry_client import GPSTelemetryClient
 from gps_telemetry_client.observers import CallbackObserver
@@ -2553,7 +2612,7 @@ from gps_telemetry_client.observers import CallbackObserver
 async def on_telemetry(vehicle):
     print(f"UPDATE: {vehicle.deviceId} @ {vehicle.lat},{vehicle.lon}")
 
-client = GPSTelemetryClient(base_url="http://localhost:8000")
+client = GPSTelemetryClient(base_url="http://localhost:5000")
 observer = CallbackObserver(on_telemetry)
 
 # Stream all telemetry
@@ -2561,12 +2620,13 @@ await client.stream_telemetry(observers=[observer])
 
 # Stream filtered by route
 await client.stream_telemetry(route_code="1A", observers=[observer])
-``
+```
 
-### Data Models (Pydantic)
+## Data Models (Pydantic)
 
 **Vehicle** (from /devices and /stream):
-``python
+
+```python
 @dataclass
 class Vehicle:
     deviceId: str
@@ -2581,26 +2641,28 @@ class Vehicle:
     conductorId: Optional[str]
     timestamp: str
     lastSeen: str
-``
+```
 
 **AnalyticsResponse** (from /analytics):
-``python
+
+```python
 @dataclass
 class AnalyticsResponse:
     total_devices: int
     routes_active: Dict[str, int]
     avg_speed: float
     timestamp: str
-``
+```
 
 **HealthResponse** (from /health):
-``python
+
+```python
 @dataclass
 class HealthResponse:
     status: str
     store_size: int
     uptime_seconds: float
-``
+```
 
 ### Observer Pattern
 
@@ -2616,17 +2678,19 @@ class TelemetryObserver(ABC):
 ``
 
 **CallbackObserver (Concrete)**:
-``python
+
+```python
 class CallbackObserver(TelemetryObserver):
     def __init__(self, callback: Callable[[Vehicle], Awaitable[None]]):
         self.callback = callback
     
     async def on_vehicle_update(self, vehicle: Vehicle):
         await self.callback(vehicle)
-``
+```
 
 **Custom Observer Example**:
-``python
+
+```python
 class MapVisualizerObserver(TelemetryObserver):
     def __init__(self, map_widget):
         self.map = map_widget
@@ -2640,7 +2704,7 @@ class MapVisualizerObserver(TelemetryObserver):
         )
 ``
 
-### CLI Tool (	est_client.py)
+### CLI Tool (test_client.py)
 
 **Purpose**: Command-line diagnostic tool for GPS telemetry
 
@@ -2754,22 +2818,43 @@ Store  HTTP/SSE  GPSTelemetryClient  Observers  UI/Console/Analytics
 ### Testing
 
 **Test Environment**:
-1. Start ArkNet Fleet Services API: `python start_fleet_services.py` (launches in separate console)
-2. Start vehicle simulator: `python -m arknet_transit_simulator`
-3. Verify telemetry: `python -m gps_telemetry_client.test_client watch`
+1. Start Fleet Services: `python start_fleet_services.py` (launches 3 services)
+2. Wait 3-5 seconds for services to initialize
+3. Verify health checks (see commands above)
+4. Test GPS telemetry client:
+   ```powershell
+   $env:PYTHONPATH="E:\projects\github\vehicle_simulator"
+   python gps_telemetry_client\test_client.py --url http://localhost:5000 --prefix / poll --interval 2
+   ```
+
+**Expected GPS Client Output**:
+```
+Connecting to http://localhost:5000...
+Connected!
+
+Polling every 2s (Press Ctrl+C to stop)
+
+[16:23:32] Active devices: 1
+GPS-ZR102 | Route 1 | ZR102 | (13.32661, -59.61552) | Speed: 0.0 km/h | Heading: 0.0°
+```
+
+**Test Geospatial Service**:
+```powershell
+$response = Invoke-RestMethod -Uri "http://localhost:6000/geocode/reverse?lat=13.0969&lon=-59.6145"
+$response | ConvertTo-Json
+```
 
 **Expected Output**:
-``
-Connected to SSE stream: http://localhost:8000/gps/stream
-
-Update: DEVICE_001
-  Route: 1A | Vehicle: BDS-101
-  Position: 13.0975, -59.6142
-  Speed: 45.2 km/h | Heading: 135.0
-  Driver: John Doe (driver_001)
-  Timestamp: 2025-10-30T10:15:23Z
-
-``
+```json
+{
+  "address": "footway-784848147, near RBC, Saint Michael",
+  "latitude": 13.0969,
+  "longitude": -59.6145,
+  "highway": {"name": "footway-784848147", "highway_type": "footway", "distance_meters": 0.11},
+  "poi": {"name": "RBC", "poi_type": "bank", "distance_meters": 33.08},
+  "latency_ms": 18.38
+}
+```
 
 ### Future Enhancements
 
@@ -2781,3 +2866,144 @@ Update: DEVICE_001
 
 ---
 
+## 🔄 **GPS DEVICE AUTOMATIC RECONNECTION - October 30, 2025**
+
+### **Implementation Status: ✅ COMPLETE**
+
+**Problem**: GPS devices would not reconnect to GPSCentCom server after server restart. Critical for real hardware deployment where network interruptions are common and manual reconnection is not feasible.
+
+**Solution**: Implemented robust automatic reconnection in `arknet_transit_simulator/vehicle/gps_device/device.py`
+
+### **Key Features**
+
+1. **Automatic Reconnection Loop**
+   - Continuously attempts connection if server unavailable (5s retry delay)
+   - Detects connection drops and reconnects automatically
+   - Operates independently of server availability
+
+2. **Intelligent Error Handling**
+   - `ConnectionRefused` → Retry connection
+   - `websockets.ConnectionClosed` → Force immediate reconnect
+   - Network errors → Count and reconnect after 3 consecutive failures
+   - Timeouts → Normal operation, continue
+
+3. **Data Buffering During Disconnection**
+   - Data collection continues even when disconnected
+   - RxTxBuffer holds up to 1000 items
+   - Transmission resumes automatically when connection restored
+   - **Data Loss**: Long disconnections (>1000 updates) cause oldest items to drop
+
+4. **Connection State Management**
+   - Connection phase vs transmission phase
+   - Graceful shutdown with proper cleanup
+   - Comprehensive logging for monitoring
+
+### **Reconnection Flow**
+
+```
+GPS Device Starts
+       ↓
+Try Connect to Server
+   ↙        ↘
+SUCCESS    FAILURE
+   ↓          ↓
+Connected   Wait 5s → Retry
+   ↓          ↑
+Send Data    │
+   ↓          │
+Connection   │
+Drops ───────┘
+```
+
+### **Configuration Parameters**
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `connection_retry_delay` | 5.0s | Delay between reconnection attempts |
+| `max_consecutive_errors` | 3 | Errors before forcing reconnect |
+| Buffer read timeout | 1.0s | Timeout for reading from data buffer |
+| Buffer capacity | 1000 items | Max buffered telemetry during disconnection |
+
+### **Testing**
+
+Test script: `test_gps_reconnection.py`
+
+```bash
+# Start test (GPS server doesn't need to be running)
+python test_gps_reconnection.py
+
+# Device will:
+# 1. Try to connect every 5 seconds
+# 2. Connect automatically when server starts
+# 3. Detect when server stops
+# 4. Reconnect automatically when server restarts
+```
+
+### **Production Readiness**
+
+✅ **Suitable For**:
+- Real hardware GPS devices (ESP32, etc.)
+- Unreliable network environments
+- Long-running deployments
+- Autonomous vehicle operations
+- Remote/distributed systems
+
+⚠️ **Considerations**:
+- Buffer overflow on long disconnections
+- 5s retry delay causes ~5s gap after reconnect
+- Verbose logging during disconnection (by design)
+
+### **Future Enhancement: Redundant Server List**
+
+**Status**: 🎯 PLANNED (Not yet implemented)
+
+GPS devices should support automatic failover to redundant servers for high availability:
+
+```python
+# Future Configuration
+transmitter = WebSocketTransmitter(
+    servers=[
+        {"url": "wss://gps-primary.example.com", "priority": 1},
+        {"url": "wss://gps-secondary.example.com", "priority": 2},
+        {"url": "wss://gps-backup.example.com", "priority": 3}
+    ],
+    token=token,
+    device_id=device_id,
+    failover_config={
+        "retry_primary_interval": 300,  # Try primary every 5 min
+        "max_failover_attempts": 3,     # Try 3 servers before cycling
+        "health_check_interval": 30      # Check connection every 30s
+    }
+)
+```
+
+**Failover Behavior**:
+- Connect to highest priority available server
+- Automatically failover to next server if connection fails
+- Periodically attempt to reconnect to higher priority servers
+- Maintain connection state across failover events
+- No data loss during server switching (buffered transmission)
+- Load balancing across redundant servers (optional)
+
+**Implementation Requirements**:
+- [ ] Multi-server configuration in GPS device transmitter
+- [ ] Priority-based server selection algorithm
+- [ ] Automatic failover on connection loss
+- [ ] Periodic health checks to prefer primary server
+- [ ] Server list updates via configuration or API
+- [ ] Telemetry tracking which server device is connected to
+- [ ] Load balancing strategy (round-robin, least-connections, geographic)
+- [ ] Server health monitoring and automatic removal from pool
+- [ ] Graceful server list updates without disconnecting devices
+
+**Architecture Considerations**:
+- Server list stored in configuration or fetched from central API
+- Device maintains connection priority preferences
+- Automatic demotion of failing servers
+- Automatic promotion when primary server recovers
+- Server affinity for session persistence (optional)
+- Metrics: track failover events, server uptime, connection duration
+
+**Related**: See TODO.md for detailed redundant server roadmap
+
+---

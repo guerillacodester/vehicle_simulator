@@ -4,5 +4,9 @@
         "./vehicle_depot/vehicle",
         "./world/vehicle",
         "./commuter_modeler/plugins"
-    ]
+    ],
+    "mssql.intelliSense.enableErrorChecking": false,
+    "files.associations": {
+        "**/commuter_simulator/**/*.sql": "postgres"
+    }
 }
