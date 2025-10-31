@@ -189,8 +189,34 @@ def run_auto_startup():
     loop.run_until_complete(auto_start_services())
 
 
+def shutdown_handler(signum, frame):
+    """Handle shutdown signals gracefully."""
+    print()
+    print("🛑 Shutdown signal received...")
+    
+    # Trigger graceful shutdown via HTTP
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    async def trigger_shutdown():
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                await client.post("http://localhost:7000/shutdown")
+        except Exception as e:
+            print(f"⚠️  Error during shutdown: {e}")
+    
+    loop.run_until_complete(trigger_shutdown())
+    sys.exit(0)
+
+
 def main():
     """Main entry point."""
+    import signal
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    
     config_path = Path(__file__).parent / "config.ini"
     
     if not config_path.exists():
@@ -226,8 +252,8 @@ def main():
         )
     except KeyboardInterrupt:
         print()
-        print("👋 Service manager stopped by user")
-        sys.exit(0)
+        print("� Shutdown via Ctrl+C...")
+        shutdown_handler(None, None)
     except Exception as e:
         print()
         print(f"❌ Fatal error: {e}")

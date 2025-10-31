@@ -83,6 +83,7 @@ class ServiceManager:
         self.event_subscribers: List[WebSocket] = []
         self.http_client = httpx.AsyncClient(timeout=5.0)
         self._monitor_task: Optional[asyncio.Task] = None
+        self._startup_order: List[str] = []  # Track startup order for FILO shutdown
     
     def register_service(self, service: ManagedService):
         """Register a service for management."""
@@ -248,6 +249,10 @@ class ServiceManager:
             )
             await self._emit_event(event)
             
+            # Track startup order for FILO shutdown
+            if name not in self._startup_order:
+                self._startup_order.append(name)
+            
             # Wait for health check if applicable
             if service.health_url:
                 await asyncio.sleep(2)  # Give it time to bind port
@@ -310,6 +315,54 @@ class ServiceManager:
         )
         await self._emit_event(event)
         return event
+    
+    async def shutdown_all(self) -> List[ServiceEvent]:
+        """
+        Shutdown all running services in FILO order (reverse of startup).
+        
+        Returns:
+            List of ServiceEvent for each stopped service
+        """
+        events = []
+        
+        # Shutdown in reverse order of startup (FILO)
+        shutdown_order = list(reversed(self._startup_order))
+        
+        print()
+        print("=" * 70)
+        print("🛑 GRACEFUL SHUTDOWN - FILO Order")
+        print("=" * 70)
+        print()
+        
+        for service_name in shutdown_order:
+            if service_name not in self.services:
+                continue
+            
+            service = self.services[service_name]
+            
+            if not service.is_running():
+                print(f"   ⏭️  {service_name} - already stopped")
+                continue
+            
+            print(f"   🛑 Stopping {service_name}...")
+            
+            try:
+                event = await self.stop_service(service_name)
+                events.append(event)
+                print(f"      ✅ {service_name} stopped")
+            except Exception as e:
+                print(f"      ⚠️  Error stopping {service_name}: {e}")
+            
+            # Small delay between shutdowns
+            await asyncio.sleep(0.5)
+        
+        print()
+        print("=" * 70)
+        print("✅ All services stopped")
+        print("=" * 70)
+        print()
+        
+        return events
     
     async def get_status(self, name: str) -> dict:
         """Get detailed status of a service."""
@@ -499,3 +552,14 @@ async def websocket_events(websocket: WebSocket):
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "launcher"}
+
+
+@app.post("/shutdown")
+async def shutdown_all_services():
+    """Shutdown all services in FILO order."""
+    events = await manager.shutdown_all()
+    return {
+        "message": "All services stopped",
+        "stopped_services": len(events),
+        "events": events
+    }

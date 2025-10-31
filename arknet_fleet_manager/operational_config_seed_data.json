@@ -170,23 +170,6 @@
     "requires_restart": false
   },
   {
-    "section": "passenger_spawning.rates",
-    "parameter": "average_passengers_per_hour",
-    "value": "30",
-    "value_type": "number",
-    "default_value": "30",
-    "constraints": {
-      "min": 1,
-      "max": 500,
-      "step": 1,
-      "unit": "passengers/hour"
-    },
-    "description": "Average number of passengers spawned per hour",
-    "display_name": "Passengers per Hour",
-    "ui_group": "Spawn Rates",
-    "requires_restart": false
-  },
-  {
     "section": "passenger_spawning.geographic",
     "parameter": "spawn_radius_meters",
     "value": "500.0",
@@ -202,5 +185,58 @@
     "display_name": "Spawn Radius",
     "ui_group": "Geographic",
     "requires_restart": false
+  },
+  {
+    "section": "passenger_spawning.operational",
+    "parameter": "continuous_mode",
+    "value": "true",
+    "value_type": "boolean",
+    "default_value": "true",
+    "constraints": {},
+    "description": "Run spawning continuously in a loop (true) or execute once and exit (false)",
+    "display_name": "Continuous Mode",
+    "ui_group": "Operational",
+    "requires_restart": true
+  },
+  {
+    "section": "passenger_spawning.operational",
+    "parameter": "spawn_interval_seconds",
+    "value": "60",
+    "value_type": "number",
+    "default_value": "60",
+    "constraints": {
+      "min": 10,
+      "max": 3600,
+      "step": 5,
+      "unit": "seconds"
+    },
+    "description": "Time interval between spawn cycles when running in continuous mode",
+    "display_name": "Spawn Interval",
+    "ui_group": "Operational",
+    "requires_restart": false
+  },
+  {
+    "section": "passenger_spawning.operational",
+    "parameter": "enable_routespawner",
+    "value": "true",
+    "value_type": "boolean",
+    "default_value": "true",
+    "constraints": {},
+    "description": "Enable route-based passenger spawning along transit routes",
+    "display_name": "Enable Route Spawner",
+    "ui_group": "Operational",
+    "requires_restart": true
+  },
+  {
+    "section": "passenger_spawning.operational",
+    "parameter": "enable_depotspawner",
+    "value": "true",
+    "value_type": "boolean",
+    "default_value": "true",
+    "constraints": {},
+    "description": "Enable depot-based passenger spawning at depot locations",
+    "display_name": "Enable Depot Spawner",
+    "ui_group": "Operational",
+    "requires_restart": true
   }
 ]

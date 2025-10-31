@@ -3,7 +3,7 @@ ArkNet Fleet Services - Launcher
 =================================
 
 Launches all fleet services in separate console windows.
-Configuration is loaded from .env file (single source of truth).
+Configuration is loaded from config.ini file (operational settings).
 
 Usage:
     python start_fleet_services.py
@@ -13,25 +13,37 @@ import subprocess
 import sys
 import os
 import time
+import configparser
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Load environment variables from .env
-load_dotenv()
+
+def load_config():
+    """Load configuration from config.ini."""
+    config_path = Path(__file__).parent / "config.ini"
+    
+    if not config_path.exists():
+        raise FileNotFoundError(f"config.ini not found at {config_path}")
+    
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    return config
 
 
 def get_service_config():
-    """Get service configuration from environment variables with URL construction."""
-    # Read ports from env (with defaults)
-    gps_port = int(os.getenv('GPSCENTCOM_PORT', '5000'))
-    geo_port = int(os.getenv('GEOSPATIAL_PORT', '6000'))
-    manifest_port = int(os.getenv('MANIFEST_PORT', '4000'))
+    """Get service configuration from config.ini with URL construction."""
+    config = load_config()
+    infra = config['infrastructure']
     
-    # Construct URLs (use explicit env vars if set, otherwise build from localhost:port)
-    gps_http_url = os.getenv('GPSCENTCOM_HTTP_URL', f'http://localhost:{gps_port}')
-    gps_ws_url = os.getenv('GPSCENTCOM_WS_URL', f'ws://localhost:{gps_port}')
-    geo_url = os.getenv('GEO_URL', f'http://localhost:{geo_port}')
-    manifest_url = os.getenv('MANIFEST_URL', f'http://localhost:{manifest_port}')
+    # Read ports from config
+    gps_port = infra.getint('gpscentcom_port', 5000)
+    geo_port = infra.getint('geospatial_port', 6000)
+    manifest_port = infra.getint('manifest_port', 4000)
+    
+    # Construct URLs
+    gps_http_url = f'http://localhost:{gps_port}'
+    gps_ws_url = f'ws://localhost:{gps_port}'
+    geo_url = f'http://localhost:{geo_port}'
+    manifest_url = f'http://localhost:{manifest_port}'
     
     return {
         'gpscentcom': {
@@ -53,10 +65,12 @@ def get_service_config():
     }
 
 
-# Get service ports from environment variables (with defaults as fallback)
-GPSCENTCOM_PORT = int(os.getenv('GPSCENTCOM_PORT', '5000'))
-GEOSPATIAL_PORT = int(os.getenv('GEOSPATIAL_PORT', '6000'))
-MANIFEST_PORT = int(os.getenv('MANIFEST_PORT', '4000'))
+# Get service ports from config.ini
+config = load_config()
+infra = config['infrastructure']
+GPSCENTCOM_PORT = infra.getint('gpscentcom_port', 5000)
+GEOSPATIAL_PORT = infra.getint('geospatial_port', 6000)
+MANIFEST_PORT = infra.getint('manifest_port', 4000)
 
 
 def launch_service_in_console(service_name, script_path, port, title, as_module=None):

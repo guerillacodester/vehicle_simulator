@@ -6,8 +6,13 @@ Replaces direct PostGIS queries with HTTP API calls.
 """
 
 import requests
+import httpx
+import asyncio
 from typing import Dict, List, Optional, Tuple
 import logging
+from functools import lru_cache
+import hashlib
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +25,17 @@ class GeospatialClient:
     Phase 2: Will support load balancing, retries, caching
     """
     
-    def __init__(self, base_url: str = "http://localhost:6000", timeout: int = 5):
+    def __init__(self, base_url: str = "http://localhost:6000", timeout: int = 30):
         """
         Initialize client.
         
         Args:
             base_url: Base URL of geospatial service (default: http://localhost:6000)
-            timeout: Request timeout in seconds (default: 5)
+            timeout: Request timeout in seconds (default: 30 for building queries)
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self._building_cache = {}  # Simple in-memory cache
         self._verify_connection()
     
     def _verify_connection(self):
@@ -192,7 +198,7 @@ class GeospatialClient:
     ) -> Dict:
         """
         Find buildings within buffer of a route by querying multiple points.
-        Used for route-based passenger spawning.
+        Uses caching and async queries to avoid blocking.
         
         Args:
             route_coordinates: List of [lon, lat] pairs representing the route
@@ -206,41 +212,98 @@ class GeospatialClient:
                 "latency_ms": float
             }
         """
+        # Generate cache key from route coordinates and buffer
+        cache_key = hashlib.md5(
+            json.dumps({"coords": route_coordinates[:10], "buffer": buffer_meters}).encode()
+        ).hexdigest()
+        
+        # Check cache first
+        if cache_key in self._building_cache:
+            cached = self._building_cache[cache_key]
+            logger.info(f"✅ Using cached buildings ({cached['count']} buildings)")
+            return cached
+        
         try:
-            # Sample points along the route to ensure good coverage
-            # Use every Nth point to keep queries efficient
-            sample_interval = max(1, len(route_coordinates) // 10)  # Sample ~10 points
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # Already in event loop - create task and wait for it
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    result = pool.submit(
+                        asyncio.run,
+                        self._buildings_along_route_async(route_coordinates, buffer_meters, limit)
+                    ).result()
+            except RuntimeError:
+                # No running loop - safe to use asyncio.run()
+                result = asyncio.run(self._buildings_along_route_async(
+                    route_coordinates, buffer_meters, limit
+                ))
+            
+            # Cache the result
+            self._building_cache[cache_key] = result
+            
+            return result
+        except Exception as e:
+            logger.error(f"Route buildings search failed: {e}")
+            return {
+                "count": 0,
+                "buildings": [],
+                "error": str(e)
+            }
+    
+    async def _buildings_along_route_async(
+        self,
+        route_coordinates: list,
+        buffer_meters: int,
+        limit: int
+    ) -> Dict:
+        """Async implementation of buildings_along_route for parallel queries"""
+        try:
+            # Sample points along the route - reduce to 5 points for faster queries
+            sample_interval = max(1, len(route_coordinates) // 5)
             sampled_points = route_coordinates[::sample_interval]
             
             if not sampled_points:
-                sampled_points = route_coordinates[:1]  # At least use start point
+                sampled_points = route_coordinates[:1]
             
-            # Track unique buildings by ID to avoid duplicates
+            # Make all queries in parallel using httpx
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                tasks = []
+                for lon, lat in sampled_points:
+                    task = client.get(
+                        f"{self.base_url}/spatial/nearby-buildings",
+                        params={
+                            "lat": lat,
+                            "lon": lon,
+                            "radius_meters": buffer_meters,
+                            "limit": limit
+                        }
+                    )
+                    tasks.append(task)
+                
+                # Execute all queries in parallel
+                responses = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Collect unique buildings from all responses
             unique_buildings = {}
             total_latency = 0
             
-            # Query buildings at each sampled point
-            for lon, lat in sampled_points:
-                response = requests.get(
-                    f"{self.base_url}/spatial/nearby-buildings",
-                    params={
-                        "lat": lat,
-                        "lon": lon,
-                        "radius_meters": buffer_meters,
-                        "limit": limit
-                    },
-                    timeout=self.timeout
-                )
-                response.raise_for_status()
-                data = response.json()
+            for response in responses:
+                if isinstance(response, Exception):
+                    logger.warning(f"Building query failed: {response}")
+                    continue
                 
-                total_latency += data.get('latency_ms', 0)
-                
-                # Collect unique buildings
-                for building in data.get('buildings', []):
-                    bid = building.get('building_id')
-                    if bid not in unique_buildings:
-                        unique_buildings[bid] = building
+                try:
+                    data = response.json()
+                    total_latency += data.get('latency_ms', 0)
+                    
+                    for building in data.get('buildings', []):
+                        bid = building.get('building_id')
+                        if bid not in unique_buildings:
+                            unique_buildings[bid] = building
+                except Exception as e:
+                    logger.warning(f"Failed to parse building response: {e}")
             
             # Convert to list and truncate to limit
             buildings_list = list(unique_buildings.values())[:limit]
@@ -251,7 +314,7 @@ class GeospatialClient:
                 "latency_ms": round(total_latency, 2)
             }
         except Exception as e:
-            logger.error(f"Route buildings search failed: {e}")
+            logger.error(f"Async route buildings search failed: {e}")
             return {
                 "count": 0,
                 "buildings": [],
