@@ -61,6 +61,24 @@
       "min": 1,
       "max": 300,
       "description": "Minimum time between consecutive spawn events"
+    },
+    "spatial_base": {
+      "type": "decimal",
+      "required": false,
+      "default": 2.0,
+      "min": 0.1,
+      "max": 10.0,
+      "description": "Base spatial spawn rate multiplier for Poisson distribution"
+    },
+    "hourly_rates": {
+      "type": "json",
+      "required": false,
+      "description": "Dictionary of hourly spawn rate multipliers (key: hour 0-23, value: rate). Example: {\"8\": 2.0, \"17\": 2.2}"
+    },
+    "day_multipliers": {
+      "type": "json",
+      "required": false,
+      "description": "Dictionary of day-of-week multipliers (key: 0=Monday to 6=Sunday, value: multiplier). Example: {\"0\": 1.3, \"6\": 0.3}"
     }
   }
 }

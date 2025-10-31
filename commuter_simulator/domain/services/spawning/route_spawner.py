@@ -136,7 +136,14 @@ class RouteSpawner(SpawnerInterface):
                 data = response.json()
             
             if data.get('data') and len(data['data']) > 0:
-                self._spawn_config_cache = data['data'][0]
+                raw_config = data['data'][0]
+                # Extract config JSON field (production schema)
+                # Supports both old (components) and new (JSON) formats
+                if 'config' in raw_config:
+                    self._spawn_config_cache = raw_config['config']
+                else:
+                    # Fallback for old component-based schema
+                    self._spawn_config_cache = raw_config
                 return self._spawn_config_cache
             
             return None

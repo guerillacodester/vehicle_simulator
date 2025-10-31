@@ -4,12 +4,12 @@
   "info": {
     "singularName": "spawn-config",
     "pluralName": "spawn-configs",
-    "displayName": "Spawn Configuration",
-    "description": "Simple, intuitive passenger spawning configuration with separate tables per feature category"
+    "displayName": "Spawn Configuration (Production)",
+    "description": "Optimized spawn configuration with JSON storage for production performance"
   },
   "options": {
     "draftAndPublish": false,
-    "comment": "Clean separation: Buildings, POIs, Landuse in separate collapsible sections"
+    "comment": "Production-optimized: Single JSON field for all parameters"
   },
   "pluginOptions": {},
   "attributes": {
@@ -21,38 +21,10 @@
     "description": {
       "type": "text"
     },
-    "building_weights": {
-      "type": "component",
-      "repeatable": true,
-      "component": "spawning.building-weight"
-    },
-    "poi_weights": {
-      "type": "component",
-      "repeatable": true,
-      "component": "spawning.poi-weight"
-    },
-    "landuse_weights": {
-      "type": "component",
-      "repeatable": true,
-      "component": "spawning.landuse-weight"
-    },
-    "hourly_spawn_rates": {
-      "type": "component",
-      "repeatable": true,
-      "component": "spawning.hourly-pattern"
-    },
-    "day_multipliers": {
-      "type": "component",
-      "repeatable": true,
-      "component": "spawning.day-multiplier"
-    },
-    "distribution_params": {
-      "type": "component",
-      "repeatable": true,
-      "component": "spawning.distribution-params",
+    "config": {
+      "type": "json",
       "required": true,
-      "min": 1,
-      "max": 1
+      "description": "Complete spawn configuration including distribution params, hourly rates, day multipliers, and feature weights"
     },
     "is_active": {
       "type": "boolean",
@@ -62,8 +34,7 @@
     "route": {
       "type": "relation",
       "relation": "oneToOne",
-      "target": "api::route.route",
-      "inversedBy": "spawn_config"
+      "target": "api::route.route"
     }
   }
 }
