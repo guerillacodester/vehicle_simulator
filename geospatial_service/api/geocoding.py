@@ -32,8 +32,29 @@ class ReverseGeocodeResponse(BaseModel):
     latency_ms: float
 
 
+@router.get("/reverse", response_model=ReverseGeocodeResponse)
+async def reverse_geocode_get(
+    lat: float = Query(..., ge=-90, le=90, description="Latitude"),
+    lon: float = Query(..., ge=-180, le=180, description="Longitude"),
+    highway_radius_meters: int = Query(500, ge=50, le=5000),
+    poi_radius_meters: int = Query(1000, ge=50, le=10000)
+):
+    """
+    Convert latitude/longitude to human-readable address (GET version).
+    
+    Uses PostGIS spatial queries to find nearest highway and POI.
+    """
+    request = ReverseGeocodeRequest(
+        latitude=lat,
+        longitude=lon,
+        highway_radius_meters=highway_radius_meters,
+        poi_radius_meters=poi_radius_meters
+    )
+    return await reverse_geocode_post(request)
+
+
 @router.post("/reverse", response_model=ReverseGeocodeResponse)
-async def reverse_geocode(request: ReverseGeocodeRequest):
+async def reverse_geocode_post(request: ReverseGeocodeRequest):
     """
     Convert latitude/longitude to human-readable address
     
@@ -48,10 +69,10 @@ async def reverse_geocode(request: ReverseGeocodeRequest):
     start_time = time.time()
 
     # Simple in-memory cache to speed repeated identical requests (TTL: 5s)
-    if not hasattr(reverse_geocode, "_cache"):
-        reverse_geocode._cache = {}
+    if not hasattr(reverse_geocode_post, "_cache"):
+        reverse_geocode_post._cache = {}
     cache_key = (round(request.latitude, 6), round(request.longitude, 6), request.highway_radius_meters, request.poi_radius_meters)
-    cached = reverse_geocode._cache.get(cache_key)
+    cached = reverse_geocode_post._cache.get(cache_key)
     if cached and (time.time() - cached[0]) < 5.0:
         # return cached response quickly
         cached_response = cached[1]
@@ -141,7 +162,7 @@ async def reverse_geocode(request: ReverseGeocodeRequest):
 
         # store in cache
         try:
-            reverse_geocode._cache[cache_key] = (time.time(), response)
+            reverse_geocode_post._cache[cache_key] = (time.time(), response)
         except Exception:
             pass
 
@@ -173,3 +194,35 @@ async def reverse_geocode_get(
     )
     
     return await reverse_geocode(request)
+
+
+@router.post("/batch")
+async def batch_reverse_geocode(request_data: dict):
+    """
+    Batch reverse geocode multiple locations.
+    
+    Request body: {"locations": [{"lat": 13.1, "lon": -59.6}, ...]}
+    """
+    locations = request_data.get('locations', [])
+    
+    if not locations:
+        raise HTTPException(status_code=400, detail="No locations provided")
+    
+    results = []
+    for loc in locations:
+        lat = loc.get('lat')
+        lon = loc.get('lon')
+        
+        if lat is None or lon is None:
+            results.append({'error': 'Missing lat or lon'})
+            continue
+        
+        try:
+            req = ReverseGeocodeRequest(latitude=lat, longitude=lon)
+            result = await reverse_geocode(req)
+            results.append(result.dict())
+        except Exception as e:
+            results.append({'error': str(e), 'lat': lat, 'lon': lon})
+    
+    return {'results': results, 'count': len(results)}
+

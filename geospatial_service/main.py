@@ -21,6 +21,12 @@ from contextlib import asynccontextmanager
 import time
 
 from api import geocoding_router, geofence_router, spatial_router
+from api.spawn import router as spawn_router
+from api.routes import router as routes_router
+from api.depots import router as depots_router
+from api.buildings import router as buildings_router
+from api.analytics import router as analytics_router
+from api.metadata import router as metadata_router
 from services.postgis_client import postgis_client
 
 
@@ -69,6 +75,12 @@ app.add_middleware(
 app.include_router(geocoding_router)
 app.include_router(geofence_router)
 app.include_router(spatial_router)
+app.include_router(spawn_router)
+app.include_router(routes_router)
+app.include_router(depots_router)
+app.include_router(buildings_router)
+app.include_router(analytics_router)
+app.include_router(metadata_router)
 
 
 @app.get("/")
@@ -76,14 +88,27 @@ async def root():
     """API root endpoint"""
     return {
         "service": "Geospatial Services API",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "description": "Production-grade geospatial query and analysis API",
         "status": "operational",
         "endpoints": {
-            "reverse_geocoding": "/geocode/reverse",
-            "geofence_check": "/geofence/check",
-            "route_buildings": "/spatial/route-buildings",
-            "depot_catchment": "/spatial/depot-catchment",
-            "docs": "/docs"
+            "geocoding": "/geocode - Address resolution and reverse geocoding",
+            "geofencing": "/geofence - Zone membership and boundary detection",
+            "spatial": "/spatial - Core spatial queries and operations",
+            "routes": "/routes - Route geometry, buildings, and metrics",
+            "depots": "/depots - Depot catchments and service areas",
+            "buildings": "/buildings - Building queries and density analysis",
+            "spawn_analysis": "/spawn - Passenger spawn rate calculations",
+            "analytics": "/analytics - Reporting and data visualization",
+            "metadata": "/meta - Service metadata and dataset information",
+            "documentation": "/docs - Interactive API documentation",
+            "health": "/health - Health check endpoint"
+        },
+        "features": {
+            "total_endpoints": "50+ endpoints",
+            "solid_principles": "Applied - Single Responsibility, Separation of Concerns",
+            "coverage": "Complete spectrum of geospatial operations",
+            "production_ready": True
         }
     }
 

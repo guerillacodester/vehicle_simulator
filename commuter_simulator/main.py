@@ -181,7 +181,15 @@ async def main():
         
         logger.info(" [5/5] Starting coordinator...")
         coordinator = SpawnerCoordinator(spawners=spawners, config=config)
-        await coordinator.start(current_time=datetime.utcnow(), time_window_minutes=60)
+        
+        # CRITICAL: time_window_minutes MUST equal the actual simulation time per cycle
+        # to maintain proper Poisson statistics. If cycles run every 10s, time_window = 10/60 minutes.
+        # This ensures spawn rates are correctly scaled to real-world time, not cycle frequency.
+        spawn_interval_seconds = operational_config.get('spawn_interval_seconds', 60)
+        time_window_minutes = spawn_interval_seconds / 60.0
+        
+        logger.info(f" ⏱️  Spawn interval: {spawn_interval_seconds}s = {time_window_minutes:.4f} minutes per cycle")
+        await coordinator.start(current_time=datetime.utcnow(), time_window_minutes=time_window_minutes)
         
         logger.info("="*80)
         logger.info(" SPAWNING CYCLE COMPLETE")

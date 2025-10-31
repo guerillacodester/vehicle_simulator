@@ -4,7 +4,7 @@
   "info": {
     "singularName": "region",
     "pluralName": "regions",
-    "displayName": "Region / Parish",
+    "displayName": "Region",
     "description": "Administrative regions within countries (parishes, districts, states)"
   },
   "options": {

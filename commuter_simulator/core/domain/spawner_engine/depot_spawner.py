@@ -199,14 +199,12 @@ class DepotSpawner(SpawnerInterface):
             import httpx
             
             # Query route-depots where depot matches this depot's documentId
+            # MUST populate route relation to get route data
             async with httpx.AsyncClient(timeout=10.0) as client:
                 url = (
                     f"{self.strapi_url}/api/route-depots?"
                     f"filters[depot][documentId][$eq]={self.depot_document_id}&"
-                    f"fields[0]=route_short_name&"
-                    f"fields[1]=distance_from_route_m&"
-                    f"fields[2]=is_start_terminus&"
-                    f"fields[3]=is_end_terminus&"
+                    f"populate=route&"
                     f"pagination[pageSize]=100"
                 )
                 
@@ -222,12 +220,15 @@ class DepotSpawner(SpawnerInterface):
                 )
                 return []
             
-            # Extract route short names from cached labels
+            # Extract route short names or IDs from populated route relation
             route_names = []
             for assoc in associations:
-                attrs = assoc.get('attributes', assoc)
-                route_short_name = attrs.get('route_short_name')
-                if route_short_name:
+                # Get the populated route object
+                route = assoc.get('route')
+                if route:
+                    # Prefer route_short_name, fallback to ID
+                    route_short_name = route.get('route_short_name') or str(route.get('id', ''))
+                if route and route_short_name:
                     route_names.append(route_short_name)
             
             self._associated_routes_cache = route_names
@@ -326,6 +327,13 @@ class DepotSpawner(SpawnerInterface):
                 )
                 
                 spawn_requests.append(spawn_req)
+                
+                # Log individual spawn event
+                self.logger.info(
+                    f"🚶 Passenger {passenger_id} spawned at {current_time.strftime('%H:%M:%S')} | "
+                    f"Type: DEPOT ({self.depot_id}) | Location: ({spawn_lat:.4f}, {spawn_lon:.4f}) | "
+                    f"Route: {destination_route}"
+                )
                 
             except Exception as e:
                 self.logger.debug(f"Error generating depot spawn request {i}: {e}")

@@ -136,7 +136,14 @@ class RouteSpawner(SpawnerInterface):
                 data = response.json()
             
             if data.get('data') and len(data['data']) > 0:
-                self._spawn_config_cache = data['data'][0]
+                raw_config = data['data'][0]
+                # Extract config JSON field (production schema)
+                # Supports both old (components) and new (JSON) formats
+                if 'config' in raw_config:
+                    self._spawn_config_cache = raw_config['config']
+                else:
+                    # Fallback for old component-based schema
+                    self._spawn_config_cache = raw_config
                 return self._spawn_config_cache
             
             return None
@@ -181,12 +188,12 @@ class RouteSpawner(SpawnerInterface):
             if not route_coords:
                 return []
             
-            # Query buildings
+            # Query buildings (no artificial limit - get all buildings within radius)
             self.logger.info(f"Querying buildings within {spawn_radius}m of route...")
             result = self.geo_client.buildings_along_route(
                 route_coordinates=route_coords,
                 buffer_meters=spawn_radius,
-                limit=200
+                limit=5000  # Match PostGIS default, allow getting all buildings
             )
             
             buildings = result.get('buildings', [])
@@ -204,35 +211,52 @@ class RouteSpawner(SpawnerInterface):
         current_time: datetime,
         time_window_minutes: int
     ) -> int:
-        """Calculate how many passengers to spawn using Poisson distribution"""
+        """
+        Calculate Poisson lambda from ACTUAL GeoJSON data weighted by spawn config.
+        Each route has unique spawn characteristics based on:
+        - Real building counts along route
+        - Building types (residential vs commercial weights)
+        - POI density and types  
+        - Land use patterns
+        """
         try:
             dist_params = spawn_config.get('distribution_params', {})
             if isinstance(dist_params, list) and len(dist_params) > 0:
                 dist_params = dist_params[0]
             
-            # Base spawn rate from config
-            spatial_base = dist_params.get('spatial_base', 1.0)
+            # Get passengers per building per hour from config
+            passengers_per_building = dist_params.get('passengers_per_building_per_hour', 0.3)
             
-            # Hourly rate based on time of day
-            hourly_rates = dist_params.get('hourly_rates', {})
+            # Calculate spatial factor from actual building count
+            # This uses REAL GeoJSON data queried from PostGIS
+            spatial_factor = building_count * passengers_per_building
+            
+            # TODO: Add POI and landuse factors using weights from spawn_config
+            # poi_weights = spawn_config.get('poi_weights', {})
+            # landuse_weights = spawn_config.get('landuse_weights', {})
+            # building_weights = spawn_config.get('building_weights', {})
+            
+            # Hourly rate from config (peak hours = higher rate)
+            hourly_rates = spawn_config.get('hourly_rates', {})
             hour_str = str(current_time.hour)
             hourly_rate = float(hourly_rates.get(hour_str, 0.5))
             
-            # Day multiplier (Monday=0, Sunday=6)
-            day_multipliers = dist_params.get('day_multipliers', {})
+            # Day multiplier from config (weekday vs weekend)
+            day_multipliers = spawn_config.get('day_multipliers', {})
             day_str = str(current_time.weekday())
             day_mult = float(day_multipliers.get(day_str, 1.0))
             
-            # Calculate lambda (expected value) for Poisson
-            # lambda = spatial_base × hourly_rate × day_multiplier × (time_window / 60 min)
-            lambda_param = spatial_base * hourly_rate * day_mult * (time_window_minutes / 60.0)
+            # Calculate lambda: spatial × hourly × day × time_window
+            # This gives expected passenger count for this specific time window
+            lambda_param = spatial_factor * hourly_rate * day_mult * (time_window_minutes / 60.0)
             
             # Generate Poisson-distributed count
             import numpy as np
             spawn_count = np.random.poisson(lambda_param) if lambda_param > 0 else 0
             
             self.logger.info(
-                f"Spawn calculation: spatial={spatial_base} × hourly={hourly_rate} × day={day_mult} "
+                f"Spawn calculation: buildings={building_count} × pass/bldg={passengers_per_building} × "
+                f"hourly={hourly_rate} × day={day_mult} × window={time_window_minutes/60:.2f}h "
                 f"= lambda={lambda_param:.2f} → count={spawn_count}"
             )
             
@@ -265,20 +289,25 @@ class RouteSpawner(SpawnerInterface):
                 # Generate unique passenger ID
                 passenger_id = f"PASS_{i:08X}"
                 
-                # Create spawn request
+                # Create spawn request with all required fields
                 spawn_req = SpawnRequest(
                     passenger_id=passenger_id,
-                    spawned_at=current_time,
-                    latitude=board_lat,
-                    longitude=board_lon,
-                    destination_lat=alight_lat,
-                    destination_lon=alight_lon,
-                    destination_name=f"Stop {alight_idx}",
+                    spawn_location=(board_lat, board_lon),
+                    destination_location=(alight_lat, alight_lon),
                     route_id=self.route_id,
-                    direction="OUTBOUND"
+                    spawn_time=current_time,
+                    spawn_context="ROUTE",
+                    generation_method="poisson"
                 )
                 
                 spawn_requests.append(spawn_req)
+                
+                # Log individual spawn event
+                self.logger.info(
+                    f"🚶 Passenger {passenger_id} spawned at {current_time.strftime('%H:%M:%S')} | "
+                    f"Type: ROUTE | Board: ({board_lat:.4f}, {board_lon:.4f}) | "
+                    f"Alight: ({alight_lat:.4f}, {alight_lon:.4f})"
+                )
                 
             except Exception as e:
                 self.logger.debug(f"Error generating spawn request {i}: {e}")

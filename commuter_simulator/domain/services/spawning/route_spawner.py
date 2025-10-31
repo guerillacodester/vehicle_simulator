@@ -213,6 +213,11 @@ class RouteSpawner(SpawnerInterface):
     ) -> int:
         """Calculate how many passengers to spawn using Poisson distribution"""
         try:
+            # DEBUG: Log config structure
+            self.logger.debug(f"spawn_config keys: {spawn_config.keys()}")
+            self.logger.debug(f"spawn_config has 'hourly_rates': {'hourly_rates' in spawn_config}")
+            self.logger.debug(f"spawn_config has 'day_multipliers': {'day_multipliers' in spawn_config}")
+            
             dist_params = spawn_config.get('distribution_params', {})
             if isinstance(dist_params, list) and len(dist_params) > 0:
                 dist_params = dist_params[0]
@@ -220,13 +225,13 @@ class RouteSpawner(SpawnerInterface):
             # Base spawn rate from config
             spatial_base = dist_params.get('spatial_base', 1.0)
             
-            # Hourly rate based on time of day
-            hourly_rates = dist_params.get('hourly_rates', {})
+            # Hourly rate based on time of day (TOP LEVEL in new JSON format)
+            hourly_rates = spawn_config.get('hourly_rates', {})
             hour_str = str(current_time.hour)
             hourly_rate = float(hourly_rates.get(hour_str, 0.5))
             
-            # Day multiplier (Monday=0, Sunday=6)
-            day_multipliers = dist_params.get('day_multipliers', {})
+            # Day multiplier (Monday=0, Sunday=6) (TOP LEVEL in new JSON format)
+            day_multipliers = spawn_config.get('day_multipliers', {})
             day_str = str(current_time.weekday())
             day_mult = float(day_multipliers.get(day_str, 1.0))
             

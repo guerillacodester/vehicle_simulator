@@ -254,7 +254,7 @@ async def get_nearby_buildings(
     lat: float = Query(..., ge=-90, le=90, description="Center latitude"),
     lon: float = Query(..., ge=-180, le=180, description="Center longitude"),
     radius_meters: int = Query(500, ge=50, le=10000, description="Search radius (meters)"),
-    limit: int = Query(50, ge=1, le=1000, description="Maximum buildings")
+    limit: int = Query(5000, ge=1, le=10000, description="Maximum buildings")
 ):
     """
     Find buildings near a point (generic proximity search)
@@ -272,3 +272,81 @@ async def get_nearby_buildings(
     )
     
     return await get_depot_catchment(request)
+
+
+@router.get("/buildings/nearest")
+async def get_nearest_buildings(
+    latitude: float = Query(..., ge=-90, le=90, description="Center latitude"),
+    longitude: float = Query(..., ge=-180, le=180, description="Center longitude"),
+    radius_meters: int = Query(500, ge=50, le=10000, description="Search radius (meters)"),
+    limit: int = Query(5000, ge=1, le=10000, description="Maximum buildings")
+):
+    """
+    Find nearest buildings to a point.
+    Legacy endpoint for compatibility.
+    """
+    request = DepotCatchmentRequest(
+        latitude=latitude,
+        longitude=longitude,
+        radius_meters=radius_meters,
+        limit=limit
+    )
+    
+    return await get_depot_catchment(request)
+
+
+@router.get("/pois/nearest")
+async def get_nearest_pois(
+    latitude: float = Query(..., ge=-90, le=90, description="Center latitude"),
+    longitude: float = Query(..., ge=-180, le=180, description="Center longitude"),
+    radius_meters: int = Query(1000, ge=50, le=10000, description="Search radius (meters)"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum POIs")
+):
+    """
+    Find nearest POIs (Points of Interest) to a location.
+    """
+    start_time = time.time()
+    
+    try:
+        query = """
+            SELECT 
+                id,
+                document_id,
+                name,
+                amenity,
+                ST_Y(geom) AS latitude,
+                ST_X(geom) AS longitude,
+                ST_Distance(
+                    ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+                    geom::geography
+                ) AS distance_meters
+            FROM pois
+            WHERE ST_DWithin(
+                ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+                geom::geography,
+                $3
+            )
+            ORDER BY distance_meters ASC
+            LIMIT $4
+        """
+        
+        pois_data = await postgis_client.execute_query(
+            query, latitude, longitude, radius_meters, limit
+        )
+        
+        latency_ms = (time.time() - start_time) * 1000
+        
+        return {
+            'query_point': {
+                'latitude': latitude,
+                'longitude': longitude
+            },
+            'radius_meters': radius_meters,
+            'pois': pois_data,
+            'count': len(pois_data),
+            'latency_ms': round(latency_ms, 2)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"POIs query failed: {str(e)}")
+

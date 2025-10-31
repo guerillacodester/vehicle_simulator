@@ -144,3 +144,58 @@ async def check_geofence_batch(request: BatchGeofenceRequest):
             status_code=500,
             detail=f"Batch geofence check failed: {str(e)}"
         )
+
+
+@router.post("/batch")
+async def batch_geofence_check(request_data: dict):
+    """
+    Simplified batch geofence endpoint.
+    
+    Request body: {"points": [{"lat": 13.1, "lon": -59.6}, ...], "polygon": [[lat, lon], ...]}
+    
+    Checks if points are inside the provided polygon.
+    """
+    points = request_data.get('points', [])
+    polygon = request_data.get('polygon', [])
+    
+    if not points:
+        raise HTTPException(status_code=400, detail="No points provided")
+    if not polygon or len(polygon) < 3:
+        raise HTTPException(status_code=400, detail="Invalid polygon (need at least 3 coordinates)")
+    
+    start_time = time.time()
+    
+    try:
+        from shapely.geometry import Point, Polygon
+        
+        poly = Polygon(polygon)
+        results = []
+        
+        for point in points:
+            lat = point.get('lat')
+            lon = point.get('lon')
+            
+            if lat is None or lon is None:
+                results.append({'error': 'Missing lat or lon'})
+                continue
+            
+            pt = Point(lon, lat)  # Note: Shapely uses (lon, lat) order
+            inside = poly.contains(pt)
+            
+            results.append({
+                'latitude': lat,
+                'longitude': lon,
+                'inside': inside
+            })
+        
+        latency_ms = (time.time() - start_time) * 1000
+        
+        return {
+            'results': results,
+            'total_count': len(results),
+            'latency_ms': round(latency_ms, 2)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Batch geofence failed: {str(e)}")
+
