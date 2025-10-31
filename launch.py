@@ -165,6 +165,7 @@ def register_services():
             port=None,
             health_url=None,
             as_module="arknet_transit_simulator",
+            extra_args=["--mode", "depot"],  # Run in depot mode (continuous operation)
             dependencies=["strapi", "gpscentcom"],
             spawn_console=launcher_config.spawn_console_vehicle_simulator
         ))
@@ -175,7 +176,7 @@ def register_services():
             name="commuter_simulator",
             port=None,
             health_url=None,
-            as_module="commuter_simulator",
+            script_path=root_path / "commuter_simulator" / "main.py",
             dependencies=["strapi", "manifest"],
             spawn_console=launcher_config.spawn_console_commuter_simulator
         ))
