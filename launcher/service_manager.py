@@ -51,6 +51,7 @@ class ManagedService:
     npm_command: Optional[str] = None
     extra_args: Optional[List[str]] = None
     dependencies: List[str] = field(default_factory=list)
+    spawn_console: bool = False  # Whether to spawn in separate console window
     
     # Runtime state
     process: Optional[subprocess.Popen] = None
@@ -157,23 +158,86 @@ class ServiceManager:
             env = os.environ.copy()
             env['PYTHONIOENCODING'] = 'utf-8'
             
-            service.process = subprocess.Popen(
-                cmd,
-                cwd=cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
-                encoding='utf-8',
-                errors='replace',  # Replace unencodable characters instead of crashing
-                env=env
-            )
+            # Platform-specific console spawning
+            if service.spawn_console:
+                if sys.platform == 'win32':
+                    # Windows: Use 'start' command with new console
+                    # Create a batch file to run the command (avoids quoting hell)
+                    import tempfile
+                    batch_content = f'@echo off\ncd /d "{cwd}"\n'
+                    
+                    # Build the command with proper escaping
+                    cmd_parts = []
+                    for part in cmd:
+                        part_str = str(part)
+                        # Escape special characters and quote if contains spaces
+                        if ' ' in part_str or '&' in part_str or '|' in part_str:
+                            # Escape internal quotes
+                            part_str = part_str.replace('"', '""')
+                            cmd_parts.append(f'"{part_str}"')
+                        else:
+                            cmd_parts.append(part_str)
+                    
+                    batch_content += ' '.join(cmd_parts) + '\n'
+                    batch_content += 'pause\n'  # Keep window open on error
+                    
+                    # Write batch file
+                    batch_file = tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False)
+                    batch_file.write(batch_content)
+                    batch_file.close()
+                    
+                    # Start new console running the batch file
+                    service.process = subprocess.Popen(
+                        f'start "{service.name}" cmd.exe /c "{batch_file.name}"',
+                        shell=True,
+                        env=env
+                    )
+                else:
+                    # Linux: Try common terminal emulators
+                    # Priority: gnome-terminal, xterm, konsole, xfce4-terminal
+                    terminal_cmds = [
+                        ['gnome-terminal', '--', 'bash', '-c', ' '.join(cmd) + '; exec bash'],
+                        ['xterm', '-hold', '-e'] + cmd,
+                        ['konsole', '-e'] + cmd,
+                        ['xfce4-terminal', '-e', ' '.join(cmd)],
+                    ]
+                    
+                    launched = False
+                    for term_cmd in terminal_cmds:
+                        try:
+                            service.process = subprocess.Popen(
+                                term_cmd,
+                                cwd=cwd,
+                                env=env
+                            )
+                            launched = True
+                            break
+                        except FileNotFoundError:
+                            continue
+                    
+                    if not launched:
+                        raise RuntimeError("No suitable terminal emulator found. Install gnome-terminal, xterm, konsole, or xfce4-terminal.")
+            else:
+                # Normal background process (no console)
+                service.process = subprocess.Popen(
+                    cmd,
+                    cwd=cwd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True,
+                    encoding='utf-8',
+                    errors='replace',  # Replace unencodable characters instead of crashing
+                    env=env
+                )
+            
             service.start_time = datetime.utcnow()
             service.state = ServiceState.RUNNING
             
-            # Start capturing output in background
-            asyncio.create_task(self._capture_output(service))
+            # Start capturing output in background (only if not spawning console)
+            if not service.spawn_console:
+                asyncio.create_task(self._capture_output(service))
             
             event = ServiceEvent(
                 service_name=name,

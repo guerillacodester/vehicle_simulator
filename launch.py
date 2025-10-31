@@ -50,6 +50,8 @@ async def auto_start_services():
         ("gpscentcom", "GPSCentCom Server", True),
         ("geospatial", "Geospatial Service", True),
         ("manifest", "Manifest API", True),
+        ("vehicle_simulator", "Vehicle Simulator", False),  # No health check
+        ("commuter_simulator", "Commuter Simulator", False),  # No health check
     ]
     
     for service_name, display_name, wait_healthy in startup_sequence:
@@ -120,7 +122,8 @@ def register_services():
         script_path=root_path / "arknet_fleet_manager" / "arknet-fleet-api",
         is_npm=True,
         npm_command="develop",
-        dependencies=[]
+        dependencies=[],
+        spawn_console=launcher_config.spawn_console_strapi
     ))
     
     # Register GPSCentCom
@@ -129,7 +132,8 @@ def register_services():
         port=infra_config.gpscentcom_port,
         health_url=f"http://localhost:{infra_config.gpscentcom_port}/health",
         script_path=root_path / "gpscentcom_server" / "server_main.py",
-        dependencies=["strapi"]
+        dependencies=["strapi"],
+        spawn_console=launcher_config.spawn_console_gpscentcom
     ))
     
     # Register Geospatial Service
@@ -139,7 +143,8 @@ def register_services():
             port=6000,
             health_url="http://localhost:6000/health",
             script_path=root_path / "geospatial_service" / "main.py",
-            dependencies=["strapi"]
+            dependencies=["strapi"],
+            spawn_console=launcher_config.spawn_console_geospatial
         ))
     
     # Register Manifest API
@@ -149,7 +154,8 @@ def register_services():
             port=4000,
             health_url="http://localhost:4000/health",
             as_module="commuter_simulator.interfaces.http.manifest_api",
-            dependencies=["strapi"]
+            dependencies=["strapi"],
+            spawn_console=launcher_config.spawn_console_manifest
         ))
     
     # Register Vehicle Simulator
@@ -159,7 +165,8 @@ def register_services():
             port=None,
             health_url=None,
             as_module="arknet_transit_simulator",
-            dependencies=["strapi", "gpscentcom"]
+            dependencies=["strapi", "gpscentcom"],
+            spawn_console=launcher_config.spawn_console_vehicle_simulator
         ))
     
     # Register Commuter Simulator
@@ -169,7 +176,8 @@ def register_services():
             port=None,
             health_url=None,
             as_module="commuter_simulator",
-            dependencies=["strapi", "manifest"]
+            dependencies=["strapi", "manifest"],
+            spawn_console=launcher_config.spawn_console_commuter_simulator
         ))
 
 

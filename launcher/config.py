@@ -25,6 +25,14 @@ class LauncherConfig:
     enable_manifest: bool
     enable_vehicle_simulator: bool
     enable_commuter_simulator: bool
+    
+    # Console spawning flags
+    spawn_console_strapi: bool
+    spawn_console_gpscentcom: bool
+    spawn_console_geospatial: bool
+    spawn_console_manifest: bool
+    spawn_console_vehicle_simulator: bool
+    spawn_console_commuter_simulator: bool
 
 
 @dataclass
@@ -68,7 +76,13 @@ class ConfigurationManager:
             enable_geospatial=launcher.getboolean('enable_geospatial', True),
             enable_manifest=launcher.getboolean('enable_manifest', True),
             enable_vehicle_simulator=launcher.getboolean('enable_vehicle_simulator', False),
-            enable_commuter_simulator=launcher.getboolean('enable_commuter_simulator', False)
+            enable_commuter_simulator=launcher.getboolean('enable_commuter_simulator', False),
+            spawn_console_strapi=launcher.getboolean('spawn_console_strapi', False),
+            spawn_console_gpscentcom=launcher.getboolean('spawn_console_gpscentcom', False),
+            spawn_console_geospatial=launcher.getboolean('spawn_console_geospatial', False),
+            spawn_console_manifest=launcher.getboolean('spawn_console_manifest', False),
+            spawn_console_vehicle_simulator=launcher.getboolean('spawn_console_vehicle_simulator', False),
+            spawn_console_commuter_simulator=launcher.getboolean('spawn_console_commuter_simulator', False)
         )
     
     def get_infrastructure_config(self) -> InfrastructureConfig:
