@@ -97,25 +97,18 @@ async def list_all_depots(
     depot_list = []
     for depot in depots:
         depot_id = depot.get('id')
-        attrs = depot.get('attributes', {})
-        if not attrs or not depot_id:
+        if not depot_id:
             continue
-            
-        location = attrs.get('location')
         
+        # Strapi v5 uses flat structure (no 'attributes' nesting)
         depot_info = {
             'depot_id': depot_id,
-            'document_id': attrs.get('documentId') or attrs.get('document_id'),
-            'name': attrs.get('name'),
-            'capacity': attrs.get('capacity'),
+            'document_id': depot.get('documentId'),
+            'name': depot.get('name'),
+            'capacity': depot.get('capacity'),
+            'latitude': depot.get('latitude'),
+            'longitude': depot.get('longitude'),
         }
-        
-        if location and location.get('coordinates'):
-            depot_info['longitude'] = location['coordinates'][0]
-            depot_info['latitude'] = location['coordinates'][1]
-        else:
-            depot_info['longitude'] = None
-            depot_info['latitude'] = None
         
         # Include building counts if requested
         if include_buildings and depot_info['latitude'] and depot_info['longitude']:
@@ -151,11 +144,12 @@ async def list_all_depots(
                 routes_data = routes_response.json()
                 routes = routes_data.get('data', []) or []
                 
+                # Strapi v5 flat structure
                 depot_info['routes'] = [
                     {
                         'route_id': r['id'],
-                        'short_name': r['attributes'].get('route_short_name'),
-                        'long_name': r['attributes'].get('route_long_name')
+                        'short_name': r.get('short_name'),
+                        'long_name': r.get('long_name')
                     }
                     for r in routes
                 ]
@@ -193,22 +187,31 @@ async def get_depot_catchment(
     start_time = time.time()
     
     # Get depot location from Strapi
+    # Strapi v5 requires filtering by ID, not direct ID in URL
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(f"{STRAPI_URL}/api/depots/{depot_id}")
+        response = await client.get(
+            f"{STRAPI_URL}/api/depots",
+            params={"filters[id][$eq]": depot_id}
+        )
         
         if response.status_code != 200:
-            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+            raise HTTPException(status_code=503, detail="Strapi service unavailable")
         
         data = response.json()
-        attrs = data['data']['attributes']
-        location = attrs.get('location')
+        depots = data.get('data', [])
         
-        if not location or not location.get('coordinates'):
+        if not depots:
+            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+        
+        depot_data = depots[0]
+        
+        # Strapi v5 flat structure
+        latitude = depot_data.get('latitude')
+        longitude = depot_data.get('longitude')
+        depot_name = depot_data.get('name', 'Unknown')
+        
+        if not latitude or not longitude:
             raise HTTPException(status_code=400, detail="Depot has no location")
-        
-        longitude = location['coordinates'][0]
-        latitude = location['coordinates'][1]
-        depot_name = attrs.get('name', 'Unknown')
     
     # Query buildings
     try:
@@ -249,13 +252,22 @@ async def get_depot_routes(depot_id: int) -> Dict[str, Any]:
     
     # Get depot info
     async with httpx.AsyncClient(timeout=30.0) as client:
-        depot_response = await client.get(f"{STRAPI_URL}/api/depots/{depot_id}")
+        # Strapi v5 requires filtering by ID
+        depot_response = await client.get(
+            f"{STRAPI_URL}/api/depots",
+            params={"filters[id][$eq]": depot_id}
+        )
         
         if depot_response.status_code != 200:
-            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+            raise HTTPException(status_code=503, detail="Strapi service unavailable")
         
         depot_data = depot_response.json()
-        depot_name = depot_data['data']['attributes'].get('name', 'Unknown')
+        depots = depot_data.get('data', [])
+        
+        if not depots:
+            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+        
+        depot_name = depots[0].get('name', 'Unknown')
         
         # Try both 'depot' and 'depots' relations
         routes_response = await client.get(
@@ -283,16 +295,15 @@ async def get_depot_routes(depot_id: int) -> Dict[str, Any]:
             routes_data = routes_response.json()
             routes = routes_data.get('data', []) or []
     
-    # Build route list
+    # Build route list (Strapi v5 flat structure)
     route_list = []
     for route in routes:
-        route_attrs = route['attributes']
         route_list.append({
             'route_id': route['id'],
-            'document_id': route_attrs.get('documentId') or route_attrs.get('document_id'),
-            'short_name': route_attrs.get('route_short_name'),
-            'long_name': route_attrs.get('route_long_name'),
-            'distance_km': route_attrs.get('shape_dist_traveled')
+            'document_id': route.get('documentId'),
+            'short_name': route.get('short_name'),
+            'long_name': route.get('long_name'),
+            'distance_km': route.get('shape_dist_traveled')
         })
     
     latency_ms = (time.time() - start_time) * 1000
@@ -322,21 +333,30 @@ async def get_depot_coverage(
     
     # Get depot location
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(f"{STRAPI_URL}/api/depots/{depot_id}")
+        # Strapi v5 requires filtering by ID
+        response = await client.get(
+            f"{STRAPI_URL}/api/depots",
+            params={"filters[id][$eq]": depot_id}
+        )
         
         if response.status_code != 200:
-            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+            raise HTTPException(status_code=503, detail="Strapi service unavailable")
         
         data = response.json()
-        attrs = data['data']['attributes']
-        location = attrs.get('location')
+        depots = data.get('data', [])
         
-        if not location or not location.get('coordinates'):
+        if not depots:
+            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+        
+        depot_data = depots[0]
+        
+        # Strapi v5 flat structure
+        latitude = depot_data.get('latitude')
+        longitude = depot_data.get('longitude')
+        depot_name = depot_data.get('name', 'Unknown')
+        
+        if not latitude or not longitude:
             raise HTTPException(status_code=400, detail="Depot has no location")
-        
-        longitude = location['coordinates'][0]
-        latitude = location['coordinates'][1]
-        depot_name = attrs.get('name', 'Unknown')
     
     try:
         # Calculate coverage area using PostGIS
@@ -464,28 +484,23 @@ async def find_nearest_depot(
         }
     
     for depot in depots:
-        attrs = depot.get('attributes', {})
-        if not attrs:
-            continue
-            
-        location = attrs.get('location')
+        # Strapi v5 flat structure
+        latitude_depot = depot.get('latitude')
+        longitude_depot = depot.get('longitude')
         
-        if not location or not location.get('coordinates'):
+        if not latitude_depot or not longitude_depot:
             continue
         
-        depot_lon = location['coordinates'][0]
-        depot_lat = location['coordinates'][1]
-        
-        distance = haversine_distance(latitude, longitude, depot_lat, depot_lon)
+        distance = haversine_distance(latitude, longitude, latitude_depot, longitude_depot)
         
         if distance < min_distance and distance <= max_distance_meters:
             min_distance = distance
             nearest_depot = {
                 'depot_id': depot['id'],
-                'document_id': attrs.get('documentId') or attrs.get('document_id'),
-                'name': attrs.get('name'),
-                'latitude': depot_lat,
-                'longitude': depot_lon,
+                'document_id': depot.get('documentId'),
+                'name': depot.get('name'),
+                'latitude': latitude_depot,
+                'longitude': longitude_depot,
                 'distance_meters': round(distance, 2)
             }
     
@@ -529,26 +544,34 @@ async def get_depot_detail(
     
     # Get from Strapi
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(f"{STRAPI_URL}/api/depots/{depot_id}")
+        # Strapi v5 requires filtering by ID
+        response = await client.get(
+            f"{STRAPI_URL}/api/depots",
+            params={"filters[id][$eq]": depot_id}
+        )
         
         if response.status_code != 200:
-            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+            raise HTTPException(status_code=503, detail="Strapi service unavailable")
         
         data = response.json()
-        attrs = data['data']['attributes']
-        location = attrs.get('location')
+        depots = data.get('data', [])
+        
+        if not depots:
+            raise HTTPException(status_code=404, detail=f"Depot {depot_id} not found")
+        
+        depot_data = depots[0]
     
+    # Strapi v5 flat structure
     depot_detail = {
         'depot_id': depot_id,
-        'document_id': attrs.get('documentId') or attrs.get('document_id'),
-        'name': attrs.get('name'),
-        'capacity': attrs.get('capacity'),
+        'document_id': depot_data.get('documentId'),
+        'name': depot_data.get('name'),
+        'capacity': depot_data.get('capacity'),
+        'latitude': depot_data.get('latitude'),
+        'longitude': depot_data.get('longitude'),
     }
     
-    if location and location.get('coordinates'):
-        depot_detail['longitude'] = location['coordinates'][0]
-        depot_detail['latitude'] = location['coordinates'][1]
-        
+    if depot_detail['latitude'] and depot_detail['longitude']:
         # Include building counts if requested
         if include_buildings:
             try:

@@ -234,12 +234,75 @@ async def get_route_buildings(
     Get all buildings within buffer distance of route.
     
     Essential for route-based passenger spawning.
+    Uses GTFS route-shapes and shapes tables to get route geometry.
     """
     start_time = time.time()
     
     try:
-        buildings_data = await postgis_client.get_buildings_near_route(
-            route_id=route_id,
+        # Step 1: Get route to find its short_name (route_id in GTFS)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            route_response = await client.get(
+                f"{STRAPI_URL}/api/routes",
+                params={"filters[id][$eq]": route_id}
+            )
+            
+            if route_response.status_code != 200:
+                raise HTTPException(status_code=503, detail="Strapi service unavailable")
+            
+            routes = route_response.json().get('data', [])
+            if not routes:
+                raise HTTPException(status_code=404, detail=f"Route {route_id} not found")
+            
+            route_short_name = routes[0].get('short_name')
+            
+            # Step 2: Get default route-shape for this route
+            route_shape_response = await client.get(
+                f"{STRAPI_URL}/api/route-shapes",
+                params={
+                    "filters[route_id][$eq]": route_short_name,
+                    "filters[is_default][$eq]": True
+                }
+            )
+            
+            route_shapes = route_shape_response.json().get('data', [])
+            if not route_shapes:
+                return {
+                    'route_id': route_id,
+                    'buffer_meters': buffer_meters,
+                    'buildings': [],
+                    'count': 0,
+                    'error': 'No route shape found',
+                    'latency_ms': round((time.time() - start_time) * 1000, 2)
+                }
+            
+            shape_id = route_shapes[0].get('shape_id')
+            
+            # Step 3: Get all shape points for this shape_id
+            shapes_response = await client.get(
+                f"{STRAPI_URL}/api/shapes",
+                params={
+                    "filters[shape_id][$eq]": shape_id,
+                    "sort": "shape_pt_sequence:asc",
+                    "pagination[pageSize]": 1000
+                }
+            )
+            
+            shape_points = shapes_response.json().get('data', [])
+            if not shape_points:
+                return {
+                    'route_id': route_id,
+                    'buffer_meters': buffer_meters,
+                    'buildings': [],
+                    'count': 0,
+                    'error': 'No shape points found',
+                    'latency_ms': round((time.time() - start_time) * 1000, 2)
+                }
+        
+        # Step 4: Build LineString from shape points and query buildings
+        coordinates = [(pt['shape_pt_lon'], pt['shape_pt_lat']) for pt in shape_points]
+        
+        buildings_data = await postgis_client.get_buildings_near_linestring(
+            coordinates=coordinates,
             buffer_meters=buffer_meters,
             limit=limit
         )
@@ -248,12 +311,17 @@ async def get_route_buildings(
         
         return {
             'route_id': route_id,
+            'route_short_name': route_short_name,
+            'shape_id': shape_id,
+            'shape_points': len(shape_points),
             'buffer_meters': buffer_meters,
             'buildings': buildings_data,
             'count': len(buildings_data),
             'latency_ms': round(latency_ms, 2)
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Route buildings query failed: {str(e)}")
 

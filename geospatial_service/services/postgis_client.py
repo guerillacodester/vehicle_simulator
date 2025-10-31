@@ -204,6 +204,7 @@ class PostGISClient:
         limit: int = 1000
     ) -> List[Dict[str, Any]]:
         """
+        DEPRECATED: Use get_buildings_near_linestring instead.
         Get buildings within buffer distance of a route (highway)
         Returns: [{building_id, latitude, longitude, distance_meters}]
         """
@@ -228,6 +229,49 @@ class PostGISClient:
         """
         
         return await self.execute_query(query, route_id, buffer_meters, limit)
+    
+    async def get_buildings_near_linestring(
+        self,
+        coordinates: List[tuple],
+        buffer_meters: int = 100,
+        limit: int = 5000
+    ) -> List[Dict[str, Any]]:
+        """
+        Get buildings within buffer distance of a LineString defined by coordinates.
+        
+        Args:
+            coordinates: List of (lon, lat) tuples forming the route line
+            buffer_meters: Buffer distance in meters
+            limit: Maximum number of buildings to return
+            
+        Returns: [{building_id, document_id, latitude, longitude, distance_meters}]
+        """
+        # Build WKT LineString from coordinates
+        coords_str = ','.join([f'{lon} {lat}' for lon, lat in coordinates])
+        linestring_wkt = f'LINESTRING({coords_str})'
+        
+        # Optimized query with bbox pre-filter using spatial index
+        # FAST: && operator uses spatial index, then ST_DWithin for precise filtering
+        query = """
+            WITH route_line AS (
+                SELECT 
+                    ST_GeomFromText($1, 4326) AS geom_4326,
+                    ST_Buffer(ST_GeomFromText($1, 4326)::geography, $2)::geometry AS buffered
+            )
+            SELECT 
+                b.id as building_id,
+                b.document_id,
+                ST_Y(ST_Centroid(b.geom)) as latitude,
+                ST_X(ST_Centroid(b.geom)) as longitude,
+                ST_Distance(b.geom::geography, ST_GeomFromText($1, 4326)::geography) as distance_meters
+            FROM buildings b
+            WHERE b.geom && (SELECT buffered FROM route_line)
+              AND ST_Intersects(b.geom, (SELECT buffered FROM route_line))
+            ORDER BY distance_meters ASC
+            LIMIT $3
+        """
+        
+        return await self.execute_query(query, linestring_wkt, buffer_meters, limit)
     
     # ============================================================================
     # DEPOT CATCHMENT QUERY
