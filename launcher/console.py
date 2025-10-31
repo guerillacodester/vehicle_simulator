@@ -84,38 +84,23 @@ class ConsoleLauncher:
     
     def _launch_windows(self, cmd: List[str], cwd: Path, title: str) -> subprocess.Popen:
         """Launch on Windows - spawns new console window"""
-        # Build command string with proper quoting for paths with spaces
-        quoted_cmd = []
-        for arg in cmd:
-            arg_str = str(arg)
-            # Quote arguments that contain spaces (like Python executable path)
-            if ' ' in arg_str and not (arg_str.startswith('"') and arg_str.endswith('"')):
-                quoted_cmd.append(f'"{arg_str}"')
-            else:
-                quoted_cmd.append(arg_str)
-        
-        cmd_str = ' '.join(quoted_cmd)
+        # For cmd.exe batch context, we need to handle quoting carefully
+        # Simple approach: don't quote individual args, let cmd.exe handle the full command
+        cmd_str = ' '.join(str(arg) for arg in cmd)
         
         # For npm commands on Windows, we need to use 'call npm' to ensure proper execution
         if cmd[0] == 'npm':
             cmd_str = f'call {cmd_str}'
         
-        # Launch new console window
-        return subprocess.Popen(
-            [
-                "cmd.exe",
-                "/c",
-                "start",
-                title,
-                "cmd.exe",
-                "/k",
-                f"cd /d {cwd} && {cmd_str} || pause"
-            ],
-            cwd=cwd
-        )
-            ],
-            cwd=cwd
-        )
+        # Build the full batch command
+        # Use short name for Python path if it has spaces, or use call with full path
+        batch_cmd = f'cd /d "{cwd}" && {cmd_str} || pause'
+        
+        # Launch new console window using shell=True to properly handle paths with spaces
+        # The start command creates the new window
+        full_command = f'start "{title}" cmd.exe /k "{batch_cmd}"'
+        
+        return subprocess.Popen(full_command, shell=True, cwd=cwd)
     
     def _launch_macos(self, cmd: List[str], cwd: Path, title: str) -> subprocess.Popen:
         """Launch on macOS."""
