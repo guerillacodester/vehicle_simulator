@@ -95,18 +95,23 @@ async def list_all_routes(
     # Get routes from Strapi
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(
-                f"{STRAPI_URL}/api/routes",
-                params={
-                    "pagination[pageSize]": 1000,
-                    "populate": "*" if include_geometry else "basic"
-                }
-            )
+            url = f"{STRAPI_URL}/api/routes"
+            params = {"pagination[pageSize]": 1000}
+            
+            # Only add populate if we need it (Strapi v5 can be picky about populate values)
+            if include_geometry:
+                params["populate"] = "*"
+            
+            print(f"[DEBUG] Requesting: {url}")
+            print(f"[DEBUG] Params: {params}")
+            response = await client.get(url, params=params)
+            print(f"[DEBUG] Response status: {response.status_code}")
             
             if response.status_code != 200:
+                print(f"[DEBUG] Response content: {response.text[:500]}")
                 raise HTTPException(
                     status_code=503,
-                    detail="Strapi service unavailable. This endpoint requires Strapi CMS to be running."
+                    detail=f"Strapi service unavailable (status {response.status_code}). This endpoint requires Strapi CMS to be running."
                 )
             
             data = response.json()
@@ -134,29 +139,34 @@ async def list_all_routes(
     route_list = []
     for route in routes:
         route_id = route['id']
-        attrs = route['attributes']
+        doc_id = route.get('documentId') or route.get('document_id')
         
+        # Strapi v5 has flat structure (no 'attributes' nesting)
         route_info = {
-            'route_id': route_id,
-            'document_id': attrs.get('documentId') or attrs.get('document_id'),
-            'short_name': attrs.get('route_short_name'),
-            'long_name': attrs.get('route_long_name'),
-            'distance_km': attrs.get('shape_dist_traveled'),
+            'id': route_id,
+            'documentId': doc_id,
+            'route_short_name': route.get('short_name'),
+            'route_long_name': route.get('long_name'),
+            'route_type': route.get('route_type'),
+            'route_color': route.get('color'),
+            'route_text_color': route.get('text_color'),
+            'route_desc': route.get('description'),
+            'route_url': route.get('url'),
         }
         
         if include_geometry:
-            route_info['geometry'] = attrs.get('route_geometry')
+            route_info['geometry'] = route.get('route_geometry')
         
-        if include_metrics and route_info.get('document_id'):
+        if include_metrics and doc_id:
             # Query building counts
             try:
                 buildings_100m = await postgis_client.get_buildings_near_route(
-                    route_id=route_info['document_id'],
+                    route_id=doc_id,
                     buffer_meters=100,
                     limit=10000
                 )
                 buildings_500m = await postgis_client.get_buildings_near_route(
-                    route_id=route_info['document_id'],
+                    route_id=doc_id,
                     buffer_meters=500,
                     limit=10000
                 )
