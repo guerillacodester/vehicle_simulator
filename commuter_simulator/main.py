@@ -144,7 +144,7 @@ async def main():
                 route_spawner = RouteSpawner(
                     reservoir=route_reservoir,
                     config={},
-                    route_id=route.id,  # Use actual route ID from database
+                    route_id=route.document_id,  # Use documentId for API queries
                     config_loader=config_loader,
                     geo_client=geo_client
                 )
@@ -166,7 +166,7 @@ async def main():
                     config={},
                     depot_id=depot.depot_id,
                     depot_location=(depot.latitude, depot.longitude),
-                    depot_document_id=str(depot.id),  # Use documentId for route-depot queries
+                    depot_document_id=depot.document_id,  # Use documentId for route-depot queries
                     strapi_url=infra_config['strapi_url'],
                     available_routes=None  # Will query from route-depots junction table
                 )

@@ -366,5 +366,22 @@
     "display_name": "Enable GPS Transmission",
     "ui_group": "GPS Settings",
     "requires_restart": false
+  },
+  {
+    "section": "passenger_spawning.operational",
+    "parameter": "spawn_interval_seconds",
+    "value": "60",
+    "value_type": "number",
+    "default_value": "60",
+    "constraints": {
+      "min": 10,
+      "max": 600,
+      "step": 5,
+      "unit": "seconds"
+    },
+    "description": "Time interval between passenger spawn cycles",
+    "display_name": "Spawn Interval",
+    "ui_group": "Spawning Settings",
+    "requires_restart": false
   }
 ]

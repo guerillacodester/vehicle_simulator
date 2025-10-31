@@ -27,6 +27,7 @@ except ImportError:
 class DepotData:
     """Depot information from Strapi API"""
     id: int
+    document_id: str  # Strapi v5 document ID for API queries
     depot_id: str
     name: str
     address: Optional[str]
@@ -42,6 +43,7 @@ class DepotData:
 class RouteData:
     """Route information from Strapi API"""
     id: int
+    document_id: str  # Strapi v5 document ID for API queries
     short_name: str
     long_name: str
     parishes: Optional[List[str]]
@@ -172,6 +174,7 @@ class StrapiApiClient:
                 
                 depot = DepotData(
                     id=item['id'],
+                    document_id=item.get('documentId', str(item['id'])),  # Strapi v5 documentId
                     depot_id=attrs.get('depot_id', f"DEPOT_{item['id']}"),
                     name=attrs.get('name', f"Depot {item['id']}"),
                     address=attrs.get('address'),
@@ -222,6 +225,7 @@ class StrapiApiClient:
                 
                 route = RouteData(
                     id=item['id'],
+                    document_id=item.get('documentId', str(item['id'])),  # Strapi v5 documentId
                     short_name=attrs.get('short_name', f"Route {item['id']}"),
                     long_name=attrs.get('long_name', f"Route {item['id']}"),
                     parishes=attrs.get('parishes', []),
