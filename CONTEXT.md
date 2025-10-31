@@ -2,11 +2,11 @@
 
 **Project**: ArkNet Fleet Manager & Vehicle Simulator  
 **Repository**: vehicle_simulator  
-**Branch**: branch-0.0.2.8 (NOT main)  
-**Date**: October 30, 2025  
-**Status**: ✅ TIER 1-4.5 COMPLETE | 🎯 TIER 5 Route-Depot Association NEXT  
-**Phase**: Fleet Services Standalone Architecture, Configuration Centralized  
-**Latest**: Standalone fleet services with .env configuration (start_fleet_services.py) - Oct 30
+**Branch**: branch-0.0.2.9  
+**Date**: October 31, 2025  
+**Status**: ✅ Configuration Refactored | ✅ Launcher Consolidated | ✅ Route-Depot Associations | 🎯 Spawn Config for Routes NEXT  
+**Phase**: ConfigProvider Pattern, Single Source of Truth, Route-Depot Junction Table  
+**Latest**: ConfigProvider singleton eliminates 90+ hardcoded URLs, launch.py is single launcher - Oct 31
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -128,54 +128,45 @@ You are a **50+ year full-stack developer veteran** with deep expertise across a
 ### **Where We Are RIGHT NOW (October 28, 2025)**
 
 ```text
-CURRENT STATE (TIER 4 SPAWNER SYSTEM COMPLETE + RouteSpawner Discovery):
-✅ DepotSpawner: Poisson-distributed passenger generation at depots
-✅ SpawnerCoordinator: Orchestrates multiple spawners with enable/disable flags
-✅ Single entrypoint (main.py): Config-driven spawner control
-✅ End-to-end testing: 4 passengers spawned, verified in Strapi
-✅ Fresh spawn verification: Confirmed new passenger generation (not old data)
-✅ MockRouteSpawner: Test implementation for flag testing
-✅ Reservoirs moved to correct location (commuter_simulator/core/domain/reservoirs/)
-✅ PassengerRepository updated with route/depot helper methods
-✅ RouteSpawner FULLY IMPLEMENTED (287 lines) - discovered Oct 28 via deep code analysis
+CURRENT STATE (October 31, 2025 - Configuration Refactoring Complete):
+✅ ConfigProvider Pattern: Single source of truth for infrastructure config
+✅ Eliminated 90+ hardcoded URLs: 17+ files across all subsystems updated
+✅ Configuration Architecture: Root config.ini (infrastructure) + .env (secrets) + DB (operational)
+✅ GPS Client Port Fixed: 8000 → 5000 (correct GPSCentCom port)
+✅ UTF-8 Encoding Fixed: 7 files updated to handle emoji/special chars in config.ini
+✅ Launcher Consolidated: Deleted 3 redundant scripts, launch.py is single launcher
+✅ Integration Test Passing: launch.py successfully starts all subsystems
+✅ Route-Depot Junction Table: Populated with 1 association (Route 1 ↔ Speightstown, 223m)
+✅ Precompute Script: commuter_simulator/scripts/precompute_route_depot_associations.py
+✅ Zero Configuration Redundancies: Between files and database confirmed
+❌ RouteSpawner Failing: No spawn-config for route documentId 14
+❌ DepotSpawner Limited: 4 of 5 depots have no routes (only Speightstown has Route 1)
+❌ 0% Spawn Success: EXPECTED - can't spawn without routes/configs
 
-DEEP CODE ANALYSIS RESULTS (October 28, 2025):
-✅ RouteSpawner exists at commuter_simulator/core/domain/spawner_engine/route_spawner.py
-✅ All required methods complete: spawn(), _load_spawn_config(), _load_route_geometry(), 
-   _get_buildings_near_route(), _calculate_spawn_count(), _generate_spawn_requests()
-✅ GeospatialService integration complete: /spatial/route-geometry/{route_id}, /spatial/route-buildings
-✅ Route-depot junction table COMPLETE (Oct 28 - TIER 5 Step 1)
-   - Schema: arknet-fleet-api/src/api/route-depot/content-types/route-depot/schema.json
-   - Cached labels: route_short_name, depot_name, display_name (denormalized for UI performance)
-   - Lifecycle hooks: afterCreate/afterUpdate auto-populate labels from populated relations
-   - Admin UI config: mainField (relation chips) + displayedAttribute (entry titles)
-   - Bidirectional reflection validated: changes to Route update Depot and vice versa
-   - Precompute script: commuter_simulator/scripts/precompute_route_depot_associations.py
-❌ RouteSpawner NOT wired to main.py coordinator yet (currently uses MockRouteSpawner)
-❌ DepotSpawner uses hardcoded available_routes parameter (needs association querying)
-❌ PostgreSQL LISTEN/NOTIFY triggers NOT implemented
-❌ passenger_subscriber.py example NOT found
+CONFIGURATION REFACTORING (October 31, 2025):
+✅ Created common/config_provider.py: ConfigProvider singleton with InfrastructureConfig dataclass
+✅ Updated config.ini: Comprehensive infrastructure settings with documentation
+✅ Fixed Files (17+):
+   - GPS Telemetry Client: client.py, __init__.py, test_client.py, README.md
+   - Geospatial Service: main.py
+   - Commuter Simulator: geospatial/client.py, database/strapi_client.py, 
+     database/passenger_repository.py, interfaces/http/manifest_api.py, main.py
+   - Transit Simulator: config/config_loader.py, simulator.py, vehicle/conductor.py,
+     core/dispatcher.py, vehicle/driver/navigation/vehicle_driver.py, 
+     services/config_service.py, __main__.py
+   - Root Scripts: launcher/config.py
+✅ Deprecated arknet_transit_simulator/config/config.ini (all operational settings moved to DB)
+✅ Added 8 vehicle_simulator entries to operational_config_seed_data.json (23 total)
+✅ Files Deleted: start_services.py, start_fleet_services.py, start_all_systems.py (redundant)
+✅ Documentation Cleanup: Pending deletion of HARDCODED_VALUES_ASSESSMENT.md, 
+   GPS_RECONNECTION_IMPLEMENTATION.md, FLEET_SERVICES.md
 
-YESTERDAY'S ARCHITECTURAL DECISIONS (October 28):
-✅ Single entrypoint pattern approved (NOT separate sub-entrypoints)
-✅ Coordinator pattern for spawner orchestration
-✅ Config-driven enable/disable flags (enable_depotspawner, enable_routespawner)
-✅ Two-mode API architecture validated (Strapi = CRUD, GeospatialService = spatial queries)
-✅ Route-depot junction table design approved (explicit relationships, precomputed distances)
-✅ PubSub pattern recommended (PostgreSQL LISTEN/NOTIFY, not direct spawner integration)
-✅ **CORRECTED SEMANTICS** (Oct 28): Depots are bus stations; routes associate only if endpoints within ~500m walking distance
-
-IMMEDIATE NEXT TASK (October 28 - REVISED):
-IMMEDIATE NEXT TASK (October 28):
-🎯 TIER 5 Step 2 - Precompute Route-Depot Associations
-   - Run commuter_simulator/scripts/precompute_route_depot_associations.py for full dataset
-   - Creates associations for routes with endpoints within ~500m walking distance of depots
-   - Validates associations appear in Admin UI with cached labels (route_short_name, depot_name)
-   - Remaining TIER 5 steps:
-   - Update DepotSpawner to query associated routes (replace hardcoded list)
-   - Wire existing RouteSpawner to coordinator (replace MockRouteSpawner)
-   - Add PubSub via PostgreSQL LISTEN/NOTIFY for reservoir visualization
-   - Execute comprehensive flag tests
+IMMEDIATE NEXT TASK (October 31, 2025):
+🎯 Create Spawn Config for Routes
+   - Option A: Create spawn-config for route documentId 14 in database
+   - Option B: Verify correct route documentId (check what routes actually exist)
+   - Goal: Get RouteSpawner generating passengers
+   - After: Add spawn configs for additional routes, test full spawn cycle
 
 CLEAN ARCHITECTURE (October 29 - REFACTORED):
 commuter_simulator/ (Passenger Generation - CLEAN ARCHITECTURE)

@@ -36,6 +36,7 @@ async def delete_all_passengers():
         
         # Try different possible endpoints
         endpoints = [
+            "/api/active-passengers",
             "/api/passengers",
             "/api/commuter-passengers", 
             "/api/commuter-passenger",
