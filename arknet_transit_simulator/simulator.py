@@ -86,11 +86,36 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: str = "http://localhost:1337", enable_boarding_after: float = None, gps_config: dict = None) -> None:
+    def __init__(self, api_url: Optional[str] = None, enable_boarding_after: float = None, gps_config: dict = None) -> None:
+        """
+        Initialize vehicle simulator.
+        
+        Args:
+            api_url: Strapi API URL. If None, loads from config.ini via ConfigProvider.
+            enable_boarding_after: Delay in seconds before auto-enabling boarding
+            gps_config: GPS server configuration dict
+        """
+        # Load api_url from config if not provided
+        if api_url is None:
+            if _config_available:
+                try:
+                    config = get_config()
+                    api_url = config.infrastructure.strapi_url
+                except Exception:
+                    api_url = "http://localhost:1337"  # Fallback default
+            else:
+                api_url = "http://localhost:1337"  # Fallback if config not available
+        
         self.api_url = api_url
         self.enable_boarding_after = enable_boarding_after  # Delay in seconds before auto-enabling boarding
         self.gps_config = gps_config or {}  # GPS server configuration
@@ -442,7 +467,7 @@ class CleanVehicleSimulator:
                 
                 # Create passenger service using new commuter_simulator infrastructure
                 # This breaks the tight coupling to deprecated commuter_service module
-                passenger_repo = PassengerRepository(strapi_url="http://localhost:1337")
+                passenger_repo = PassengerRepository()  # Auto-loads URL from ConfigProvider
                 passenger_service = StrapiPassengerService(passenger_repo)
                 await passenger_service.connect()
                 logger.info(f"[CONDUCTOR] Connected to PassengerService via commuter_simulator infrastructure")

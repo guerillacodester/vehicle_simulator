@@ -16,6 +16,12 @@ import json
 
 logger = logging.getLogger(__name__)
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 
 class GeospatialClient:
     """
@@ -25,14 +31,26 @@ class GeospatialClient:
     Phase 2: Will support load balancing, retries, caching
     """
     
-    def __init__(self, base_url: str = "http://localhost:6000", timeout: int = 30):
+    def __init__(self, base_url: Optional[str] = None, timeout: int = 30):
         """
         Initialize client.
         
         Args:
-            base_url: Base URL of geospatial service (default: http://localhost:6000)
+            base_url: Base URL of geospatial service. If None, loads from config.ini.
+                     Defaults to "http://localhost:6000" if config unavailable.
             timeout: Request timeout in seconds (default: 30 for building queries)
         """
+        # Load base_url from config if not provided
+        if base_url is None:
+            if _config_available:
+                try:
+                    config = get_config()
+                    base_url = config.infrastructure.geospatial_url
+                except Exception:
+                    base_url = "http://localhost:6000"  # Fallback default
+            else:
+                base_url = "http://localhost:6000"  # Fallback if config not available
+        
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._building_cache = {}  # Simple in-memory cache

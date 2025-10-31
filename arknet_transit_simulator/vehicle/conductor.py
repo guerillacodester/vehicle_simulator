@@ -29,6 +29,12 @@ from datetime import datetime, timedelta
 from enum import Enum
 
 try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
+try:
     # Try relative imports first (when used as module)
     from .base_person import BasePerson
     from ..config.config_loader import ConfigLoader
@@ -191,13 +197,30 @@ class Conductor(BasePerson):
         assigned_route_id: str = None,
         tick_time: float = 1.0,
         config: ConductorConfig = None,
-        sio_url: str = "http://localhost:1337",
+        sio_url: Optional[str] = None,
         use_socketio: bool = True,
         passenger_db = None,  # Optional: PassengerDatabase instance
         hardware_client = None  # Optional: HardwareEventClient for event reporting
     ):
+        """
+        Initialize conductor.
+        
+        Args:
+            sio_url: Socket.IO URL. If None, loads from config.ini via ConfigProvider.
+        """
         # Initialize BasePerson with PersonState
         super().__init__(conductor_id, "Conductor", conductor_name)
+        
+        # Load sio_url from config if not provided
+        if sio_url is None:
+            if _config_available:
+                try:
+                    config_provider = get_config()
+                    sio_url = config_provider.infrastructure.strapi_url
+                except Exception:
+                    sio_url = "http://localhost:1337"  # Fallback default
+            else:
+                sio_url = "http://localhost:1337"  # Fallback if config not available
         
         self.vehicle_id = vehicle_id
         self.assigned_route_id = assigned_route_id or "UNKNOWN"

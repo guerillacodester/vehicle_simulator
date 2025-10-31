@@ -14,6 +14,12 @@ from urllib.parse import urljoin
 from .models import Vehicle, AnalyticsResponse, HealthResponse
 from .observers import ObservableClient
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 
 class GPSTelemetryClient(ObservableClient):
     """
@@ -25,7 +31,7 @@ class GPSTelemetryClient(ObservableClient):
     Can be used directly or through observers for event-driven architectures.
     
     Example (Synchronous):
-        client = GPSTelemetryClient("http://localhost:8000")
+        client = GPSTelemetryClient("http://localhost:5000")
         vehicles = client.get_all_devices()
         for v in vehicles:
             print(f"{v.deviceId}: {v.lat}, {v.lon}")
@@ -35,7 +41,7 @@ class GPSTelemetryClient(ObservableClient):
             def on_vehicle_update(self, vehicle):
                 print(f"Update: {vehicle.deviceId}")
         
-        client = GPSTelemetryClient("http://localhost:8000")
+        client = GPSTelemetryClient("http://localhost:5000")
         client.add_observer(MyObserver())
         client.start_stream()  # Non-blocking
     
@@ -43,20 +49,33 @@ class GPSTelemetryClient(ObservableClient):
         def on_update(vehicle):
             print(f"Update: {vehicle.deviceId}")
         
-        client = GPSTelemetryClient("http://localhost:8000")
+        client = GPSTelemetryClient("http://localhost:5000")
         client.add_observer(CallbackObserver(on_vehicle_update=on_update))
         client.start_stream()
     """
     
-    def __init__(self, base_url: str = "http://localhost:8000", api_prefix: str = "/gps"):
+    def __init__(self, base_url: Optional[str] = None, api_prefix: str = "/gps"):
         """
         Initialize GPS telemetry client.
         
         Args:
-            base_url: Base URL of GPS server (e.g., "http://localhost:8000")
+            base_url: Base URL of GPS server. If None, loads from config.ini via ConfigProvider.
+                     Defaults to "http://localhost:5000" if config unavailable.
             api_prefix: API prefix (e.g., "/gps" for unified services, "" for standalone)
         """
         super().__init__()
+        
+        # Load base_url from config if not provided
+        if base_url is None:
+            if _config_available:
+                try:
+                    config = get_config()
+                    base_url = config.infrastructure.gpscentcom_http_url
+                except Exception:
+                    base_url = "http://localhost:5000"  # Fallback default
+            else:
+                base_url = "http://localhost:5000"  # Fallback if config not available
+        
         self.base_url = base_url.rstrip('/')
         self.api_prefix = api_prefix.rstrip('/')
         self._stream_thread: Optional[threading.Thread] = None

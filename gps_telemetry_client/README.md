@@ -32,8 +32,8 @@ pip install -e .
 ```python
 from gps_telemetry_client import GPSTelemetryClient
 
-# Create client
-client = GPSTelemetryClient("http://localhost:8000")
+# Create client (auto-loads URL from config.ini)
+client = GPSTelemetryClient()
 
 # Get all devices
 vehicles = client.get_all_devices()
@@ -76,8 +76,8 @@ class MyObserver(TelemetryObserver):
     def on_disconnected(self):
         print("[DISCONNECTED] Stream ended")
 
-# Create client and observer
-client = GPSTelemetryClient("http://localhost:8000")
+# Create client (auto-loads URL from config.ini)
+client = GPSTelemetryClient()
 observer = MyObserver()
 
 # Register observer
@@ -102,7 +102,7 @@ from gps_telemetry_client import GPSTelemetryClient, CallbackObserver
 def on_update(vehicle):
     print(f"{vehicle.deviceId}: {vehicle.speed} km/h")
 
-client = GPSTelemetryClient("http://localhost:8000")
+client = GPSTelemetryClient()  # Auto-loads from config.ini
 client.add_observer(CallbackObserver(on_vehicle_update=on_update))
 
 # Blocking stream (runs until Ctrl+C)
@@ -156,7 +156,11 @@ client.start_stream(blocking=True)
 
 #### Constructor
 ```python
-client = GPSTelemetryClient(base_url="http://localhost:8000")
+# Auto-loads from config.ini (recommended)
+client = GPSTelemetryClient()
+
+# Or specify URL explicitly
+client = GPSTelemetryClient(base_url="http://localhost:5000")
 ```
 
 #### Synchronous Methods (HTTP Polling)
@@ -244,10 +248,10 @@ import argparse
 from gps_telemetry_client import GPSTelemetryClient
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--url', default='http://localhost:8000')
+parser.add_argument('--url', default=None, help='GPS server URL (default: from config.ini)')
 args = parser.parse_args()
 
-client = GPSTelemetryClient(args.url)
+client = GPSTelemetryClient(args.url)  # Auto-loads if url is None
 vehicles = client.get_all_devices()
 
 for v in vehicles:
@@ -265,7 +269,7 @@ PythonEngine.Initialize();
 using (Py.GIL())
 {
     dynamic gps = Py.Import("gps_telemetry_client");
-    dynamic client = gps.GPSTelemetryClient("http://localhost:8000");
+    dynamic client = gps.GPSTelemetryClient();  // Auto-loads from config.ini
     
     dynamic vehicles = client.get_all_devices();
     
@@ -290,7 +294,7 @@ class GPSMonitor(tk.Tk):
         self.text = tk.Text(self)
         self.text.pack()
         
-        client = GPSTelemetryClient("http://localhost:8000")
+        client = GPSTelemetryClient()  # Auto-loads from config.ini
         client.add_observer(CallbackObserver(
             on_vehicle_update=self.on_update
         ))
@@ -310,7 +314,7 @@ from flask import Flask, jsonify
 from gps_telemetry_client import GPSTelemetryClient
 
 app = Flask(__name__)
-client = GPSTelemetryClient("http://localhost:8000")
+client = GPSTelemetryClient()  # Auto-loads from config.ini
 
 @app.route('/api/vehicles')
 def get_vehicles():

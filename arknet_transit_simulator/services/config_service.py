@@ -23,6 +23,12 @@ import asyncio
 import aiohttp
 import json
 import logging
+
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
 from typing import Any, Dict, Optional, Callable, List
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -52,7 +58,16 @@ class ConfigurationService:
     
     def __init__(self):
         if not self._initialized:
-            self.strapi_url = "http://localhost:1337"
+            # Load Strapi URL from ConfigProvider
+            strapi_url = "http://localhost:1337"  # Fallback
+            if _config_available:
+                try:
+                    config = get_config()
+                    strapi_url = config.infrastructure.strapi_url
+                except Exception:
+                    pass  # Use fallback
+            
+            self.strapi_url = strapi_url
             self.api_endpoint = f"{self.strapi_url}/api/operational-configurations"
             
             # Cache configuration data

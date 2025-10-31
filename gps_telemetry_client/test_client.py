@@ -200,8 +200,8 @@ Examples:
     
     parser.add_argument(
         '--url',
-        default='http://localhost:8000',
-        help='GPS server base URL (default: http://localhost:8000)'
+        default=None,
+        help='GPS server base URL (default: auto-loads from config.ini, fallback http://localhost:5000)'
     )
     
     parser.add_argument(

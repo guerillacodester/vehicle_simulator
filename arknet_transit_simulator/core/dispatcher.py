@@ -7,6 +7,12 @@ from typing import Dict, Any, Optional, List, Tuple
 from .states import StateMachine, PersonState
 from .interfaces import IDispatcher, VehicleAssignment, DriverAssignment, RouteInfo
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 
 class ApiStrategy(ABC):
     """Abstract base class for API strategies (FastAPI, Strapi, etc.)"""
@@ -632,9 +638,28 @@ class StrapiStrategy(ApiStrategy):
 
 
 class Dispatcher(StateMachine, IDispatcher):
-    def __init__(self, component_name: str = "Dispatcher", api_strategy: Optional[ApiStrategy] = None, api_base_url: str = "http://localhost:1337"):
+    def __init__(self, component_name: str = "Dispatcher", api_strategy: Optional[ApiStrategy] = None, api_base_url: Optional[str] = None):
+        """
+        Initialize dispatcher.
+        
+        Args:
+            component_name: Name of the dispatcher component
+            api_strategy: Optional API strategy (Strapi, FastAPI, etc.)
+            api_base_url: API base URL. If None, loads from config.ini via ConfigProvider.
+        """
         super().__init__(component_name, PersonState.OFFSITE)
         self.initialized = False
+        
+        # Load api_base_url from config if not provided
+        if api_base_url is None:
+            if _config_available:
+                try:
+                    config = get_config()
+                    api_base_url = config.infrastructure.strapi_url
+                except Exception:
+                    api_base_url = "http://localhost:1337"  # Fallback default
+            else:
+                api_base_url = "http://localhost:1337"  # Fallback if config not available
         
         # Use provided strategy or create default Strapi strategy (modern GTFS-compliant)
         if api_strategy is None:

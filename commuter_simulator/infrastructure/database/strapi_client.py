@@ -16,6 +16,12 @@ import httpx
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 
 @dataclass
 class DepotData:
@@ -67,12 +73,30 @@ class StrapiApiClient:
     Single Source of Truth for all Strapi API access.
     
     Usage:
-        async with StrapiApiClient("http://localhost:1337") as client:
+        async with StrapiApiClient() as client:  # Auto-loads from config.ini
             depots = await client.get_all_depots()
             routes = await client.get_all_routes()
     """
     
-    def __init__(self, base_url: str = "http://localhost:1337"):
+    def __init__(self, base_url: Optional[str] = None):
+        """
+        Initialize Strapi API client.
+        
+        Args:
+            base_url: Base URL of Strapi CMS. If None, loads from config.ini.
+                     Defaults to "http://localhost:1337" if config unavailable.
+        """
+        # Load base_url from config if not provided
+        if base_url is None:
+            if _config_available:
+                try:
+                    config = get_config()
+                    base_url = config.infrastructure.strapi_url
+                except Exception:
+                    base_url = "http://localhost:1337"  # Fallback default
+            else:
+                base_url = "http://localhost:1337"  # Fallback if config not available
+        
         self.base_url = base_url
         self.session: Optional[httpx.AsyncClient] = None
         self._connected = False

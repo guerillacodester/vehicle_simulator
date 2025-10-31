@@ -22,8 +22,12 @@ from datetime import datetime
 from collections import Counter
 from typing import Dict, List
 
-
-MANIFEST_API_URL = "http://localhost:4000"
+try:
+    from common.config_provider import get_config
+    config = get_config()
+    MANIFEST_API_URL = config.infrastructure.manifest_url
+except Exception:
+    MANIFEST_API_URL = "http://localhost:4000"  # Fallback
 
 
 async def fetch_manifest(limit: int = 1000) -> Dict:

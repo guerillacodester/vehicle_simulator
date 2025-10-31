@@ -51,7 +51,7 @@ if not config_path.exists():
     print("   Please create config.ini in the project root")
     sys.exit(1)
 
-config.read(config_path)
+config.read(config_path, encoding='utf-8')
 
 
 def check_service_health(name, url, timeout=5):

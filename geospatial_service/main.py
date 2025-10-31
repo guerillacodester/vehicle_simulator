@@ -113,10 +113,22 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+    import configparser
+    from pathlib import Path
+    
+    # Load port from config.ini
+    config = configparser.ConfigParser()
+    config_path = Path(__file__).parent.parent / "config.ini"
+    config.read(config_path, encoding='utf-8')
+    
+    # Extract port from geospatial_url (e.g., "http://localhost:6000" -> 6000)
+    geospatial_url = config.get('infrastructure', 'geospatial_url', fallback='http://localhost:6000')
+    port = int(geospatial_url.split(':')[-1])
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=6000,
+        port=port,
         reload=True,
         log_level="info"
     )

@@ -15,6 +15,12 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 import logging
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 
 class PassengerRepository:
     """Repository for Strapi active-passengers API operations."""
@@ -29,11 +35,23 @@ class PassengerRepository:
         Initialize Strapi API client.
         
         Args:
-            strapi_url: Strapi base URL (default: http://localhost:1337)
+            strapi_url: Strapi base URL. If None, loads from config.ini.
+                       Defaults to "http://localhost:1337" if config unavailable.
             api_token: Strapi API token for authentication
             logger: Logger instance
         """
-        self.strapi_url = (strapi_url or "http://localhost:1337").rstrip('/api')
+        # Load strapi_url from config if not provided
+        if strapi_url is None:
+            if _config_available:
+                try:
+                    config = get_config()
+                    strapi_url = config.infrastructure.strapi_url
+                except Exception:
+                    strapi_url = "http://localhost:1337"  # Fallback default
+            else:
+                strapi_url = "http://localhost:1337"  # Fallback if config not available
+        
+        self.strapi_url = strapi_url.rstrip('/api')
         self.logger = logger or logging.getLogger(__name__)
         self.logger.info(f"[PassengerRepository] Initialized with URL: {self.strapi_url}")
         

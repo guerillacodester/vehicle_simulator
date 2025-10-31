@@ -25,7 +25,7 @@ def load_config():
         raise FileNotFoundError(f"config.ini not found at {config_path}")
     
     config = configparser.ConfigParser()
-    config.read(config_path)
+    config.read(config_path, encoding='utf-8')
     return config
 
 

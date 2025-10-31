@@ -14,6 +14,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 
 class ConfigLoader:
     """
@@ -83,9 +89,22 @@ class ConfigLoader:
     
     def get_gps_config(self) -> Dict[str, Any]:
         """Get GPS server configuration"""
+        # Load defaults from ConfigProvider if available
+        server_url = 'ws://localhost:5000/'
+        auth_token = 'supersecrettoken'
+        
+        if _config_available:
+            try:
+                config_provider = get_config()
+                server_url = config_provider.infrastructure.gpscentcom_ws_url
+                if not server_url.endswith('/'):
+                    server_url += '/'
+            except Exception as e:
+                logger.warning(f"Could not load GPS config from ConfigProvider: {e}")
+        
         config = {
-            'server_url': 'ws://localhost:5000/',
-            'auth_token': 'supersecrettoken',
+            'server_url': server_url,
+            'auth_token': auth_token,  # Will be overridden by AUTH_TOKEN env var
             'method': 'ws',
             'interval': 1.0
         }
@@ -94,7 +113,7 @@ class ConfigLoader:
         if self._config.has_section('server'):
             config.update(dict(self._config.items('server')))
         
-        # Override with environment variables
+        # Override with environment variables (highest priority)
         env_mappings = {
             'GPS_SERVER_URL': 'server_url',
             'GPS_WS_URL': 'ws_url',
@@ -110,7 +129,26 @@ class ConfigLoader:
         return config
     
     def get_simulation_config(self) -> Dict[str, Any]:
-        """Get simulation parameters"""
+        """
+        Get simulation parameters.
+        
+        DEPRECATED: This method returns hardcoded defaults only.
+        For runtime simulation configuration, use ConfigurationService to query database:
+            from arknet_transit_simulator.services.config_service import ConfigurationService
+            config_service = ConfigurationService()
+            await config_service.initialize()
+            tick_time = await config_service.get("vehicle_simulator.simulation.tick_time", default=1.0)
+        
+        Database sections:
+            - vehicle_simulator.simulation.tick_time
+            - vehicle_simulator.simulation.default_speed
+            - vehicle_simulator.engine.speed_model
+            - vehicle_simulator.engine.accel_limit
+            - vehicle_simulator.engine.decel_limit
+            - vehicle_simulator.engine.corner_slowdown
+        """
+        # Return minimal fallback defaults
+        # These are ONLY used if database is unavailable
         config = {
             'tick_time': 1.0,
             'default_speed': 60.0,
@@ -121,11 +159,7 @@ class ConfigLoader:
             'schedule_precision_seconds': 30
         }
         
-        # From config file
-        if self._config.has_section('simulation'):
-            config.update(dict(self._config.items('simulation')))
-        
-        # Override with environment variables
+        # Environment variables override (highest priority)
         env_mappings = {
             'SIM_TICK_TIME': 'tick_time',
             'SIM_DEFAULT_SPEED': 'default_speed',
@@ -154,8 +188,18 @@ class ConfigLoader:
     
     def get_fleet_config(self) -> Dict[str, Any]:
         """Get fleet management configuration"""
+        # Load API URL from ConfigProvider
+        api_url = 'http://localhost:1337'  # Fallback to Strapi
+        
+        if _config_available:
+            try:
+                config_provider = get_config()
+                api_url = config_provider.infrastructure.strapi_url
+            except Exception as e:
+                logger.warning(f"Could not load fleet API URL from ConfigProvider: {e}")
+        
         config = {
-            'api_url': 'http://localhost:8000',
+            'api_url': api_url,
             'default_depot_id': 'DEPOT_001',
             'auto_assign_vehicles': True,
             'schedule_lookahead_minutes': 30,

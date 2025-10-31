@@ -30,6 +30,12 @@ from commuter_simulator.application.queries import (
     ManifestRow
 )
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 app = FastAPI(
     title="Passenger Manifest API",
     description="Enriched passenger manifest with route positions and geocoded addresses",
@@ -88,7 +94,19 @@ async def get_manifest(
     - start_address, stop_address (reverse geocoded)
     - trip_summary ("Start → Stop | km")
     """
-    strapi_url = os.getenv("STRAPI_URL", "http://localhost:1337").rstrip("/")
+    # Load Strapi URL from config
+    strapi_url = os.getenv("STRAPI_URL")
+    if not strapi_url:
+        if _config_available:
+            try:
+                config = get_config()
+                strapi_url = config.infrastructure.strapi_url
+            except Exception:
+                strapi_url = "http://localhost:1337"  # Fallback default
+        else:
+            strapi_url = "http://localhost:1337"  # Fallback if config not available
+    
+    strapi_url = strapi_url.rstrip("/")
     token = os.getenv("STRAPI_TOKEN")
     
     # Build Strapi query params
@@ -140,4 +158,16 @@ async def get_manifest(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=4000)
+    import configparser
+    from pathlib import Path
+    
+    # Load port from config.ini
+    config = configparser.ConfigParser()
+    config_path = Path(__file__).parent.parent.parent.parent / "config.ini"
+    config.read(config_path, encoding='utf-8')
+    
+    # Extract port from manifest_url (e.g., "http://localhost:4000" -> 4000)
+    manifest_url = config.get('infrastructure', 'manifest_url', fallback='http://localhost:4000')
+    port = int(manifest_url.split(':')[-1])
+    
+    uvicorn.run(app, host="0.0.0.0", port=port)

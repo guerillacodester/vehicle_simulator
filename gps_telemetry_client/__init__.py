@@ -19,7 +19,7 @@ Core Components:
 Usage:
     from gps_telemetry_client import GPSTelemetryClient, Vehicle
     
-    client = GPSTelemetryClient("http://localhost:8000")
+    client = GPSTelemetryClient()  # Auto-loads from config.ini
     vehicles = client.get_all_devices()
     for vehicle in vehicles:
         print(f"{vehicle.deviceId}: {vehicle.lat}, {vehicle.lon}")

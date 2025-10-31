@@ -60,7 +60,8 @@ class ConfigurationManager:
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
         
-        self.config.read(config_path)
+        # Read with UTF-8 encoding to handle special characters
+        self.config.read(config_path, encoding='utf-8')
     
     def get_launcher_config(self) -> LauncherConfig:
         """Get launcher-specific configuration."""

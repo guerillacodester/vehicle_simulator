@@ -29,6 +29,12 @@ from .telemetry_buffer import TelemetryBuffer
 from ...base_person import BasePerson
 from ....core.states import DriverState
 
+try:
+    from common.config_provider import get_config
+    _config_available = True
+except ImportError:
+    _config_available = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,7 +99,7 @@ class VehicleDriver(BasePerson):
         tick_time: float = 0.1,
         mode: str = "geodesic",
         direction: str = "outbound",
-        sio_url: str = "http://localhost:1337",
+        sio_url: Optional[str] = None,
         use_socketio: bool = True,
         config: DriverConfig = None
     ):
@@ -109,10 +115,20 @@ class VehicleDriver(BasePerson):
         :param tick_time: worker loop sleep time (s)
         :param mode: "linear" (legacy) or "geodesic" (default)
         :param direction: "outbound" (default) or "inbound" (reverse route)
-        :param sio_url: Socket.IO server URL (Priority 2)
+        :param sio_url: Socket.IO URL. If None, loads from config.ini via ConfigProvider.
         :param use_socketio: Enable/disable Socket.IO (Priority 2)
         :param config: DriverConfig instance (optional, uses defaults if not provided)
         """
+        # Load sio_url from config if not provided
+        if sio_url is None:
+            if _config_available:
+                try:
+                    config_provider = get_config()
+                    sio_url = config_provider.infrastructure.strapi_url
+                except Exception:
+                    sio_url = "http://localhost:1337"  # Fallback default
+            else:
+                sio_url = "http://localhost:1337"  # Fallback if config not available
         # Initialize BasePerson with PersonState, then override with DriverState
         super().__init__(driver_id, "VehicleDriver", driver_name)
         # Override initial state to use DriverState.DISEMBARKED

@@ -238,5 +238,133 @@
     "display_name": "Enable Depot Spawner",
     "ui_group": "Operational",
     "requires_restart": true
+  },
+  {
+    "section": "vehicle_simulator.simulation",
+    "parameter": "tick_time",
+    "value": "1.0",
+    "value_type": "number",
+    "default_value": "1.0",
+    "constraints": {
+      "min": 0.1,
+      "max": 10.0,
+      "step": 0.1,
+      "unit": "seconds"
+    },
+    "description": "Simulation tick rate (how often simulation updates)",
+    "display_name": "Simulation Tick Time",
+    "ui_group": "Simulation",
+    "requires_restart": false
+  },
+  {
+    "section": "vehicle_simulator.simulation",
+    "parameter": "default_speed",
+    "value": "60.0",
+    "value_type": "number",
+    "default_value": "60.0",
+    "constraints": {
+      "min": 10.0,
+      "max": 150.0,
+      "step": 5.0,
+      "unit": "km/h"
+    },
+    "description": "Default vehicle speed when no route speed limit specified",
+    "display_name": "Default Vehicle Speed",
+    "ui_group": "Simulation",
+    "requires_restart": false
+  },
+  {
+    "section": "vehicle_simulator.engine",
+    "parameter": "speed_model",
+    "value": "kinematic",
+    "value_type": "string",
+    "default_value": "kinematic",
+    "constraints": {
+      "enum": ["kinematic", "linear"]
+    },
+    "description": "Physics model for vehicle movement (kinematic: realistic physics, linear: simple interpolation)",
+    "display_name": "Speed Model",
+    "ui_group": "Engine Physics",
+    "requires_restart": false
+  },
+  {
+    "section": "vehicle_simulator.engine",
+    "parameter": "accel_limit",
+    "value": "3.0",
+    "value_type": "number",
+    "default_value": "3.0",
+    "constraints": {
+      "min": 0.5,
+      "max": 10.0,
+      "step": 0.1,
+      "unit": "m/s²"
+    },
+    "description": "Maximum acceleration rate for vehicles",
+    "display_name": "Acceleration Limit",
+    "ui_group": "Engine Physics",
+    "requires_restart": false
+  },
+  {
+    "section": "vehicle_simulator.engine",
+    "parameter": "decel_limit",
+    "value": "4.0",
+    "value_type": "number",
+    "default_value": "4.0",
+    "constraints": {
+      "min": 0.5,
+      "max": 15.0,
+      "step": 0.1,
+      "unit": "m/s²"
+    },
+    "description": "Maximum deceleration rate for vehicles (braking)",
+    "display_name": "Deceleration Limit",
+    "ui_group": "Engine Physics",
+    "requires_restart": false
+  },
+  {
+    "section": "vehicle_simulator.engine",
+    "parameter": "corner_slowdown",
+    "value": "1.0",
+    "value_type": "number",
+    "default_value": "1.0",
+    "constraints": {
+      "min": 0.1,
+      "max": 5.0,
+      "step": 0.1,
+      "unit": "multiplier"
+    },
+    "description": "Speed reduction factor when navigating corners",
+    "display_name": "Corner Slowdown Factor",
+    "ui_group": "Engine Physics",
+    "requires_restart": false
+  },
+  {
+    "section": "vehicle_simulator.gps",
+    "parameter": "transmission_interval",
+    "value": "1.0",
+    "value_type": "number",
+    "default_value": "1.0",
+    "constraints": {
+      "min": 0.1,
+      "max": 60.0,
+      "step": 0.1,
+      "unit": "seconds"
+    },
+    "description": "How often GPS telemetry is transmitted",
+    "display_name": "GPS Transmission Interval",
+    "ui_group": "GPS Settings",
+    "requires_restart": false
+  },
+  {
+    "section": "vehicle_simulator.gps",
+    "parameter": "enable_transmission",
+    "value": "true",
+    "value_type": "boolean",
+    "default_value": "true",
+    "constraints": {},
+    "description": "Enable/disable GPS telemetry transmission",
+    "display_name": "Enable GPS Transmission",
+    "ui_group": "GPS Settings",
+    "requires_restart": false
   }
 ]
