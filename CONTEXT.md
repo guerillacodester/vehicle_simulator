@@ -3,10 +3,10 @@
 **Project**: ArkNet Fleet Manager & Vehicle Simulator  
 **Repository**: vehicle_simulator  
 **Branch**: branch-0.0.2.9  
-**Date**: October 31, 2025  
-**Status**: ✅ Configuration Refactored | ✅ Launcher Consolidated | ✅ Route-Depot Associations | 🎯 Spawn Config for Routes NEXT  
-**Phase**: ConfigProvider Pattern, Single Source of Truth, Route-Depot Junction Table  
-**Latest**: ConfigProvider singleton eliminates 90+ hardcoded URLs, launch.py is single launcher - Oct 31
+**Date**: November 1, 2025  
+**Status**: ✅ Spawn Calculation Kernel | ✅ Repository Cleanup | ✅ Tests Consolidated | 🎯 Integrate Kernel into Spawners NEXT  
+**Phase**: Modular Architecture, Code Organization, Spawn Model Implementation  
+**Latest**: Created spawn_calculator.py kernel with pure functions, consolidated tests/ directory, archived legacy docs - Nov 1
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -3028,5 +3028,69 @@ transmitter = WebSocketTransmitter(
 - Metrics: track failover events, server uptime, connection duration
 
 **Related**: See TODO.md for detailed redundant server roadmap
+
+---
+
+## Security & Configuration
+
+### Configuration Architecture
+
+This project separates **sensitive credentials** from **operational configuration** for security and maintainability.
+
+#### 📄 config.ini - Operational Configuration (Safe to commit)
+- Service ports (Strapi, GPS, Geospatial, Manifest)
+- Service URLs (localhost endpoints)
+- Enable/disable flags for subsystems
+- Timing parameters (startup waits, intervals)
+
+#### 🔐 .env - Secrets & Credentials (NEVER commit)
+**Locations**: Root `.env` and `arknet_fleet_manager/arknet-fleet-api/.env`
+
+**Contains**:
+- API tokens and authentication keys
+- Database passwords
+- Cloud service credentials (Cloudinary, AWS)
+- JWT secrets and encryption keys
+
+**Security Status**:
+- ✅ Both .env files are in .gitignore
+- ✅ .env.example templates provided
+- ⚠️ ACTION REQUIRED: Change default secrets before production!
+
+#### 🗄️ Database (operational-configurations) - Runtime Settings
+- Spawn rates and intervals
+- Continuous mode toggles
+- Feature flags
+- Performance thresholds
+
+### Security Checklist (Before Production)
+
+- [ ] Change all default secrets in arknet-fleet-api/.env
+  - [ ] APP_KEYS (generate unique keys)
+  - [ ] API_TOKEN_SALT
+  - [ ] ADMIN_JWT_SECRET
+  - [ ] JWT_SECRET
+  - [ ] ENCRYPTION_KEY
+  - [ ] DATABASE_PASSWORD
+- [ ] Verify .gitignore excludes .env files
+- [ ] Review for exposed credentials in code/docs
+- [ ] Set proper file permissions (chmod 600 .env)
+
+### Environment Setup
+
+1. Copy templates: `cp .env.example .env`
+2. Edit .env files with real credentials
+3. Configure operational settings in config.ini
+4. Seed operational configuration: `python seed_operational_config.py`
+
+### Generating Secure Secrets
+
+```bash
+# For Strapi secrets
+openssl rand -base64 32
+
+# For API tokens
+python -c "import uuid; print(uuid.uuid4())"
+```
 
 ---
