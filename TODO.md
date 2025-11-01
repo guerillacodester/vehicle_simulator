@@ -74,7 +74,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
     - buildings_near_depot (from depot catchment query)
     - buildings_along_route (from _get_buildings_near_route())
     - total_buildings_all_routes (sum across all routes at depot)
-    - spawn_config (from _load_spawn_config())
+    - spawn_config (from load_spawn_config())
     - current_time (method parameter)
     - time_window_minutes (method parameter)
   - Return spawn_count from kernel result
