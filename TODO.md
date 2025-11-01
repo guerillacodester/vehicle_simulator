@@ -3,9 +3,9 @@
 **Project**: ArkNet Vehicle Simulator  
 **Branch**: branch-0.0.2.9  
 **Started**: October 25, 2025  
-**Updated**: October 31, 2025 - Configuration Refactored, Launchers Consolidated, Route-Depot Associations  
-**Status**: ✅ ConfigProvider Pattern | ✅ Single Launcher (launch.py) | ✅ Route-Depot Junction Table | 🎯 Spawn Config for Routes NEXT  
-**Strategy**: Single Entrypoint → SpawnerCoordinator → DepotSpawner + RouteSpawner → Reservoirs
+**Updated**: November 1, 2025 - Spawn Calculator Kernel, Repository Cleanup, Tests Consolidated  
+**Status**: ✅ Spawn Calculator Kernel | ✅ Tests Organized | ✅ Docs Consolidated | 🎯 Integrate Kernel into Spawners NEXT  
+**Strategy**: Modular Calculation Kernel → Spawner Integration → Statistical Validation → MVP
 
 > **📌 Key Documentation**:
 > - `CONTEXT.md` - Complete project context, architecture, all technical details
@@ -18,58 +18,914 @@ TIER 1: Phase 1.10 (GeoJSON imports) ✅ COMPLETE
 TIER 2: Phase 1.11 (Geospatial Services API) ✅ COMPLETE  
 TIER 3: Phase 1.12 (Vehicle Simulation Validation) ✅ COMPLETE
 TIER 4: Spawner System Implementation ✅ COMPLETE (Oct 28)
-  - DepotSpawner: Poisson-distributed passenger generation at depots ✅
-  - SpawnerCoordinator: Orchestrates multiple spawners with enable/disable flags ✅
-  - Single entrypoint (main.py): Config-driven spawner control ✅
-  - End-to-end testing: 4 passengers spawned, verified in Strapi ✅
-  - Fresh spawn verification: Confirmed new passenger generation ✅
-  - MockRouteSpawner: Test implementation for flag testing ✅
 TIER 4.5: Configuration Refactoring & Launcher Consolidation ✅ COMPLETE (Oct 31)
-  - ConfigProvider singleton pattern: Single source of truth for infrastructure config ✅
-  - Eliminated 90+ hardcoded URLs across 17+ files (GPS client, geospatial, commuter, transit simulator) ✅
-  - Root config.ini: Infrastructure only (ports, URLs, launcher settings) - safe to commit ✅
-  - .env files: Secrets only (API tokens, passwords) - gitignored ✅
-  - Database operational-configurations: Runtime settings (23 entries including vehicle_simulator) ✅
-  - Fixed GPS Client port: 8000 → 5000 (correct GPSCentCom port) ✅
-  - UTF-8 encoding fixes: 7 files updated to handle emoji/special chars in config.ini ✅
-  - Launcher consolidation: Deleted 3 redundant scripts, launch.py is now single launcher ✅
-  - Zero configuration redundancies between files and database ✅
-  - Integration test passing: launch.py successfully starts all subsystems ✅
-  - Files: common/config_provider.py (NEW), config.ini (updated), launch.py (primary launcher)
 TIER 4.6: Geospatial Services API - Production-Grade Comprehensive API ✅ COMPLETE (Oct 31)
-  - ✅ Comprehensive API implementation: 52+ endpoints across 9 router categories
-  - ✅ Routes router: 7 endpoints (all, detail, geometry, buildings, metrics, coverage, nearest)
-  - ✅ Depots router: 7 endpoints (all, detail, catchment, routes, coverage, nearest)
-  - ✅ Buildings router: 7 endpoints (at-point, along-route, in-polygon, density, count, stats, batch)
-  - ✅ Analytics router: 5 endpoints (heatmap, route-coverage, depot-service-areas, population, demand)
-  - ✅ Metadata router: 6 endpoints (health, version, stats, bounds, regions, tags)
-  - ✅ Spawn router: 10 endpoints (depot-analysis, all-depots, route-analysis, config GET/POST, multipliers)
-  - ✅ Geocoding router: 2 endpoints (reverse, batch)
-  - ✅ Geofencing router: 2 endpoints (check, batch)
-  - ✅ Spatial router: 6 endpoints (legacy compatibility, buildings/pois nearest)
-  - ✅ SOLID architecture: Single Responsibility, Separation of Concerns
-  - ✅ Production error handling: 503/504 responses with clear messages
-  - ✅ Configuration management: Runtime-adjustable spawn parameters
-  - ✅ All critical tests passing: 13/13 endpoints (100% pass rate)
-  - ✅ Fixes applied: POST body params, SQL type casting, geometry handling, KeyError protection
-  - ✅ GeospatialClient integration ready: commuter_simulator/infrastructure/geospatial/client.py
-  - ✅ Performance targets met: <100ms queries, <500ms analytics
-  - ✅ Documentation: API_REFERENCE.md, GEOSPATIAL_API_COMPLETENESS_ASSESSMENT.md
-  - ✅ Hybrid spawn model fully supported: terminal_population × route_attractiveness
-  - Files: geospatial_service/api/{routes,depots,buildings,analytics,metadata,spawn,geocoding,geofence,spatial}.py
-TIER 5: Route-Depot Association & RouteSpawner Integration ✅ PARTIAL (Oct 31)
-  - ✅ Route-depots junction table populated: 1 association (Route 1 ↔ Speightstown Terminal, 223m)
-  - ✅ Precompute script: commuter_simulator/scripts/precompute_route_depot_associations.py
-  - ❌ RouteSpawner still failing: No spawn-config for route documentId 14
-  - ❌ DepotSpawner: 4 of 5 depots have no routes (only Speightstown has Route 1 association)
-  - 🎯 NEXT: Use new Geospatial API to list routes, verify route IDs, create spawn configs
-  - NOTE: 0% spawn success is CORRECT - can't spawn passengers without routes/configs
-TIER 6: Phases 1.14-1.15 (Conductor & Reservoirs) 📋 FUTURE
+TIER 4.7: Spawn Calculation Kernel & Repository Cleanup ✅ COMPLETE (Nov 1)
+  - ✅ Spawn Calculator Kernel: Pure calculation functions (spawn_calculator.py)
+  - ✅ Complete hybrid spawn formula: terminal_population × route_attractiveness
+  - ✅ Temporal weighting: base_rate × hourly_mult × day_mult
+  - ✅ Validated with Route 1 data: 202 pass/hr peak, 5 pass/hr night (40x variation)
+  - ✅ Zero-sum conservation verified: Terminal population constant, routes redistribute
+  - ✅ Unit tests: 40+ test cases covering all calculation methods
+  - ✅ Documentation: SPAWN_CALCULATOR_README.md with examples and API reference
+  - ✅ Repository cleanup: Moved 27+ temp files, consolidated test/ → tests/
+  - ✅ Tests organized: tests/{geospatial,integration,validation}/
+  - ✅ Docs consolidated: SECURITY.md → CONTEXT.md
+  - ✅ Markdown linting: All .md files passing markdownlint
+  - Files: commuter_simulator/core/domain/spawner_engine/spawn_calculator.py (370 lines)
+  - Tests: commuter_simulator/tests/test_spawn_calculator.py (465 lines)
+  - Validation: tests/validation/test_spawn_calculator_kernel.py
+TIER 5: Spawner Integration & Statistical Validation 🎯 NEXT (Nov 1+)
+  - 🎯 Phase 5.1: Integrate spawn_calculator into RouteSpawner (Nov 1)
+  - 🎯 Phase 5.2: Integrate spawn_calculator into DepotSpawner (Nov 1)
+  - 🎯 Phase 5.3: Statistical validation tests (Nov 1-2)
+  - 🎯 Phase 5.4: Route-depot associations for all 5 depots (Nov 2)
+  - 🎯 Phase 5.5: Additional routes and spawn configs (Nov 2-3)
+  - 🎯 Phase 5.6: End-to-end integration testing (Nov 3)
+TIER 6: MVP Feature Completion 📋 (Nov 4-7)
+TIER 7: Production Hardening 📋 (Nov 8-10)
 ```
 
 ---
 
-## 🎯 **QUICK START FOR NEW AGENTS**
+## 🎯 **GRANULAR ROADMAP TO MVP** (Updated Nov 1, 2025)
+
+### **TIER 5: Spawner Integration & Statistical Validation** (Nov 1-3, 2025)
+
+#### **Phase 5.1: Integrate Spawn Calculator into RouteSpawner** [2-3 hours]
+
+**Current State:**
+- ✅ RouteSpawner exists with duplicated calculation logic
+- ✅ spawn_calculator.py kernel validated with Route 1 data
+- ❌ RouteSpawner not using modular kernel
+
+**Tasks:**
+- [ ] 5.1.1: Read current RouteSpawner._calculate_spawn_count() implementation
+  - File: `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+  - Lines: 230-265 (current calculation logic)
+  - Understand current parameters and return values
+- [ ] 5.1.2: Import SpawnCalculator into RouteSpawner
+  - Add: `from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator`
+  - Verify import works (no circular dependencies)
+- [ ] 5.1.3: Replace _calculate_spawn_count() with kernel call
+  - Keep same method signature for compatibility
+  - Map existing parameters to SpawnCalculator.calculate_hybrid_spawn()
+  - Parameters needed:
+    - buildings_near_depot (from depot catchment query)
+    - buildings_along_route (from _get_buildings_near_route())
+    - total_buildings_all_routes (sum across all routes at depot)
+    - spawn_config (from _load_spawn_config())
+    - current_time (method parameter)
+    - time_window_minutes (method parameter)
+  - Return spawn_count from kernel result
+- [ ] 5.1.4: Add depot catchment query to RouteSpawner
+  - Query: GET `/depots/{depot_id}/catchment?radius_meters=800`
+  - Store buildings_near_depot for terminal population calculation
+  - Cache result (depot catchment doesn't change)
+- [ ] 5.1.5: Add total_buildings aggregation
+  - Query all routes at depot from route-depots junction table
+  - Sum buildings_along_route for each route
+  - Use for route attractiveness calculation
+- [ ] 5.1.6: Update logging to show calculation breakdown
+  - Log: base_rate, hourly_mult, day_mult, effective_rate
+  - Log: terminal_population, route_attractiveness, passengers_per_hour
+  - Log: lambda_param, spawn_count
+  - Format: Match validation script output for consistency
+- [ ] 5.1.7: Test RouteSpawner with kernel integration
+  - Run spawner for Route 1
+  - Verify spawn count matches validation predictions (~48 for 15-min window at 8 AM)
+  - Check logs show correct calculation breakdown
+
+**Success Criteria:**
+- ✅ RouteSpawner uses spawn_calculator.py (zero calculation duplication)
+- ✅ Spawn counts match validation predictions (±10% for Poisson variance)
+- ✅ Logging shows full calculation breakdown
+- ✅ No regressions in existing functionality
+
+---
+
+#### **Phase 5.2: Integrate Spawn Calculator into DepotSpawner** [1-2 hours]
+
+**Current State:**
+- ✅ DepotSpawner exists with simplified calculation logic
+- ✅ Uses spatial_base instead of building-based calculation
+- ❌ Not using hybrid spawn model
+
+**Decision Point:** Should DepotSpawner use hybrid model or remain simple?
+- **Option A (Recommended)**: Keep DepotSpawner simple (spatial_base approach)
+  - DepotSpawner is fallback for routes without specific spawn configs
+  - Uses simpler Poisson(spatial_base × hourly × day) calculation
+  - Avoids complexity of building counts and route attractiveness
+- **Option B**: Convert DepotSpawner to hybrid model
+  - Would need to query buildings, routes, calculate attractiveness
+  - More realistic but duplicates RouteSpawner logic
+  - Could cause double-counting if both spawners enabled
+
+**Recommended Tasks (Option A):**
+- [ ] 5.2.1: Review DepotSpawner calculation logic
+  - File: `commuter_simulator/core/domain/spawner_engine/depot_spawner.py`
+  - Lines: 250-280 (current calculation)
+  - Verify it's appropriate as fallback spawner
+- [ ] 5.2.2: Extract temporal multiplier logic to kernel
+  - Move hourly_rate and day_mult extraction to SpawnCalculator
+  - Create helper: `SpawnCalculator.extract_temporal_multipliers()`
+  - Use in both DepotSpawner and RouteSpawner
+- [ ] 5.2.3: Document DepotSpawner vs RouteSpawner usage
+  - DepotSpawner: Fallback, simple spatial model
+  - RouteSpawner: Primary, hybrid building-based model
+  - Recommend: Use RouteSpawner when routes have spawn configs
+  - Update: CONTEXT.md and code comments
+
+**Success Criteria:**
+- ✅ Clear separation between DepotSpawner (simple) and RouteSpawner (hybrid)
+- ✅ Temporal multiplier logic extracted to kernel (DRY principle)
+- ✅ Documentation explains when to use each spawner
+
+---
+
+#### **Phase 5.3: Statistical Validation Tests** [3-4 hours]
+
+**Current State:**
+- ✅ Manual validation complete (validate_hybrid_spawn_model.py)
+- ✅ Kernel unit tests complete (test_spawn_calculator.py)
+- ❌ No automated spawner statistical validation
+
+**Tasks:**
+- [ ] 5.3.1: Create test_spawner_statistical_correctness.py
+  - Location: `tests/validation/test_spawner_statistical_correctness.py`
+  - Purpose: Verify spawners generate statistically correct passenger distributions
+- [ ] 5.3.2: Test 1 - Route-level spawn counts (mean validation)
+  - Run RouteSpawner for 100 iterations (15-min windows)
+  - Collect spawn counts for Route 1 at Monday 8 AM
+  - Calculate mean spawn count
+  - Expected: ~48 passengers (lambda = 50.57 for 15-min window)
+  - Tolerance: ±5% (Poisson mean = lambda)
+  - Assert: 45.5 <= mean <= 50.5
+- [ ] 5.3.3: Test 2 - Poisson distribution validation (variance check)
+  - Use same 100 iterations as Test 1
+  - Calculate variance of spawn counts
+  - Expected: variance ≈ lambda (Poisson property: variance = mean)
+  - Tolerance: ±15% (accounting for sample size)
+  - Assert: 43 <= variance <= 58
+- [ ] 5.3.4: Test 3 - Temporal variation (peak vs off-peak)
+  - Run spawner at 4 different times:
+    - Monday 8 AM (peak): Expected ~48
+    - Monday 5 PM (evening peak): Expected ~56
+    - Monday 12 PM (lunch): Expected ~23
+    - Monday 2 AM (night): Expected ~3
+  - Verify ratios match validation predictions
+  - Assert: Night spawns < Lunch < Morning Peak < Evening Peak
+  - Assert: Evening Peak / Night ≈ 18.7x (56/3)
+- [ ] 5.3.5: Test 4 - Spatial distribution (passengers near route)
+  - Spawn 50 passengers on Route 1
+  - Check origin coordinates in database
+  - Verify all origins within 100m of Route 1 geometry
+  - Use PostGIS ST_Distance to validate
+  - Assert: 100% of passengers within buffer
+- [ ] 5.3.6: Test 5 - Zero-sum conservation (multi-route)
+  - Simulate Speightstown depot with 5 routes
+  - Assign different building counts to each route
+  - Run spawner for 1 hour (4 × 15-min windows)
+  - Calculate total passengers across all routes
+  - Expected: Total ≈ terminal_population (202 pass/hr at 8 AM)
+  - Tolerance: ±10% (Poisson variance across routes)
+  - Assert: 182 <= total <= 222
+- [ ] 5.3.7: Test 6 - Route attractiveness distribution
+  - Using same 5-route scenario from Test 5
+  - Verify passenger distribution matches building proportions
+  - Route with 20% of buildings should get ~20% of passengers
+  - Tolerance: ±5% (Poisson variance)
+  - Assert: Each route within tolerance
+- [ ] 5.3.8: Create test summary report
+  - Output: Table showing all test results
+  - Include: Mean, variance, ratios, pass/fail status
+  - Save: tests/validation/spawner_validation_results.txt
+  - Format: Human-readable with emoji indicators
+
+**Success Criteria:**
+- ✅ All 6 statistical tests passing
+- ✅ Spawn counts within ±5% of predictions
+- ✅ Temporal variation matches 40x peak-to-night ratio
+- ✅ Spatial distribution 100% within route buffer
+- ✅ Zero-sum conservation verified
+- ✅ Automated test suite runnable on demand
+
+---
+
+#### **Phase 5.4: Route-Depot Associations for All 5 Depots** [2-3 hours]
+
+**Current State:**
+- ✅ 1 of 5 depots has route association (Speightstown ↔ Route 1)
+- ❌ 4 depots have zero routes (Fairchild, Oistins, Bridgetown, Princess Alice)
+- ✅ Precompute script exists (precompute_route_depot_associations.py)
+
+**Tasks:**
+- [ ] 5.4.1: List all available routes in GTFS database
+  - Query: GET `/api/routes` from Strapi
+  - Expected: 20-30 routes for Barbados bus system
+  - Document: Route IDs, names, coverage areas
+- [ ] 5.4.2: Identify which routes service each depot
+  - Method: Check route start/end points vs depot locations
+  - Walking distance threshold: 500m (configurable)
+  - Use Geospatial API: /routes/{id}/geometry
+  - Calculate: Distance from depot to route endpoints
+- [ ] 5.4.3: Create route-depot associations for Fairchild depot
+  - Location: Northern Barbados (near Route 1)
+  - Expected routes: Route 1, possibly Route 2
+  - Run precompute script or manual API calls
+  - Verify in Strapi: route-depots table updated
+- [ ] 5.4.4: Create route-depot associations for Oistins depot
+  - Location: Southern Barbados
+  - Expected routes: Routes serving south coast
+  - Identify from GTFS data or OpenStreetMap
+- [ ] 5.4.5: Create route-depot associations for Bridgetown depot
+  - Location: Capital, central hub
+  - Expected routes: Most/all routes (major terminus)
+  - This depot may have 15+ route associations
+- [ ] 5.4.6: Create route-depot associations for Princess Alice depot
+  - Location: Eastern Barbados
+  - Expected routes: Routes serving east coast
+- [ ] 5.4.7: Verify all associations in database
+  - Query: GET `/api/route-depots?pagination[pageSize]=100`
+  - Expected: 30-50 total associations (avg 6-10 routes per depot)
+  - Validate: All 5 depots have at least 1 route
+  - Document: Association counts per depot
+
+**Success Criteria:**
+- ✅ All 5 depots have route associations
+- ✅ Bridgetown depot (hub) has 10+ routes
+- ✅ Other depots have 2-8 routes each
+- ✅ No depot has zero routes (spawner failure condition eliminated)
+- ✅ All associations have distance_from_route_m < 500m
+
+---
+
+#### **Phase 5.5: Additional Routes and Spawn Configs** [3-4 hours]
+
+**Current State:**
+- ✅ 1 spawn config exists (Route 1 - St Lucy Rural, 0.05 pass/bldg/hr)
+- ❌ 20+ routes have no spawn configs (spawner will fail)
+- ✅ Geospatial API can calculate building counts per route
+
+**Tasks:**
+- [ ] 5.5.1: Categorize routes by type
+  - Urban routes (Bridgetown area): Higher base rate (0.08-0.12 pass/bldg/hr)
+  - Suburban routes: Medium base rate (0.05-0.08 pass/bldg/hr)
+  - Rural routes: Lower base rate (0.03-0.05 pass/bldg/hr)
+  - Use OpenStreetMap landuse data or manual classification
+- [ ] 5.5.2: Calculate buildings along each route
+  - Loop through all routes
+  - Query: GET `/routes/{id}/buildings?buffer_meters=100`
+  - Store building counts for spawn config creation
+  - Expected: 50-200 buildings per route
+- [ ] 5.5.3: Create spawn config template
+  - Base structure from Route 1 config
+  - Adjust passengers_per_building_per_hour by route type
+  - Keep hourly_rates and day_multipliers consistent
+  - Template ready for bulk creation
+- [ ] 5.5.4: Create spawn configs for top 10 routes
+  - Priority: Routes with most depot associations
+  - Create via Strapi API: POST `/api/spawn-configs`
+  - Include: Route reference, config JSON, name, description
+  - Verify in Strapi admin panel
+- [ ] 5.5.5: Validate spawn configs are queryable
+  - Test: GET `/api/spawn-configs?filters[route][id][$eq]=X`
+  - Ensure all 10 routes return valid configs
+  - Check field names match RouteSpawner expectations
+- [ ] 5.5.6: Run validation script with new routes
+  - Execute: python tests/validation/validate_hybrid_spawn_model.py
+  - Should now show results for 10 routes (not just Route 1)
+  - Verify passenger counts are realistic per route type
+- [ ] 5.5.7: Document route categorization
+  - Create: docs/route_classification.md
+  - Include: Route ID, name, type, base rate, rationale
+  - Helps future agents understand spawn rate decisions
+
+**Success Criteria:**
+- ✅ 10+ routes have spawn configs (10x improvement)
+- ✅ Base rates appropriate for route type (urban > suburban > rural)
+- ✅ Validation script shows realistic passenger counts per route
+- ✅ All configs queryable and properly formatted
+- ✅ Documentation explains rate calibration
+
+---
+
+#### **Phase 5.6: End-to-End Integration Testing** [4-5 hours]
+
+**Current State:**
+- ✅ Individual components tested (kernel, spawners, geospatial)
+- ❌ Full system never run with multiple routes/depots
+- ❌ No 24-hour simulation data
+
+**Tasks:**
+- [ ] 5.6.1: Prepare test environment
+  - Clear passenger database (DELETE all passengers)
+  - Verify all services running (Strapi, Geospatial, PostgreSQL)
+  - Enable both DepotSpawner and RouteSpawner in config
+  - Set continuous_mode = true
+- [ ] 5.6.2: Run 1-hour integration test (short cycle)
+  - Start commuter_simulator (python commuter_simulator/main.py)
+  - Run for 1 simulated hour (4 spawn cycles @ 15-min intervals)
+  - Monitor logs for spawn counts and errors
+  - Expected: 100-300 passengers spawned across all routes/depots
+- [ ] 5.6.3: Verify passenger distribution
+  - Query database: Count passengers per route
+  - Verify proportional to route attractiveness
+  - Check spatial distribution (origins near depots/routes)
+  - Validate temporal data (spawn timestamps)
+- [ ] 5.6.4: Run 24-hour integration test (full cycle)
+  - Start commuter_simulator for full day simulation
+  - Simulate: Monday 12 AM → Tuesday 12 AM (24 hours)
+  - 96 spawn cycles (15-min intervals)
+  - Expected: 3,000-5,000 passengers total
+  - Monitor system resources (CPU, memory, database size)
+- [ ] 5.6.5: Analyze 24-hour temporal patterns
+  - Extract passenger counts per hour
+  - Plot: Passengers/hour vs Time of day
+  - Verify curve matches expected patterns:
+    - Low at night (2-5 AM): 10-20 pass/hr
+    - Morning peak (7-9 AM): 150-250 pass/hr
+    - Lunch dip (12-2 PM): 80-120 pass/hr
+    - Evening peak (5-7 PM): 180-280 pass/hr
+    - Evening decline (8-11 PM): 50-100 pass/hr
+- [ ] 5.6.6: Validate conservation across routes
+  - For each depot, sum passengers across all associated routes
+  - Should equal terminal_population × spawn_cycles
+  - Tolerance: ±15% (Poisson variance accumulates)
+  - Verify no double-counting or missing passengers
+- [ ] 5.6.7: Performance analysis
+  - Measure: Spawn cycle execution time
+  - Target: <2 seconds per cycle (for 10 routes)
+  - Identify bottlenecks (geospatial queries, database writes)
+  - Document performance baseline
+- [ ] 5.6.8: Create integration test report
+  - Document: Passenger counts, temporal patterns, performance
+  - Include: Graphs, statistics, pass/fail criteria
+  - Save: tests/validation/integration_test_report_YYYYMMDD.md
+  - Share findings with team
+
+**Success Criteria:**
+- ✅ 1-hour test completes without errors
+- ✅ 24-hour test generates 3,000-5,000 passengers
+- ✅ Temporal patterns match expected curves (40x peak-to-night ratio)
+- ✅ Spatial distribution 100% valid (passengers near routes/depots)
+- ✅ Zero-sum conservation holds across all routes
+- ✅ Performance <2 sec/cycle (scalable to production)
+- ✅ No memory leaks or resource exhaustion
+
+---
+
+### **TIER 6: MVP Feature Completion** (Nov 4-7, 2025)
+
+#### **Phase 6.1: Passenger State Management** [6-8 hours]
+
+**Purpose**: Passengers need to track their journey state (waiting → riding → alighting)
+
+**Tasks:**
+- [ ] 6.1.1: Define passenger lifecycle states
+  - SPAWNED: Passenger created at origin
+  - WAITING: At depot/stop waiting for vehicle
+  - BOARDING: Entering vehicle
+  - RIDING: On vehicle, traveling to destination
+  - ALIGHTING: Exiting vehicle
+  - COMPLETED: Journey finished
+  - EXPIRED: TTL exceeded, removed from system
+- [ ] 6.1.2: Add state field to Passenger model
+  - Strapi schema update: Add `state` enum field
+  - Default: SPAWNED
+  - Indexed for fast queries
+- [ ] 6.1.3: Implement state transition logic
+  - Create: commuter_simulator/core/domain/passenger_state_machine.py
+  - Valid transitions: SPAWNED → WAITING → BOARDING → RIDING → ALIGHTING → COMPLETED
+  - Prevent invalid transitions (e.g., RIDING → SPAWNED)
+  - Log all state changes with timestamps
+- [ ] 6.1.4: Add TTL (time-to-live) expiration
+  - Default: 4 hours (configurable)
+  - Background task checks for expired passengers
+  - Transition: SPAWNED/WAITING → EXPIRED if TTL exceeded
+  - Cleanup: Remove EXPIRED passengers from active pool
+- [ ] 6.1.5: Create passenger state query endpoints
+  - GET `/passengers/by-state/{state}`: Filter by state
+  - GET `/passengers/waiting-at-depot/{depot_id}`: Waiting passengers at depot
+  - GET `/passengers/on-vehicle/{vehicle_id}`: Passengers currently riding
+- [ ] 6.1.6: Update spawner to set initial state
+  - After spawning, set state = WAITING
+  - Set spawn_timestamp and calculate expiration_timestamp
+- [ ] 6.1.7: Test state transitions
+  - Create test: tests/integration/test_passenger_lifecycle.py
+  - Spawn passenger → Verify WAITING state
+  - Manually trigger transitions → Verify state updates
+  - Wait for TTL → Verify EXPIRED state
+
+**Success Criteria:**
+- ✅ All 7 passenger states defined and implemented
+- ✅ State transitions validated (no invalid transitions)
+- ✅ TTL expiration working (passengers auto-expire)
+- ✅ Query endpoints return correct passengers by state
+- ✅ Automated tests passing for full lifecycle
+
+---
+
+#### **Phase 6.2: Vehicle-Passenger Association (Pickup)** [8-10 hours]
+
+**Purpose**: Vehicles need to pick up waiting passengers and update their state
+
+**Tasks:**
+- [ ] 6.2.1: Create pickup detection logic
+  - When vehicle arrives at depot/stop
+  - Query waiting passengers at that location
+  - Distance threshold: 50m (configurable)
+  - Capacity check: Vehicle max_capacity - current_passengers
+- [ ] 6.2.2: Implement passenger pickup algorithm
+  - First-come-first-served (FIFO) or priority-based
+  - Select passengers up to vehicle capacity
+  - Update passenger state: WAITING → BOARDING
+  - Create vehicle-passenger association record
+- [ ] 6.2.3: Add passengers field to Vehicle model
+  - Strapi schema: Add `passengers` relation (many-to-many)
+  - Junction table: vehicle-passengers
+  - Fields: vehicle_id, passenger_id, boarded_at, expected_alight_at
+- [ ] 6.2.4: Create pickup event handler
+  - Trigger: Vehicle GPS location update
+  - Check: Is vehicle near depot/stop?
+  - Action: Run pickup algorithm
+  - Broadcast: PubSub notification (vehicle picked up N passengers)
+- [ ] 6.2.5: Update passenger state after pickup
+  - BOARDING → RIDING (when vehicle departs)
+  - Store: vehicle_id, boarded_at timestamp
+  - Calculate: expected_alight_at (destination stop)
+- [ ] 6.2.6: Handle capacity constraints
+  - If demand > capacity, leave excess passengers in WAITING state
+  - Log: "Vehicle X at capacity, left Y passengers waiting"
+  - Trigger: Dispatch additional vehicle (future phase)
+- [ ] 6.2.7: Test pickup integration
+  - Create test: tests/integration/test_vehicle_pickup.py
+  - Spawn 10 passengers at depot
+  - Move vehicle to depot
+  - Verify: Passengers transition WAITING → RIDING
+  - Verify: Vehicle passengers list updated
+  - Verify: Capacity limits enforced
+
+**Success Criteria:**
+- ✅ Pickup detection working (vehicle proximity triggers pickup)
+- ✅ Passenger state transitions WAITING → BOARDING → RIDING
+- ✅ Vehicle-passenger associations created correctly
+- ✅ Capacity constraints enforced (no overloading)
+- ✅ PubSub notifications broadcasting pickup events
+- ✅ Integration tests passing
+
+---
+
+#### **Phase 6.3: Passenger Alighting (Drop-off)** [6-8 hours]
+
+**Purpose**: Passengers need to exit vehicles when reaching their destination
+
+**Tasks:**
+- [ ] 6.3.1: Create alighting detection logic
+  - When vehicle approaches passenger's destination
+  - Distance threshold: 100m from destination
+  - Check all passengers on vehicle for nearby destinations
+- [ ] 6.3.2: Implement passenger alighting algorithm
+  - Identify passengers with destination near current location
+  - Update state: RIDING → ALIGHTING
+  - Remove from vehicle's passengers list
+  - Log: "Passenger X alighting at stop Y"
+- [ ] 6.3.3: Update passenger record after alighting
+  - Set: alighted_at timestamp
+  - Set: final_location (actual drop-off coordinates)
+  - Update state: ALIGHTING → COMPLETED
+  - Calculate: journey_duration_seconds
+- [ ] 6.3.4: Create alighting event handler
+  - Trigger: Vehicle GPS location update
+  - Check: Any passengers with destination nearby?
+  - Action: Run alighting algorithm
+  - Broadcast: PubSub notification (N passengers alighted)
+- [ ] 6.3.5: Handle missed stops (passenger passed destination)
+  - If vehicle goes 500m past destination without stopping
+  - Log warning: "Passenger X missed stop at Y"
+  - Force alight at next stop
+  - Update passenger state: RIDING → ALIGHTING (missed_stop flag)
+- [ ] 6.3.6: Test alighting integration
+  - Create test: tests/integration/test_passenger_alighting.py
+  - Spawn passenger with destination
+  - Pick up passenger
+  - Move vehicle to destination
+  - Verify: Passenger transitions RIDING → ALIGHTING → COMPLETED
+  - Verify: Vehicle passengers list updated
+  - Verify: Journey metrics calculated (duration, distance)
+
+**Success Criteria:**
+- ✅ Alighting detection working (proximity triggers drop-off)
+- ✅ Passenger state transitions RIDING → ALIGHTING → COMPLETED
+- ✅ Journey metrics calculated (duration, distance traveled)
+- ✅ Missed stop detection and handling
+- ✅ Integration tests passing
+
+---
+
+#### **Phase 6.4: Reservoir Integration** [4-6 hours]
+
+**Purpose**: Connect spawners to reservoir pattern for buffered passenger generation
+
+**Tasks:**
+- [ ] 6.4.1: Review existing reservoir implementations
+  - File: commuter_service_deprecated/depot_reservoir.py
+  - File: commuter_service_deprecated/route_reservoir.py
+  - Understand buffering logic and refill strategy
+- [ ] 6.4.2: Decide: Migrate or rewrite reservoirs?
+  - **Option A**: Migrate from deprecated service (faster)
+  - **Option B**: Rewrite in new architecture (cleaner)
+  - Recommendation: Option B (align with new spawner design)
+- [ ] 6.4.3: Create new DepotReservoir class
+  - File: commuter_simulator/core/domain/reservoirs/depot_reservoir.py
+  - Buffer size: Configurable (default 100 passengers)
+  - Refill trigger: When buffer < 20% full
+  - Refill amount: Generate next hour's worth of passengers
+- [ ] 6.4.4: Create new RouteReservoir class
+  - File: commuter_simulator/core/domain/reservoirs/route_reservoir.py
+  - Same buffering logic as DepotReservoir
+  - Route-specific: One reservoir per route
+- [ ] 6.4.5: Wire reservoirs to spawners
+  - Spawner generates → Reservoir buffers → Conductor consumes
+  - Spawner calls: reservoir.refill(passengers)
+  - Conductor calls: reservoir.take(count)
+  - Reservoir manages internal buffer and refill logic
+- [ ] 6.4.6: Implement reservoir statistics
+  - Track: buffer_size, fill_rate, drain_rate, refill_count
+  - Expose: GET `/reservoirs/stats` endpoint
+  - Monitor: Alert if reservoir empty (demand > supply)
+- [ ] 6.4.7: Test reservoir integration
+  - Create test: tests/integration/test_reservoir_buffering.py
+  - Fill reservoir with 100 passengers
+  - Drain 80 passengers → Verify refill triggered
+  - Verify: Buffer never empty during normal operation
+  - Verify: Statistics accurate
+
+**Success Criteria:**
+- ✅ DepotReservoir and RouteReservoir classes implemented
+- ✅ Spawners writing to reservoirs (not direct to database)
+- ✅ Reservoirs buffering correctly (refill triggers working)
+- ✅ Reservoir statistics tracking and exposed via API
+- ✅ Integration tests passing
+
+---
+
+#### **Phase 6.5: Conductor Integration** [8-10 hours]
+
+**Purpose**: Conductor consumes passengers from reservoirs and assigns to vehicles
+
+**Tasks:**
+- [ ] 6.5.1: Review existing conductor implementation
+  - File: commuter_service_deprecated/expiration_manager.py (partial conductor logic)
+  - Understand passenger assignment strategy
+- [ ] 6.5.2: Create new Conductor class
+  - File: commuter_simulator/core/domain/conductor/conductor.py
+  - Responsibilities:
+    - Monitor waiting passengers at depots
+    - Match passengers to vehicles based on route
+    - Trigger pickup events when vehicle arrives
+    - Handle capacity constraints
+- [ ] 6.5.3: Implement passenger-vehicle matching algorithm
+  - Step 1: Get all waiting passengers at depot
+  - Step 2: Get all vehicles currently at depot
+  - Step 3: Match passengers to vehicles by route compatibility
+  - Step 4: Respect vehicle capacity limits
+  - Step 5: Assign passengers and trigger pickup
+- [ ] 6.5.4: Add priority queue for passengers
+  - Priority factors:
+    - Wait time (longer wait = higher priority)
+    - Destination proximity (closer = higher priority)
+    - Passenger type (disabled, elderly = higher priority)
+  - Use: heapq for efficient priority queue
+- [ ] 6.5.5: Implement conductor event loop
+  - Frequency: Every 30 seconds
+  - Actions:
+    - Query waiting passengers
+    - Query available vehicles
+    - Run matching algorithm
+    - Assign passengers to vehicles
+    - Broadcast assignments via PubSub
+- [ ] 6.5.6: Wire conductor to reservoirs
+  - Conductor pulls passengers from RouteReservoir
+  - When reservoir runs low, triggers spawner refill
+  - Maintains buffer of 50-100 passengers per route
+- [ ] 6.5.7: Test conductor integration
+  - Create test: tests/integration/test_conductor_assignment.py
+  - Spawn 20 passengers at depot
+  - Add 2 vehicles at depot (capacity 15 each)
+  - Run conductor
+  - Verify: All 20 passengers assigned (15 to vehicle 1, 5 to vehicle 2)
+  - Verify: Priority queue respected (longest wait time assigned first)
+
+**Success Criteria:**
+- ✅ Conductor class implemented with matching algorithm
+- ✅ Passengers assigned to vehicles correctly
+- ✅ Priority queue working (longest wait time prioritized)
+- ✅ Conductor event loop running continuously
+- ✅ Reservoir integration working (conductor pulls from reservoirs)
+- ✅ Integration tests passing
+
+---
+
+#### **Phase 6.6: PubSub Integration (PostgreSQL LISTEN/NOTIFY)** [6-8 hours]
+
+**Purpose**: Real-time event broadcasting for passenger lifecycle and vehicle events
+
+**Tasks:**
+- [ ] 6.6.1: Set up PostgreSQL LISTEN/NOTIFY
+  - Create channels:
+    - `passenger_spawned`: Broadcast when new passenger created
+    - `passenger_state_changed`: Broadcast state transitions
+    - `vehicle_pickup`: Broadcast when vehicle picks up passengers
+    - `vehicle_dropoff`: Broadcast when passengers alight
+  - PostgreSQL triggers: Auto-notify on table updates
+- [ ] 6.6.2: Create PubSub publisher class
+  - File: commuter_simulator/infrastructure/pubsub/publisher.py
+  - Methods:
+    - publish(channel, message)
+    - publish_passenger_spawned(passenger)
+    - publish_state_change(passenger, old_state, new_state)
+    - publish_pickup(vehicle, passengers)
+    - publish_dropoff(vehicle, passengers)
+- [ ] 6.6.3: Create PubSub subscriber class
+  - File: commuter_simulator/infrastructure/pubsub/subscriber.py
+  - Methods:
+    - subscribe(channel, callback)
+    - unsubscribe(channel)
+    - start_listening() (async loop)
+- [ ] 6.6.4: Integrate publishers into spawners
+  - After spawning: Publish passenger_spawned event
+  - After state change: Publish passenger_state_changed event
+- [ ] 6.6.5: Integrate publishers into conductor
+  - After assignment: Publish vehicle_pickup event
+  - After alighting: Publish vehicle_dropoff event
+- [ ] 6.6.6: Create example subscriber
+  - File: commuter_simulator/examples/passenger_subscriber.py
+  - Listens to all channels
+  - Logs events to console with emoji indicators
+  - Purpose: Demo real-time notifications
+- [ ] 6.6.7: Test PubSub integration
+  - Create test: tests/integration/test_pubsub_events.py
+  - Start subscriber
+  - Spawn passenger → Verify passenger_spawned event received
+  - Change state → Verify passenger_state_changed event received
+  - Pickup passenger → Verify vehicle_pickup event received
+  - Verify: Event payload contains all expected data
+
+**Success Criteria:**
+- ✅ PostgreSQL LISTEN/NOTIFY channels created
+- ✅ Publisher class broadcasting events correctly
+- ✅ Subscriber class receiving events in real-time
+- ✅ All spawner and conductor events published
+- ✅ Example subscriber demonstrating real-time notifications
+- ✅ Integration tests passing
+
+---
+
+### **TIER 7: Production Hardening** (Nov 8-10, 2025)
+
+#### **Phase 7.1: Error Handling & Resilience** [6-8 hours]
+
+**Tasks:**
+- [ ] 7.1.1: Add retry logic for API failures
+  - Geospatial API calls: 3 retries with exponential backoff
+  - Strapi API calls: 3 retries with exponential backoff
+  - Handle: Network errors, timeouts, 503 responses
+- [ ] 7.1.2: Implement circuit breaker pattern
+  - If Geospatial API fails 5 times in a row, stop calling for 60 seconds
+  - If Strapi API fails 5 times in a row, stop calling for 60 seconds
+  - Prevents cascade failures
+- [ ] 7.1.3: Add graceful degradation
+  - If Geospatial API down: Use cached building counts
+  - If Strapi API down: Buffer passengers in memory, sync when available
+  - If database down: Log errors, continue simulation (ephemeral mode)
+- [ ] 7.1.4: Implement health checks
+  - Endpoint: GET `/health` returns system status
+  - Checks: Database, Geospatial API, Strapi API, memory usage
+  - Status: healthy, degraded, or down
+- [ ] 7.1.5: Add comprehensive logging
+  - Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  - Log rotation: Daily rotation, keep 7 days
+  - Structured logging: JSON format for parsing
+  - Include: request_id, user_id, timestamp, component
+- [ ] 7.1.6: Create error aggregation
+  - Track: Error counts by type, endpoint, time period
+  - Alert: If error rate > 5% for 5 minutes
+  - Dashboard: Real-time error monitoring
+- [ ] 7.1.7: Test failure scenarios
+  - Simulate: Geospatial API down
+  - Simulate: Database connection loss
+  - Simulate: Out of memory
+  - Verify: System continues operating in degraded mode
+  - Verify: Recovery when services restored
+
+**Success Criteria:**
+- ✅ Retry logic handling transient failures
+- ✅ Circuit breakers preventing cascade failures
+- ✅ Graceful degradation working (system operable when APIs down)
+- ✅ Health checks exposing system status
+- ✅ Comprehensive logging with rotation
+- ✅ Error aggregation and alerting
+- ✅ Failure scenario tests passing
+
+---
+
+#### **Phase 7.2: Performance Optimization** [8-10 hours]
+
+**Tasks:**
+- [ ] 7.2.1: Add database query caching
+  - Cache: Route geometries (never change)
+  - Cache: Depot catchments (rarely change)
+  - Cache: Building counts per route (update daily)
+  - TTL: 24 hours for static data, 1 hour for semi-static
+- [ ] 7.2.2: Implement batch database writes
+  - Instead of 1 INSERT per passenger: Batch 50-100 INSERTs
+  - Reduces database round-trips from 100 to 1-2
+  - Expected: 10x write performance improvement
+- [ ] 7.2.3: Add database connection pooling
+  - Pool size: 10 connections
+  - Max overflow: 20 connections
+  - Timeout: 30 seconds
+  - Reuse connections instead of creating new ones
+- [ ] 7.2.4: Optimize geospatial queries
+  - Add spatial indexes to buildings, routes, depots tables
+  - Use bounding box pre-filter before ST_Distance
+  - Expected: 5x query performance improvement
+- [ ] 7.2.5: Profile spawner performance
+  - Measure: Time per spawn cycle
+  - Identify bottlenecks: Geospatial queries, database writes, calculation
+  - Target: <1 second per spawn cycle (for 10 routes)
+- [ ] 7.2.6: Implement async/await for I/O operations
+  - Make geospatial API calls async
+  - Make database writes async
+  - Parallel execution: Query 10 routes concurrently instead of sequentially
+  - Expected: 3-5x performance improvement
+- [ ] 7.2.7: Add performance metrics
+  - Track: spawn_cycle_duration, passengers_per_second, api_latency
+  - Expose: GET `/metrics` endpoint (Prometheus format)
+  - Alert: If spawn_cycle_duration > 5 seconds
+
+**Success Criteria:**
+- ✅ Database query caching reducing API calls by 80%
+- ✅ Batch writes improving write performance by 10x
+- ✅ Connection pooling reducing connection overhead
+- ✅ Spatial indexes improving query speed by 5x
+- ✅ Async I/O improving overall performance by 3-5x
+- ✅ Spawn cycle duration <1 second (for 10 routes)
+- ✅ Performance metrics exposed via /metrics
+
+---
+
+#### **Phase 7.3: Monitoring & Observability** [6-8 hours]
+
+**Tasks:**
+- [ ] 7.3.1: Set up Prometheus metrics
+  - Install Prometheus client library
+  - Expose metrics at GET `/metrics`
+  - Metrics:
+    - passengers_spawned_total (counter)
+    - passengers_active (gauge)
+    - spawn_cycle_duration_seconds (histogram)
+    - api_request_duration_seconds (histogram)
+    - errors_total (counter by type)
+- [ ] 7.3.2: Create Grafana dashboard
+  - Install Grafana
+  - Connect to Prometheus data source
+  - Panels:
+    - Passengers spawned over time (line graph)
+    - Active passengers by state (pie chart)
+    - Spawn cycle duration (histogram)
+    - Error rate (line graph)
+    - API latency (heatmap)
+- [ ] 7.3.3: Add distributed tracing
+  - Install OpenTelemetry
+  - Trace full spawn cycle:
+    - Spawner start → Geospatial query → Calculation → Database write → Complete
+  - Identify slow spans
+  - Visualize in Jaeger
+- [ ] 7.3.4: Create alerting rules
+  - Alert: Error rate > 5% for 5 minutes
+  - Alert: Spawn cycle duration > 5 seconds for 10 minutes
+  - Alert: Database connection pool exhausted
+  - Alert: Memory usage > 80%
+  - Delivery: Email, Slack, PagerDuty
+- [ ] 7.3.5: Add logging aggregation
+  - Ship logs to ELK stack (Elasticsearch, Logstash, Kibana)
+  - Centralized log search and analysis
+  - Create saved searches for common issues
+- [ ] 7.3.6: Create runbook
+  - Document: Common issues and resolution steps
+  - Include: Alerting scenarios and remediation
+  - Examples:
+    - "Spawn cycle slow" → Check geospatial API latency
+    - "High error rate" → Check database connectivity
+    - "Memory leak" → Restart service, investigate code
+- [ ] 7.3.7: Test monitoring integration
+  - Trigger alerts intentionally
+  - Verify: Prometheus collecting metrics
+  - Verify: Grafana displaying real-time data
+  - Verify: Alerts firing and delivering to Slack
+
+**Success Criteria:**
+- ✅ Prometheus metrics exposed and collecting
+- ✅ Grafana dashboard showing real-time system state
+- ✅ Distributed tracing identifying performance bottlenecks
+- ✅ Alerting rules configured and tested
+- ✅ Log aggregation working (ELK stack)
+- ✅ Runbook documented for common issues
+- ✅ End-to-end monitoring validated
+
+---
+
+#### **Phase 7.4: MVP Feature Freeze & Documentation** [4-6 hours]
+
+**Tasks:**
+- [ ] 7.4.1: Feature freeze announcement
+  - No new features until MVP stable
+  - Focus: Bug fixes, performance, documentation
+- [ ] 7.4.2: Update CONTEXT.md
+  - Document all Phase 5-7 changes
+  - Update architecture diagrams
+  - Add performance benchmarks
+  - Include MVP feature list
+- [ ] 7.4.3: Update TODO.md
+  - Mark all TIER 5-7 tasks complete
+  - Create TIER 8 for post-MVP enhancements
+  - Prioritize post-MVP roadmap
+- [ ] 7.4.4: Create API documentation
+  - Document all REST endpoints (Strapi + Geospatial)
+  - Include: Request/response examples, error codes
+  - Tools: Swagger/OpenAPI spec
+- [ ] 7.4.5: Create user guide
+  - How to: Start services, spawn passengers, monitor system
+  - Include: Screenshots, example commands
+  - Audience: Operators, developers
+- [ ] 7.4.6: Create deployment guide
+  - Prerequisites: Python, Node.js, PostgreSQL, PostGIS
+  - Step-by-step: Database setup, service configuration, first run
+  - Include: Troubleshooting common issues
+- [ ] 7.4.7: Code review checklist
+  - Review all Phase 5-7 code for:
+    - SOLID principles adherence
+    - Error handling completeness
+    - Test coverage >80%
+    - Documentation clarity
+    - Performance optimizations
+
+**Success Criteria:**
+- ✅ Feature freeze announced and enforced
+- ✅ CONTEXT.md and TODO.md fully updated
+- ✅ API documentation complete (Swagger/OpenAPI)
+- ✅ User guide created with examples
+- ✅ Deployment guide tested by fresh install
+- ✅ Code review completed, no critical issues
+- ✅ All documentation markdown lint-free
+
+---
+
+### **MVP DELIVERY CHECKLIST**
+
+When all TIER 5-7 phases complete, verify:
+
+- [ ] **Functional Requirements**
+  - [ ] Passengers spawn at correct rates (validated statistically)
+  - [ ] Vehicles pick up passengers at depots
+  - [ ] Passengers alight at destinations
+  - [ ] Full lifecycle tracked (spawned → waiting → riding → completed)
+  - [ ] Real-time events broadcast via PubSub
+
+- [ ] **Non-Functional Requirements**
+  - [ ] Spawn cycle <2 seconds for 10 routes
+  - [ ] Error rate <1% under normal operation
+  - [ ] System runs 24 hours without crashes
+  - [ ] Memory usage stable (no leaks)
+  - [ ] Database writes batched and performant
+
+- [ ] **Testing**
+  - [ ] Unit test coverage >80%
+  - [ ] Integration tests passing (all scenarios)
+  - [ ] Statistical validation tests passing
+  - [ ] 24-hour integration test completed
+  - [ ] Failure scenario tests passing
+
+- [ ] **Documentation**
+  - [ ] CONTEXT.md updated with all changes
+  - [ ] TODO.md reflects current state
+  - [ ] API documentation complete
+  - [ ] User guide created
+  - [ ] Deployment guide tested
+  - [ ] Runbook for common issues
+
+- [ ] **Monitoring**
+  - [ ] Prometheus metrics exposed
+  - [ ] Grafana dashboard operational
+  - [ ] Alerting rules configured
+  - [ ] Logs aggregated in ELK
+  - [ ] Health checks passing
+
+**When all checkboxes ✅**: **MVP READY FOR DEMO** 🎉
+
+---
 
 ### **Where Am I?**
 
