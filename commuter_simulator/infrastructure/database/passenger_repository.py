@@ -7,7 +7,7 @@ Provides persistence operations for passengers via Strapi API:
 - Query passengers near locations
 - Delete expired passengers
 
-Based on commuter_service_deprecated/passenger_db.py pattern.
+Clean architecture implementation with DB-driven configuration.
 """
 
 import aiohttp
