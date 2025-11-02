@@ -457,13 +457,26 @@ class RouteSpawner(SpawnerInterface):
                 board_idx = random.randint(0, len(route_coords) - 1)
                 board_lon, board_lat = route_coords[board_idx]
                 
-                # Random alighting position further along route
-                alight_idx = random.randint(board_idx, len(route_coords) - 1)
+                # Random alighting position further along route (MUST be different from boarding)
+                # Ensure at least 1 stop difference to avoid 0km commutes
+                if board_idx == len(route_coords) - 1:
+                    # Last stop - pick any earlier stop as destination (reverse direction)
+                    alight_idx = random.randint(0, board_idx - 1)
+                else:
+                    # Normal case - pick any stop AFTER boarding position
+                    alight_idx = random.randint(board_idx + 1, len(route_coords) - 1)
+                
                 alight_lon, alight_lat = route_coords[alight_idx]
                 
                 # Generate unique passenger ID using UUID (full 32 hex chars for uniqueness)
                 import uuid
                 passenger_id = f"PASS_{uuid.uuid4().hex.upper()}"
+                
+                # Randomize spawn time within the hour (0-59 minutes, 0-59 seconds)
+                import random as rand
+                random_minutes = rand.randint(0, 59)
+                random_seconds = rand.randint(0, 59)
+                actual_spawn_time = current_time.replace(minute=random_minutes, second=random_seconds, microsecond=0)
                 
                 # Create spawn request with all required fields
                 spawn_req = SpawnRequest(
@@ -471,7 +484,7 @@ class RouteSpawner(SpawnerInterface):
                     spawn_location=(board_lat, board_lon),
                     destination_location=(alight_lat, alight_lon),
                     route_id=self.route_id,
-                    spawn_time=current_time,
+                    spawn_time=actual_spawn_time,
                     spawn_context="ROUTE",
                     generation_method="poisson"
                 )
@@ -480,7 +493,7 @@ class RouteSpawner(SpawnerInterface):
                 
                 # Log individual spawn event
                 self.logger.info(
-                    f"🚶 Passenger {passenger_id} spawned at {current_time.strftime('%H:%M:%S')} | "
+                    f"🚶 Passenger {passenger_id} spawned at {actual_spawn_time.strftime('%H:%M:%S')} | "
                     f"Type: ROUTE | Board: ({board_lat:.4f}, {board_lon:.4f}) | "
                     f"Alight: ({alight_lat:.4f}, {alight_lon:.4f})"
                 )

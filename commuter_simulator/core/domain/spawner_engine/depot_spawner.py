@@ -507,13 +507,19 @@ class DepotSpawner(SpawnerInterface):
                     # For now, use depot location as placeholder
                     dest_lat, dest_lon = self.depot_location
                     
+                    # Randomize spawn time within the hour (0-59 minutes, 0-59 seconds)
+                    import random
+                    random_minutes = random.randint(0, 59)
+                    random_seconds = random.randint(0, 59)
+                    actual_spawn_time = current_time.replace(minute=random_minutes, second=random_seconds, microsecond=0)
+                    
                     # Create spawn request
                     spawn_req = SpawnRequest(
                         passenger_id=passenger_id,
                         spawn_location=(spawn_lat, spawn_lon),
                         destination_location=(dest_lat, dest_lon),  # Updated by conductor
                         route_id=destination_route,
-                        spawn_time=current_time,
+                        spawn_time=actual_spawn_time,
                         spawn_context="DEPOT",
                         priority=1.0,
                         generation_method="poisson_depot"
@@ -523,7 +529,7 @@ class DepotSpawner(SpawnerInterface):
                     
                     # Log individual spawn event
                     self.logger.info(
-                        f"🚶 Passenger {passenger_id} spawned at {current_time.strftime('%H:%M:%S')} | "
+                        f"🚶 Passenger {passenger_id} spawned at {actual_spawn_time.strftime('%H:%M:%S')} | "
                         f"Type: DEPOT ({self.depot_id}) | Location: ({spawn_lat:.4f}, {spawn_lon:.4f}) | "
                         f"Route: {destination_route}"
                     )
