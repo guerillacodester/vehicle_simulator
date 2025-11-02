@@ -224,7 +224,7 @@ GET /meta/health
 
 ### ✅ **GeospatialClient** Already Exists
 
-The `commuter_simulator/infrastructure/geospatial/client.py` is **already written** and uses these exact endpoints:
+The `commuter_service/infrastructure/geospatial/client.py` is **already written** and uses these exact endpoints:
 
 ```python
 class GeospatialClient:

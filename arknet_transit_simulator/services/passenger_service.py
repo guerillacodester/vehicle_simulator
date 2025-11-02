@@ -6,7 +6,7 @@ Allows Conductor to work with any passenger storage system without tight couplin
 
 Implementations:
 - StrapiPassengerService - Strapi API-based (production)
-- PassengerRepository (from commuter_simulator) - Backend for StrapiPassengerService
+- PassengerRepository (from commuter_service) - Backend for StrapiPassengerService
 """
 
 from abc import ABC, abstractmethod

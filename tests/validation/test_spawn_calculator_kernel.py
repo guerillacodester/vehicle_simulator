@@ -2,7 +2,7 @@
 """Quick test of spawn_calculator kernel."""
 
 from datetime import datetime
-from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+from commuter_service.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
 
 # Test configuration (Route 1, Monday 8 AM)
 spawn_config = {

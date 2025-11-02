@@ -137,11 +137,11 @@ CURRENT STATE (October 31, 2025 - Geospatial API Production-Ready):
 ✅ Launcher Consolidated: Deleted 3 redundant scripts, launch.py is single launcher
 ✅ Integration Test Passing: launch.py successfully starts all subsystems
 ✅ Route-Depot Junction Table: Populated with 1 association (Route 1 ↔ Speightstown, 223m)
-✅ Precompute Script: commuter_simulator/scripts/precompute_route_depot_associations.py
+✅ Precompute Script: commuter_service/scripts/precompute_route_depot_associations.py
 ✅ Zero Configuration Redundancies: Between files and database confirmed
 ✅ GEOSPATIAL API PRODUCTION-READY: 52+ endpoints, 13/13 critical tests passing (100%)
 ✅ API Coverage Analysis: Fully supports depot-based, route-based, hybrid terminal spawning
-✅ GeospatialClient Integration Ready: commuter_simulator/infrastructure/geospatial/client.py
+✅ GeospatialClient Integration Ready: commuter_service/infrastructure/geospatial/client.py
 ✅ Performance Validated: <100ms queries, <500ms analytics - all targets met
 ✅ Error Handling: Production-grade 503/504 responses with graceful degradation
 ✅ Documentation: API_REFERENCE.md, GEOSPATIAL_API_COMPLETENESS_ASSESSMENT.md complete
@@ -200,7 +200,7 @@ IMMEDIATE NEXT TASK (October 31, 2025):
    - After: Test full spawn cycle (depot + route spawners together)
 
 CLEAN ARCHITECTURE (October 29 - REFACTORED):
-commuter_simulator/ (Passenger Generation - CLEAN ARCHITECTURE)
+commuter_service/ (Passenger Generation - CLEAN ARCHITECTURE)
   ├─ main.py: Single entrypoint with SpawnerCoordinator
   ├─ domain/: Pure business logic (no external dependencies)
   │   └─ services/
@@ -252,15 +252,15 @@ TIER 7 → Redis, Geofencing, Production Optimization
 |------|---------|--------|-------------|
 | **CONTEXT.md** (this file) | Master architecture, all decisions | ✅ Updated Oct 29 | Reference for patterns |
 | **TODO.md** | TIER 1-5 task sequence, detailed session logs | ✅ Updated Oct 28 | Follow execution order |
-| **commuter_simulator/ARCHITECTURE.md** | Clean architecture guide | ✅ Created Oct 29 | Reference for layer rules |
-| **commuter_simulator/main.py** | Single entrypoint for spawner system | ✅ Updated Oct 29 | Wire RouteSpawner (replace Mock) |
-| **commuter_simulator/application/coordinators/spawner_coordinator.py** | Spawner orchestration | ✅ Refactored Oct 29 | Ready for use |
-| **commuter_simulator/domain/services/spawning/depot_spawner.py** | Depot passenger generation | ✅ Refactored Oct 29 | Add `_load_associated_routes()` |
-| **commuter_simulator/domain/services/spawning/route_spawner.py** | Route passenger generation | ✅ Refactored Oct 29 | Wire to coordinator |
-| **commuter_simulator/domain/services/reservoirs/** | DB-backed reservoirs | ✅ Refactored Oct 29 | Add Redis integration later |
-| **commuter_simulator/application/queries/manifest_query.py** | Enriched manifest builder | ✅ Created Oct 29 | Used by API and CLI |
-| **commuter_simulator/interfaces/http/manifest_api.py** | FastAPI manifest endpoint | ✅ Created Oct 29 | Production ready |
-| **commuter_simulator/interfaces/cli/list_passengers.py** | Console diagnostic tool | ✅ Created Oct 29 | Production ready |
+| **commuter_service/ARCHITECTURE.md** | Clean architecture guide | ✅ Created Oct 29 | Reference for layer rules |
+| **commuter_service/main.py** | Single entrypoint for spawner system | ✅ Updated Oct 29 | Wire RouteSpawner (replace Mock) |
+| **commuter_service/application/coordinators/spawner_coordinator.py** | Spawner orchestration | ✅ Refactored Oct 29 | Ready for use |
+| **commuter_service/domain/services/spawning/depot_spawner.py** | Depot passenger generation | ✅ Refactored Oct 29 | Add `_load_associated_routes()` |
+| **commuter_service/domain/services/spawning/route_spawner.py** | Route passenger generation | ✅ Refactored Oct 29 | Wire to coordinator |
+| **commuter_service/domain/services/reservoirs/** | DB-backed reservoirs | ✅ Refactored Oct 29 | Add Redis integration later |
+| **commuter_service/application/queries/manifest_query.py** | Enriched manifest builder | ✅ Created Oct 29 | Used by API and CLI |
+| **commuter_service/interfaces/http/manifest_api.py** | FastAPI manifest endpoint | ✅ Created Oct 29 | Production ready |
+| **commuter_service/interfaces/cli/list_passengers.py** | Console diagnostic tool | ✅ Created Oct 29 | Production ready |
 | **geospatial_service/api/spatial.py** | Route geometry/buildings endpoints | ✅ Operational Oct 28 | Ready for RouteSpawner |
 | **geospatial_service/** | Spatial queries API | ✅ Working | Use for route-depot associations |
 | **arknet_transit_simulator/** | Vehicle movement simulator | ✅ Working | Conductor integration pending |
@@ -273,7 +273,7 @@ FRONTEND:
 
 SIMULATORS:
 - arknet_transit_simulator (Python) - Vehicle movement
-- commuter_simulator (Python) - Passenger spawning
+- commuter_service (Python) - Passenger spawning
 
 SPATIAL:
 - PostGIS geometry columns (Point, LineString, Polygon, MultiPolygon)
@@ -401,7 +401,7 @@ TIER 2: Enable Spawning Queries ✅ DONE (Phase 1.11)
 └─ Integration tests (16/16 passing) ✅
 
 TIER 3: Database Integration & Validation (Phase 1.12) 🎯 NEXT
-├─ Test queries from commuter_simulator
+├─ Test queries from commuter_service
 ├─ Validate performance under load (100+ vehicles)
 ├─ Document API endpoints
 ├─ Create API client wrapper
@@ -634,7 +634,7 @@ SUCCESS CRITERIA:
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                      │
 │  ┌─────────────────────────────────────────┐      ┌──────────────────────────────────────────────┐ │
-│  │ 🚌 arknet_transit_simulator/            │      │ 👥 commuter_simulator/                       │ │
+│  │ 🚌 arknet_transit_simulator/            │      │ 👥 commuter_service/                       │ │
 │  │ (Python - Vehicle Movement)             │      │ (Python - Passenger Spawning)                │ │
 │  │ ─────────────────────────────────────── │      │ ──────────────────────────────────────────── │ │
 │  │                                          │      │                                               │ │
@@ -869,7 +869,7 @@ SUCCESS CRITERIA:
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                      │
 │  🗑️  commuter_service_deprecated/ - REMOVED (November 2, 2025)                                      │
-│   • Old tight-coupled spawning system fully replaced by commuter_simulator/                         │
+│   • Old tight-coupled spawning system fully replaced by commuter_service/                         │
 │   • All functionality migrated to clean architecture with DB-driven configuration                   │
 │   • No longer needed for reference - deleted to reduce codebase complexity                          │
 │                                                                                                      │
@@ -952,7 +952,7 @@ SUCCESS CRITERIA:
 │      - country/schema.json: Removed spawn_config relation                                            │
 │    • Pending: Restart Strapi, create route-specific configs, update SpawnConfigLoader               │
 │    • Expected: Route 1 (St Lucy) at 6 AM → ~16 passengers (hour 6 rate = 0.6 vs 1.5)                │
-│    • Validation scripts: Moved to commuter_simulator/tests/validation/ folder                       │
+│    • Validation scripts: Moved to commuter_service/tests/validation/ folder                       │
 │  ✅ Seed Data: "Barbados Typical Weekday" with realistic commuter patterns                            │
 │    • Morning peak (8am): 2.8x spawn rate, residential buildings 2.5x multiplier                       │
 │    • Evening peak (5pm): 2.3x spawn rate, commercial buildings 1.8x multiplier                        │
@@ -975,8 +975,8 @@ SUCCESS CRITERIA:
 │    • arknet-fleet-api/src/api/spawn-config/content-types/spawn-config/schema.json                    │
 │    • arknet-fleet-api/src/components/spawning/*.json (6 components)                                  │
 │    • seeds/seed_spawn_config.sql                                                                      │
-│    • commuter_simulator/infrastructure/spawn/config_loader.py                                        │
-│    • commuter_simulator/tests/manual/test_spawn_loader.py                                            │
+│    • commuter_service/infrastructure/spawn/config_loader.py                                        │
+│    • commuter_service/tests/manual/test_spawn_loader.py                                            │
 │                                                                                                       │
 │ TIER 4 (OPTIMIZATION - Phase 2-3): Performance Enhancements                                         │
 │  🔮 Redis reverse geocoding (<200ms target)                                                         │
@@ -1149,7 +1149,7 @@ SUCCESS CRITERIA:
 | **Admin level normalization** | Reference table with 4 seeded levels (6, 8, 9, 10) | Oct 25 | Proper foreign key relationships |
 | **Priority sequence: Option A** | Complete imports → Enable spawning → Optimize performance | Oct 26 | **TIER 1→2→3→4 dependency order** |
 | **GPS CentCom separate track** | MVP demo ready, needs hardening for production fleet | Oct 26 | Future work, not blocking spawning |
-| **Geospatial API blocks spawning** | commuter_simulator needs spatial queries to spawn passengers | Oct 26 | TIER 2 - CRITICAL BLOCKER |
+| **Geospatial API blocks spawning** | commuter_service needs spatial queries to spawn passengers | Oct 26 | TIER 2 - CRITICAL BLOCKER |
 
 ---
 
@@ -1244,9 +1244,9 @@ SUCCESS CRITERIA:
  **TIER 2 (CRITICAL BLOCKER for spawning)**:
 
 - **Geospatial Services API needed before passenger spawning**
-  - commuter_simulator requires route-buildings query (ST_DWithin 500m)
-  - commuter_simulator requires depot-buildings query (ST_DWithin 1000m)
-  - commuter_simulator requires zone-containing query (ST_Contains)
+  - commuter_service requires route-buildings query (ST_DWithin 500m)
+  - commuter_service requires depot-buildings query (ST_DWithin 1000m)
+  - commuter_service requires zone-containing query (ST_Contains)
 - **Impact**: Cannot implement Phases 4-5-6 until Phase 1.11-1.12 complete
 - **Timeline**: TIER 2 immediately follows TIER 1 completion
 
@@ -1348,8 +1348,8 @@ cd arknet_transit_simulator
 python -m arknet_transit_simulator
 
 # Run commuter simulator (blocked until TIER 2 complete)
-cd commuter_simulator
-python -m commuter_simulator
+cd commuter_service
+python -m commuter_service
 ```
 
 ---
@@ -1522,7 +1522,7 @@ This section documents critical architectural decisions made on October 28, 2025
 
 #### **Decision 1: Single Entrypoint vs Separate Sub-Entrypoints**
 
-**User Proposal**: "The commuter_simulator will have a single entrypoint that will start the spawn_engine with separate sub-entrypoints for depot/route spawners"
+**User Proposal**: "The commuter_service will have a single entrypoint that will start the spawn_engine with separate sub-entrypoints for depot/route spawners"
 
 **Agent Pushback**: ✅ ACCEPTED (with modifications)
 - **Approved Pattern**: Single `main.py` entrypoint with `SpawnerCoordinator` orchestration
@@ -1536,7 +1536,7 @@ This section documents critical architectural decisions made on October 28, 2025
 
 **Implementation**:
 ```python
-# commuter_simulator/main.py
+# commuter_service/main.py
 async def main():
     # Shared resources
     passenger_repo = PassengerRepository(strapi_url="http://localhost:1337")
@@ -1562,7 +1562,7 @@ async def main():
 ```
 
 **Benefits Realized**:
-- Single command to run: `python -m commuter_simulator.main`
+- Single command to run: `python -m commuter_service.main`
 - Granular control via config flags (not CLI args)
 - Clean separation: Coordinator = orchestration, Spawners = generation logic
 - Easy to extend (add new spawner = add to list + config flag)
@@ -1844,7 +1844,7 @@ async def subscribe_to_passengers():
 During deep code analysis validation of TIER 5 execution plan, discovered that **RouteSpawner was already fully implemented** (287 lines), reducing TIER 5 scope by 33%.
 
 **RouteSpawner Status**:
-- ✅ **Location**: `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+- ✅ **Location**: `commuter_service/core/domain/spawner_engine/route_spawner.py`
 - ✅ **Implementation**: COMPLETE (287 lines)
 - ✅ **Methods**: All required methods implemented:
   - `spawn()`: Main algorithm with complete Poisson distribution logic
@@ -1871,7 +1871,7 @@ During deep code analysis validation of TIER 5 execution plan, discovered that *
 
 #### **Files Created/Modified**:
 
-**1. `commuter_simulator/core/domain/spawner_engine/depot_spawner.py`** ✅ COMPLETE
+**1. `commuter_service/core/domain/spawner_engine/depot_spawner.py`** ✅ COMPLETE
 - **Purpose**: Poisson-distributed passenger generation at depot locations
 - **Key Features**:
   - Configurable spawn rates (spatial, hourly, day multipliers)
@@ -1884,7 +1884,7 @@ During deep code analysis validation of TIER 5 execution plan, discovered that *
   - `_generate_spawn_requests()`: Creates passenger spawn requests with depot_id
 - **Test Results**: 4 passengers spawned (λ=2.20), 100% success rate
 
-**2. `commuter_simulator/services/spawner_coordinator.py`** ✅ COMPLETE
+**2. `commuter_service/services/spawner_coordinator.py`** ✅ COMPLETE
 - **Purpose**: Orchestrates multiple spawners with enable/disable control
 - **Key Features**:
   - Single-run and continuous modes
@@ -1897,7 +1897,7 @@ During deep code analysis validation of TIER 5 execution plan, discovered that *
   - `_run_continuous()`: Runs spawners on configurable interval
   - `_log_aggregate_stats()`: Logs total passengers spawned across all spawners
 
-**3. `commuter_simulator/main.py`** ✅ COMPLETE
+**3. `commuter_service/main.py`** ✅ COMPLETE
 - **Purpose**: Single entrypoint for spawner system
 - **Key Features**:
   - Creates shared resources (PassengerRepository, Reservoirs)
@@ -1913,8 +1913,8 @@ config = {
 }
 ```
 
-**4. `commuter_simulator/core/domain/reservoirs/`** ✅ MOVED & UPDATED
-- **Location Change**: Moved from project root to `commuter_simulator/core/domain/reservoirs/`
+**4. `commuter_service/core/domain/reservoirs/`** ✅ MOVED & UPDATED
+- **Location Change**: Moved from project root to `commuter_service/core/domain/reservoirs/`
 - **Files**:
   - `depot_reservoir.py`: DB-backed with optional Redis (enable_redis_cache flag)
   - `route_reservoir.py`: DB-backed with optional Redis (enable_redis_cache flag)
@@ -1925,7 +1925,7 @@ config = {
   - `available()`: Query waiting passengers by depot/route
   - Redis hooks exist but not yet implemented (enable_redis_cache flag)
 
-**5. `commuter_simulator/infrastructure/database/passenger_repository.py`** ✅ UPDATED
+**5. `commuter_service/infrastructure/database/passenger_repository.py`** ✅ UPDATED
 - **New Methods**:
   - `get_waiting_passengers_by_route(route_id, limit)`: GET /api/active-passengers?filters[route_id][$eq]=X
   - `get_waiting_passengers_by_depot(depot_id, limit)`: GET /api/active-passengers?filters[depot_id][$eq]=X
@@ -1934,7 +1934,7 @@ config = {
   - Include route_id/depot_id fields for filtering
   - Used by reservoirs for `available()` queries
 
-**6. `commuter_simulator/core/domain/spawner_engine/route_spawner.py`** ✅ DISCOVERED COMPLETE (Oct 28)
+**6. `commuter_service/core/domain/spawner_engine/route_spawner.py`** ✅ DISCOVERED COMPLETE (Oct 28)
 - **Purpose**: Spatially distributed passenger generation along transit routes
 - **Status**: FULLY IMPLEMENTED (287 lines) - discovered during TIER 5 validation
 - **Key Features**:
@@ -1972,7 +1972,7 @@ config = {
 
 ### **Test Results (October 28)**
 
-#### **End-to-End Test** (`python -m commuter_simulator.main`):
+#### **End-to-End Test** (`python -m commuter_service.main`):
 
 **Spawn Calculation**:
 ```
@@ -2046,7 +2046,7 @@ config = {
 - PostgreSQL LISTEN/NOTIFY on active_passengers table
 - Trigger function: `notify_passenger_change()`
 - Trigger on INSERT/UPDATE/DELETE
-- Create `commuter_simulator/examples/passenger_subscriber.py`
+- Create `commuter_service/examples/passenger_subscriber.py`
 - Subscriber examples for 3rd-party visualization
 
 **5. Comprehensive Flag Testing**
@@ -2112,7 +2112,7 @@ When real-world ridership data becomes available, add:
 8. `file_search` for passenger_subscriber.py → Confirmed example missing
 
 **Key Discovery**:
-- RouteSpawner **ALREADY FULLY IMPLEMENTED** (287 lines) at `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+- RouteSpawner **ALREADY FULLY IMPLEMENTED** (287 lines) at `commuter_service/core/domain/spawner_engine/route_spawner.py`
 - All required methods complete: `spawn()`, `_load_spawn_config()`, `_load_route_geometry()`, `_get_buildings_near_route()`, `_calculate_spawn_count()`, `_generate_spawn_requests()`
 - GeospatialService integration complete: `/spatial/route-geometry/{route_id}`, `/spatial/route-buildings`
 - **NOT wired to coordinator yet** - main.py currently uses MockRouteSpawner
@@ -2209,9 +2209,9 @@ Passengers at Bridge Street Station depot:
 
 To avoid reinventing the wheel when building the production UI, we've centralized the manifest computation in a reusable module following clean architecture.
 
-- Source: `commuter_simulator/application/queries/manifest_query.py`
-- API: `commuter_simulator/interfaces/http/manifest_api.py` (FastAPI, port 4000)
-- Consumers: CLI (`commuter_simulator/interfaces/cli/list_passengers.py`), HTTP API, and future UI
+- Source: `commuter_service/application/queries/manifest_query.py`
+- API: `commuter_service/interfaces/http/manifest_api.py` (FastAPI, port 4000)
+- Consumers: CLI (`commuter_service/interfaces/cli/list_passengers.py`), HTTP API, and future UI
 - Architecture: Application layer query (uses domain services and infrastructure clients)
 - Ordering: Ascending by `route_position_m` when a `route_id` is provided (distance from start of the route). Otherwise, positions are 0 and ordering is unspecified.
 - Reverse geocoding: Via GeospatialService `/geocode/reverse` with small in-memory cache and bounded concurrency (env `GEOCODE_CONCURRENCY`, default 5)
@@ -2238,15 +2238,15 @@ To avoid reinventing the wheel when building the production UI, we've centralize
 ### How to use
 
 - **HTTP API** (recommended for UI):
-  - Start: `uvicorn commuter_simulator.interfaces.http.manifest_api:app --port 4000`
+  - Start: `uvicorn commuter_service.interfaces.http.manifest_api:app --port 4000`
   - Endpoint: `GET http://localhost:4000/api/manifest?route=<id>&limit=100`
   - Returns: `{"count": N, "route_id": "...", "passengers": [...], "ordered_by_route_position": true}`
   - Docs: <http://localhost:4000/docs>
 - Python import (for backend integrations):
-  - `from commuter_simulator.application.queries import enrich_manifest_rows`
+  - `from commuter_service.application.queries import enrich_manifest_rows`
   - Call `await enrich_manifest_rows(rows, route_id)` where `rows` are raw Strapi `active-passengers` records (attributes-flattened)
 - Console/diagnostics:
-  - `python -m commuter_simulator.interfaces.cli.list_passengers --route <id> --json`
+  - `python -m commuter_service.interfaces.cli.list_passengers --route <id> --json`
 
 This contract is now the single source of truth for manifest formatting and ordering.
 
@@ -2267,7 +2267,7 @@ The original folder structure was ad-hoc with unclear boundaries:
 Reorganized to follow **Robert C. Martin's Clean Architecture** with explicit layers and dependency rules.
 
 ```
-commuter_simulator/
+commuter_service/
 ├── domain/              # Pure business logic (no external dependencies)
 │   └── services/
 │       ├── spawning/    # DepotSpawner, RouteSpawner
@@ -2315,16 +2315,16 @@ commuter_simulator/
 
 **Before:**
 ```python
-from commuter_simulator.services.manifest_builder import enrich_manifest_rows
-from commuter_simulator.core.domain.spawner_engine import DepotSpawner
-from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+from commuter_service.services.manifest_builder import enrich_manifest_rows
+from commuter_service.core.domain.spawner_engine import DepotSpawner
+from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
 ```
 
 **After:**
 ```python
-from commuter_simulator.application.queries import enrich_manifest_rows
-from commuter_simulator.domain.services.spawning import DepotSpawner
-from commuter_simulator.infrastructure.persistence.strapi import PassengerRepository
+from commuter_service.application.queries import enrich_manifest_rows
+from commuter_service.domain.services.spawning import DepotSpawner
+from commuter_service.infrastructure.persistence.strapi import PassengerRepository
 ```
 
 ### Benefits
@@ -2338,11 +2338,11 @@ from commuter_simulator.infrastructure.persistence.strapi import PassengerReposi
 ### Verification
 
 All entry points tested and working:
-- ✅ `python -m commuter_simulator.main`
-- ✅ `uvicorn commuter_simulator.interfaces.http.manifest_api:app --port 4000`
-- ✅ `python -m commuter_simulator.interfaces.cli.list_passengers --help`
+- ✅ `python -m commuter_service.main`
+- ✅ `uvicorn commuter_service.interfaces.http.manifest_api:app --port 4000`
+- ✅ `python -m commuter_service.interfaces.cli.list_passengers --help`
 
-See `commuter_simulator/ARCHITECTURE.md` for complete layer documentation.
+See `commuter_service/ARCHITECTURE.md` for complete layer documentation.
 
 **Refactoring Complete**: October 29, 2025
 
@@ -2355,13 +2355,15 @@ See `commuter_simulator/ARCHITECTURE.md` for complete layer documentation.
 The system runs 3 separate HTTP services on different ports (standalone architecture):
 - **GPSCentCom Server** (port 5000) - GPS telemetry hub with HTTP API and WebSocket
 - **GeospatialService** (port 6000) - PostGIS spatial queries and reverse geocoding
-- **Manifest API** (port 4000) - Passenger manifest enrichment with geocoding
+- **Commuter Service** (port 4000) - Passenger spawning and manifest API with geocoding
 
 **Architecture Decision**: After attempting a unified backend on port 8000, the standalone approach was chosen due to:
 - WebSocket proxy complexity in unified FastAPI mounts
 - Simpler deployment and debugging
 - Independent service scaling
 - Clearer separation of concerns
+
+**Note**: The Commuter Service is an integrated service providing both background passenger spawning logic and HTTP manifest API endpoints. Previously split into separate services, it was merged on Nov 1, 2025 for better cohesion.
 
 ### Architecture
 
@@ -2384,9 +2386,10 @@ The system runs 3 separate HTTP services on different ports (standalone architec
 │  └────────────────────────────────────────────────────┘    │
 │                                                              │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │ Manifest API (Port 4000)                           │    │
-│  │ - /api/manifest (enriched passenger listings)      │    │
-│  │ - /health (service health)                         │    │
+│  │ Commuter Service (Port 4000)                       │    │
+│  │ - HTTP: /api/manifest (enriched passengers)        │    │
+│  │ - HTTP: /health (service health)                   │    │
+│  │ - Background: Passenger spawning logic             │    │
 │  └────────────────────────────────────────────────────┘    │
 │                                                              │
 │  Configuration: .env (single source of truth)               │
@@ -2405,13 +2408,15 @@ The system runs 3 separate HTTP services on different ports (standalone architec
   - POST /geo/geocode/reverse  Lat/lon  address
   - GET /geo/health  Service health check
 
-**2. Passenger Manifest API (/manifest/*)**
-- Source: commuter_simulator/interfaces/http/manifest_api.py
-- Functions: Enriched passenger listings with reverse geocoding
+**2. Commuter Service**
+- Source: commuter_service/interfaces/http/manifest_api.py (HTTP interface)
+- Source: commuter_service/main.py (background spawning interface)
+- Functions: Passenger spawning, enriched passenger listings with reverse geocoding
 - Endpoints:
-  - GET /manifest/api/manifest?route=<id>&limit=100  Passenger manifest
-  - GET /manifest/docs  Swagger UI
-  - GET /manifest/health  Service health check
+  - GET /api/manifest?route=<id>&limit=100  Passenger manifest
+  - GET /docs  Swagger UI
+  - GET /health  Service health check
+- **Note**: Integrated service with both HTTP API (manifest queries) and background spawning logic. The launcher starts the HTTP interface by default.
 
 **3. GPSCentCom HTTP API (/gps/*)**
 - Source: gpscentcom_server/api_router.py
@@ -2499,7 +2504,7 @@ for line in response.iter_lines():
 arknet_fleet_services.py
  _load_geospatial_app()      # Imports geospatial_service.main:app
  _load_gpscentcom_app()      # Imports gpscentcom_server.api_router:api_router
- _load_manifest_app()        # Imports commuter_simulator.interfaces.http.manifest_api:app
+ _load_manifest_app()        # Imports commuter_service.interfaces.http.manifest_api:app
  WebSocket direct route      # @app.websocket("/gps/device")
  Main FastAPI app            # Mounts /geo, /gps, /manifest
 ``
@@ -2530,7 +2535,7 @@ cd geospatial_service
 python main.py
 
 # Manifest API
-python -m commuter_simulator.interfaces.http.manifest_api
+python -m commuter_service.interfaces.http.manifest_api
 ```
 
 ### Health Checks

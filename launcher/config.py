@@ -22,17 +22,15 @@ class LauncherConfig:
     # Subsystem enable flags
     enable_gpscentcom: bool
     enable_geospatial: bool
-    enable_manifest: bool
     enable_vehicle_simulator: bool
-    enable_commuter_simulator: bool
+    enable_commuter_service: bool
     
     # Console spawning flags
     spawn_console_strapi: bool
     spawn_console_gpscentcom: bool
     spawn_console_geospatial: bool
-    spawn_console_manifest: bool
     spawn_console_vehicle_simulator: bool
-    spawn_console_commuter_simulator: bool
+    spawn_console_commuter_service: bool
 
 
 @dataclass
@@ -42,7 +40,7 @@ class InfrastructureConfig:
     strapi_port: int
     gpscentcom_port: int
     geospatial_port: int
-    manifest_port: int
+    commuter_service_port: int
 
 
 class ConfigurationManager:
@@ -75,15 +73,13 @@ class ConfigurationManager:
             service_startup_wait=launcher.getint('service_startup_wait', 8),
             enable_gpscentcom=launcher.getboolean('enable_gpscentcom', True),
             enable_geospatial=launcher.getboolean('enable_geospatial', True),
-            enable_manifest=launcher.getboolean('enable_manifest', True),
             enable_vehicle_simulator=launcher.getboolean('enable_vehicle_simulator', False),
-            enable_commuter_simulator=launcher.getboolean('enable_commuter_simulator', False),
+            enable_commuter_service=launcher.getboolean('enable_commuter_service', False),
             spawn_console_strapi=launcher.getboolean('spawn_console_strapi', False),
             spawn_console_gpscentcom=launcher.getboolean('spawn_console_gpscentcom', False),
             spawn_console_geospatial=launcher.getboolean('spawn_console_geospatial', False),
-            spawn_console_manifest=launcher.getboolean('spawn_console_manifest', False),
             spawn_console_vehicle_simulator=launcher.getboolean('spawn_console_vehicle_simulator', False),
-            spawn_console_commuter_simulator=launcher.getboolean('spawn_console_commuter_simulator', False)
+            spawn_console_commuter_service=launcher.getboolean('spawn_console_commuter_service', False)
         )
     
     def get_infrastructure_config(self) -> InfrastructureConfig:
@@ -95,5 +91,5 @@ class ConfigurationManager:
             strapi_port=infra.getint('strapi_port', 1337),
             gpscentcom_port=infra.getint('gpscentcom_port', 5000),
             geospatial_port=infra.getint('geospatial_port', 6000),
-            manifest_port=infra.getint('manifest_port', 4000)
+            commuter_service_port=infra.getint('commuter_service_port', 4000)
         )

@@ -27,11 +27,11 @@ async def spawn_full_week_depot():
     Spawn DEPOT passengers for Route 1 for a full week (Saturday - Friday).
     Creates passengers at depot/terminal using DepotSpawner.
     """
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
-    from commuter_simulator.core.domain.reservoirs.depot_reservoir import DepotReservoir
-    from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
-    from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.reservoirs.depot_reservoir import DepotReservoir
+    from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
     
     print("=" * 80)
     print("INTEGRATION TEST - SPAWN FULL WEEK DEPOT PASSENGERS FOR ROUTE 1")

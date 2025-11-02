@@ -26,10 +26,10 @@ async def test_route1_real_spawning():
     """
     Integration test: Spawn real passengers for Route 1 and verify database insertion.
     """
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
-    from commuter_simulator.infrastructure.config.config_loader import ConfigLoader
-    from commuter_simulator.infrastructure.clients.geospatial_client import GeospatialClient
-    from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.infrastructure.config.config_loader import ConfigLoader
+    from commuter_service.infrastructure.clients.geospatial_client import GeospatialClient
+    from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
     
     print("=" * 80)
     print("INTEGRATION TEST - ROUTE 1 REAL SPAWNING")

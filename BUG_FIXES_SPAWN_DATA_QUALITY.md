@@ -130,13 +130,13 @@ for i in range(spawn_count):
 
 ## Files Modified
 
-### 1. `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+### 1. `commuter_service/core/domain/spawner_engine/route_spawner.py`
 **Function**: `_generate_spawn_requests()`
 - ✅ Added random minute/second to spawn times
 - ✅ Fixed zero-distance bug (alight_idx must differ from board_idx)
 - ✅ Updated logging to show actual_spawn_time
 
-### 2. `commuter_simulator/core/domain/spawner_engine/depot_spawner.py`
+### 2. `commuter_service/core/domain/spawner_engine/depot_spawner.py`
 **Function**: `_generate_spawn_requests()`
 - ✅ Added random minute/second to spawn times
 - ✅ Updated logging to show actual_spawn_time
@@ -165,7 +165,7 @@ for i in range(spawn_count):
 python scripts/delete_passengers.py
 
 # 2. Respawn with fixes
-python -m commuter_simulator --depot-spawning --route-spawning --duration 168 --time-step 60
+python -m commuter_service --depot-spawning --route-spawning --duration 168 --time-step 60
 
 # 3. Check time distribution
 python scripts/check_spawn_data.py

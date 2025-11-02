@@ -7,6 +7,6 @@
     ],
     "mssql.intelliSense.enableErrorChecking": false,
     "files.associations": {
-        "**/commuter_simulator/**/*.sql": "postgres"
+        "**/commuter_service/**/*.sql": "postgres"
     }
 }

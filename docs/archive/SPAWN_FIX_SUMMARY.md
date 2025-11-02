@@ -93,7 +93,7 @@ passengers = Poisson(lambda)
 
 3. **Restart Commuter Simulator**:
    ```bash
-   python -m commuter_simulator.main
+   python -m commuter_service.main
    ```
 
 4. **Monitor Spawn Output**:

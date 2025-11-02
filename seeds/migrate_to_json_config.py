@@ -228,7 +228,7 @@ try:
     print("\n📋 Next Steps:")
     print("  1. Restart Strapi (schema changes take effect)")
     print("  2. Test API: python check_spawn_configs.py")
-    print("  3. Test spawning: python -m commuter_simulator.main")
+    print("  3. Test spawning: python -m commuter_service.main")
     print("  4. If all works, drop old component tables (optional)")
     print("=" * 70)
 

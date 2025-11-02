@@ -43,7 +43,7 @@ async def test_depot_poisson_distribution():
     """
     Test 1: Validate depot spawn counts follow Poisson distribution.
     """
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
     from unittest.mock import MagicMock
     
     print("=" * 80)
@@ -161,7 +161,7 @@ async def test_depot_temporal_patterns():
     """
     Test 2: Validate depot temporal patterns.
     """
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
     from unittest.mock import MagicMock
     
     print("=" * 80)
@@ -280,7 +280,7 @@ async def test_depot_spatial_base_scaling():
     """
     Test 3: Validate spatial_base parameter scales spawn rates correctly.
     """
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
     from unittest.mock import MagicMock
     
     print("=" * 80)

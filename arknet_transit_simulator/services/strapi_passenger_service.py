@@ -1,7 +1,7 @@
 """
-Strapi Passenger Service - Concrete implementation using commuter_simulator
+Strapi Passenger Service - Concrete implementation using commuter_service
 
-Wraps PassengerRepository from commuter_simulator to provide passenger operations
+Wraps PassengerRepository from commuter_service to provide passenger operations
 via Strapi API. This is the production implementation.
 """
 
@@ -14,10 +14,10 @@ from arknet_transit_simulator.services.passenger_service import PassengerService
 
 class StrapiPassengerService(PassengerService):
     """
-    Strapi-based passenger service using commuter_simulator.infrastructure.database.PassengerRepository
+    Strapi-based passenger service using commuter_service.infrastructure.database.PassengerRepository
     
     This service bridges arknet_transit_simulator (vehicle simulator) with
-    commuter_simulator (passenger management) via dependency injection.
+    commuter_service (passenger management) via dependency injection.
     """
     
     def __init__(self, passenger_repository, logger: Optional[logging.Logger] = None):
@@ -25,7 +25,7 @@ class StrapiPassengerService(PassengerService):
         Initialize with injected passenger repository.
         
         Args:
-            passenger_repository: Instance of PassengerRepository from commuter_simulator
+            passenger_repository: Instance of PassengerRepository from commuter_service
             logger: Logger instance
         """
         self.passenger_repo = passenger_repository

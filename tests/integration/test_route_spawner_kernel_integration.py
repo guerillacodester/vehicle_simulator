@@ -24,7 +24,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 async def test_route_spawner_with_depot_data():
     """Test RouteSpawner with depot catchment and route aggregation."""
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
     
     # Mock reservoir
     mock_reservoir = MagicMock()
@@ -115,7 +115,7 @@ async def test_route_spawner_with_depot_data():
 
 async def test_route_spawner_fallback_mode():
     """Test RouteSpawner fallback when depot data unavailable."""
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
     
     print("\n=== Test 2: Fallback mode (no depot) ===")
     
@@ -178,7 +178,7 @@ async def test_route_spawner_fallback_mode():
 
 async def test_route_spawner_caching():
     """Test that depot queries are cached properly."""
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
     
     print("\n=== Test 3: Caching behavior ===")
     

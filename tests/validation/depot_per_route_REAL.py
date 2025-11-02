@@ -27,7 +27,7 @@ import numpy as np
 
 async def simulate_real_per_route_weekend_to_monday():
     """Simulate Sunday through Monday with REAL route data from services."""
-    from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+    from commuter_service.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
     
     print("=" * 100)
     print("REAL DEPOT PASSENGER SPAWNING BY ROUTE - IMPLEMENTATION PLAN")

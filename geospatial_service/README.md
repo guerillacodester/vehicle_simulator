@@ -77,7 +77,7 @@ geospatial_service/
 ## Consumed By
 
 - **arknet_transit_simulator** - Geofencing for vehicles
-- **commuter_simulator** - Route/depot reservoir spawning queries
+- **commuter_service** - Route/depot reservoir spawning queries
 
 ## Status
 

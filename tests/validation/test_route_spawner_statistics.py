@@ -55,9 +55,9 @@ async def test_poisson_distribution():
     - Variance = lambda
     - P(k events) = (lambda^k * e^-lambda) / k!
     """
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
-    from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
     from unittest.mock import MagicMock
     
     print("=" * 80)
@@ -172,9 +172,9 @@ async def test_temporal_patterns():
     - Weekday (Monday) > Weekend (Sunday)
     - Hourly multipliers are applied correctly
     """
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
-    from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
     from unittest.mock import MagicMock
     
     print("=" * 80)
@@ -303,9 +303,9 @@ async def test_spatial_correlation():
     - More buildings → more spawns (with same temporal factors)
     - Zero buildings → zero spawns
     """
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
-    from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
     from unittest.mock import MagicMock
     
     print("=" * 80)

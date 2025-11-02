@@ -30,13 +30,13 @@ async def spawn_full_week_combined():
     Spawn passengers for Route 1 for a full week (Saturday - Friday).
     Creates BOTH depot and route passengers using actual spawners SIMULTANEOUSLY.
     """
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
-    from commuter_simulator.core.domain.reservoirs.route_reservoir import RouteReservoir
-    from commuter_simulator.core.domain.reservoirs.depot_reservoir import DepotReservoir
-    from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
-    from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.reservoirs.route_reservoir import RouteReservoir
+    from commuter_service.core.domain.reservoirs.depot_reservoir import DepotReservoir
+    from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
     
     print("=" * 80)
     print("INTEGRATION TEST - SPAWN FULL WEEK COMBINED (DEPOT + ROUTE) FOR ROUTE 1")

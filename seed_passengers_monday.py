@@ -12,12 +12,12 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from commuter_simulator.infrastructure.database.strapi_client import StrapiClient
-from commuter_simulator.infrastructure.config.spawn_config_loader import SpawnConfigLoader
-from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
-from commuter_simulator.infrastructure.persistence.strapi.passenger_repository import PassengerRepository
-from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
-from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+from commuter_service.infrastructure.database.strapi_client import StrapiClient
+from commuter_service.infrastructure.config.spawn_config_loader import SpawnConfigLoader
+from commuter_service.infrastructure.geospatial.client import GeospatialClient
+from commuter_service.infrastructure.persistence.strapi.passenger_repository import PassengerRepository
+from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
 
 
 async def seed_monday_passengers():

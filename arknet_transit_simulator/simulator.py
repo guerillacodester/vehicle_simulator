@@ -454,7 +454,7 @@ class CleanVehicleSimulator:
                 from arknet_transit_simulator.vehicle.conductor import Conductor
                 from arknet_transit_simulator.services.vehicle_performance import VehiclePerformanceService
                 from arknet_transit_simulator.services.strapi_passenger_service import StrapiPassengerService
-                from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+                from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
                 
                 # Get vehicle capacity from database
                 try:
@@ -465,12 +465,12 @@ class CleanVehicleSimulator:
                     logger.warning(f"[CONDUCTOR] Failed to get capacity from database: {perf_error}, using default 40")
                     vehicle_capacity = 40  # Fallback to standard minibus capacity
                 
-                # Create passenger service using new commuter_simulator infrastructure
+                # Create passenger service using new commuter_service infrastructure
                 # This breaks the tight coupling to deprecated commuter_service module
                 passenger_repo = PassengerRepository()  # Auto-loads URL from ConfigProvider
                 passenger_service = StrapiPassengerService(passenger_repo)
                 await passenger_service.connect()
-                logger.info(f"[CONDUCTOR] Connected to PassengerService via commuter_simulator infrastructure")
+                logger.info(f"[CONDUCTOR] Connected to PassengerService via commuter_service infrastructure")
                 
                 conductor = Conductor(
                     conductor_id=f"COND-{driver_assignment.driver_id}",

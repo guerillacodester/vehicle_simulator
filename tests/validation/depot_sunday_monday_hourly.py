@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 async def simulate_weekend_to_monday():
     """Simulate Sunday through Monday with hourly passenger counts."""
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
     from unittest.mock import MagicMock
     
     print("=" * 80)

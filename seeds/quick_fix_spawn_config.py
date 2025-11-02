@@ -131,7 +131,7 @@ try:
     print("🎉 QUICK FIX COMPLETE!")
     print("=" * 70)
     print("\nNext steps:")
-    print("  1. Restart commuter_simulator to reload config")
+    print("  1. Restart commuter_service to reload config")
     print("  2. Verify spawning works with realistic counts")
     print("  3. Plan proper schema refactor (see SPAWN_SCHEMA_ANALYSIS.md)")
     print("\nExpected behavior:")

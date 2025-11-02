@@ -98,5 +98,5 @@ python tests/validation/test_spawn_calculator_kernel.py
 
 Component-specific tests are located in their respective directories:
 
-- `commuter_simulator/tests/` - Commuter simulator unit tests
+- `commuter_service/tests/` - Commuter simulator unit tests
 - `geospatial_service/tests/` - Geospatial service tests

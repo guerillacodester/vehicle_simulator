@@ -96,7 +96,7 @@ enable_gpscentcom = true
 enable_geospatial = true
 enable_manifest = true
 enable_vehicle_simulator = false
-enable_commuter_simulator = false
+enable_commuter_service = false
 
 # Startup timing (seconds)
 monitor_port = 8000

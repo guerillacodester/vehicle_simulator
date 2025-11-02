@@ -7,11 +7,11 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 async def test():
-    from commuter_simulator.core.domain.spawner_engine.route_spawner import RouteSpawner
-    from commuter_simulator.core.domain.reservoirs.route_reservoir import RouteReservoir
-    from commuter_simulator.infrastructure.spawn.config_loader import SpawnConfigLoader
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
-    from commuter_simulator.infrastructure.database.passenger_repository import PassengerRepository
+    from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+    from commuter_service.core.domain.reservoirs.route_reservoir import RouteReservoir
+    from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
     import httpx
     
     # Get Route 1

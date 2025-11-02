@@ -26,7 +26,7 @@ import httpx
 
 async def simulate_per_route_weekend_to_monday():
     """Simulate Sunday through Monday with per-route passenger distribution."""
-    from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+    from commuter_service.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
     
     print("=" * 100)
     print("DEPOT PASSENGER SPAWNING BY ROUTE - SUNDAY THROUGH MONDAY")

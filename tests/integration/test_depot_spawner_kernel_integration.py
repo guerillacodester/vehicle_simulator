@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 
 async def test_depot_spawner_temporal_multipliers():
     """Test DepotSpawner uses kernel helper for temporal multipliers."""
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
     
     print("=" * 80)
     print("DepotSpawner Kernel Helper Integration Test")
@@ -137,7 +137,7 @@ async def test_depot_spawner_temporal_multipliers():
 
 async def test_depot_spawner_default_config():
     """Test DepotSpawner falls back to default config when none provided."""
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
     
     print()
     print("=" * 80)

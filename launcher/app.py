@@ -145,7 +145,7 @@ class LauncherApplication:
         if vehicle_sim:
             simulators.append(vehicle_sim)
         
-        commuter_sim = self.service_factory.create_commuter_simulator_service()
+        commuter_sim = self.service_factory.create_commuter_service_service()
         if commuter_sim:
             simulators.append(commuter_sim)
         
@@ -167,10 +167,6 @@ class LauncherApplication:
         geospatial = self.service_factory.create_geospatial_service()
         if geospatial:
             services.append(geospatial)
-        
-        manifest = self.service_factory.create_manifest_service()
-        if manifest:
-            services.append(manifest)
         
         if not services:
             return

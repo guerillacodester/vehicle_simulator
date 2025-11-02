@@ -23,7 +23,7 @@ async def validate_depot_route_statistics():
     """
     Statistical validation for depot and route spawning separately.
     """
-    from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+    from commuter_service.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
     import httpx
     
     print("=" * 80)

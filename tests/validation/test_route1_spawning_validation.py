@@ -22,7 +22,7 @@ ROUTE_SHORT_NAME = "1"
 
 async def fetch_spawn_config_and_buildings():
     """Fetch spawn config and building counts from geospatial service (NOT HARDCODED)."""
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         # Get route documentId
@@ -139,7 +139,7 @@ def calculate_spawn_count(hour: int, day_of_week: int, depot_buildings: int, rou
     # and effective-rate calculation. This keeps the test aligned with
     # the production calculation kernel instead of re-implementing logic.
     from datetime import datetime, timedelta
-    from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+    from commuter_service.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
 
     # Build a current_time that matches requested weekday and hour.
     # Use Monday 2024-11-04 as base (weekday=0) and offset by day_of_week.

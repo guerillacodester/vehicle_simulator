@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 async def check():
-    from commuter_simulator.infrastructure.geospatial.client import GeospatialClient
+    from commuter_service.infrastructure.geospatial.client import GeospatialClient
     
     # Get Route 1 geometry
     async with httpx.AsyncClient() as client:

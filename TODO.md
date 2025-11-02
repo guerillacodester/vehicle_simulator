@@ -32,8 +32,8 @@ TIER 4.7: Spawn Calculation Kernel & Repository Cleanup ✅ COMPLETE (Nov 1)
   - ✅ Tests organized: tests/{geospatial,integration,validation}/
   - ✅ Docs consolidated: SECURITY.md → CONTEXT.md
   - ✅ Markdown linting: All .md files passing markdownlint
-  - Files: commuter_simulator/core/domain/spawner_engine/spawn_calculator.py (370 lines)
-  - Tests: commuter_simulator/tests/test_spawn_calculator.py (465 lines)
+  - Files: commuter_service/core/domain/spawner_engine/spawn_calculator.py (370 lines)
+  - Tests: commuter_service/tests/test_spawn_calculator.py (465 lines)
   - Validation: tests/validation/test_spawn_calculator_kernel.py
 TIER 5: Spawner Integration & Statistical Validation 🎯 NEXT (Nov 1+)
   - 🎯 Phase 5.1: Integrate spawn_calculator into RouteSpawner (Nov 1)
@@ -61,11 +61,11 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
 
 **Tasks:**
 - [ ] 5.1.1: Read current RouteSpawner._calculate_spawn_count() implementation
-  - File: `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+  - File: `commuter_service/core/domain/spawner_engine/route_spawner.py`
   - Lines: 230-265 (current calculation logic)
   - Understand current parameters and return values
 - [ ] 5.1.2: Import SpawnCalculator into RouteSpawner
-  - Add: `from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator`
+  - Add: `from commuter_service.core.domain.spawner_engine.spawn_calculator import SpawnCalculator`
   - Verify import works (no circular dependencies)
 - [ ] 5.1.3: Replace _calculate_spawn_count() with kernel call
   - Keep same method signature for compatibility
@@ -123,7 +123,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
 
 **Recommended Tasks (Option A):**
 - [ ] 5.2.1: Review DepotSpawner calculation logic
-  - File: `commuter_simulator/core/domain/spawner_engine/depot_spawner.py`
+  - File: `commuter_service/core/domain/spawner_engine/depot_spawner.py`
   - Lines: 250-280 (current calculation)
   - Verify it's appropriate as fallback spawner
 - [ ] 5.2.2: Extract temporal multiplier logic to kernel
@@ -324,7 +324,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
   - Enable both DepotSpawner and RouteSpawner in config
   - Set continuous_mode = true
 - [ ] 5.6.2: Run 1-hour integration test (short cycle)
-  - Start commuter_simulator (python commuter_simulator/main.py)
+  - Start commuter_service (python commuter_service/main.py)
   - Run for 1 simulated hour (4 spawn cycles @ 15-min intervals)
   - Monitor logs for spawn counts and errors
   - Expected: 100-300 passengers spawned across all routes/depots
@@ -334,7 +334,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
   - Check spatial distribution (origins near depots/routes)
   - Validate temporal data (spawn timestamps)
 - [ ] 5.6.4: Run 24-hour integration test (full cycle)
-  - Start commuter_simulator for full day simulation
+  - Start commuter_service for full day simulation
   - Simulate: Monday 12 AM → Tuesday 12 AM (24 hours)
   - 96 spawn cycles (15-min intervals)
   - Expected: 3,000-5,000 passengers total
@@ -395,7 +395,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
   - Default: SPAWNED
   - Indexed for fast queries
 - [ ] 6.1.3: Implement state transition logic
-  - Create: commuter_simulator/core/domain/passenger_state_machine.py
+  - Create: commuter_service/core/domain/passenger_state_machine.py
   - Valid transitions: SPAWNED → WAITING → BOARDING → RIDING → ALIGHTING → COMPLETED
   - Prevent invalid transitions (e.g., RIDING → SPAWNED)
   - Log all state changes with timestamps
@@ -531,17 +531,17 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
 - [x] 6.4.1: Review existing reservoir implementations
   - ~~File: commuter_service_deprecated/depot_reservoir.py~~ (removed Nov 2, 2025)
   - ~~File: commuter_service_deprecated/route_reservoir.py~~ (removed Nov 2, 2025)
-  - ✅ Replaced by clean architecture implementation in commuter_simulator/
+  - ✅ Replaced by clean architecture implementation in commuter_service/
 - [x] 6.4.2: Decide: Migrate or rewrite reservoirs?
   - **Decision**: Option B - Rewrite in new architecture (cleaner)
   - ✅ Implemented with DB-backed reservoirs using Strapi
 - [x] 6.4.3: Create new DepotReservoir class
-  - File: commuter_simulator/core/domain/reservoirs/depot_reservoir.py
+  - File: commuter_service/core/domain/reservoirs/depot_reservoir.py
   - Buffer size: Configurable (default 100 passengers)
   - Refill trigger: When buffer < 20% full
   - Refill amount: Generate next hour's worth of passengers
 - [ ] 6.4.4: Create new RouteReservoir class
-  - File: commuter_simulator/core/domain/reservoirs/route_reservoir.py
+  - File: commuter_service/core/domain/reservoirs/route_reservoir.py
   - Same buffering logic as DepotReservoir
   - Route-specific: One reservoir per route
 - [ ] 6.4.5: Wire reservoirs to spawners
@@ -578,7 +578,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
   - ~~File: commuter_service_deprecated/expiration_manager.py~~ (removed Nov 2, 2025)
   - Reference: conductor logic will be implemented fresh in new architecture
 - [ ] 6.5.2: Create new Conductor class
-  - File: commuter_simulator/core/domain/conductor/conductor.py
+  - File: commuter_service/core/domain/conductor/conductor.py
   - Responsibilities:
     - Monitor waiting passengers at depots
     - Match passengers to vehicles based on route
@@ -639,7 +639,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
     - `vehicle_dropoff`: Broadcast when passengers alight
   - PostgreSQL triggers: Auto-notify on table updates
 - [ ] 6.6.2: Create PubSub publisher class
-  - File: commuter_simulator/infrastructure/pubsub/publisher.py
+  - File: commuter_service/infrastructure/pubsub/publisher.py
   - Methods:
     - publish(channel, message)
     - publish_passenger_spawned(passenger)
@@ -647,7 +647,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
     - publish_pickup(vehicle, passengers)
     - publish_dropoff(vehicle, passengers)
 - [ ] 6.6.3: Create PubSub subscriber class
-  - File: commuter_simulator/infrastructure/pubsub/subscriber.py
+  - File: commuter_service/infrastructure/pubsub/subscriber.py
   - Methods:
     - subscribe(channel, callback)
     - unsubscribe(channel)
@@ -659,7 +659,7 @@ TIER 7: Production Hardening 📋 (Nov 8-10)
   - After assignment: Publish vehicle_pickup event
   - After alighting: Publish vehicle_dropoff event
 - [ ] 6.6.6: Create example subscriber
-  - File: commuter_simulator/examples/passenger_subscriber.py
+  - File: commuter_service/examples/passenger_subscriber.py
   - Listens to all channels
   - Logs events to console with emoji indicators
   - Purpose: Demo real-time notifications
@@ -944,7 +944,7 @@ When all TIER 5-7 phases complete, verify:
   - ✅ PubSub pattern recommended (PostgreSQL LISTEN/NOTIFY, not direct spawner integration)
   - ✅ RouteSpawner discovered complete (287 lines) - reduces TIER 5 scope by 33% (Oct 28)
 - **Deep Code Analysis Results** (October 28, 2025):
-  - ✅ RouteSpawner ALREADY FULLY IMPLEMENTED at `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+  - ✅ RouteSpawner ALREADY FULLY IMPLEMENTED at `commuter_service/core/domain/spawner_engine/route_spawner.py`
   - ✅ All required methods complete: `spawn()`, `_load_spawn_config()`, `_load_route_geometry()`, `_get_buildings_near_route()`, `_calculate_spawn_count()`, `_generate_spawn_requests()`
   - ✅ GeospatialService integration complete: `/spatial/route-geometry/{route_id}`, `/spatial/route-buildings`
   - ❌ RouteSpawner NOT wired to main.py coordinator yet (currently uses MockRouteSpawner)
@@ -1056,7 +1056,7 @@ Route-Depot Association 🎯 NEXT - OCT 28
   - **Realistic behavior**: Passengers at depot only board routes with endpoints at that depot (not random routes)
 
 - 🎯 **RouteSpawner Integration** (DISCOVERED COMPLETE - Oct 28):
-  - ✅ RouteSpawner fully implemented (287 lines) at `commuter_simulator/core/domain/spawner_engine/route_spawner.py`
+  - ✅ RouteSpawner fully implemented (287 lines) at `commuter_service/core/domain/spawner_engine/route_spawner.py`
   - ✅ Poisson distribution with spatial/hourly/day multipliers
   - ✅ GeospatialService integration for route geometry and building queries
   - ✅ Spatial distribution logic along route corridor
@@ -1094,22 +1094,22 @@ Route-Depot Association 🎯 NEXT - OCT 28
   - Subscribers connect to DB, not spawner
   - Automatic replay/buffering built-in### **Files to Reference**
 
-1. `commuter_simulator/main.py` - Single entrypoint for spawner system ✅ COMPLETE
-2. `commuter_simulator/services/spawner_coordinator.py` - Spawner orchestration ✅ COMPLETE
-3. `commuter_simulator/core/domain/spawner_engine/depot_spawner.py` - Depot passenger generation ✅ COMPLETE
-4. `commuter_simulator/core/domain/reservoirs/depot_reservoir.py` - DB-backed depot reservoir ✅ COMPLETE
-5. `commuter_simulator/core/domain/reservoirs/route_reservoir.py` - DB-backed route reservoir ✅ COMPLETE
-6. `commuter_simulator/infrastructure/database/passenger_repository.py` - Strapi adapter ✅ COMPLETE
+1. `commuter_service/main.py` - Single entrypoint for spawner system ✅ COMPLETE
+2. `commuter_service/services/spawner_coordinator.py` - Spawner orchestration ✅ COMPLETE
+3. `commuter_service/core/domain/spawner_engine/depot_spawner.py` - Depot passenger generation ✅ COMPLETE
+4. `commuter_service/core/domain/reservoirs/depot_reservoir.py` - DB-backed depot reservoir ✅ COMPLETE
+5. `commuter_service/core/domain/reservoirs/route_reservoir.py` - DB-backed route reservoir ✅ COMPLETE
+6. `commuter_service/infrastructure/database/passenger_repository.py` - Strapi adapter ✅ COMPLETE
 7. `test_spawner_flags.py` - Comprehensive enable/disable flag testing 📋 CREATED (not yet run)
 8. `delete_passengers.py` - Utility for clearing Strapi passengers ✅ WORKING
-9. ~~`commuter_service_deprecated/`~~ - Removed Nov 2, 2025 (fully replaced by commuter_simulator)
+9. ~~`commuter_service_deprecated/`~~ - Removed Nov 2, 2025 (fully replaced by commuter_service)
 10. `CONTEXT.md` - Full architecture and validation metrics ✅ UPDATED
 
 ---
 
 ## ✅ Deprecated folder: REMOVED (Nov 2, 2025)
 
-`commuter_service_deprecated/` has been **deleted** - all functionality successfully migrated to `commuter_simulator/` with:
+`commuter_service_deprecated/` has been **deleted** - all functionality successfully migrated to `commuter_service/` with:
 - Clean architecture (Infrastructure → Services → Core)
 - DB-driven configuration (operational-configurations)
 - Single Source of Truth pattern (Geospatial API)
@@ -1222,12 +1222,12 @@ Notes: All spatial computation remains in PostGIS via Strapi/GeospatialService (
     - In-memory TTL cache (5s) for repeated identical queries
 
 - [x] **Phase 1.12**: Database Integration & Validation (5/6 steps) 🎯 **CURRENT**
-  - [x] Create API client wrapper for commuter_simulator
-    - ✅ `commuter_simulator/infrastructure/geospatial/client.py` - Python client wrapper
+  - [x] Create API client wrapper for commuter_service
+    - ✅ `commuter_service/infrastructure/geospatial/client.py` - Python client wrapper
     - ✅ Tested: reverse geocoding (105ms), geofencing (3ms), depot catchment (55ms)
-    - ✅ Test: `commuter_simulator/tests/integration/test_geospatial_api.py`
-  - [x] Test spatial queries from commuter_simulator spawning logic
-    - ✅ Integration test: `commuter_simulator/tests/integration/test_geospatial_api.py`
+    - ✅ Test: `commuter_service/tests/integration/test_geospatial_api.py`
+  - [x] Test spatial queries from commuter_service spawning logic
+    - ✅ Integration test: `commuter_service/tests/integration/test_geospatial_api.py`
     - ✅ Reverse geocoding: 4-20ms (fast enough for real-time)
     - ✅ Geofence checks: 3-5ms (sub-50ms target met)
     - ✅ Building queries: 13-59ms (good performance)
@@ -1258,8 +1258,8 @@ Notes: All spatial computation remains in PostGIS via Strapi/GeospatialService (
     - ✅ Poisson lambda: 3.5, max 50 spawns/cycle, 800m radius
     - ✅ Linked to Barbados country (id=29) via spawn_configs_country_lnk
     - ✅ Verified via API: All components loading correctly with `populate=*`
-  - [x] Create SpawnConfigLoader for commuter_simulator
-    - ✅ Created `commuter_simulator/infrastructure/spawn/config_loader.py`
+  - [x] Create SpawnConfigLoader for commuter_service
+    - ✅ Created `commuter_service/infrastructure/spawn/config_loader.py`
     - ✅ Implements caching with 1-hour TTL (reduce API calls)
     - ✅ Methods: get_config_by_country(), get_hourly_rate(), get_building_weight(), get_poi_weight(), get_landuse_weight(), get_day_multiplier(), get_distribution_params(), calculate_spawn_probability()
     - ✅ Tested: Loads Barbados config, calculates spawn probabilities correctly
@@ -1282,7 +1282,7 @@ Notes: All spatial computation remains in PostGIS via Strapi/GeospatialService (
       - [ ] Update van_simulation_datadriven.py to use route-based config
     - **Expected Outcome**: Route 1 (St Lucy) at 6 AM → ~16 passengers (using rural-appropriate rates)
     - **Benefits**: Route-specific temporal patterns, no urban/rural conflicts, flexible per-route tuning
-    - **Cleanup**: Moved validation scripts to `commuter_simulator/tests/validation/` folder
+    - **Cleanup**: Moved validation scripts to `commuter_service/tests/validation/` folder
   - [ ] Validate performance under realistic load (100+ vehicles)
 
 ### **🎯 TIER 3: ADVANCED FEATURES - Passenger Spawning System**
@@ -3465,7 +3465,7 @@ git push origin branch-0.0.2.6
 
 #### **Decision 1: Single Entrypoint vs Separate Sub-Entrypoints**
 
-**User Proposal**: "The commuter_simulator will have a single entrypoint that will start the spawn_engine with separate sub-entrypoints for depot/route spawners"
+**User Proposal**: "The commuter_service will have a single entrypoint that will start the spawn_engine with separate sub-entrypoints for depot/route spawners"
 
 **Agent Pushback**: ✅ ACCEPTED (with modifications)
 - **Pattern**: Single main.py entrypoint with SpawnerCoordinator orchestration
@@ -3474,7 +3474,7 @@ git push origin branch-0.0.2.6
   - Use coordinator pattern for spawner management
   - Config-driven control (enable/disable flags)
   - Shared resource initialization (PassengerRepository, Reservoirs)
-- **Implementation**: `commuter_simulator/main.py` + `services/spawner_coordinator.py`
+- **Implementation**: `commuter_service/main.py` + `services/spawner_coordinator.py`
 
 #### **Decision 2: Depot-Route Association Logic**
 
@@ -3530,31 +3530,31 @@ git push origin branch-0.0.2.6
 
 #### **Files Created/Modified**:
 
-1. **`commuter_simulator/core/domain/spawner_engine/depot_spawner.py`** ✅ COMPLETE
+1. **`commuter_service/core/domain/spawner_engine/depot_spawner.py`** ✅ COMPLETE
    - Poisson-distributed passenger generation at depot locations
    - Configurable spawn rates (spatial, hourly, day multipliers)
    - Default config fallback if Strapi config unavailable
    - Methods: `spawn()`, `_load_spawn_config()`, `_calculate_spawn_count()`, `_generate_spawn_requests()`
 
-2. **`commuter_simulator/services/spawner_coordinator.py`** ✅ COMPLETE
+2. **`commuter_service/services/spawner_coordinator.py`** ✅ COMPLETE
    - Orchestrates multiple spawners with enable/disable control
    - Supports single-run and continuous modes
    - Config-driven spawner filtering (enable_{spawnerclass} flags)
    - Methods: `start()`, `_get_enabled_spawners()`, `_run_single_cycle()`, `_run_continuous()`, `_log_aggregate_stats()`
 
-3. **`commuter_simulator/main.py`** ✅ COMPLETE
+3. **`commuter_service/main.py`** ✅ COMPLETE
    - Single entrypoint for spawner system
    - Creates shared resources (PassengerRepository, Reservoirs)
    - Config dict controls enable_routespawner and enable_depotspawner flags
    - MockRouteSpawner for testing (λ=1.5, simplified implementation)
 
-4. **`commuter_simulator/core/domain/reservoirs/`** ✅ MOVED & UPDATED
-   - Moved from project root to correct location (commuter_simulator/core/domain/reservoirs/)
+4. **`commuter_service/core/domain/reservoirs/`** ✅ MOVED & UPDATED
+   - Moved from project root to correct location (commuter_service/core/domain/reservoirs/)
    - `depot_reservoir.py`: DB-backed with optional Redis (enable_redis_cache flag)
    - `route_reservoir.py`: DB-backed with optional Redis (enable_redis_cache flag)
    - Updated imports and docstrings
 
-5. **`commuter_simulator/infrastructure/database/passenger_repository.py`** ✅ UPDATED
+5. **`commuter_service/infrastructure/database/passenger_repository.py`** ✅ UPDATED
    - Added `get_waiting_passengers_by_route(route_id, limit)` helper
    - Added `get_waiting_passengers_by_depot(depot_id, limit)` helper
    - Both helpers return simplified passenger dicts with route_id/depot_id fields
@@ -3572,7 +3572,7 @@ git push origin branch-0.0.2.6
 
 #### **Test Results (October 28)**:
 
-**End-to-End Test** (python -m commuter_simulator.main):
+**End-to-End Test** (python -m commuter_service.main):
 - Spawn calculation: λ = spatial(2.0) × hourly(1.0) × day(1.1) = 2.20
 - Passengers spawned: 4 (Poisson distribution with λ=2.20)
 - Bulk insert: 4 successful, 0 failed (100% success rate)
@@ -3630,7 +3630,7 @@ git push origin branch-0.0.2.6
 4. **PubSub Implementation**
    - PostgreSQL LISTEN/NOTIFY on active_passengers table
    - Trigger-based notifications on INSERT/UPDATE/DELETE
-   - Create `commuter_simulator/examples/passenger_subscriber.py`
+   - Create `commuter_service/examples/passenger_subscriber.py`
    - Subscriber examples for 3rd-party visualization
 
 5. **Comprehensive Flag Testing**

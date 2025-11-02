@@ -19,7 +19,7 @@ async def test_route1_hourly():
     """
     Hourly spawning simulation for Route 1 (REAL from database).
     """
-    from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+    from commuter_service.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
     import numpy as np
     import httpx
     

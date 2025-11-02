@@ -51,7 +51,7 @@ async def auto_start_services():
         ("geospatial", "Geospatial Service", True),
         ("manifest", "Manifest API", True),
         ("vehicle_simulator", "Vehicle Simulator", False),  # No health check
-        ("commuter_simulator", "Commuter Simulator", False),  # No health check
+        ("commuter_service", "Commuter Simulator", False),  # No health check
     ]
     
     for service_name, display_name, wait_healthy in startup_sequence:
@@ -153,7 +153,7 @@ def register_services():
             name="manifest",
             port=4000,
             health_url="http://localhost:4000/health",
-            as_module="commuter_simulator.interfaces.http.manifest_api",
+            as_module="commuter_service.interfaces.http.manifest_api",
             dependencies=["strapi"],
             spawn_console=launcher_config.spawn_console_manifest
         ))
@@ -171,14 +171,14 @@ def register_services():
         ))
     
     # Register Commuter Simulator
-    if launcher_config.enable_commuter_simulator:
+    if launcher_config.enable_commuter_service:
         manager.register_service(ManagedService(
-            name="commuter_simulator",
+            name="commuter_service",
             port=None,
             health_url=None,
-            script_path=root_path / "commuter_simulator" / "main.py",
+            script_path=root_path / "commuter_service" / "main.py",
             dependencies=["strapi", "manifest"],
-            spawn_console=launcher_config.spawn_console_commuter_simulator
+            spawn_console=launcher_config.spawn_console_commuter_service
         ))
 
 

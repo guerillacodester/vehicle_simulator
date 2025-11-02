@@ -23,7 +23,7 @@ import statistics
 
 async def simulate_depot_week():
     """Simulate depot spawning for a full week with 1-hour bins."""
-    from commuter_simulator.core.domain.spawner_engine.depot_spawner import DepotSpawner
+    from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
     from unittest.mock import MagicMock
     
     print("=" * 80)

@@ -74,20 +74,6 @@ class ServiceFactory:
             startup_wait_seconds=self.launcher_config.service_startup_wait
         )
     
-    def create_manifest_service(self) -> Optional[ServiceDefinition]:
-        """Create Manifest API service definition."""
-        if not self.launcher_config.enable_manifest:
-            return None
-        
-        return ServiceDefinition(
-            name="Manifest API",
-            service_type=ServiceType.FLEET,
-            port=self.infra_config.manifest_port,
-            health_url=f"http://localhost:{self.infra_config.manifest_port}/health",
-            as_module="commuter_simulator.interfaces.http.manifest_api",
-            startup_wait_seconds=self.launcher_config.service_startup_wait
-        )
-    
     def create_vehicle_simulator_service(self) -> Optional[ServiceDefinition]:
         """Create Vehicle Simulator service definition."""
         if not self.launcher_config.enable_vehicle_simulator:
@@ -100,14 +86,22 @@ class ServiceFactory:
             startup_wait_seconds=0  # No health check for simulators
         )
     
-    def create_commuter_simulator_service(self) -> Optional[ServiceDefinition]:
-        """Create Commuter Simulator service definition."""
-        if not self.launcher_config.enable_commuter_simulator:
+    def create_commuter_service_service(self) -> Optional[ServiceDefinition]:
+        """
+        Create Commuter Service definition.
+        
+        Runs the integrated commuter service which includes:
+        - Passenger spawning (background)
+        - Manifest API (HTTP on port 4000)
+        """
+        if not self.launcher_config.enable_commuter_service:
             return None
         
         return ServiceDefinition(
-            name="Commuter Simulator",
-            service_type=ServiceType.SIMULATOR,
-            as_module="commuter_simulator.main",
-            startup_wait_seconds=0  # No health check for simulators
+            name="Commuter Service",
+            service_type=ServiceType.FLEET,
+            port=self.infra_config.commuter_service_port,
+            health_url=f"http://localhost:{self.infra_config.commuter_service_port}/health",
+            as_module="commuter_service.interfaces.http.manifest_api",
+            startup_wait_seconds=self.launcher_config.service_startup_wait
         )
