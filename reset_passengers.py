@@ -46,20 +46,58 @@ async def delete_all_passengers():
         passengers = []
         working_endpoint = None
         
-        print("📊 Finding passenger endpoint...")
+        print("📊 Finding passenger endpoint and fetching ALL passengers...")
         for endpoint in endpoints:
             try:
-                response = await client.get(
-                    f"{STRAPI_URL}{endpoint}",
-                    params={"pagination[pageSize]": 1000}
-                )
+                # Fetch ALL passengers with pagination
+                page = 1
+                page_size = 100  # Smaller batches
+                all_passengers = []
+                
+                while True:
+                    response = await client.get(
+                        f"{STRAPI_URL}{endpoint}",
+                        params={
+                            'pagination[page]': page,
+                            'pagination[pageSize]': page_size
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        page_passengers = data.get('data', [])
+                        
+                        if not page_passengers:
+                            # No more passengers
+                            break
+                        
+                        all_passengers.extend(page_passengers)
+                        
+                        # Check if there are more pages
+                        meta = data.get('meta', {})
+                        pagination = meta.get('pagination', {})
+                        total_pages = pagination.get('pageCount', 1)
+                        
+                        print(f"   Page {page}/{total_pages}: {len(page_passengers)} passengers")
+                        
+                        if page >= total_pages:
+                            break
+                        
+                        page += 1
+                    else:
+                        break
+                
+                # If we got a 200 response, this endpoint works (even if empty)
                 if response.status_code == 200:
-                    data = response.json()
-                    passengers = data.get("data", [])
+                    passengers = all_passengers
                     working_endpoint = endpoint
-                    print(f"   ✅ Found endpoint: {endpoint}")
+                    if all_passengers:
+                        print(f"   ✅ Found {len(passengers)} passengers at {endpoint}")
+                    else:
+                        print(f"   ✅ Found endpoint {endpoint} (0 passengers)")
                     break
-            except:
+                    
+            except Exception as e:
                 continue
         
         if not working_endpoint:
@@ -68,18 +106,17 @@ async def delete_all_passengers():
             return
         
         total = len(passengers)
-        print(f"   Found {total} passengers to delete")
-        print()
         
         if total == 0:
             print("✅ Database is already empty")
             return
         
-        # Delete each passenger
-        print("🗑️  Deleting passengers...")
+        print()
+        print("🗑️  Deleting all passengers...")
         deleted = 0
         failed = 0
         
+        # Delete all passengers we already fetched
         for passenger in passengers:
             doc_id = passenger.get("documentId")
             if not doc_id:
@@ -92,12 +129,11 @@ async def delete_all_passengers():
                 )
                 if delete_response.status_code in [200, 204]:
                     deleted += 1
-                    if deleted % 10 == 0:
+                    if deleted % 50 == 0:
                         print(f"   Deleted {deleted}/{total}...")
                 else:
                     failed += 1
             except Exception as e:
-                print(f"   ⚠️  Failed to delete {doc_id}: {e}")
                 failed += 1
         
         print()

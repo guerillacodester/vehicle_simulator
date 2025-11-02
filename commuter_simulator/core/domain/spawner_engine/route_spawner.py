@@ -106,7 +106,10 @@ class RouteSpawner(SpawnerInterface):
                 time_window_minutes=time_window_minutes
             )
             
-            self.logger.info(f"Route {self.route_id}: spawning {spawn_count} passengers")
+            self.logger.info(
+                f"Route {self.route_id} at {current_time.strftime('%Y-%m-%d %H:%M')}: "
+                f"spawning {spawn_count} passengers (buildings={len(buildings)})"
+            )
             
             # Generate spawn requests
             spawn_requests = await self._generate_spawn_requests(
@@ -207,25 +210,29 @@ class RouteSpawner(SpawnerInterface):
             return []
     
     async def _get_depot_info(self, spawn_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Get depot information from spawn config."""
+        """Get depot information from geospatial service."""
         try:
             import httpx
             
-            # First, get the spawn-config entry with depot relationship populated
+            # Use geospatial service to query depot by documentId
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(
-                    f"{self.config_loader.api_base_url}/spawn-configs?"
-                    f"populate=depot&filters[route][documentId][$eq]={self.route_id}"
+                    f"{self.geo_client.base_url}/routes/by-document-id/{self.route_id}/depot"
                 )
-                data = response.json()
-            
-            if data.get('data') and len(data['data']) > 0:
-                depot = data['data'][0].get('depot')
-                return depot
-            
-            return None
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get('depot')
+                elif response.status_code == 404:
+                    error_detail = response.json().get('detail', 'Unknown error')
+                    self.logger.warning(f"Depot lookup failed: {error_detail}")
+                    return None
+                else:
+                    self.logger.warning(f"Depot query returned status {response.status_code}")
+                    return None
+                    
         except Exception as e:
-            self.logger.error(f"Error fetching depot info: {e}")
+            self.logger.error(f"Error fetching depot info from geospatial service: {e}")
             return None
     
     async def _get_depot_catchment_buildings(self, spawn_config: Dict[str, Any]) -> int:
@@ -236,47 +243,47 @@ class RouteSpawner(SpawnerInterface):
         if self._depot_catchment_cache is not None:
             return self._depot_catchment_cache
         
-        try:
-            depot = await self._get_depot_info(spawn_config)
-            if not depot:
-                self.logger.warning("No depot found for route, using route buildings as fallback")
-                return 0  # Will trigger fallback behavior
-            
-            # Get depot location
-            depot_lat = depot.get('latitude')
-            depot_lon = depot.get('longitude')
-            
-            if depot_lat is None or depot_lon is None:
-                self.logger.warning(f"Depot missing coordinates: {depot}")
-                return 0
-            
-            # Get catchment radius from config (default 800m to match route buffer)
-            dist_params = spawn_config.get('distribution_params', {})
-            if isinstance(dist_params, list) and len(dist_params) > 0:
-                dist_params = dist_params[0]
-            catchment_radius = dist_params.get('depot_catchment_radius_meters', 800)
-            
-            # Query depot catchment
-            result = self.geo_client.depot_catchment_area(
-                depot_latitude=depot_lat,
-                depot_longitude=depot_lon,
-                catchment_radius_meters=catchment_radius
+        depot = await self._get_depot_info(spawn_config)
+        if not depot:
+            raise ValueError(
+                f"No depot associated with route {self.route_id}. "
+                f"Cannot spawn passengers without depot configuration. "
+                f"Please create route-depot association in database."
             )
-            
-            buildings = result.get('buildings', [])
-            building_count = len(buildings)
-            self._depot_catchment_cache = building_count
-            
-            self.logger.info(
-                f"Depot catchment: {building_count} buildings within {catchment_radius}m "
-                f"of depot at ({depot_lat:.4f}, {depot_lon:.4f})"
+        
+        # Get depot location
+        depot_lat = depot.get('latitude')
+        depot_lon = depot.get('longitude')
+        
+        if depot_lat is None or depot_lon is None:
+            raise ValueError(
+                f"Depot missing coordinates: {depot}. "
+                f"Cannot calculate depot catchment without valid lat/lon."
             )
-            
-            return building_count
-            
-        except Exception as e:
-            self.logger.error(f"Error querying depot catchment: {e}")
-            return 0
+        
+        # Get catchment radius from config (default 800m to match route buffer)
+        dist_params = spawn_config.get('distribution_params', {})
+        if isinstance(dist_params, list) and len(dist_params) > 0:
+            dist_params = dist_params[0]
+        catchment_radius = dist_params.get('depot_catchment_radius_meters', 800)
+        
+        # Query depot catchment
+        result = self.geo_client.depot_catchment_area(
+            depot_latitude=depot_lat,
+            depot_longitude=depot_lon,
+            catchment_radius_meters=catchment_radius
+        )
+        
+        buildings = result.get('buildings', [])
+        building_count = len(buildings)
+        self._depot_catchment_cache = building_count
+        
+        self.logger.info(
+            f"Depot catchment: {building_count} buildings within {catchment_radius}m "
+            f"of depot at ({depot_lat:.4f}, {depot_lon:.4f})"
+        )
+        
+        return building_count
     
     # DEPRECATED: No longer needed with independent additive spawning model
     # Each route spawns independently, not competitively
@@ -385,25 +392,21 @@ class RouteSpawner(SpawnerInterface):
         time_window_minutes: int
     ) -> int:
         """
-        Calculate spawn count for THIS ROUTE ONLY (independent additive model).
+        Calculate spawn count for ROUTE PASSENGERS ONLY.
         
-        Each route spawns passengers independently:
-        - Depot passengers: based on depot catchment buildings × route params
-        - Route passengers: based on route buildings × route params
-        - Total: depot + route (additive, not zero-sum)
+        RouteSpawner creates passengers along the route (pickup anywhere along route).
+        DepotSpawner creates passengers at depot (pickup at terminal).
         
-        This ensures routes don't compete - each route generates its own demand.
+        This method only calculates route passengers based on buildings along route.
         """
         try:
             from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
 
-            # Get depot catchment for this route
-            depot_catchment = await self._get_depot_catchment_buildings(spawn_config)
-            
-            # Extract temporal multipliers (same for depot and route)
+            # Extract temporal multipliers
             base_rate, hourly_mult, day_mult = SpawnCalculator.extract_temporal_multipliers(
                 spawn_config=spawn_config,
-                current_time=current_time
+                current_time=current_time,
+                spawner_type='route'  # Use route-specific base rate
             )
             
             effective_rate = SpawnCalculator.calculate_effective_rate(
@@ -412,19 +415,11 @@ class RouteSpawner(SpawnerInterface):
                 day_multiplier=day_mult
             )
             
-            # Calculate depot passengers (independent for this route)
-            depot_passengers_per_hour = 0
-            if depot_catchment > 0:
-                depot_passengers_per_hour = depot_catchment * effective_rate
-            
-            # Calculate route passengers (independent for this route)
+            # Calculate ROUTE passengers only (buildings along route)
             route_passengers_per_hour = building_count * effective_rate
             
-            # Total passengers per hour for this route
-            total_passengers_per_hour = depot_passengers_per_hour + route_passengers_per_hour
-            
             # Convert to lambda for time window
-            lambda_param = total_passengers_per_hour * (time_window_minutes / 60.0)
+            lambda_param = route_passengers_per_hour * (time_window_minutes / 60.0)
             
             # Generate Poisson-distributed count
             import numpy as np
@@ -432,13 +427,11 @@ class RouteSpawner(SpawnerInterface):
             
             # Log breakdown for observability
             self.logger.info(
-                f"Spawn (INDEPENDENT) [route={self.route_id}]: "
-                f"depot_buildings={depot_catchment}, route_buildings={building_count} | "
+                f"Spawn ROUTE passengers [route={self.route_id}]: "
+                f"route_buildings={building_count} | "
                 f"base={base_rate:.4f}, hourly={hourly_mult:.2f}, day={day_mult:.2f}, "
                 f"effective_rate={effective_rate:.4f} | "
-                f"depot_pass/hr={depot_passengers_per_hour:.2f}, "
-                f"route_pass/hr={route_passengers_per_hour:.2f}, "
-                f"total_pass/hr={total_passengers_per_hour:.2f} | "
+                f"route_pass/hr={route_passengers_per_hour:.2f} | "
                 f"lambda={lambda_param:.2f}, spawn_count={spawn_count}"
             )
 
@@ -468,8 +461,9 @@ class RouteSpawner(SpawnerInterface):
                 alight_idx = random.randint(board_idx, len(route_coords) - 1)
                 alight_lon, alight_lat = route_coords[alight_idx]
                 
-                # Generate unique passenger ID
-                passenger_id = f"PASS_{i:08X}"
+                # Generate unique passenger ID using UUID (full 32 hex chars for uniqueness)
+                import uuid
+                passenger_id = f"PASS_{uuid.uuid4().hex.upper()}"
                 
                 # Create spawn request with all required fields
                 spawn_req = SpawnRequest(

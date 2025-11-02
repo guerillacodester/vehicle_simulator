@@ -102,9 +102,13 @@ class DepotSpawner(SpawnerInterface):
             if self.available_routes is None:
                 self.available_routes = await self._load_associated_routes()
             
+            # Query buildings near depot (for population density)
+            depot_buildings = await self._get_depot_buildings(spawn_config)
+            
             # Calculate spawn count
             spawn_count = await self._calculate_spawn_count(
                 spawn_config=spawn_config,
+                building_count=depot_buildings,
                 current_time=current_time,
                 time_window_minutes=time_window_minutes
             )
@@ -125,58 +129,63 @@ class DepotSpawner(SpawnerInterface):
             return []
     
     async def _load_spawn_config(self) -> Dict[str, Any]:
-        """Load spawn configuration from Strapi or return defaults"""
+        """
+        Load spawn configuration from Strapi or return defaults.
+        
+        Since spawn config is stored per route (not per depot), we query the first
+        available route's config. All routes at the same depot share the same spawn config.
+        """
         if self._spawn_config_cache:
             return self._spawn_config_cache
         
-        # If no config loader, use default config
-        if not self.config_loader:
-            default_config = {
-                'distribution_params': {
-                    'spatial_base': 2.0,  # Base spawn rate for depots (higher than routes)
-                    'hourly_rates': {
-                        '6': 0.8, '7': 1.2, '8': 1.5,  # Morning rush
-                        '9': 1.0, '10': 0.6, '11': 0.5,
-                        '12': 0.7, '13': 0.6, '14': 0.5,
-                        '15': 0.6, '16': 0.8, '17': 1.3,  # Evening rush
-                        '18': 1.2, '19': 0.9, '20': 0.5,
-                    },
-                    'day_multipliers': {
-                        '0': 1.2,  # Monday
-                        '1': 1.1,  # Tuesday
-                        '2': 1.1,  # Wednesday
-                        '3': 1.1,  # Thursday
-                        '4': 1.3,  # Friday
-                        '5': 0.4,  # Saturday
-                        '6': 0.3,  # Sunday
-                    }
-                }
-            }
-            self._spawn_config_cache = default_config
-            self.logger.info(f"Using default spawn config for depot {self.depot_id}")
-            return default_config
+        # Try to load config from one of the available routes
+        if self.available_routes and len(self.available_routes) > 0:
+            try:
+                import httpx
+                route_id = self.available_routes[0]
+                
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(
+                        f"{self.config_loader.api_base_url}/spawn-configs?"
+                        f"populate=*&filters[route][documentId][$eq]={route_id}"
+                    )
+                    data = response.json()
+                
+                if data.get('data') and len(data['data']) > 0:
+                    raw_config = data['data'][0]
+                    # Extract config JSON field
+                    if 'config' in raw_config:
+                        self._spawn_config_cache = raw_config['config']
+                    else:
+                        self._spawn_config_cache = raw_config
+                    self.logger.info(f"Loaded spawn config from route {route_id}")
+                    return self._spawn_config_cache
+            except Exception as e:
+                self.logger.warning(f"Error loading spawn config from route: {e}")
         
-        try:
-            # Query depot-spawn-config by depot_id
-            import httpx
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(
-                    f"{self.config_loader.api_base_url}/depot-spawn-configs?"
-                    f"populate=*&filters[depot_id][$eq]={self.depot_id}"
-                )
-                data = response.json()
-            
-            if data.get('data') and len(data['data']) > 0:
-                self._spawn_config_cache = data['data'][0]
-                self.logger.info(f"Loaded spawn config for depot {self.depot_id}")
-                return self._spawn_config_cache
-            
-            # Fallback to default
-            return await self._load_spawn_config()
-            
-        except Exception as e:
-            self.logger.warning(f"Error loading depot spawn config: {e}, using defaults")
-            return await self._load_spawn_config()
+        # Fallback to default config if no route config found
+        self.logger.warning(f"No spawn config found, using defaults for depot {self.depot_id}")
+        
+        default_config = {
+            'distribution_params': {
+                'depot_passengers_per_building_per_hour': 0.3,
+                'route_passengers_per_building_per_hour': 0.012
+            },
+            'hourly_rates': {
+                '0': 0, '1': 0, '2': 0, '3': 0, '4': 0,
+                '5': 0.15, '6': 0.35, '7': 0.75, '8': 1.0,
+                '9': 0.45, '10': 0.25, '11': 0.2, '12': 0.3,
+                '13': 0.25, '14': 0.3, '15': 0.4, '16': 0.55,
+                '17': 0.85, '18': 0.4, '19': 0.2, '20': 0.1,
+                '21': 0.05, '22': 0, '23': 0
+            },
+            'day_multipliers': {
+                '0': 1.0, '1': 1.0, '2': 1.0, '3': 1.0,
+                '4': 1.0, '5': 1.0, '6': 0.6
+            }
+        }
+        self._spawn_config_cache = default_config
+        return default_config
     
     async def _load_associated_routes(self) -> List[str]:
         """
@@ -242,37 +251,79 @@ class DepotSpawner(SpawnerInterface):
             self.logger.error(f"Error loading associated routes for depot {self.depot_id}: {e}")
             return []
     
+    async def _get_depot_buildings(self, spawn_config: Dict[str, Any]) -> int:
+        """
+        Query buildings near depot using geospatial service.
+        Similar to RouteSpawner's building query but for depot catchment area.
+        """
+        try:
+            if not self.geo_client:
+                self.logger.warning("No geo_client available, using default building count")
+                return 200  # Default fallback
+            
+            # Get depot catchment radius from config
+            dist_params = spawn_config.get('distribution_params', {})
+            catchment_radius = dist_params.get('depot_catchment_radius_meters', 800)
+            
+            # Query buildings near depot
+            depot_lat, depot_lon = self.depot_location
+            result = self.geo_client.depot_catchment_area(
+                depot_latitude=depot_lat,
+                depot_longitude=depot_lon,
+                catchment_radius_meters=catchment_radius
+            )
+            
+            buildings = result.get('buildings', [])
+            building_count = len(buildings)
+            
+            self.logger.info(
+                f"Depot {self.depot_id}: Found {building_count} buildings within {catchment_radius}m"
+            )
+            
+            return building_count
+            
+        except Exception as e:
+            self.logger.error(f"Error querying depot buildings: {e}")
+            return 200  # Fallback default
+    
     async def _calculate_spawn_count(
         self,
         spawn_config: Dict[str, Any],
+        building_count: int,
         current_time: datetime,
         time_window_minutes: int
     ) -> int:
         """
         Calculate how many passengers to spawn using Poisson distribution.
         
-        Uses spawn calculator kernel for temporal multiplier extraction to maintain consistency.
-        DepotSpawner uses simpler spatial_base approach (not terminal population model).
+        Formula: lambda = (building_count × base_rate) × hourly_mult × day_mult × (time_window / 60)
+        This matches RouteSpawner's approach for consistency.
         """
         try:
             from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
             
             dist_params = spawn_config.get('distribution_params', {})
             
-            # Base spawn rate from config (depot-specific)
-            spatial_base = dist_params.get('spatial_base', 2.0)
-            
             # Extract temporal multipliers using kernel helper for consistency
-            # Note: extract_temporal_multipliers returns (base_rate, hourly_mult, day_mult)
-            # We only need hourly and day multipliers (ignore base_rate for depot spawning)
-            _, hourly_rate, day_mult = SpawnCalculator.extract_temporal_multipliers(
+            # Pass spawner_type='depot' to get depot-specific base rate
+            base_rate, hourly_rate, day_mult = SpawnCalculator.extract_temporal_multipliers(
                 spawn_config=spawn_config,
-                current_time=current_time
+                current_time=current_time,
+                spawner_type='depot'  # Use depot-specific base rate
             )
             
+            # Calculate effective rate
+            effective_rate = SpawnCalculator.calculate_effective_rate(
+                base_rate=base_rate,
+                hourly_multiplier=hourly_rate,
+                day_multiplier=day_mult
+            )
+            
+            # Calculate depot passengers per hour (same formula as RouteSpawner)
+            depot_passengers_per_hour = building_count * effective_rate
+            
             # Calculate lambda (expected value) for Poisson
-            # lambda = spatial_base × hourly_rate × day_multiplier × (time_window / 60 min)
-            lambda_param = spatial_base * hourly_rate * day_mult * (time_window_minutes / 60.0)
+            lambda_param = depot_passengers_per_hour * (time_window_minutes / 60.0)
             
             # Generate Poisson-distributed count
             import numpy as np
@@ -280,7 +331,10 @@ class DepotSpawner(SpawnerInterface):
             
             self.logger.info(
                 f"Depot spawn [depot={self.depot_id}]: "
-                f"spatial_base={spatial_base}, hourly={hourly_rate:.2f}, day={day_mult:.2f}, "
+                f"buildings={building_count}, base_rate={base_rate:.4f}, "
+                f"hourly={hourly_rate:.2f}, day={day_mult:.2f}, "
+                f"effective_rate={effective_rate:.4f}, "
+                f"depot_pass/hr={depot_passengers_per_hour:.2f}, "
                 f"lambda={lambda_param:.2f}, spawn_count={spawn_count}"
             )
             
@@ -297,8 +351,8 @@ class DepotSpawner(SpawnerInterface):
         """
         Calculate attractiveness-weighted distribution of passengers across routes.
         
-        Uses the same zero-sum attractiveness model as RouteSpawner:
-        route_attractiveness = buildings_along_route / total_buildings_all_routes
+        Simplified: Use equal distribution for all routes.
+        (In future, could weight by building density along each route)
         
         Returns:
             Dict mapping route_id -> attractiveness (0.0 - 1.0, sum = 1.0)
@@ -306,45 +360,15 @@ class DepotSpawner(SpawnerInterface):
         if not self.available_routes:
             return {}
         
-        try:
-            # Query depot info to get associated routes
-            depot_info = await self._get_depot_info(spawn_config)
-            if not depot_info:
-                # Fallback: equal distribution
-                equal_weight = 1.0 / len(self.available_routes)
-                return {route: equal_weight for route in self.available_routes}
-            
-            # Query building count for each route
-            route_buildings = {}
-            total_buildings = 0
-            
-            for route_id in self.available_routes:
-                # Get route's spawn config to query its building count
-                buildings = await self._get_route_buildings(route_id, spawn_config)
-                route_buildings[route_id] = buildings
-                total_buildings += buildings
-            
-            if total_buildings == 0:
-                # Fallback: equal distribution
-                equal_weight = 1.0 / len(self.available_routes)
-                return {route: equal_weight for route in self.available_routes}
-            
-            # Calculate attractiveness for each route
-            attractiveness = {}
-            for route_id, buildings in route_buildings.items():
-                attractiveness[route_id] = buildings / total_buildings
-            
-            self.logger.info(
-                f"Depot {self.depot_id} route attractiveness: {attractiveness}"
-            )
-            
-            return attractiveness
-            
-        except Exception as e:
-            self.logger.error(f"Error calculating route attractiveness: {e}", exc_info=True)
-            # Fallback: equal distribution
-            equal_weight = 1.0 / len(self.available_routes)
-            return {route: equal_weight for route in self.available_routes}
+        # Equal distribution across all routes
+        equal_weight = 1.0 / len(self.available_routes)
+        attractiveness = {route: equal_weight for route in self.available_routes}
+        
+        self.logger.info(
+            f"Depot {self.depot_id} route attractiveness (equal distribution): {attractiveness}"
+        )
+        
+        return attractiveness
     
     async def _get_depot_info(self, spawn_config: Dict[str, Any]) -> Optional[Dict]:
         """Get depot information from spawn config or API"""
@@ -390,6 +414,55 @@ class DepotSpawner(SpawnerInterface):
             self.logger.error(f"Error getting buildings for route {route_id}: {e}")
             return 0
     
+    def _weighted_route_assignment(
+        self,
+        spawn_count: int,
+        attractiveness: Dict[str, float]
+    ) -> Dict[str, int]:
+        """
+        Distribute passengers across routes based on attractiveness weights.
+        
+        Args:
+            spawn_count: Total number of passengers to assign
+            attractiveness: Dict of route_id -> attractiveness weight (0.0-1.0)
+            
+        Returns:
+            Dict of route_id -> passenger count
+        """
+        import numpy as np
+        
+        if not attractiveness or sum(attractiveness.values()) == 0:
+            # If no attractiveness data, distribute evenly
+            routes = self.available_routes or []
+            if not routes:
+                return {}
+            
+            passengers_per_route = spawn_count // len(routes)
+            remainder = spawn_count % len(routes)
+            
+            assignments = {route: passengers_per_route for route in routes}
+            # Distribute remainder to first routes
+            for i, route in enumerate(routes[:remainder]):
+                assignments[route] += 1
+            
+            return assignments
+        
+        # Normalize attractiveness to probabilities
+        total_attractiveness = sum(attractiveness.values())
+        probabilities = {
+            route: weight / total_attractiveness 
+            for route, weight in attractiveness.items()
+        }
+        
+        # Use multinomial distribution to assign passengers
+        routes = list(probabilities.keys())
+        probs = [probabilities[r] for r in routes]
+        
+        # Generate assignments
+        assignments = np.random.multinomial(spawn_count, probs)
+        
+        return {route: int(count) for route, count in zip(routes, assignments)}
+    
     async def _generate_spawn_requests(
         self,
         spawn_count: int,
@@ -426,8 +499,9 @@ class DepotSpawner(SpawnerInterface):
                     # Assign to route based on attractiveness weighting
                     destination_route = route_id
                     
-                    # Generate unique passenger ID
-                    passenger_id = f"DEPOT_{self.depot_id}_{uuid.uuid4().hex[:8].upper()}"
+                    # Generate unique passenger ID using full UUID
+                    import uuid
+                    passenger_id = f"PASS_{uuid.uuid4().hex.upper()}"
                     
                     # Destination is unknown until route is assigned by conductor
                     # For now, use depot location as placeholder

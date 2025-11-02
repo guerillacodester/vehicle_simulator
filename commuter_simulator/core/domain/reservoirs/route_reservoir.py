@@ -73,7 +73,8 @@ class RouteReservoir(ReservoirInterface):
         """
         if not spawn_request.passenger_id:
             import uuid
-            spawn_request.passenger_id = f"PASS_{uuid.uuid4().hex[:8].upper()}"
+            # Use full UUID to guarantee uniqueness (32 hex chars vs 8)
+            spawn_request.passenger_id = f"PASS_{uuid.uuid4().hex.upper()}"
         
         # Insert into database via PassengerRepository
         success = await self.passenger_repo.insert_passenger(
@@ -122,7 +123,8 @@ class RouteReservoir(ReservoirInterface):
         
         for req in spawn_requests:
             if not req.passenger_id:
-                req.passenger_id = f"PASS_{uuid.uuid4().hex[:8].upper()}"
+                # Use full UUID to guarantee uniqueness (32 hex chars vs 8)
+                req.passenger_id = f"PASS_{uuid.uuid4().hex.upper()}"
             
             route_ids.add(req.route_id)
             passengers.append({

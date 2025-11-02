@@ -559,3 +559,71 @@ async def get_route_detail(
     route_detail['latency_ms'] = round(latency_ms, 2)
     
     return route_detail
+
+
+@router.get("/by-document-id/{document_id}/depot", summary="Get depot for route by documentId")
+async def get_route_depot(document_id: str) -> Dict[str, Any]:
+    """
+    Get depot information for a route using Strapi v5 documentId.
+    
+    This endpoint specifically handles depot lookup for spawning logic.
+    Returns depot details including coordinates for catchment calculations.
+    """
+    start_time = time.time()
+    
+    # Query Strapi with documentId (Strapi v5 format)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(f"{STRAPI_URL}/api/routes/{document_id}?populate=*")
+        
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Route with documentId '{document_id}' not found"
+            )
+        
+        data = response.json()
+        route_data = data.get('data', {})
+        
+        # Depot is under associated_depots array
+        associated_depots = route_data.get('associated_depots', [])
+        
+        if not associated_depots or len(associated_depots) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No depot associated with route '{document_id}'. Please create route-depot association in associated_depots."
+            )
+        
+        # Get the first depot (or primary depot)
+        depot_association = associated_depots[0]
+        
+        # Now we need to get the full depot details
+        # The association has depot_name, but we need coordinates
+        # Query the depot directly
+        depot_name = depot_association.get('depot_name')
+        if not depot_name:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Depot association exists but missing depot_name"
+            )
+        
+        # Query depots to get full details
+        depot_response = await client.get(f"{STRAPI_URL}/api/depots?filters[name][$eq]={depot_name}")
+        depot_data = depot_response.json()
+        
+        depots = depot_data.get('data', [])
+        if not depots or len(depots) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Depot '{depot_name}' not found in depots table"
+            )
+        
+        depot = depots[0]
+    
+    # Return depot info with latency
+    latency_ms = (time.time() - start_time) * 1000
+    
+    return {
+        'document_id': document_id,
+        'depot': depot,
+        'latency_ms': round(latency_ms, 2)
+    }

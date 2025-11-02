@@ -385,6 +385,43 @@ class GeospatialClient:
                 "pois": [],
                 "error": str(e)
             }
+    
+    async def get_route_detail(
+        self,
+        route_id: int,
+        include_geometry: bool = False,
+        include_buildings: bool = False
+    ) -> Optional[Dict]:
+        """
+        Get detailed route information including depot associations.
+        
+        Args:
+            route_id: Route ID (integer ID, not documentId)
+            include_geometry: Include route geometry
+            include_buildings: Include building counts
+        
+        Returns:
+            Dict with route details including 'depots' field, or None if error
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/routes/{route_id}",
+                    params={
+                        'include_geometry': include_geometry,
+                        'include_buildings': include_buildings
+                    }
+                )
+                
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.error(f"Route detail query failed: {response.status_code}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error fetching route detail: {e}")
+            return None
 
 
 # Module-level singleton for convenience

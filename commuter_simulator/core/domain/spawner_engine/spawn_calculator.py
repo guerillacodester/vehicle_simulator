@@ -33,7 +33,8 @@ class SpawnCalculator:
     @staticmethod
     def extract_temporal_multipliers(
         spawn_config: Dict,
-        current_time: datetime
+        current_time: datetime,
+        spawner_type: str = 'route'  # 'route' or 'depot'
     ) -> tuple[float, float, float]:
         """
         Extract temporal multipliers from spawn config.
@@ -41,6 +42,7 @@ class SpawnCalculator:
         Args:
             spawn_config: Spawn configuration dict from API
             current_time: Current simulation time
+            spawner_type: 'route' or 'depot' to select correct base rate
             
         Returns:
             (base_rate, hourly_multiplier, day_multiplier)
@@ -51,9 +53,13 @@ class SpawnCalculator:
             day_mult = 1.3 (Monday)
             → effective_rate = 0.05 × 2.0 × 1.3 = 0.130
         """
-        # Extract base spawn rate
+        # Extract base spawn rate based on spawner type
         dist_params = spawn_config.get('distribution_params', {})
-        base_rate = float(dist_params.get('passengers_per_building_per_hour', 0.3))
+        
+        if spawner_type == 'depot':
+            base_rate = float(dist_params.get('depot_passengers_per_building_per_hour', 0.3))
+        else:  # route
+            base_rate = float(dist_params.get('route_passengers_per_building_per_hour', 0.012))
         
         # Extract hourly rate multiplier (0-23)
         # Try both locations: distribution_params (depot) and top-level (route)

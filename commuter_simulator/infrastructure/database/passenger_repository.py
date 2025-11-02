@@ -233,13 +233,26 @@ class PassengerRepository:
                     json=data,
                     headers=headers
                 ) as response:
+                    if response.status not in (200, 201):
+                        error_text = await response.text()
+                        self.logger.error(
+                            f"Failed to insert passenger {passenger.get('passenger_id')}: "
+                            f"Status {response.status}, Response: {error_text[:200]}"
+                        )
                     return response.status in (200, 201)
             except Exception as e:
-                self.logger.debug(f"Error inserting passenger {passenger.get('passenger_id')}: {e}")
+                self.logger.error(f"Error inserting passenger {passenger.get('passenger_id')}: {e}")
                 return False
         
-        # Launch all inserts concurrently
-        tasks = [insert_one(p) for p in passengers]
+        # Launch inserts with concurrency limit to avoid overwhelming Strapi
+        # Limit to 10 concurrent requests at a time
+        semaphore = asyncio.Semaphore(10)
+        
+        async def rate_limited_insert(passenger):
+            async with semaphore:
+                return await insert_one(passenger)
+        
+        tasks = [rate_limited_insert(p) for p in passengers]
         results = await asyncio.gather(*tasks, return_exceptions=False)
         
         successful = sum(1 for r in results if r is True)
