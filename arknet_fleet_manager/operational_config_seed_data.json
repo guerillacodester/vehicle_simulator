@@ -257,6 +257,35 @@
     "requires_restart": true
   },
   {
+    "section": "passenger_spawning.distribution",
+    "parameter": "end_to_end_probability",
+    "value": "0.05",
+    "value_type": "number",
+    "default_value": "0.05",
+    "constraints": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.01,
+      "unit": "fraction"
+    },
+    "description": "Probability (0-1) that a long trip will be an end-to-end (terminal-to-terminal) trip",
+    "display_name": "End-to-end Probability",
+    "ui_group": "Distribution",
+    "requires_restart": false
+  },
+  {
+    "section": "passenger_spawning.distribution",
+    "parameter": "end_to_end_terminal_only",
+    "value": "true",
+    "value_type": "boolean",
+    "default_value": "true",
+    "constraints": {},
+    "description": "If true, end-to-end trips will be restricted to passengers boarding at route terminals (first/last stop)",
+    "display_name": "End-to-end Terminal Only",
+    "ui_group": "Distribution",
+    "requires_restart": false
+  },
+  {
     "section": "vehicle_simulator.simulation",
     "parameter": "tick_time",
     "value": "1.0",

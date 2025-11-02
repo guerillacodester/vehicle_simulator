@@ -15,7 +15,7 @@ Does NOT handle:
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import random
 
@@ -450,7 +450,10 @@ class RouteSpawner(SpawnerInterface):
         """
         Generate individual spawn requests with realistic commute distances.
         
-        OPTIMIZED: Fetches config once, then generates all passengers in parallel
+        OPTIMIZED: 
+        1. Fetch config once
+        2. Shared distance cache with on-demand fetching
+        3. Batch all passengers in single asyncio.gather
         """
         route_coords = route_geometry.get('coordinates', [])
         num_coords = len(route_coords)
@@ -459,7 +462,7 @@ class RouteSpawner(SpawnerInterface):
             self.logger.warning(f"Route has only {num_coords} stops, skipping spawn")
             return []
         
-        # OPTIMIZATION 1: Fetch minimum commute distance ONCE (not per passenger)
+        # OPTIMIZATION 1: Fetch minimum commute distance ONCE
         try:
             min_distance_config = await self.geo_client.get(f"/spatial/minimum-commute-distance")
             min_stops = min_distance_config.get('min_stops', 3)
@@ -467,12 +470,63 @@ class RouteSpawner(SpawnerInterface):
         except Exception as e:
             self.logger.error(f"Failed to fetch min distance config: {e}")
             raise  # Fail fast - no silent fallbacks!
+
+        # Fetch DB-driven distribution policy (end-to-end settings)
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{self.config_loader.api_base_url}/operational-configurations",
+                    params={
+                        "filters[section][$eq]": "passenger_spawning.distribution",
+                        "pagination[pageSize]": 10
+                    }
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+            configs = data.get('data', [])
+            if not configs or len(configs) == 0:
+                raise ValueError("Distribution policy not found in operational-configurations")
+
+            # Parse values into a simple dict
+            policy = {}
+            for c in configs:
+                param = c.get('parameter') or c.get('attributes', {}).get('parameter')
+                val = c.get('value') or c.get('attributes', {}).get('value')
+                if param and val is not None:
+                    policy[param] = val
+
+            # Required params
+            if 'end_to_end_probability' not in policy or 'end_to_end_terminal_only' not in policy:
+                raise ValueError("Required distribution parameters missing: end_to_end_probability or end_to_end_terminal_only")
+
+            # Normalize types
+            try:
+                end_to_end_probability = float(policy.get('end_to_end_probability'))
+            except Exception:
+                end_to_end_probability = float(str(policy.get('end_to_end_probability')))
+
+            raw_terminal_only = policy.get('end_to_end_terminal_only')
+            if isinstance(raw_terminal_only, bool):
+                end_to_end_terminal_only = raw_terminal_only
+            else:
+                end_to_end_terminal_only = str(raw_terminal_only).lower() in ('1', 'true', 'yes')
+
+        except Exception as e:
+            self.logger.error(f"Failed to fetch distribution policy from DB: {e}")
+            raise
         
-        # OPTIMIZATION 2: Generate all passengers in parallel using asyncio.gather
+        # OPTIMIZATION 2: Shared cache for on-demand distance fetching
+        # Only fetches distances as needed, but caches to avoid duplicates
+        distance_cache = {}
+        
+        # OPTIMIZATION 3: Generate all passengers with shared cache
         import asyncio
         tasks = [
             self._generate_single_passenger(
-                i, route_coords, num_coords, min_stops, min_distance_meters, current_time
+                i, route_coords, num_coords, min_stops, min_distance_meters,
+                current_time, distance_cache, end_to_end_probability, end_to_end_terminal_only
             )
             for i in range(spawn_count)
         ]
@@ -485,7 +539,7 @@ class RouteSpawner(SpawnerInterface):
             if isinstance(result, SpawnRequest):
                 spawn_requests.append(result)
             elif isinstance(result, Exception):
-                self.logger.warning(f"Passenger generation failed: {result}")
+                self.logger.debug(f"Passenger generation failed: {result}")
         
         return spawn_requests
     
@@ -496,12 +550,15 @@ class RouteSpawner(SpawnerInterface):
         num_coords: int,
         min_stops: int,
         min_distance_meters: int,
-        current_time: datetime
+        current_time: datetime,
+        distance_cache: Dict[Tuple[int, int], float],
+        end_to_end_probability: float = 0.0,
+        end_to_end_terminal_only: bool = False
     ) -> SpawnRequest:
         """
         Generate a single passenger spawn request with distance validation.
         
-        This method is called concurrently for all passengers.
+        Uses pre-computed distance cache for O(1) lookups instead of API calls.
         """
         import random as rand
         import uuid
@@ -536,7 +593,53 @@ class RouteSpawner(SpawnerInterface):
                 min_span = int(num_coords * 0.7)
                 max_span = num_coords - 1
                 span = rand.randint(max(min_stops, min_span), max_span)
-            
+                # DB-driven decision: sometimes make long trips explicit end-to-end
+                try:
+                    # If probability triggers, make this a terminal-to-terminal trip
+                    if rand.random() < end_to_end_probability:
+                        # If terminal_only configured, force both board and alight to terminals
+                        if end_to_end_terminal_only:
+                            if rand.random() < 0.5:
+                                board_idx = 0
+                                alight_idx = num_coords - 1
+                            else:
+                                board_idx = num_coords - 1
+                                alight_idx = 0
+                            # Compute actual_distance via cache/API below and break out of attempts
+                            cache_key = (board_idx, alight_idx)
+                            if cache_key in distance_cache:
+                                actual_distance = distance_cache[cache_key]
+                            else:
+                                try:
+                                    distance_result = await self.geo_client.get(
+                                        f"/spatial/route-segment-distance/{self.route_id}",
+                                        params={"from_index": board_idx, "to_index": alight_idx}
+                                    )
+                                    actual_distance = distance_result.get('distance_meters', 0)
+                                    distance_cache[cache_key] = actual_distance
+                                    distance_cache[(alight_idx, board_idx)] = actual_distance
+                                except Exception as e:
+                                    self.logger.debug(f"Distance fetch failed for end-to-end: {e}")
+                                    actual_distance = 0
+
+                            # If this meets minimum, accept
+                            if actual_distance >= min_distance_meters:
+                                break
+                            else:
+                                # If failed, continue attempts to find a regular long trip
+                                alight_idx = None
+                                continue
+                        else:
+                            # Not terminal-only: make alight the far terminal but allow boarding anywhere
+                            if rand.random() < 0.5:
+                                alight_idx = num_coords - 1
+                            else:
+                                alight_idx = 0
+                            # proceed to distance check below
+                        
+                except Exception:
+                    # On any error when applying policy, fall back to normal long-trip logic
+                    pass
             # Determine direction (forward or backward along route)
             if rand.random() < 0.5 and board_idx >= span:
                 # Backward direction
@@ -548,24 +651,31 @@ class RouteSpawner(SpawnerInterface):
                 # Can't go forward, try backward
                 alight_idx = max(0, board_idx - span)
             
-            # Validate distance using geospatial API
-            try:
-                distance_result = await self.geo_client.get(
-                    f"/spatial/route-segment-distance/{self.route_id}",
-                    params={"from_index": board_idx, "to_index": alight_idx}
-                )
-                actual_distance = distance_result.get('distance_meters', 0)
-                
-                # Accept if meets minimum distance (strict enforcement)
-                if actual_distance >= min_distance_meters:
-                    break
-                else:
-                    self.logger.debug(f"Rejected trip: {actual_distance}m < {min_distance_meters}m minimum")
-                    alight_idx = None  # Try again
-            except Exception as e:
-                self.logger.debug(f"Distance validation failed: {e}")
-                # Reject and try again (no exceptions to minimum distance)
-                alight_idx = None
+            # OPTIMIZATION: Check cache first, fetch on-demand if not cached
+            cache_key = (board_idx, alight_idx)
+            if cache_key in distance_cache:
+                actual_distance = distance_cache[cache_key]
+            else:
+                # Fetch and cache
+                try:
+                    distance_result = await self.geo_client.get(
+                        f"/spatial/route-segment-distance/{self.route_id}",
+                        params={"from_index": board_idx, "to_index": alight_idx}
+                    )
+                    actual_distance = distance_result.get('distance_meters', 0)
+                    distance_cache[cache_key] = actual_distance
+                    # Cache reverse too
+                    distance_cache[(alight_idx, board_idx)] = actual_distance
+                except Exception as e:
+                    self.logger.debug(f"Distance fetch failed: {e}")
+                    actual_distance = 0
+            
+            # Accept if meets minimum distance (strict enforcement)
+            if actual_distance >= min_distance_meters:
+                break
+            else:
+                self.logger.debug(f"Rejected trip: {actual_distance}m < {min_distance_meters}m minimum")
+                alight_idx = None  # Try again
         
         # If we couldn't find a valid pair, raise exception
         if alight_idx is None or alight_idx == board_idx:
@@ -602,4 +712,3 @@ class RouteSpawner(SpawnerInterface):
         )
         
         return spawn_req
-

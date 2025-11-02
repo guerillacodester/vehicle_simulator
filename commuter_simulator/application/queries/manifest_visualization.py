@@ -284,7 +284,7 @@ async def enrich_passengers_with_geocoding(
     return enriched
 
 
-def calculate_route_metrics(enriched_passengers: List[Dict[str, Any]]) -> Dict[str, Any]:
+def calculate_route_metrics(enriched_passengers: List[Dict[str, Any]], actual_route_distance: Optional[float] = None) -> Dict[str, Any]:
     """Calculate summary metrics for the route"""
     
     total = len(enriched_passengers)
@@ -294,32 +294,13 @@ def calculate_route_metrics(enriched_passengers: List[Dict[str, Any]]) -> Dict[s
     avg_commute = sum(item['commute_distance'] for item in enriched_passengers) / total if total > 0 else 0
     avg_depot_dist = sum(item['depot_distance'] for item in enriched_passengers) / total if total > 0 else 0
     
-    # Calculate total route distance from passenger coordinates
-    route_total_distance = None
-    if enriched_passengers:
-        all_coords = []
-        for item in enriched_passengers:
-            p = item['passenger']
-            lat = p.get('latitude')
-            lon = p.get('longitude')
-            if lat and lon:
-                all_coords.append((lat, lon))
-        
-        if all_coords and len(all_coords) > 1:
-            total_distance = 0.0
-            for i in range(len(all_coords) - 1):
-                lat1, lon1 = all_coords[i]
-                lat2, lon2 = all_coords[i + 1]
-                total_distance += haversine_distance(lat1, lon1, lat2, lon2)
-            route_total_distance = total_distance
-    
     return {
         'total_passengers': total,
         'route_passengers': route_count,
         'depot_passengers': depot_count,
         'avg_commute_distance': avg_commute,
         'avg_depot_distance': avg_depot_dist,
-        'total_route_distance': route_total_distance
+        'actual_route_distance': actual_route_distance  # The REAL route geometry length
     }
 
 
@@ -377,8 +358,8 @@ def format_table_ascii(
     lines.append(f"Average Commute Distance: {metrics['avg_commute_distance']:.2f}km")
     lines.append(f"Average Distance from Depot: {metrics['avg_depot_distance']:.2f}km")
     
-    if metrics['total_route_distance'] is not None:
-        lines.append(f"Total Route Distance: {metrics['total_route_distance']:.2f}km")
+    if metrics.get('actual_route_distance') is not None:
+        lines.append(f"Actual Route Length: {metrics['actual_route_distance']:.2f}km")
     
     lines.append("=" * 140)
     

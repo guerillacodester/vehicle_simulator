@@ -140,8 +140,20 @@ async def display_table(args):
     enriched_passengers = await enrich_passengers_with_geocoding(passengers, GEOSPATIAL_URL)
     print(f"   ✅ Geocoded {len(enriched_passengers)} passengers!")
     
+    # Fetch actual route distance from geospatial API
+    actual_route_distance = None
+    if route_id:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{GEOSPATIAL_URL}/spatial/route-geometry/{route_id}")
+                if response.status_code == 200:
+                    route_data = response.json()
+                    actual_route_distance = route_data.get('total_distance_meters', 0) / 1000  # Convert to km
+        except Exception as e:
+            print(f"⚠️  Could not fetch route geometry: {e}")
+    
     # Calculate metrics
-    metrics = calculate_route_metrics(enriched_passengers)
+    metrics = calculate_route_metrics(enriched_passengers, actual_route_distance)
     
     # Format and display table
     output = format_table_ascii(enriched_passengers, metrics, target_date, route_name)
