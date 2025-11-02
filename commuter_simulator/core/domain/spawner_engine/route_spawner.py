@@ -450,12 +450,8 @@ class RouteSpawner(SpawnerInterface):
         """
         Generate individual spawn requests with realistic commute distances.
         
-        Uses geospatial API to ensure:
-        1. Minimum commute distance (>1km, making bus worthwhile vs walking)
-        2. Better distribution including long-distance commutes
-        3. Single source of truth for distance calculations
+        OPTIMIZED: Fetches config once, then generates all passengers in parallel
         """
-        spawn_requests = []
         route_coords = route_geometry.get('coordinates', [])
         num_coords = len(route_coords)
         
@@ -463,125 +459,147 @@ class RouteSpawner(SpawnerInterface):
             self.logger.warning(f"Route has only {num_coords} stops, skipping spawn")
             return []
         
-        # Get minimum commute distance from geospatial API (single source of truth)
+        # OPTIMIZATION 1: Fetch minimum commute distance ONCE (not per passenger)
         try:
             min_distance_config = await self.geo_client.get(f"/spatial/minimum-commute-distance")
             min_stops = min_distance_config.get('min_stops', 3)
             min_distance_meters = min_distance_config.get('min_distance_meters', 1000)
         except Exception as e:
-            self.logger.warning(f"Could not fetch min distance config: {e}, using defaults")
-            min_stops = 3
-            min_distance_meters = 1000
+            self.logger.error(f"Failed to fetch min distance config: {e}")
+            raise  # Fail fast - no silent fallbacks!
         
-        for i in range(spawn_count):
-            try:
-                # Generate boarding and alighting indices with realistic distribution
-                # Strategy: Use weighted random to favor diverse trip lengths
-                # 20% short (min_stops to 30% of route)
-                # 50% medium (30% to 70% of route)
-                # 30% long (70% to 100% of route)
-                
-                import random as rand
-                trip_type = rand.choices(
-                    ['short', 'medium', 'long'],
-                    weights=[0.2, 0.5, 0.3],
-                    k=1
-                )[0]
-                
-                # Pick random boarding position
-                board_idx = rand.randint(0, num_coords - 1)
-                
-                # Calculate valid alighting range based on trip type and minimum distance
-                max_attempts = 10
-                alight_idx = None
-                actual_distance = 0
-                
-                for attempt in range(max_attempts):
-                    if trip_type == 'short':
-                        # Short trip: min_stops to 30% of route length
-                        max_span = max(min_stops + 1, int(num_coords * 0.3))
-                        span = rand.randint(min_stops, max_span)
-                    elif trip_type == 'medium':
-                        # Medium trip: 30% to 70% of route length
-                        min_span = int(num_coords * 0.3)
-                        max_span = int(num_coords * 0.7)
-                        span = rand.randint(max(min_stops, min_span), max_span)
-                    else:  # long
-                        # Long trip: 70% to 100% of route length (end-to-end)
-                        min_span = int(num_coords * 0.7)
-                        max_span = num_coords - 1
-                        span = rand.randint(max(min_stops, min_span), max_span)
-                    
-                    # Determine direction (forward or backward along route)
-                    if rand.random() < 0.5 and board_idx >= span:
-                        # Backward direction
-                        alight_idx = board_idx - span
-                    elif board_idx + span < num_coords:
-                        # Forward direction
-                        alight_idx = board_idx + span
-                    else:
-                        # Can't go forward, try backward
-                        alight_idx = max(0, board_idx - span)
-                    
-                    # Validate distance using geospatial API
-                    try:
-                        distance_result = await self.geo_client.get(
-                            f"/spatial/route-segment-distance/{self.route_id}",
-                            params={"from_index": board_idx, "to_index": alight_idx}
-                        )
-                        actual_distance = distance_result.get('distance_meters', 0)
-                        
-                        # Accept if meets minimum distance (strict enforcement)
-                        if actual_distance >= min_distance_meters:
-                            break
-                        else:
-                            self.logger.debug(f"Rejected trip: {actual_distance}m < {min_distance_meters}m minimum")
-                            alight_idx = None  # Try again
-                    except Exception as e:
-                        self.logger.debug(f"Distance validation failed: {e}")
-                        # Fallback: reject and try again (no exceptions to minimum distance)
-                        alight_idx = None
-                
-                # If we couldn't find a valid pair, skip this passenger
-                if alight_idx is None or alight_idx == board_idx:
-                    self.logger.debug(f"Could not generate valid commute for passenger {i}, skipping")
-                    continue
-                
-                board_lon, board_lat = route_coords[board_idx]
-                alight_lon, alight_lat = route_coords[alight_idx]
-                
-                # Generate unique passenger ID using UUID (full 32 hex chars for uniqueness)
-                import uuid
-                passenger_id = f"PASS_{uuid.uuid4().hex.upper()}"
-                
-                # Randomize spawn time within the hour (0-59 minutes, 0-59 seconds)
-                random_minutes = rand.randint(0, 59)
-                random_seconds = rand.randint(0, 59)
-                actual_spawn_time = current_time.replace(minute=random_minutes, second=random_seconds, microsecond=0)
-                
-                # Create spawn request with all required fields
-                spawn_req = SpawnRequest(
-                    passenger_id=passenger_id,
-                    spawn_location=(board_lat, board_lon),
-                    destination_location=(alight_lat, alight_lon),
-                    route_id=self.route_id,
-                    spawn_time=actual_spawn_time,
-                    spawn_context="ROUTE",
-                    generation_method="poisson"
-                )
-                
-                spawn_requests.append(spawn_req)
-                
-                # Log individual spawn event with distance
-                distance_km = actual_distance / 1000 if actual_distance > 0 else 0
-                self.logger.info(
-                    f"🚶 Passenger {passenger_id} spawned at {actual_spawn_time.strftime('%H:%M:%S')} | "
-                    f"Type: ROUTE ({trip_type}) | Board: Stop {board_idx} | Alight: Stop {alight_idx} | "
-                    f"Distance: {distance_km:.2f}km"
-                )
-                
-            except Exception as e:
-                self.logger.debug(f"Error generating spawn request {i}: {e}")
-                continue
+        # OPTIMIZATION 2: Generate all passengers in parallel using asyncio.gather
+        import asyncio
+        tasks = [
+            self._generate_single_passenger(
+                i, route_coords, num_coords, min_stops, min_distance_meters, current_time
+            )
+            for i in range(spawn_count)
+        ]
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Filter out None and exceptions
+        spawn_requests = []
+        for result in results:
+            if isinstance(result, SpawnRequest):
+                spawn_requests.append(result)
+            elif isinstance(result, Exception):
+                self.logger.warning(f"Passenger generation failed: {result}")
         
         return spawn_requests
+    
+    async def _generate_single_passenger(
+        self,
+        passenger_num: int,
+        route_coords: List[List[float]],
+        num_coords: int,
+        min_stops: int,
+        min_distance_meters: int,
+        current_time: datetime
+    ) -> SpawnRequest:
+        """
+        Generate a single passenger spawn request with distance validation.
+        
+        This method is called concurrently for all passengers.
+        """
+        import random as rand
+        import uuid
+        
+        # Generate boarding and alighting indices with realistic distribution
+        trip_type = rand.choices(
+            ['short', 'medium', 'long'],
+            weights=[0.2, 0.5, 0.3],
+            k=1
+        )[0]
+        
+        # Pick random boarding position
+        board_idx = rand.randint(0, num_coords - 1)
+        
+        # Calculate valid alighting range based on trip type
+        max_attempts = 10
+        alight_idx = None
+        actual_distance = 0
+        
+        for attempt in range(max_attempts):
+            if trip_type == 'short':
+                # Short trip: min_stops to 30% of route length
+                max_span = max(min_stops + 1, int(num_coords * 0.3))
+                span = rand.randint(min_stops, max_span)
+            elif trip_type == 'medium':
+                # Medium trip: 30% to 70% of route length
+                min_span = int(num_coords * 0.3)
+                max_span = int(num_coords * 0.7)
+                span = rand.randint(max(min_stops, min_span), max_span)
+            else:  # long
+                # Long trip: 70% to 100% of route length (end-to-end)
+                min_span = int(num_coords * 0.7)
+                max_span = num_coords - 1
+                span = rand.randint(max(min_stops, min_span), max_span)
+            
+            # Determine direction (forward or backward along route)
+            if rand.random() < 0.5 and board_idx >= span:
+                # Backward direction
+                alight_idx = board_idx - span
+            elif board_idx + span < num_coords:
+                # Forward direction
+                alight_idx = board_idx + span
+            else:
+                # Can't go forward, try backward
+                alight_idx = max(0, board_idx - span)
+            
+            # Validate distance using geospatial API
+            try:
+                distance_result = await self.geo_client.get(
+                    f"/spatial/route-segment-distance/{self.route_id}",
+                    params={"from_index": board_idx, "to_index": alight_idx}
+                )
+                actual_distance = distance_result.get('distance_meters', 0)
+                
+                # Accept if meets minimum distance (strict enforcement)
+                if actual_distance >= min_distance_meters:
+                    break
+                else:
+                    self.logger.debug(f"Rejected trip: {actual_distance}m < {min_distance_meters}m minimum")
+                    alight_idx = None  # Try again
+            except Exception as e:
+                self.logger.debug(f"Distance validation failed: {e}")
+                # Reject and try again (no exceptions to minimum distance)
+                alight_idx = None
+        
+        # If we couldn't find a valid pair, raise exception
+        if alight_idx is None or alight_idx == board_idx:
+            raise ValueError(f"Could not generate valid commute for passenger {passenger_num} after {max_attempts} attempts")
+        
+        board_lon, board_lat = route_coords[board_idx]
+        alight_lon, alight_lat = route_coords[alight_idx]
+        
+        # Generate unique passenger ID using UUID
+        passenger_id = f"PASS_{uuid.uuid4().hex.upper()}"
+        
+        # Randomize spawn time within the hour (0-59 minutes, 0-59 seconds)
+        random_minutes = rand.randint(0, 59)
+        random_seconds = rand.randint(0, 59)
+        actual_spawn_time = current_time.replace(minute=random_minutes, second=random_seconds, microsecond=0)
+        
+        # Create spawn request with all required fields
+        spawn_req = SpawnRequest(
+            passenger_id=passenger_id,
+            spawn_location=(board_lat, board_lon),
+            destination_location=(alight_lat, alight_lon),
+            route_id=self.route_id,
+            spawn_time=actual_spawn_time,
+            spawn_context="ROUTE",
+            generation_method="poisson"
+        )
+        
+        # Log individual spawn event with distance
+        distance_km = actual_distance / 1000 if actual_distance > 0 else 0
+        self.logger.info(
+            f"🚶 Passenger {passenger_id} spawned at {actual_spawn_time.strftime('%H:%M:%S')} | "
+            f"Type: ROUTE ({trip_type}) | Board: Stop {board_idx} | Alight: Stop {alight_idx} | "
+            f"Distance: {distance_km:.2f}km"
+        )
+        
+        return spawn_req
+
