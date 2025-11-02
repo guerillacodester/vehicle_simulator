@@ -29,6 +29,12 @@ from commuter_simulator.application.queries import (
     fetch_passengers,
     ManifestRow
 )
+from commuter_simulator.application.queries.manifest_visualization import (
+    fetch_passengers_from_strapi,
+    generate_barchart_data,
+    enrich_passengers_with_geocoding,
+    calculate_route_metrics
+)
 
 try:
     from common.config_provider import get_config
@@ -59,6 +65,38 @@ class ManifestResponse(BaseModel):
     depot_id: Optional[str] = Field(None, description="Depot filter applied")
     passengers: List[dict] = Field(..., description="Enriched passenger data")
     ordered_by_route_position: bool = Field(..., description="Whether sorted by route position")
+
+
+class BarchartResponse(BaseModel):
+    """Response model for barchart visualization"""
+    hourly_counts: List[int] = Field(..., description="Passenger count per hour (0-23)")
+    total: int = Field(..., description="Total passengers")
+    max_count: int = Field(..., description="Maximum count in any hour")
+    peak_hour: int = Field(..., description="Hour with most passengers (0-23)")
+    route_passengers: int = Field(..., description="Count of route passengers")
+    depot_passengers: int = Field(..., description="Count of depot passengers")
+    date: str = Field(..., description="Target date (YYYY-MM-DD)")
+    route_name: Optional[str] = Field(None, description="Route name if filtered")
+
+
+class RouteMetricsResponse(BaseModel):
+    """Response model for route metrics"""
+    total_passengers: int = Field(..., description="Total passengers")
+    route_passengers: int = Field(..., description="Route passengers")
+    depot_passengers: int = Field(..., description="Depot passengers")
+    avg_commute_distance: float = Field(..., description="Average commute distance in km")
+    avg_depot_distance: float = Field(..., description="Average distance from depot in km")
+    total_route_distance: Optional[float] = Field(None, description="Total route distance in km")
+    date: str = Field(..., description="Target date (YYYY-MM-DD)")
+    route_name: Optional[str] = Field(None, description="Route name if filtered")
+
+
+class TableResponse(BaseModel):
+    """Response model for table visualization"""
+    passengers: List[dict] = Field(..., description="Enriched passenger data with addresses and distances")
+    metrics: RouteMetricsResponse = Field(..., description="Summary metrics")
+    date: str = Field(..., description="Target date (YYYY-MM-DD)")
+    route_name: Optional[str] = Field(None, description="Route name if filtered")
 
 
 @app.get("/health")
@@ -153,6 +191,232 @@ async def get_manifest(
         raise HTTPException(
             status_code=500,
             detail=f"Manifest enrichment failed: {str(e)}"
+        )
+
+
+@app.get("/api/manifest/visualization/barchart", response_model=BarchartResponse)
+async def get_barchart_visualization(
+    date: str = Query(..., description="Target date (YYYY-MM-DD)"),
+    route: Optional[str] = Query(None, description="Filter by route document ID"),
+    start_hour: int = Query(0, ge=0, le=23, description="Start hour (0-23)"),
+    end_hour: int = Query(23, ge=0, le=23, description="End hour (0-23)")
+):
+    """
+    Get bar chart visualization data for passenger distribution.
+    
+    Returns hourly passenger counts for the specified date and time range.
+    """
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    if start_hour > end_hour:
+        raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
+    
+    strapi_url = os.getenv("STRAPI_URL", "http://localhost:1337")
+    
+    try:
+        # Fetch passengers
+        passengers = await fetch_passengers_from_strapi(
+            strapi_url=strapi_url,
+            route_id=route,
+            target_date=target_date,
+            start_hour=start_hour,
+            end_hour=end_hour
+        )
+        
+        # Generate barchart data
+        barchart_data = generate_barchart_data(passengers)
+        
+        # Determine route name
+        route_name = None
+        if route:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{strapi_url}/api/routes")
+                routes = response.json().get('data', [])
+                for r in routes:
+                    if r.get('documentId') == route:
+                        route_name = f"Route {r.get('short_name')}"
+                        break
+        
+        return BarchartResponse(
+            **barchart_data,
+            date=date,
+            route_name=route_name
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate barchart: {str(e)}"
+        )
+
+
+@app.get("/api/manifest/visualization/table", response_model=TableResponse)
+async def get_table_visualization(
+    date: str = Query(..., description="Target date (YYYY-MM-DD)"),
+    route: Optional[str] = Query(None, description="Filter by route document ID"),
+    start_hour: int = Query(0, ge=0, le=23, description="Start hour (0-23)"),
+    end_hour: int = Query(23, ge=0, le=23, description="End hour (0-23)")
+):
+    """
+    Get table visualization data with enriched passenger information.
+    
+    Returns detailed passenger data with geocoded addresses, distances, and metrics.
+    """
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    if start_hour > end_hour:
+        raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
+    
+    strapi_url = os.getenv("STRAPI_URL", "http://localhost:1337")
+    geospatial_url = os.getenv("GEOSPATIAL_URL", "http://localhost:6000")
+    
+    try:
+        # Fetch passengers
+        passengers = await fetch_passengers_from_strapi(
+            strapi_url=strapi_url,
+            route_id=route,
+            target_date=target_date,
+            start_hour=start_hour,
+            end_hour=end_hour
+        )
+        
+        if not passengers:
+            raise HTTPException(status_code=404, detail="No passengers found for the specified criteria")
+        
+        # Enrich with geocoding
+        enriched_passengers = await enrich_passengers_with_geocoding(passengers, geospatial_url)
+        
+        # Calculate metrics
+        metrics = calculate_route_metrics(enriched_passengers)
+        
+        # Determine route name
+        route_name = None
+        if route:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{strapi_url}/api/routes")
+                routes = response.json().get('data', [])
+                for r in routes:
+                    if r.get('documentId') == route:
+                        route_name = f"Route {r.get('short_name')}"
+                        break
+        
+        # Sort by depot distance
+        sorted_passengers = sorted(enriched_passengers, key=lambda x: x['depot_distance'])
+        
+        # Format passenger data for JSON response
+        passengers_data = []
+        for item in sorted_passengers:
+            p = item['passenger']
+            passengers_data.append({
+                'index': item['index'],
+                'passenger_id': p.get('id'),
+                'spawned_at': p.get('spawned_at'),
+                'route_id': p.get('route_id'),
+                'depot_id': p.get('depot_id'),
+                'status': p.get('status'),
+                'start_lat': p.get('latitude'),
+                'start_lon': p.get('longitude'),
+                'dest_lat': p.get('destination_lat'),
+                'dest_lon': p.get('destination_lon'),
+                'start_address': item['start_address'],
+                'dest_address': item['dest_address'],
+                'commute_distance': item['commute_distance'],
+                'depot_distance': item['depot_distance']
+            })
+        
+        metrics_response = RouteMetricsResponse(
+            **metrics,
+            date=date,
+            route_name=route_name
+        )
+        
+        return TableResponse(
+            passengers=passengers_data,
+            metrics=metrics_response,
+            date=date,
+            route_name=route_name
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate table: {str(e)}"
+        )
+
+
+@app.get("/api/manifest/stats", response_model=RouteMetricsResponse)
+async def get_manifest_stats(
+    date: str = Query(..., description="Target date (YYYY-MM-DD)"),
+    route: Optional[str] = Query(None, description="Filter by route document ID"),
+    start_hour: int = Query(0, ge=0, le=23, description="Start hour (0-23)"),
+    end_hour: int = Query(23, ge=0, le=23, description="End hour (0-23)")
+):
+    """
+    Get summary statistics for passenger manifest.
+    
+    Returns aggregated metrics including passenger counts, average distances, and total route distance.
+    """
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    if start_hour > end_hour:
+        raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
+    
+    strapi_url = os.getenv("STRAPI_URL", "http://localhost:1337")
+    geospatial_url = os.getenv("GEOSPATIAL_URL", "http://localhost:6000")
+    
+    try:
+        # Fetch passengers
+        passengers = await fetch_passengers_from_strapi(
+            strapi_url=strapi_url,
+            route_id=route,
+            target_date=target_date,
+            start_hour=start_hour,
+            end_hour=end_hour
+        )
+        
+        if not passengers:
+            raise HTTPException(status_code=404, detail="No passengers found for the specified criteria")
+        
+        # Enrich with geocoding
+        enriched_passengers = await enrich_passengers_with_geocoding(passengers, geospatial_url)
+        
+        # Calculate metrics
+        metrics = calculate_route_metrics(enriched_passengers)
+        
+        # Determine route name
+        route_name = None
+        if route:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{strapi_url}/api/routes")
+                routes = response.json().get('data', [])
+                for r in routes:
+                    if r.get('documentId') == route:
+                        route_name = f"Route {r.get('short_name')}"
+                        break
+        
+        return RouteMetricsResponse(
+            **metrics,
+            date=date,
+            route_name=route_name
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate stats: {str(e)}"
         )
 
 

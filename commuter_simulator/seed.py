@@ -73,20 +73,20 @@ async def fetch_depot_for_route(route_doc_id: str, geospatial_url: str):
 
 async def seed_route(
     route,
-    day_name: str,
+    target_date: datetime,
     spawn_type: str,  # 'route', 'depot', or 'both'
     start_hour: int,
     end_hour: int,
     strapi_url: str,
     geospatial_url: str
 ):
-    """Seed passengers for a single route for a specific day"""
+    """Seed passengers for a single route for a specific date"""
     
     route_short_name = route.get('short_name', 'Unknown')
     route_doc_id = route.get('documentId')
     
     print(f"\n{'='*80}")
-    print(f"SEEDING: Route {route_short_name} - {day_name.upper()} - Type: {spawn_type.upper()}")
+    print(f"SEEDING: Route {route_short_name} - {target_date.strftime('%A, %Y-%m-%d')} - Type: {spawn_type.upper()}")
     print(f"Time Range: {start_hour:02d}:00 - {end_hour:02d}:00")
     print(f"{'='*80}\n")
     
@@ -154,14 +154,6 @@ async def seed_route(
             passengers_before = 0
     
     print(f"📊 Passengers in DB before seeding: {passengers_before}\n")
-    
-    # Determine date for the day of week
-    # Use a fixed base week (first full week of November 2024)
-    base_date = datetime(2024, 11, 4)  # Monday, Nov 4, 2024
-    day_offset = DAYS_OF_WEEK[day_name.lower()]
-    
-    from datetime import timedelta
-    target_date = base_date + timedelta(days=day_offset)
     
     print(f"📅 Target Date: {target_date.strftime('%A, %Y-%m-%d')}")
     print(f"{'='*80}\n")
@@ -268,7 +260,7 @@ async def seed_route(
     
     # Results
     print(f"\n{'='*80}")
-    print(f"SEEDING COMPLETE - Route {route_short_name} - {day_name.upper()} - {spawn_type.upper()}")
+    print(f"SEEDING COMPLETE - Route {route_short_name} - {target_date.strftime('%A, %Y-%m-%d')} - {spawn_type.upper()}")
     print(f"{'='*80}\n")
     
     if spawn_type == 'both':
@@ -302,9 +294,20 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python commuter_simulator/seed.py --day monday --route 1
-    python commuter_simulator/seed.py --day tuesday --route all
-    python commuter_simulator/seed.py --day wednesday --route 5 --depot-spawning
+    # Route passengers only, full day, by day name
+    python commuter_simulator/seed.py --day monday --route 1 --type route
+    
+    # Specific date instead of day name
+    python commuter_simulator/seed.py --date 2024-12-25 --route 1 --type route
+    
+    # Depot passengers only, morning rush
+    python commuter_simulator/seed.py --day monday --route 1 --type depot --start-hour 6 --end-hour 9
+    
+    # Both types, evening rush, specific date
+    python commuter_simulator/seed.py --date 2024-11-15 --route 1 --type both --start-hour 16 --end-hour 19
+    
+    # All routes, route passengers only
+    python commuter_simulator/seed.py --day wednesday --route all --type route
 
 Security:
     Uses human-readable route short_name (e.g., "1") not documentId.
@@ -314,9 +317,13 @@ Security:
     
     parser.add_argument(
         '--day',
-        required=True,
         choices=['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-        help='Day of week to seed'
+        help='Day of week to seed (alternative to --date)'
+    )
+    
+    parser.add_argument(
+        '--date',
+        help='Specific date to seed (YYYY-MM-DD format, alternative to --day)'
     )
     
     parser.add_argument(
@@ -360,10 +367,32 @@ Security:
     
     args = parser.parse_args()
     
+    # Validate that either --day or --date is provided (but not both)
+    if not args.day and not args.date:
+        parser.error("Either --day or --date must be specified")
+    
+    if args.day and args.date:
+        parser.error("Cannot specify both --day and --date")
+    
+    # Determine target date
+    if args.date:
+        try:
+            target_date = datetime.strptime(args.date, '%Y-%m-%d')
+            date_display = args.date
+        except ValueError:
+            print(f"❌ ERROR: Invalid date format '{args.date}'. Use YYYY-MM-DD")
+            return
+    else:
+        # Use a fixed base week (first full week of November 2024)
+        base_date = datetime(2024, 11, 4)  # Monday, Nov 4, 2024
+        day_offset = DAYS_OF_WEEK[args.day.lower()]
+        target_date = base_date + timedelta(days=day_offset)
+        date_display = args.day.upper()
+    
     print(f"\n{'='*80}")
     print("COMMUTER SIMULATOR - PASSENGER SEEDING TOOL")
     print(f"{'='*80}")
-    print(f"Day:              {args.day.upper()}")
+    print(f"Date:             {target_date.strftime('%A, %Y-%m-%d')}")
     print(f"Route:            {args.route}")
     print(f"Type:             {args.type.upper()}")
     print(f"Time Range:       {args.start_hour:02d}:00 - {args.end_hour:02d}:00")
@@ -397,7 +426,7 @@ Security:
     for route in target_routes:
         await seed_route(
             route=route,
-            day_name=args.day,
+            target_date=target_date,
             spawn_type=args.type,
             start_hour=args.start_hour,
             end_hour=args.end_hour,
