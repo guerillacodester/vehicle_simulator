@@ -2799,6 +2799,329 @@ client.stop()
 
 ---
 
+## 🚌 Conductor-Reservoir Integration Status (November 2, 2025)
+
+### Current MVP Components
+
+**1. Vehicle Simulator** ✅ OPERATIONAL
+- `arknet_transit_simulator/`
+- Simulates vehicle movement along routes
+- Transmits GPS telemetry to GPSCentCom server (port 5000)
+- Status: Working, sends real-time position updates
+
+**2. Commuter Service** ✅ OPERATIONAL  
+- `commuter_service/`
+- Seeds simulated passengers via RouteSpawner and DepotSpawner
+- Stores passengers in Strapi `/api/active-passengers` table
+- Status: Working, can seed passengers for routes/depots
+
+**3. Commuter Manifest API** ✅ OPERATIONAL
+- `commuter_service/interfaces/http/commuter_manifest.py` (port 4000)
+- Visualize and analyze passenger distributions
+- Endpoints: GET /api/manifest, /visualization/barchart, /visualization/table
+- Status: Working, provides manifest queries and geocoded visualizations
+
+**4. Geospatial Service** ✅ OPERATIONAL
+- `geospatial_service/` (port 6000)
+- Spatial queries (reverse geocoding, route geometry, depot catchment, spawn points)
+- Status: Production-ready comprehensive API
+
+**5. GPSCentCom Server** ✅ OPERATIONAL
+- `gpscentcom_server/` (port 5000)
+- Receives GPS telemetry via WebSocket from vehicle GPS devices
+- Provides HTTP API + WebSocket streaming to clients
+- Status: Working, broadcasts real-time telemetry
+
+### Conductor-Reservoir Integration Architecture
+
+**Components:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Vehicle Simulator (arknet_transit_simulator)               │
+│                                                             │
+│  ┌──────────────┐           ┌─────────────┐                │
+│  │ VehicleDriver│◄─Socket.IO│  Conductor  │                │
+│  │              │           │             │                │
+│  │ - Navigation │           │ - Monitors  │                │
+│  │ - GPS device │           │   passengers│                │
+│  │ - Engine     │           │ - Manages   │                │
+│  │   control    │           │   boarding  │                │
+│  └──────┬───────┘           └─────┬───────┘                │
+│         │                         │                        │
+│         │ GPS Telemetry           │ Query Passengers       │
+│         ↓                         ↓                        │
+└─────────┼─────────────────────────┼────────────────────────┘
+          │                         │
+          │                         │
+┌─────────┼─────────────────────────┼────────────────────────┐
+│         ↓                         ↓                        │
+│  GPSCentCom Server         Commuter Service                │
+│  (port 5000)               (port 4000)                     │
+│                                                             │
+│                            ┌──────────────────┐            │
+│                            │ RouteReservoir   │            │
+│                            │ DepotReservoir   │            │
+│                            │                  │            │
+│                            │ - DB-backed      │            │
+│                            │ - Redis cache    │            │
+│                            │ - Socket.IO pub  │            │
+│                            └────────┬─────────┘            │
+│                                     │                      │
+│                                     ↓                      │
+│                            Strapi /api/active-passengers   │
+│                            (localhost:1337)                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Integration Status
+
+**✅ IMPLEMENTED:**
+
+1. **Conductor Component** (`arknet_transit_simulator/vehicle/conductor.py`)
+   - Socket.IO connection to Strapi (port 1337)
+   - PassengerDatabase integration (queries Strapi `/api/active-passengers`)
+   - Driver communication (Socket.IO + callback fallback)
+   - Boarding/alighting logic with GPS waypoint triggers
+   - Capacity management (tracks passengers on board vs capacity)
+   - Stop duration calculation (per-passenger boarding time)
+
+2. **Driver-Conductor Communication**
+   - Socket.IO events: `conductor:request:stop`, `conductor:ready:depart`
+   - Callback fallback when Socket.IO unavailable
+   - Engine control (stop/start) triggered by conductor
+   - GPS preservation during stops
+
+3. **Reservoir Implementation**
+   - `RouteReservoir` (`commuter_service/core/domain/reservoirs/route_reservoir.py`)
+   - `DepotReservoir` (`commuter_service/core/domain/reservoirs/depot_reservoir.py`)
+   - DB-backed with optional Redis caching
+   - Query methods: `query()`, `query_by_proximity()`, `query_waiting_passengers()`
+   - Push methods: `push()` (inserts to Strapi, invalidates cache)
+
+4. **Strapi Active Passengers API**
+   - Collection: `/api/active-passengers`
+   - Custom endpoints: `markBoarded`, `markAlighted`, `findNearLocation`, `findByRoute`
+   - Status lifecycle: WAITING → ONBOARD → COMPLETED
+
+5. **Socket.IO Infrastructure**
+   - Strapi Socket.IO hub (port 1337)
+   - Namespaces: `/depot-reservoir`, `/route-reservoir`
+   - Event types defined (`EventTypes` in `message-format.ts`)
+   - Connection manager in `commuter_service/services/socketio/service.py`
+
+**❓ UNCLEAR / NEEDS VERIFICATION:**
+
+1. **Conductor-Reservoir Query Integration**
+   - ❓ Does conductor actually call `RouteReservoir.query()` or `DepotReservoir.query()`?
+   - ❓ Or does it query Strapi `/api/active-passengers` directly via `PassengerDatabase`?
+   - Current code shows: `PassengerRepository` → Strapi API calls (not reservoir methods)
+   - **Gap**: Conductor bypasses reservoirs, queries DB directly
+
+2. **Socket.IO Event Flow**
+   - ✅ Strapi has Socket.IO configured (`config/socket.ts`)
+   - ✅ `commuter_service` has `SocketIOService` class
+   - ❓ Is `SocketIOService` actually used by spawners/reservoirs?
+   - ❓ Are passenger spawn events emitted to conductors?
+   - **Gap**: No evidence of reservoir → conductor event broadcasting
+
+3. **Boarding Workflow**
+   - ✅ Conductor has `board_passengers_by_id()` method
+   - ✅ Calls `PassengerDatabase.mark_boarded()` (updates Strapi)
+   - ❓ Does conductor get passenger IDs from reservoir or Strapi directly?
+   - Current: Conductor queries Strapi `/find-near-location` endpoint
+   - **Gap**: Reservoir query methods not invoked in boarding workflow
+
+4. **Reservoir Population**
+   - ✅ `RouteSpawner` and `DepotSpawner` push to `PassengerRepository`
+   - ❓ Do they also push to reservoir instances?
+   - Current code shows: Spawners → PassengerRepository (DB only)
+   - **Gap**: Reservoirs exist but may not be populated by spawners
+
+### Actual Data Flow (Confirmed)
+
+**Current Architecture:**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 1. SPAWNING FLOW                                             │
+│                                                               │
+│ RouteSpawner/DepotSpawner                                    │
+│         ↓                                                     │
+│ RouteReservoir/DepotReservoir.push()                         │
+│         ↓                                                     │
+│ PassengerRepository.insert_passenger()                       │
+│         ↓                                                     │
+│ HTTP POST → Strapi /api/active-passengers                    │
+│         ↓                                                     │
+│ PostgreSQL Database (Strapi CMS)                             │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│ 2. CONDUCTOR QUERY FLOW                                      │
+│                                                               │
+│ Conductor.check_for_passengers()                             │
+│         ↓                                                     │
+│ passenger_db.get_eligible_passengers()  ← DIRECT API CALL    │
+│         ↓                                                     │
+│ HTTP GET → Strapi /api/active-passengers/find-near-location  │
+│         ↓                                                     │
+│ PostgreSQL Database (Strapi CMS)                             │
+│         ↓                                                     │
+│ Returns: List of passengers                                  │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│ 3. BOARDING FLOW                                             │
+│                                                               │
+│ Conductor.board_passengers_by_id(passenger_ids)              │
+│         ↓                                                     │
+│ passenger_db.mark_boarded(passenger_id)  ← DIRECT API CALL   │
+│         ↓                                                     │
+│ HTTP POST → Strapi /api/active-passengers/mark-boarded/{id}  │
+│         ↓                                                     │
+│ PostgreSQL: UPDATE status = 'ONBOARD'                        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**KEY FINDING: Reservoirs are BYPASSED by Conductor**
+
+- ✅ **Spawners** use `RouteReservoir.push()` → calls `PassengerRepository` → Strapi
+- ❌ **Conductor** does NOT use `RouteReservoir.query()` or `DepotReservoir.query()`
+- ❌ **Conductor** calls `passenger_db` (which is `PassengerRepository`) DIRECTLY
+- **Result**: Reservoirs are only used for WRITE operations (spawning), not READ operations (querying)
+
+### Architecture Analysis
+
+**Is this good architecture? ⚠️ MIXED - Has Issues**
+
+**✅ What Works Well:**
+
+1. **Single Source of Truth**: Strapi database is authoritative (not split across in-memory + DB)
+2. **PassengerRepository Abstraction**: Clean interface to Strapi API
+3. **Direct Queries Are Fast**: Conductor gets real-time data without intermediaries
+4. **No State Synchronization**: Avoids complex sync between in-memory reservoir and DB
+
+**❌ What's Problematic:**
+
+1. **Reservoir Abstraction Is Incomplete**
+   - `RouteReservoir` and `DepotReservoir` exist but are only used for writes
+   - Conductor bypasses them entirely for reads
+   - Creates confusion: "Do I use reservoir or repository?"
+   - **Result**: Two parallel data access paths (spawners use reservoirs, conductor uses repository)
+
+2. **No Redis Caching Benefit**
+   - Reservoirs have Redis caching logic (`cache-aside pattern`)
+   - But conductor queries database directly, so cache is never populated
+   - **Result**: Redis caching code is dead code
+
+3. **Tight Coupling**
+   - Conductor is tightly coupled to `PassengerRepository` (Strapi-specific)
+   - Can't easily swap database (e.g., switch from Strapi to PostgreSQL direct)
+   - **Better**: Conductor should use `ReservoirInterface`, not `PassengerRepository`
+
+4. **Socket.IO Event System Unused**
+   - `commuter_service/services/socketio/service.py` exists
+   - Reservoirs don't emit events when passengers spawn
+   - Conductor doesn't listen for events
+   - **Result**: Socket.IO infrastructure is unused (polling-based instead of event-driven)
+
+### Recommended Architecture Changes
+
+**Option 1: Use Reservoirs Consistently (Event-Driven)**
+```python
+# Spawner → Reservoir → Repository → Strapi (CURRENT - WORKS)
+spawner.spawn() → reservoir.push() → repository.insert() → Strapi
+
+# Conductor → Reservoir → Repository → Strapi (FIX NEEDED)
+conductor.check() → reservoir.query() → repository.get() → Strapi
+                                     ↓
+                            (Try Redis cache first, fallback to Strapi)
+```
+
+**Benefits:**
+- ✅ Consistent abstraction layer (always use reservoir)
+- ✅ Redis caching actually works (populated on read)
+- ✅ Can add Socket.IO events (reservoir emits `passenger:spawned`)
+- ✅ Easier to test (mock reservoir, not repository)
+
+**Option 2: Remove Reservoirs, Use Repository Directly (Simpler)**
+```python
+# Spawner → Repository → Strapi
+spawner.spawn() → repository.insert() → Strapi
+
+# Conductor → Repository → Strapi
+conductor.check() → repository.get() → Strapi
+```
+
+**Benefits:**
+- ✅ Simpler - no extra abstraction layer
+- ✅ Fewer moving parts
+- ✅ Clear data flow
+- ❌ Lose potential for Redis caching
+- ❌ Lose potential for event-driven notifications
+
+**Option 3: Hybrid (Current State) - NOT RECOMMENDED**
+- Keep as-is with spawners using reservoirs, conductor using repository
+- ❌ Inconsistent architecture
+- ❌ Confusing for developers
+- ❌ Dead code (Redis caching, Socket.IO events)
+
+### What Needs to Be Confirmed
+
+**Testing Scenarios:**
+
+1. **End-to-End Passenger Flow**
+   ```
+   RouteSpawner → Reservoir → Repository → Strapi → Conductor Query → Boarding
+   ```
+   - ✅ Spawn passengers (works)
+   - ✅ Store in Strapi (works)
+   - ❓ Conductor discovers passengers (logic exists, needs integration test)
+   - ❓ Conductor boards passengers (logic exists, needs integration test)
+
+2. **Reservoir Usage Decision**
+   - **CONFIRMED**: Reservoirs only used for writes, not reads
+   - **DECISION NEEDED**: Option 1 (use reservoirs consistently) vs Option 2 (remove reservoirs)
+   - **Recommendation**: Option 1 if you want Redis caching + events, Option 2 if you want simplicity
+
+3. **Socket.IO Communication**
+   - **CONFIRMED**: Infrastructure exists but unused
+   - ❓ Should we enable event-driven notifications?
+   - ❓ Or is HTTP polling sufficient?
+   - **Recommendation**: Enable events for real-time UI updates (spawn notifications, boarding alerts)
+
+4. **Driver Stop/Start Control**
+   - ✅ Conductor sends `conductor:request:stop` via Socket.IO
+   - ✅ Driver listens for stop request
+   - ❓ Does this work in practice when conductor finds passengers?
+   - **Action**: Integration test with seeded passengers
+
+### Recommended Next Steps
+
+1. **Add Integration Tests**
+   - Seed passengers on route
+   - Start vehicle simulator
+   - Verify conductor queries passengers
+   - Verify conductor signals driver to stop
+   - Verify passengers marked as boarded
+
+2. **Clarify Reservoir Role**
+   - Determine if reservoirs are obsolete or actively used
+   - If obsolete: Remove reservoir code, document Strapi-direct pattern
+   - If active: Wire spawners to push to reservoirs, conductors to query reservoirs
+
+3. **Test Socket.IO Flow**
+   - Enable Socket.IO debug logging in conductor and commuter_service
+   - Verify event emission and reception
+   - Document actual communication pattern
+
+4. **Document Actual Architecture**
+   - Update diagrams to reflect real data flow
+   - Clarify: "Reservoir" may be conceptual (Strapi DB) not code-based
+
+---
+
 ## Data Models (Pydantic)
 
 **Vehicle** (from /devices and /stream):
