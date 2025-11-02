@@ -248,22 +248,27 @@ class DepotSpawner(SpawnerInterface):
         current_time: datetime,
         time_window_minutes: int
     ) -> int:
-        """Calculate how many passengers to spawn using Poisson distribution"""
+        """
+        Calculate how many passengers to spawn using Poisson distribution.
+        
+        Uses spawn calculator kernel for temporal multiplier extraction to maintain consistency.
+        DepotSpawner uses simpler spatial_base approach (not terminal population model).
+        """
         try:
+            from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+            
             dist_params = spawn_config.get('distribution_params', {})
             
-            # Base spawn rate from config
+            # Base spawn rate from config (depot-specific)
             spatial_base = dist_params.get('spatial_base', 2.0)
             
-            # Hourly rate based on time of day
-            hourly_rates = dist_params.get('hourly_rates', {})
-            hour_str = str(current_time.hour)
-            hourly_rate = float(hourly_rates.get(hour_str, 0.5))
-            
-            # Day multiplier (Monday=0, Sunday=6)
-            day_multipliers = dist_params.get('day_multipliers', {})
-            day_str = str(current_time.weekday())
-            day_mult = float(day_multipliers.get(day_str, 1.0))
+            # Extract temporal multipliers using kernel helper for consistency
+            # Note: extract_temporal_multipliers returns (base_rate, hourly_mult, day_mult)
+            # We only need hourly and day multipliers (ignore base_rate for depot spawning)
+            _, hourly_rate, day_mult = SpawnCalculator.extract_temporal_multipliers(
+                spawn_config=spawn_config,
+                current_time=current_time
+            )
             
             # Calculate lambda (expected value) for Poisson
             # lambda = spatial_base × hourly_rate × day_multiplier × (time_window / 60 min)
@@ -274,8 +279,9 @@ class DepotSpawner(SpawnerInterface):
             spawn_count = np.random.poisson(lambda_param) if lambda_param > 0 else 0
             
             self.logger.info(
-                f"Depot spawn calculation: spatial={spatial_base} × hourly={hourly_rate} × day={day_mult} "
-                f"= lambda={lambda_param:.2f} → count={spawn_count}"
+                f"Depot spawn [depot={self.depot_id}]: "
+                f"spatial_base={spatial_base}, hourly={hourly_rate:.2f}, day={day_mult:.2f}, "
+                f"lambda={lambda_param:.2f}, spawn_count={spawn_count}"
             )
             
             return spawn_count
