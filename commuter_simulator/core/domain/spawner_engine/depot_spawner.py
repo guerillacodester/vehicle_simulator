@@ -290,12 +290,117 @@ class DepotSpawner(SpawnerInterface):
             self.logger.error(f"Error calculating spawn count: {e}")
             return 0
     
+    async def _calculate_route_attractiveness(
+        self,
+        spawn_config: Dict[str, Any]
+    ) -> Dict[str, float]:
+        """
+        Calculate attractiveness-weighted distribution of passengers across routes.
+        
+        Uses the same zero-sum attractiveness model as RouteSpawner:
+        route_attractiveness = buildings_along_route / total_buildings_all_routes
+        
+        Returns:
+            Dict mapping route_id -> attractiveness (0.0 - 1.0, sum = 1.0)
+        """
+        if not self.available_routes:
+            return {}
+        
+        try:
+            # Query depot info to get associated routes
+            depot_info = await self._get_depot_info(spawn_config)
+            if not depot_info:
+                # Fallback: equal distribution
+                equal_weight = 1.0 / len(self.available_routes)
+                return {route: equal_weight for route in self.available_routes}
+            
+            # Query building count for each route
+            route_buildings = {}
+            total_buildings = 0
+            
+            for route_id in self.available_routes:
+                # Get route's spawn config to query its building count
+                buildings = await self._get_route_buildings(route_id, spawn_config)
+                route_buildings[route_id] = buildings
+                total_buildings += buildings
+            
+            if total_buildings == 0:
+                # Fallback: equal distribution
+                equal_weight = 1.0 / len(self.available_routes)
+                return {route: equal_weight for route in self.available_routes}
+            
+            # Calculate attractiveness for each route
+            attractiveness = {}
+            for route_id, buildings in route_buildings.items():
+                attractiveness[route_id] = buildings / total_buildings
+            
+            self.logger.info(
+                f"Depot {self.depot_id} route attractiveness: {attractiveness}"
+            )
+            
+            return attractiveness
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating route attractiveness: {e}", exc_info=True)
+            # Fallback: equal distribution
+            equal_weight = 1.0 / len(self.available_routes)
+            return {route: equal_weight for route in self.available_routes}
+    
+    async def _get_depot_info(self, spawn_config: Dict[str, Any]) -> Optional[Dict]:
+        """Get depot information from spawn config or API"""
+        # Try to get from spawn config first
+        depot_info = spawn_config.get('depot')
+        if depot_info:
+            return depot_info
+        
+        # Query from API if depot_document_id available
+        if self.depot_document_id and self.config_loader:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    url = f"{self.strapi_url}/api/depots/{self.depot_document_id}?populate=*"
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    data = response.json()
+                    return data.get('data')
+            except Exception as e:
+                self.logger.warning(f"Could not fetch depot info: {e}")
+        
+        return None
+    
+    async def _get_route_buildings(self, route_id: str, spawn_config: Dict[str, Any]) -> int:
+        """Get building count for a specific route"""
+        try:
+            if not self.config_loader:
+                return 0
+            
+            # Query route's spawn config
+            route_config = await self.config_loader.load_spawn_config(route_id)
+            if not route_config:
+                return 0
+            
+            # Get building count from route spawn config
+            # This should come from the geospatial query for that route
+            buildings = route_config.get('building_count', 0)
+            
+            self.logger.debug(f"Route {route_id} has {buildings} buildings")
+            return buildings
+            
+        except Exception as e:
+            self.logger.error(f"Error getting buildings for route {route_id}: {e}")
+            return 0
+    
     async def _generate_spawn_requests(
         self,
         spawn_count: int,
         current_time: datetime
     ) -> List[SpawnRequest]:
-        """Generate individual spawn requests at depot location"""
+        """
+        Generate individual spawn requests at depot location.
+        
+        Uses attractiveness-weighted distribution to assign passengers to routes
+        based on building density along each route (zero-sum model).
+        """
         # If no routes available, cannot spawn passengers
         if not self.available_routes:
             self.logger.warning(
@@ -303,46 +408,54 @@ class DepotSpawner(SpawnerInterface):
             )
             return []
         
+        # Calculate route attractiveness distribution
+        spawn_config = await self._load_spawn_config()
+        attractiveness = await self._calculate_route_attractiveness(spawn_config)
+        
+        # Distribute passengers across routes based on attractiveness
+        route_assignments = self._weighted_route_assignment(spawn_count, attractiveness)
+        
         spawn_requests = []
         
-        for i in range(spawn_count):
-            try:
-                # All passengers spawn at depot location
-                spawn_lat, spawn_lon = self.depot_location
-                
-                # Randomly assign destination route from associated routes
-                destination_route = random.choice(self.available_routes)
-                
-                # Generate unique passenger ID
-                passenger_id = f"DEPOT_{self.depot_id}_{uuid.uuid4().hex[:8].upper()}"
-                
-                # Destination is unknown until route is assigned by conductor
-                # For now, use depot location as placeholder
-                dest_lat, dest_lon = self.depot_location
-                
-                # Create spawn request
-                spawn_req = SpawnRequest(
-                    passenger_id=passenger_id,
-                    spawn_location=(spawn_lat, spawn_lon),
-                    destination_location=(dest_lat, dest_lon),  # Updated by conductor
-                    route_id=destination_route,
-                    spawn_time=current_time,
-                    spawn_context="DEPOT",
-                    priority=1.0,
-                    generation_method="poisson_depot"
-                )
-                
-                spawn_requests.append(spawn_req)
-                
-                # Log individual spawn event
-                self.logger.info(
-                    f"🚶 Passenger {passenger_id} spawned at {current_time.strftime('%H:%M:%S')} | "
-                    f"Type: DEPOT ({self.depot_id}) | Location: ({spawn_lat:.4f}, {spawn_lon:.4f}) | "
-                    f"Route: {destination_route}"
-                )
-                
-            except Exception as e:
-                self.logger.debug(f"Error generating depot spawn request {i}: {e}")
-                continue
+        for route_id, passenger_count in route_assignments.items():
+            for i in range(passenger_count):
+                try:
+                    # All passengers spawn at depot location
+                    spawn_lat, spawn_lon = self.depot_location
+                    
+                    # Assign to route based on attractiveness weighting
+                    destination_route = route_id
+                    
+                    # Generate unique passenger ID
+                    passenger_id = f"DEPOT_{self.depot_id}_{uuid.uuid4().hex[:8].upper()}"
+                    
+                    # Destination is unknown until route is assigned by conductor
+                    # For now, use depot location as placeholder
+                    dest_lat, dest_lon = self.depot_location
+                    
+                    # Create spawn request
+                    spawn_req = SpawnRequest(
+                        passenger_id=passenger_id,
+                        spawn_location=(spawn_lat, spawn_lon),
+                        destination_location=(dest_lat, dest_lon),  # Updated by conductor
+                        route_id=destination_route,
+                        spawn_time=current_time,
+                        spawn_context="DEPOT",
+                        priority=1.0,
+                        generation_method="poisson_depot"
+                    )
+                    
+                    spawn_requests.append(spawn_req)
+                    
+                    # Log individual spawn event
+                    self.logger.info(
+                        f"🚶 Passenger {passenger_id} spawned at {current_time.strftime('%H:%M:%S')} | "
+                        f"Type: DEPOT ({self.depot_id}) | Location: ({spawn_lat:.4f}, {spawn_lon:.4f}) | "
+                        f"Route: {destination_route}"
+                    )
+                    
+                except Exception as e:
+                    self.logger.debug(f"Error generating depot spawn request {i}: {e}")
+                    continue
         
         return spawn_requests

@@ -56,12 +56,14 @@ class SpawnCalculator:
         base_rate = float(dist_params.get('passengers_per_building_per_hour', 0.3))
         
         # Extract hourly rate multiplier (0-23)
-        hourly_rates = spawn_config.get('hourly_rates', {})
+        # Try both locations: distribution_params (depot) and top-level (route)
+        hourly_rates = dist_params.get('hourly_rates') or spawn_config.get('hourly_rates', {})
         hour_str = str(current_time.hour)
         hourly_mult = float(hourly_rates.get(hour_str, 1.0))
         
         # Extract day multiplier (0=Monday, 6=Sunday)
-        day_multipliers = spawn_config.get('day_multipliers', {})
+        # Try both locations: distribution_params (depot) and top-level (route)
+        day_multipliers = dist_params.get('day_multipliers') or spawn_config.get('day_multipliers', {})
         day_str = str(current_time.weekday())
         day_mult = float(day_multipliers.get(day_str, 1.0))
         

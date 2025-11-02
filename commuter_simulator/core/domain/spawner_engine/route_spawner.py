@@ -278,10 +278,15 @@ class RouteSpawner(SpawnerInterface):
             self.logger.error(f"Error querying depot catchment: {e}")
             return 0
     
+    # DEPRECATED: No longer needed with independent additive spawning model
+    # Each route spawns independently, not competitively
     async def _get_total_buildings_all_routes(self, spawn_config: Dict[str, Any]) -> int:
         """
+        [DEPRECATED - ZERO-SUM MODEL]
         Get total count of buildings across all routes at this depot.
-        This is needed for calculating route attractiveness (zero-sum distribution).
+        This was needed for calculating route attractiveness (zero-sum distribution).
+        
+        Now unused: Routes spawn independently, not competitively.
         """
         if self._total_buildings_all_routes_cache is not None:
             return self._total_buildings_all_routes_cache
@@ -380,61 +385,67 @@ class RouteSpawner(SpawnerInterface):
         time_window_minutes: int
     ) -> int:
         """
-        Calculate spawn count using hybrid model (terminal population × route attractiveness).
+        Calculate spawn count for THIS ROUTE ONLY (independent additive model).
         
-        Uses centralized spawn calculation kernel for consistency.
-        Queries depot catchment and aggregates buildings across all routes to enable
-        zero-sum route attractiveness calculation.
+        Each route spawns passengers independently:
+        - Depot passengers: based on depot catchment buildings × route params
+        - Route passengers: based on route buildings × route params
+        - Total: depot + route (additive, not zero-sum)
         
-        Fallback: If depot data unavailable, uses route buildings only (attractiveness=1.0).
+        This ensures routes don't compete - each route generates its own demand.
         """
         try:
             from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
 
-            # Try to get depot catchment and total buildings across all routes
+            # Get depot catchment for this route
             depot_catchment = await self._get_depot_catchment_buildings(spawn_config)
-            total_buildings = await self._get_total_buildings_all_routes(spawn_config)
             
-            # Fallback: if depot data unavailable, use route-only mode
-            if depot_catchment == 0 or total_buildings == 0:
-                self.logger.info(
-                    "Depot data unavailable, using route-only mode (attractiveness=1.0)"
-                )
-                buildings_near_depot = building_count
-                buildings_along_route = building_count
-                total_buildings_all_routes = building_count
-            else:
-                buildings_near_depot = depot_catchment
-                buildings_along_route = building_count
-                total_buildings_all_routes = total_buildings
-
-            result = SpawnCalculator.calculate_hybrid_spawn(
-                buildings_near_depot=buildings_near_depot,
-                buildings_along_route=buildings_along_route,
-                total_buildings_all_routes=total_buildings_all_routes,
+            # Extract temporal multipliers (same for depot and route)
+            base_rate, hourly_mult, day_mult = SpawnCalculator.extract_temporal_multipliers(
                 spawn_config=spawn_config,
-                current_time=current_time,
-                time_window_minutes=time_window_minutes,
-                seed=None
+                current_time=current_time
             )
-
-            # Log kernel breakdown for observability
+            
+            effective_rate = SpawnCalculator.calculate_effective_rate(
+                base_rate=base_rate,
+                hourly_multiplier=hourly_mult,
+                day_multiplier=day_mult
+            )
+            
+            # Calculate depot passengers (independent for this route)
+            depot_passengers_per_hour = 0
+            if depot_catchment > 0:
+                depot_passengers_per_hour = depot_catchment * effective_rate
+            
+            # Calculate route passengers (independent for this route)
+            route_passengers_per_hour = building_count * effective_rate
+            
+            # Total passengers per hour for this route
+            total_passengers_per_hour = depot_passengers_per_hour + route_passengers_per_hour
+            
+            # Convert to lambda for time window
+            lambda_param = total_passengers_per_hour * (time_window_minutes / 60.0)
+            
+            # Generate Poisson-distributed count
+            import numpy as np
+            spawn_count = np.random.poisson(lambda_param) if lambda_param > 0 else 0
+            
+            # Log breakdown for observability
             self.logger.info(
-                f"Spawn kernel [route={self.route_id}]: "
-                f"depot_buildings={buildings_near_depot}, route_buildings={buildings_along_route}, "
-                f"total_all_routes={total_buildings_all_routes} | "
-                f"base={result.get('base_rate')}, hourly={result.get('hourly_mult'):.2f}, "
-                f"day={result.get('day_mult'):.2f}, effective_rate={result.get('effective_rate'):.4f}, "
-                f"terminal_pop={result.get('terminal_population'):.2f} pass/hr, "
-                f"attractiveness={result.get('route_attractiveness'):.3f}, "
-                f"passengers/hr={result.get('passengers_per_hour'):.2f}, "
-                f"lambda={result.get('lambda_param'):.2f}, spawn_count={result.get('spawn_count')}"
+                f"Spawn (INDEPENDENT) [route={self.route_id}]: "
+                f"depot_buildings={depot_catchment}, route_buildings={building_count} | "
+                f"base={base_rate:.4f}, hourly={hourly_mult:.2f}, day={day_mult:.2f}, "
+                f"effective_rate={effective_rate:.4f} | "
+                f"depot_pass/hr={depot_passengers_per_hour:.2f}, "
+                f"route_pass/hr={route_passengers_per_hour:.2f}, "
+                f"total_pass/hr={total_passengers_per_hour:.2f} | "
+                f"lambda={lambda_param:.2f}, spawn_count={spawn_count}"
             )
 
-            return int(result.get('spawn_count', 0))
+            return int(spawn_count)
 
         except Exception as e:
-            self.logger.error(f"Error calculating spawn count with kernel: {e}", exc_info=True)
+            self.logger.error(f"Error calculating spawn count: {e}", exc_info=True)
             return 0
     
     async def _generate_spawn_requests(
