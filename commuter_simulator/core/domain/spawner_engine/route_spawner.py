@@ -61,6 +61,8 @@ class RouteSpawner(SpawnerInterface):
         self._route_geometry_cache = None
         self._spawn_config_cache = None
         self._buildings_cache = None
+        self._depot_catchment_cache = None
+        self._total_buildings_all_routes_cache = None
     
     async def spawn(self, current_time: datetime, time_window_minutes: int = 60) -> List[SpawnRequest]:
         """
@@ -204,6 +206,172 @@ class RouteSpawner(SpawnerInterface):
             self.logger.error(f"Error querying buildings: {e}")
             return []
     
+    async def _get_depot_info(self, spawn_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Get depot information from spawn config."""
+        try:
+            import httpx
+            
+            # First, get the spawn-config entry with depot relationship populated
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.config_loader.api_base_url}/spawn-configs?"
+                    f"populate=depot&filters[route][documentId][$eq]={self.route_id}"
+                )
+                data = response.json()
+            
+            if data.get('data') and len(data['data']) > 0:
+                depot = data['data'][0].get('depot')
+                return depot
+            
+            return None
+        except Exception as e:
+            self.logger.error(f"Error fetching depot info: {e}")
+            return None
+    
+    async def _get_depot_catchment_buildings(self, spawn_config: Dict[str, Any]) -> int:
+        """
+        Get count of buildings in depot catchment area.
+        This represents the terminal population available for all routes.
+        """
+        if self._depot_catchment_cache is not None:
+            return self._depot_catchment_cache
+        
+        try:
+            depot = await self._get_depot_info(spawn_config)
+            if not depot:
+                self.logger.warning("No depot found for route, using route buildings as fallback")
+                return 0  # Will trigger fallback behavior
+            
+            # Get depot location
+            depot_lat = depot.get('latitude')
+            depot_lon = depot.get('longitude')
+            
+            if depot_lat is None or depot_lon is None:
+                self.logger.warning(f"Depot missing coordinates: {depot}")
+                return 0
+            
+            # Get catchment radius from config (default 800m to match route buffer)
+            dist_params = spawn_config.get('distribution_params', {})
+            if isinstance(dist_params, list) and len(dist_params) > 0:
+                dist_params = dist_params[0]
+            catchment_radius = dist_params.get('depot_catchment_radius_meters', 800)
+            
+            # Query depot catchment
+            result = self.geo_client.depot_catchment_area(
+                depot_latitude=depot_lat,
+                depot_longitude=depot_lon,
+                catchment_radius_meters=catchment_radius
+            )
+            
+            buildings = result.get('buildings', [])
+            building_count = len(buildings)
+            self._depot_catchment_cache = building_count
+            
+            self.logger.info(
+                f"Depot catchment: {building_count} buildings within {catchment_radius}m "
+                f"of depot at ({depot_lat:.4f}, {depot_lon:.4f})"
+            )
+            
+            return building_count
+            
+        except Exception as e:
+            self.logger.error(f"Error querying depot catchment: {e}")
+            return 0
+    
+    async def _get_total_buildings_all_routes(self, spawn_config: Dict[str, Any]) -> int:
+        """
+        Get total count of buildings across all routes at this depot.
+        This is needed for calculating route attractiveness (zero-sum distribution).
+        """
+        if self._total_buildings_all_routes_cache is not None:
+            return self._total_buildings_all_routes_cache
+        
+        try:
+            depot = await self._get_depot_info(spawn_config)
+            if not depot:
+                self.logger.warning("No depot found, using single route as fallback")
+                return 0  # Will trigger fallback behavior
+            
+            depot_doc_id = depot.get('documentId')
+            if not depot_doc_id:
+                self.logger.warning("Depot missing documentId")
+                return 0
+            
+            import httpx
+            
+            # Query route-depots junction to get all routes at this depot
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.config_loader.api_base_url}/route-depots",
+                    params={
+                        'filters[depot][documentId][$eq]': depot_doc_id,
+                        'populate': 'route'
+                    }
+                )
+                data = response.json()
+            
+            route_depots = data.get('data', [])
+            
+            if not route_depots:
+                self.logger.warning(f"No routes found for depot {depot_doc_id}")
+                return 0
+            
+            # Get building count for each route
+            total_buildings = 0
+            route_count = 0
+            
+            for assoc in route_depots:
+                route = assoc.get('route')
+                if not route:
+                    continue
+                
+                route_doc_id = route.get('documentId')
+                if not route_doc_id:
+                    continue
+                
+                route_count += 1
+                
+                # Get route geometry
+                try:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        response = await client.get(
+                            f"{self.geo_client.base_url}/spatial/route-geometry/{route_doc_id}"
+                        )
+                        route_geometry = response.json()
+                    
+                    # Get buildings along this route
+                    route_coords = route_geometry.get('coordinates', [])
+                    if route_coords:
+                        # Get spawn radius from config
+                        dist_params = spawn_config.get('distribution_params', {})
+                        if isinstance(dist_params, list) and len(dist_params) > 0:
+                            dist_params = dist_params[0]
+                        spawn_radius = dist_params.get('spawn_radius_meters', 500)
+                        
+                        result = self.geo_client.buildings_along_route(
+                            route_coordinates=route_coords,
+                            buffer_meters=spawn_radius,
+                            limit=5000
+                        )
+                        buildings = result.get('buildings', [])
+                        total_buildings += len(buildings)
+                
+                except Exception as e:
+                    self.logger.warning(f"Error getting buildings for route {route_doc_id}: {e}")
+                    continue
+            
+            self._total_buildings_all_routes_cache = total_buildings
+            
+            self.logger.info(
+                f"Total buildings across {route_count} routes at depot: {total_buildings}"
+            )
+            
+            return total_buildings
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating total buildings for all routes: {e}")
+            return 0
+    
     async def _calculate_spawn_count(
         self,
         spawn_config: Dict[str, Any],
@@ -212,58 +380,61 @@ class RouteSpawner(SpawnerInterface):
         time_window_minutes: int
     ) -> int:
         """
-        Calculate Poisson lambda from ACTUAL GeoJSON data weighted by spawn config.
-        Each route has unique spawn characteristics based on:
-        - Real building counts along route
-        - Building types (residential vs commercial weights)
-        - POI density and types  
-        - Land use patterns
+        Calculate spawn count using hybrid model (terminal population × route attractiveness).
+        
+        Uses centralized spawn calculation kernel for consistency.
+        Queries depot catchment and aggregates buildings across all routes to enable
+        zero-sum route attractiveness calculation.
+        
+        Fallback: If depot data unavailable, uses route buildings only (attractiveness=1.0).
         """
         try:
-            dist_params = spawn_config.get('distribution_params', {})
-            if isinstance(dist_params, list) and len(dist_params) > 0:
-                dist_params = dist_params[0]
+            from commuter_simulator.core.domain.spawner_engine.spawn_calculator import SpawnCalculator
+
+            # Try to get depot catchment and total buildings across all routes
+            depot_catchment = await self._get_depot_catchment_buildings(spawn_config)
+            total_buildings = await self._get_total_buildings_all_routes(spawn_config)
             
-            # Get passengers per building per hour from config
-            passengers_per_building = dist_params.get('passengers_per_building_per_hour', 0.3)
-            
-            # Calculate spatial factor from actual building count
-            # This uses REAL GeoJSON data queried from PostGIS
-            spatial_factor = building_count * passengers_per_building
-            
-            # TODO: Add POI and landuse factors using weights from spawn_config
-            # poi_weights = spawn_config.get('poi_weights', {})
-            # landuse_weights = spawn_config.get('landuse_weights', {})
-            # building_weights = spawn_config.get('building_weights', {})
-            
-            # Hourly rate from config (peak hours = higher rate)
-            hourly_rates = spawn_config.get('hourly_rates', {})
-            hour_str = str(current_time.hour)
-            hourly_rate = float(hourly_rates.get(hour_str, 0.5))
-            
-            # Day multiplier from config (weekday vs weekend)
-            day_multipliers = spawn_config.get('day_multipliers', {})
-            day_str = str(current_time.weekday())
-            day_mult = float(day_multipliers.get(day_str, 1.0))
-            
-            # Calculate lambda: spatial × hourly × day × time_window
-            # This gives expected passenger count for this specific time window
-            lambda_param = spatial_factor * hourly_rate * day_mult * (time_window_minutes / 60.0)
-            
-            # Generate Poisson-distributed count
-            import numpy as np
-            spawn_count = np.random.poisson(lambda_param) if lambda_param > 0 else 0
-            
-            self.logger.info(
-                f"Spawn calculation: buildings={building_count} × pass/bldg={passengers_per_building} × "
-                f"hourly={hourly_rate} × day={day_mult} × window={time_window_minutes/60:.2f}h "
-                f"= lambda={lambda_param:.2f} → count={spawn_count}"
+            # Fallback: if depot data unavailable, use route-only mode
+            if depot_catchment == 0 or total_buildings == 0:
+                self.logger.info(
+                    "Depot data unavailable, using route-only mode (attractiveness=1.0)"
+                )
+                buildings_near_depot = building_count
+                buildings_along_route = building_count
+                total_buildings_all_routes = building_count
+            else:
+                buildings_near_depot = depot_catchment
+                buildings_along_route = building_count
+                total_buildings_all_routes = total_buildings
+
+            result = SpawnCalculator.calculate_hybrid_spawn(
+                buildings_near_depot=buildings_near_depot,
+                buildings_along_route=buildings_along_route,
+                total_buildings_all_routes=total_buildings_all_routes,
+                spawn_config=spawn_config,
+                current_time=current_time,
+                time_window_minutes=time_window_minutes,
+                seed=None
             )
-            
-            return spawn_count
-            
+
+            # Log kernel breakdown for observability
+            self.logger.info(
+                f"Spawn kernel [route={self.route_id}]: "
+                f"depot_buildings={buildings_near_depot}, route_buildings={buildings_along_route}, "
+                f"total_all_routes={total_buildings_all_routes} | "
+                f"base={result.get('base_rate')}, hourly={result.get('hourly_mult'):.2f}, "
+                f"day={result.get('day_mult'):.2f}, effective_rate={result.get('effective_rate'):.4f}, "
+                f"terminal_pop={result.get('terminal_population'):.2f} pass/hr, "
+                f"attractiveness={result.get('route_attractiveness'):.3f}, "
+                f"passengers/hr={result.get('passengers_per_hour'):.2f}, "
+                f"lambda={result.get('lambda_param'):.2f}, spawn_count={result.get('spawn_count')}"
+            )
+
+            return int(result.get('spawn_count', 0))
+
         except Exception as e:
-            self.logger.error(f"Error calculating spawn count: {e}")
+            self.logger.error(f"Error calculating spawn count with kernel: {e}", exc_info=True)
             return 0
     
     async def _generate_spawn_requests(
