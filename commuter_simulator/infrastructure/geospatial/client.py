@@ -69,6 +69,23 @@ class GeospatialClient:
             logger.error(f"❌ Cannot connect to Geospatial API at {self.base_url}: {e}")
             raise ConnectionError(f"Geospatial API unavailable at {self.base_url}")
     
+    async def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
+        """
+        Generic async GET request to geospatial API.
+        
+        Args:
+            endpoint: API endpoint path (e.g., "/spatial/minimum-commute-distance")
+            params: Optional query parameters
+        
+        Returns:
+            JSON response as dict
+        """
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}{endpoint}"
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+    
     def reverse_geocode(
         self,
         latitude: float,

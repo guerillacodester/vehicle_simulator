@@ -11,12 +11,16 @@ Usage:
 
 Endpoints:
     GET /api/manifest - Query passenger manifest with filters
+    GET /api/manifest/visualization/barchart - Get barchart data
+    GET /api/manifest/visualization/table - Get table data with geocoding
+    GET /api/manifest/stats - Get summary statistics
+    DELETE /api/manifest - Delete passengers by filters
     GET /health - Health check
 """
 from __future__ import annotations
 
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from fastapi import FastAPI, Query, HTTPException
@@ -35,6 +39,7 @@ from commuter_simulator.application.queries.manifest_visualization import (
     enrich_passengers_with_geocoding,
     calculate_route_metrics
 )
+from commuter_simulator.infrastructure.config import get_config
 
 try:
     from common.config_provider import get_config
@@ -97,6 +102,24 @@ class TableResponse(BaseModel):
     metrics: RouteMetricsResponse = Field(..., description="Summary metrics")
     date: str = Field(..., description="Target date (YYYY-MM-DD)")
     route_name: Optional[str] = Field(None, description="Route name if filtered")
+
+
+class DeleteResponse(BaseModel):
+    """Response model for delete operation"""
+    deleted_count: int = Field(..., description="Number of passengers deleted")
+    filters_applied: Dict[str, Any] = Field(..., description="Filters used for deletion")
+    message: str = Field(..., description="Success message")
+
+
+# Load config on startup
+try:
+    config = get_config()
+    STRAPI_URL = config.infrastructure.strapi_url
+    GEOSPATIAL_URL = config.infrastructure.geospatial_url
+except Exception:
+    # Fallback for development
+    STRAPI_URL = os.getenv("STRAPI_URL", "http://localhost:1337")
+    GEOSPATIAL_URL = os.getenv("GEOSPATIAL_URL", "http://localhost:6000")
 
 
 @app.get("/health")
@@ -214,12 +237,10 @@ async def get_barchart_visualization(
     if start_hour > end_hour:
         raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
     
-    strapi_url = os.getenv("STRAPI_URL", "http://localhost:1337")
-    
     try:
         # Fetch passengers
         passengers = await fetch_passengers_from_strapi(
-            strapi_url=strapi_url,
+            strapi_url=STRAPI_URL,
             route_id=route,
             target_date=target_date,
             start_hour=start_hour,
@@ -233,7 +254,7 @@ async def get_barchart_visualization(
         route_name = None
         if route:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{strapi_url}/api/routes")
+                response = await client.get(f"{STRAPI_URL}/api/routes")
                 routes = response.json().get('data', [])
                 for r in routes:
                     if r.get('documentId') == route:
@@ -273,13 +294,10 @@ async def get_table_visualization(
     if start_hour > end_hour:
         raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
     
-    strapi_url = os.getenv("STRAPI_URL", "http://localhost:1337")
-    geospatial_url = os.getenv("GEOSPATIAL_URL", "http://localhost:6000")
-    
     try:
         # Fetch passengers
         passengers = await fetch_passengers_from_strapi(
-            strapi_url=strapi_url,
+            strapi_url=STRAPI_URL,
             route_id=route,
             target_date=target_date,
             start_hour=start_hour,
@@ -290,7 +308,7 @@ async def get_table_visualization(
             raise HTTPException(status_code=404, detail="No passengers found for the specified criteria")
         
         # Enrich with geocoding
-        enriched_passengers = await enrich_passengers_with_geocoding(passengers, geospatial_url)
+        enriched_passengers = await enrich_passengers_with_geocoding(passengers, GEOSPATIAL_URL)
         
         # Calculate metrics
         metrics = calculate_route_metrics(enriched_passengers)
@@ -299,7 +317,7 @@ async def get_table_visualization(
         route_name = None
         if route:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{strapi_url}/api/routes")
+                response = await client.get(f"{STRAPI_URL}/api/routes")
                 routes = response.json().get('data', [])
                 for r in routes:
                     if r.get('documentId') == route:
@@ -372,13 +390,10 @@ async def get_manifest_stats(
     if start_hour > end_hour:
         raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
     
-    strapi_url = os.getenv("STRAPI_URL", "http://localhost:1337")
-    geospatial_url = os.getenv("GEOSPATIAL_URL", "http://localhost:6000")
-    
     try:
         # Fetch passengers
         passengers = await fetch_passengers_from_strapi(
-            strapi_url=strapi_url,
+            strapi_url=STRAPI_URL,
             route_id=route,
             target_date=target_date,
             start_hour=start_hour,
@@ -389,7 +404,7 @@ async def get_manifest_stats(
             raise HTTPException(status_code=404, detail="No passengers found for the specified criteria")
         
         # Enrich with geocoding
-        enriched_passengers = await enrich_passengers_with_geocoding(passengers, geospatial_url)
+        enriched_passengers = await enrich_passengers_with_geocoding(passengers, GEOSPATIAL_URL)
         
         # Calculate metrics
         metrics = calculate_route_metrics(enriched_passengers)
@@ -398,7 +413,7 @@ async def get_manifest_stats(
         route_name = None
         if route:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{strapi_url}/api/routes")
+                response = await client.get(f"{STRAPI_URL}/api/routes")
                 routes = response.json().get('data', [])
                 for r in routes:
                     if r.get('documentId') == route:
@@ -417,6 +432,162 @@ async def get_manifest_stats(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to calculate stats: {str(e)}"
+        )
+
+
+@app.delete("/api/manifest", response_model=DeleteResponse)
+async def delete_passengers(
+    date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    day: Optional[str] = Query(None, description="Filter by day of week (monday-sunday)"),
+    route: Optional[str] = Query(None, description="Filter by route document ID"),
+    depot: Optional[str] = Query(None, description="Filter by depot document ID"),
+    status: Optional[str] = Query(None, description="Filter by status (WAITING, BOARDED, etc.)"),
+    start_hour: Optional[int] = Query(None, ge=0, le=23, description="Filter by start hour (0-23)"),
+    end_hour: Optional[int] = Query(None, ge=0, le=23, description="Filter by end hour (0-23)"),
+    start_time: Optional[str] = Query(None, description="Filter spawned_at >= ISO8601 timestamp"),
+    end_time: Optional[str] = Query(None, description="Filter spawned_at <= ISO8601 timestamp"),
+    confirm: bool = Query(False, description="Must be true to actually delete (safety check)")
+):
+    """
+    Delete passengers matching the specified filters.
+    
+    Safety features:
+    - Requires confirm=true to actually delete
+    - Returns count of passengers that would be/were deleted
+    - Supports flexible filtering by date, time, route, depot, status
+    
+    Examples:
+    - Delete all passengers for Monday Route 1:
+      DELETE /api/manifest?day=monday&route=gg3pv3z19hhm117v9xth5ezq&confirm=true
+    
+    - Delete passengers from specific hour:
+      DELETE /api/manifest?date=2024-11-04&start_hour=17&end_hour=17&confirm=true
+    
+    - Delete all waiting passengers:
+      DELETE /api/manifest?status=WAITING&confirm=true
+    """
+    if not confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Must set confirm=true to delete passengers. This is a safety check."
+        )
+    
+    # Parse date if provided
+    target_date = None
+    if date:
+        try:
+            target_date = datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    # Parse day if provided (convert to date)
+    if day:
+        day_map = {
+            'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+            'friday': 4, 'saturday': 5, 'sunday': 6
+        }
+        if day.lower() not in day_map:
+            raise HTTPException(status_code=400, detail="Invalid day. Use monday-sunday")
+        
+        from datetime import timedelta
+        base_date = datetime(2024, 11, 4)  # Monday, Nov 4, 2024
+        day_offset = day_map[day.lower()]
+        target_date = base_date + timedelta(days=day_offset)
+    
+    # Validate hour range
+    if start_hour is not None and end_hour is not None:
+        if start_hour > end_hour:
+            raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
+    
+    try:
+        # Fetch passengers matching filters (don't geocode, just get raw data)
+        passengers = await fetch_passengers_from_strapi(
+            strapi_url=STRAPI_URL,
+            route_id=route,
+            target_date=target_date,
+            start_hour=start_hour or 0,
+            end_hour=end_hour or 23
+        )
+        
+        # Further filter by depot and status if provided
+        filtered_passengers = []
+        for p in passengers:
+            # Filter by depot
+            if depot and p.get('depot_id') != depot:
+                continue
+            
+            # Filter by status
+            if status and p.get('status') != status:
+                continue
+            
+            # Filter by start_time/end_time if provided
+            if start_time or end_time:
+                spawn_time_str = p.get('spawned_at')
+                if spawn_time_str:
+                    spawn_time = datetime.fromisoformat(spawn_time_str.replace('Z', '+00:00'))
+                    
+                    if start_time:
+                        start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                        if spawn_time < start_dt:
+                            continue
+                    
+                    if end_time:
+                        end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                        if spawn_time > end_dt:
+                            continue
+            
+            filtered_passengers.append(p)
+        
+        if not filtered_passengers:
+            return DeleteResponse(
+                deleted_count=0,
+                filters_applied={
+                    "date": date,
+                    "day": day,
+                    "route": route,
+                    "depot": depot,
+                    "status": status,
+                    "start_hour": start_hour,
+                    "end_hour": end_hour,
+                    "start_time": start_time,
+                    "end_time": end_time
+                },
+                message="No passengers found matching the specified filters"
+            )
+        
+        # Delete passengers via Strapi API
+        deleted_count = 0
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for p in filtered_passengers:
+                passenger_id = p.get('id')
+                if passenger_id:
+                    delete_url = f"{STRAPI_URL}/api/active-passengers/{passenger_id}"
+                    response = await client.delete(delete_url)
+                    if response.status_code in [200, 204]:
+                        deleted_count += 1
+        
+        return DeleteResponse(
+            deleted_count=deleted_count,
+            filters_applied={
+                "date": date,
+                "day": day,
+                "route": route,
+                "depot": depot,
+                "status": status,
+                "start_hour": start_hour,
+                "end_hour": end_hour,
+                "start_time": start_time,
+                "end_time": end_time
+            },
+            message=f"Successfully deleted {deleted_count} passenger(s)"
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete passengers: {str(e)}"
         )
 
 

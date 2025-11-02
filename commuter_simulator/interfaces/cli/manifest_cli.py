@@ -28,17 +28,18 @@ from commuter_simulator.application.queries.manifest_visualization import (
     calculate_route_metrics,
     format_table_ascii
 )
+from commuter_simulator.infrastructure.config import get_config
 
+
+# Load configuration
 try:
-    from common.config_provider import get_config
-    _config_available = True
-except ImportError:
-    _config_available = False
-
-
-# Service URLs (can be overridden from config)
-STRAPI_URL = "http://localhost:1337"
-GEOSPATIAL_URL = "http://localhost:6000"
+    config = get_config()
+    STRAPI_URL = config.infrastructure.strapi_url
+    GEOSPATIAL_URL = config.infrastructure.geospatial_url
+except Exception as e:
+    print(f"⚠️  Warning: Could not load config.ini, using defaults: {e}")
+    STRAPI_URL = "http://localhost:1337"
+    GEOSPATIAL_URL = "http://localhost:6000"
 
 
 async def get_route_id_from_name(route_short_name: str) -> Optional[str]:

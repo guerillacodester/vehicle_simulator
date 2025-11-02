@@ -171,6 +171,23 @@
   },
   {
     "section": "passenger_spawning.geographic",
+    "parameter": "minimum_commute_distance_meters",
+    "value": "200.0",
+    "value_type": "number",
+    "default_value": "200.0",
+    "constraints": {
+      "min": 50.0,
+      "max": 5000.0,
+      "step": 50.0,
+      "unit": "meters"
+    },
+    "description": "Minimum distance passengers will travel by bus (distances below this are considered walking distance)",
+    "display_name": "Minimum Commute Distance",
+    "ui_group": "Geographic",
+    "requires_restart": false
+  },
+  {
+    "section": "passenger_spawning.geographic",
     "parameter": "spawn_radius_meters",
     "value": "500.0",
     "value_type": "number",
