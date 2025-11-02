@@ -215,13 +215,35 @@ commuter_service/ (Passenger Generation - CLEAN ARCHITECTURE)
   │   ├─ config/: SpawnConfigLoader
   │   └─ events/: PostgreSQL LISTEN/NOTIFY
   └─ interfaces/: Entry points
-      ├─ http/: FastAPI manifest API (port 4000)
-      └─ cli/: list_passengers console tool
+      ├─ http/: FastAPI commuter_manifest API (port 4000)
+      └─ cli/: manifest_cli visualization tool
 
 arknet_transit_simulator/ (Vehicle Movement - COMPLETE)
   ├─ Vehicles drive routes
   ├─ Conductor listens for passengers
   └─ Conductor picks up passengers from reservoirs
+
+clients/ (GUI-Agnostic Service Clients - Nov 2, 2025)
+  ├─ gpscentcom/: GPS telemetry client (HTTP + WebSocket streaming)
+  │   ├─ models.py: Vehicle, AnalyticsResponse, HealthResponse
+  │   ├─ client.py: GPSTelemetryClient with observer pattern
+  │   └─ observers.py: TelemetryObserver, CallbackObserver
+  ├─ geospatial/: Geospatial service client
+  │   ├─ models.py: Address, RouteGeometry, Building, DepotInfo, SpawnPoint
+  │   ├─ client.py: GeospatialClient (reverse_geocode, get_route_geometry, etc.)
+  │   └─ __init__.py
+  ├─ commuter/: Commuter service client
+  │   ├─ models.py: Passenger, ManifestResponse, BarchartResponse, TableResponse, RouteMetrics, SeedRequest, SeedResponse
+  │   ├─ client.py: CommuterClient (get_manifest, get_barchart, seed_passengers, etc.)
+  │   └─ __init__.py
+  └─ simulator/: Simulator control client (TODO - requires HTTP control API)
+      ├─ models.py: SimulatorStatus, VehicleInfo, ControlResponse (TODO)
+      ├─ client.py: SimulatorClient (start, stop, pause, resume, get_status) (TODO)
+      └─ __init__.py (TODO)
+
+Purpose: Enable Next.js, console, .NET, mobile apps to consume services
+Pattern: Observable, config auto-loading, type-safe Pydantic models
+Missing: Simulator needs HTTP control API (POST /simulator/start, stop, pause, resume, GET /simulator/status)
 
 DEPENDENCIES & BLOCKERS:
 ✅ None - All spawner implementation complete
@@ -230,6 +252,7 @@ DEPENDENCIES & BLOCKERS:
 ✅ Ready for route listing and spawn config creation
 ✅ GeospatialService operational (localhost:6000)
 ✅ Strapi operational (localhost:1337)
+✅ Client libraries created (Nov 2) - GPS, Geospatial, Commuter
 
 PATH TO MVP (TIER 5-6 - REVISED Oct 28):
 TIER 5 → Route-Depot Association & RouteSpawner Integration ✅ STEP 1/7 COMPLETE (Oct 28)
@@ -2632,8 +2655,8 @@ print(f"Total devices: {analytics.total_devices}")
 
 ```python
 import asyncio
-from gps_telemetry_client import GPSTelemetryClient
-from gps_telemetry_client.observers import CallbackObserver
+from clients.gpscentcom import GPSTelemetryClient
+from clients.gpscentcom.observers import CallbackObserver
 
 async def on_telemetry(vehicle):
     print(f"UPDATE: {vehicle.deviceId} @ {vehicle.lat},{vehicle.lon}")
@@ -2647,6 +2670,134 @@ await client.stream_telemetry(observers=[observer])
 # Stream filtered by route
 await client.stream_telemetry(route_code="1A", observers=[observer])
 ```
+
+---
+
+## GUI-Agnostic Client Libraries (November 2, 2025)
+
+### Architecture
+
+All services expose HTTP APIs and provide **GUI-agnostic client libraries** that can be consumed by:
+- **Next.js** frontends (via REST)
+- **Console applications** (direct Python import)
+- **.NET desktop apps** (via pythonnet)
+- **Mobile apps** (via REST proxy)
+
+**Client Pattern**:
+- Observable pattern for real-time updates
+- Config auto-loading from `config.ini` via `common.config_provider`
+- Type-safe Pydantic models for all requests/responses
+- Synchronous HTTP methods for polling
+- Asynchronous streaming for real-time data (where applicable)
+
+**Directory Structure**:
+```
+clients/
+├── README.md (comprehensive guide)
+├── gpscentcom/ (GPS telemetry - HTTP + WebSocket streaming)
+│   ├── client.py (GPSTelemetryClient)
+│   ├── models.py (Vehicle, AnalyticsResponse, HealthResponse)
+│   ├── observers.py (TelemetryObserver, CallbackObserver)
+│   └── __init__.py
+├── geospatial/ (Spatial queries)
+│   ├── client.py (GeospatialClient)
+│   ├── models.py (Address, RouteGeometry, Building, DepotInfo, SpawnPoint)
+│   └── __init__.py
+├── commuter/ (Passenger manifest & seeding)
+│   ├── client.py (CommuterClient)
+│   ├── models.py (Passenger, ManifestResponse, BarchartResponse, SeedRequest, etc.)
+│   └── __init__.py
+└── simulator/ (TODO - requires HTTP control API)
+    ├── client.py (SimulatorClient - start, stop, pause, resume)
+    ├── models.py (SimulatorStatus, VehicleInfo, ControlResponse)
+    └── __init__.py
+```
+
+### Client Examples
+
+**GPS Telemetry Client** (`clients/gpscentcom/`):
+```python
+from clients.gpscentcom import GPSTelemetryClient
+
+client = GPSTelemetryClient()  # Auto-loads from config.ini
+vehicles = client.get_all_devices()
+for v in vehicles:
+    print(f"{v.deviceId}: {v.lat}, {v.lon} @ {v.speed} km/h")
+```
+
+**Geospatial Client** (`clients/geospatial/`):
+```python
+from clients.geospatial import GeospatialClient
+
+client = GeospatialClient()  # Auto-loads from config.ini
+address = client.reverse_geocode(lat=13.0827, lon=-59.6138)
+print(f"Address: {address.formatted_address}")
+
+route = client.get_route_geometry(route_id="1")
+print(f"Route 1 has {route.point_count} GPS points")
+```
+
+**Commuter Client** (`clients/commuter/`):
+```python
+from clients.commuter import CommuterClient
+
+client = CommuterClient()  # Auto-loads from config.ini
+
+# Query manifest
+manifest = client.get_manifest(route="1", limit=100)
+print(f"Found {manifest.count} passengers")
+
+# Get visualization data
+barchart = client.get_barchart(date="2024-11-04", route="1")
+print(f"Peak hour: {barchart.peak_hour}:00 ({barchart.max_count} passengers)")
+
+# Seed passengers (requires POST /api/manifest/seed endpoint - TODO)
+result = client.seed_passengers(route="1", day="monday", start_hour=7, end_hour=9)
+print(f"Created {result.passengers_created} passengers")
+```
+
+**Simulator Control Client** (`clients/simulator/` - TODO):
+```python
+from clients.simulator import SimulatorClient
+
+client = SimulatorClient()  # Auto-loads from config.ini
+
+# Start simulation
+response = client.start()
+print(f"Simulator started: {response.success}")
+
+# Get status
+status = client.get_status()
+print(f"State: {status.state}, Vehicles: {len(status.active_vehicles)}")
+
+# Pause/resume
+client.pause()
+client.resume()
+client.stop()
+```
+
+**TODO - Missing Features**:
+1. **Simulator Control API**: Add HTTP endpoints to `arknet_transit_simulator`
+   - POST `/simulator/start` - Initialize and start simulation
+   - POST `/simulator/stop` - Shutdown simulation
+   - POST `/simulator/pause` - Pause vehicle operations
+   - POST `/simulator/resume` - Resume vehicle operations
+   - GET `/simulator/status` - Get current state (running/paused/stopped)
+   - GET `/simulator/vehicles` - Get active vehicles list
+
+2. **Commuter Seeding Endpoint**: Add to `commuter_service/interfaces/http/commuter_manifest.py`
+   - POST `/api/manifest/seed` - Trigger passenger seeding remotely
+
+3. **Client Packaging**: Create `setup.py` and `requirements.txt` for each client
+   - Make clients installable via pip
+   - Define dependencies (requests, pydantic, websockets)
+
+4. **Import Updates**: Update all existing code to use new client imports
+   - CLI tools: Use clients instead of direct service imports
+   - Tests: Mock HTTP calls instead of internal methods
+   - Launcher: Use clients for health checks
+
+---
 
 ## Data Models (Pydantic)
 

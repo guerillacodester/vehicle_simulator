@@ -35,6 +35,17 @@ TIER 4.7: Spawn Calculation Kernel & Repository Cleanup ✅ COMPLETE (Nov 1)
   - Files: commuter_service/core/domain/spawner_engine/spawn_calculator.py (370 lines)
   - Tests: commuter_service/tests/test_spawn_calculator.py (465 lines)
   - Validation: tests/validation/test_spawn_calculator_kernel.py
+TIER 4.8: GUI-Agnostic Client Libraries ✅ COMPLETE (Nov 2)
+  - ✅ Created clients/ directory structure with comprehensive README
+  - ✅ Moved gps_telemetry_client → clients/gpscentcom/
+  - ✅ Created clients/geospatial/ (models.py, client.py, __init__.py)
+  - ✅ Created clients/commuter/ (models.py, client.py, __init__.py)
+  - ✅ Client pattern: Observable, config auto-loading, type-safe Pydantic models
+  - 🎯 TODO: Add simulator control API + client (POST /simulator/start, stop, pause, resume)
+  - 🎯 TODO: Add POST /api/manifest/seed endpoint to commuter_manifest.py
+  - 🎯 TODO: Create setup.py & requirements.txt for each client
+  - 🎯 TODO: Update imports across codebase to use clients
+  - Purpose: Enable Next.js, console, .NET, mobile apps to consume services via standardized clients
 TIER 5: Spawner Integration & Statistical Validation 🎯 NEXT (Nov 1+)
   - 🎯 Phase 5.1: Integrate spawn_calculator into RouteSpawner (Nov 1)
   - 🎯 Phase 5.2: Integrate spawn_calculator into DepotSpawner (Nov 1)
