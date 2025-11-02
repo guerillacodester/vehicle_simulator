@@ -1,13 +1,17 @@
 """
-Manifest API
-------------
+DEPRECATED: Commuter Manifest API (Old Location)
+-------------------------------------------------
+
+⚠️ This file is deprecated. Use the new location instead:
+   commuter_service.interfaces.http.commuter_manifest
 
 FastAPI service providing enriched passenger manifests for UI consumption.
 
-Wraps the manifest_builder to provide HTTP access to ordered, geocoded passenger data.
-
-Usage:
+Usage (DEPRECATED):
     uvicorn commuter_service.api.manifest_api:app --host 0.0.0.0 --port 4000
+
+New Usage:
+    uvicorn commuter_service.interfaces.http.commuter_manifest:app --host 0.0.0.0 --port 4000
 
 Endpoints:
     GET /api/manifest - Query passenger manifest with filters
@@ -59,8 +63,9 @@ class ManifestResponse(BaseModel):
 async def health_check():
     """Health check endpoint"""
     return {
-        "status": "ok",
-        "service": "manifest_api",
+        "status": "deprecated",
+        "service": "commuter_manifest_old",
+        "message": "Use commuter_service.interfaces.http.commuter_manifest instead",
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 

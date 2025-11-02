@@ -25,16 +25,16 @@ from typing import Dict, List
 try:
     from common.config_provider import get_config
     config = get_config()
-    MANIFEST_API_URL = config.infrastructure.manifest_url
+    COMMUTER_commuter_service_url = config.infrastructure.commuter_service_url
 except Exception:
-    MANIFEST_API_URL = "http://localhost:4000"  # Fallback
+    COMMUTER_commuter_service_url = "http://localhost:4000"  # Fallback
 
 
 async def fetch_manifest(limit: int = 1000) -> Dict:
     """Fetch passenger manifest from API"""
     async with httpx.AsyncClient(timeout=30.0) as client:
         params = {"limit": limit}
-        response = await client.get(f"{MANIFEST_API_URL}/api/manifest", params=params)
+        response = await client.get(f"{COMMUTER_commuter_service_url}/api/manifest", params=params)
         response.raise_for_status()
         return response.json()
 
@@ -151,7 +151,7 @@ async def main():
         print()
     except Exception as e:
         print(f"   ❌ Failed to fetch manifest: {e}")
-        print(f"   Make sure Manifest API is running on {MANIFEST_API_URL}")
+        print(f"   Make sure Manifest API is running on {COMMUTER_commuter_service_url}")
         return 1
     
     if not passengers:

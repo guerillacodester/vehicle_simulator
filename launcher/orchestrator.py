@@ -30,8 +30,10 @@ class StartupOrchestrator:
     2. Strapi (Foundation)
     3. GPSCentCom (Core)
     4. Wait configured delay
-    5. Vehicle + Commuter Simulators (parallel)
-    6. Geospatial + Manifest (Fleet Services)
+    5. Vehicle Simulator + Commuter Service (parallel)
+    6. Geospatial Service (Fleet Services)
+    
+    Note: Commuter Service is integrated (spawning + manifest API on port 4000)
     """
     
     def __init__(self, health_checker: HealthChecker, console_launcher: ConsoleLauncher):

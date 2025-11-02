@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 import argparse
 
 
-MANIFEST_API_URL = "http://localhost:4000"
+COMMUTER_commuter_service_url = "http://localhost:4000"
 STRAPI_URL = "http://localhost:1337"
 
 
@@ -65,7 +65,7 @@ async def fetch_and_filter_manifest(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
-                f"{MANIFEST_API_URL}/api/manifest",
+                f"{COMMUTER_commuter_service_url}/api/manifest",
                 params=params
             )
             
@@ -79,7 +79,7 @@ async def fetch_and_filter_manifest(
             print(f"   📊 Manifest API returned {len(passengers)} total passengers")
         except Exception as e:
             print(f"❌ Error connecting to manifest API: {e}")
-            print(f"   Make sure manifest API is running on {MANIFEST_API_URL}")
+            print(f"   Make sure manifest API is running on {COMMUTER_commuter_service_url}")
             return []
     
     # Filter by day of week and time range

@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 import argparse
 
 
-MANIFEST_API_URL = "http://localhost:4000"
+COMMUTER_commuter_service_url = "http://localhost:4000"
 STRAPI_URL = "http://localhost:1337"
 GEOSPATIAL_URL = "http://localhost:6000"
 

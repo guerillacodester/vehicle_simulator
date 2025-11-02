@@ -15,8 +15,8 @@ class ServiceType(Enum):
     MONITOR = "monitor"
     FOUNDATION = "foundation"  # Strapi
     CORE = "core"  # GPSCentCom, Geospatial
-    FLEET = "fleet"  # Manifest API
-    SIMULATOR = "simulator"  # Vehicle, Commuter
+    FLEET = "fleet"  # Commuter Service (integrated spawning + manifest API)
+    SIMULATOR = "simulator"  # Vehicle Simulator
 
 
 @dataclass

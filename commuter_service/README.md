@@ -8,7 +8,7 @@ The **Commuter Service** is a dual-interface service that provides:
 1. **HTTP API** (port 4000): Manifest queries for enriched passenger listings
 2. **Background Spawning**: Passenger generation and lifecycle management
 
-**Note**: Previously split into separate "commuter_simulator" and "manifest_api" services, this was merged on Nov 1, 2025 for better cohesion. The launcher runs the HTTP interface by default (`interfaces/http/manifest_api.py`), which integrates with the application layer.
+**Note**: Previously split into separate "commuter_simulator" and "manifest_api" services, this was merged on Nov 1, 2025 for better cohesion. The launcher runs the HTTP interface by default (`interfaces/http/commuter_manifest.py`), which integrates with the application layer.
 
 ## Interfaces
 

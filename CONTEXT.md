@@ -2,11 +2,11 @@
 
 **Project**: ArkNet Fleet Manager & Vehicle Simulator  
 **Repository**: vehicle_simulator  
-**Branch**: branch-0.0.2.9  
-**Date**: November 1, 2025  
-**Status**: ✅ Spawn Calculation Kernel | ✅ Repository Cleanup | ✅ Tests Consolidated | 🎯 Integrate Kernel into Spawners NEXT  
-**Phase**: Modular Architecture, Code Organization, Spawn Model Implementation  
-**Latest**: Created spawn_calculator.py kernel with pure functions, consolidated tests/ directory, archived legacy docs - Nov 1
+**Branch**: branch-0.0.3.0  
+**Date**: November 2, 2025  
+**Status**: ✅ Manifest Integration Complete | ✅ Commuter Service Unified | ✅ Launcher Updated  
+**Phase**: Service Integration, Architecture Consolidation  
+**Latest**: Merged manifest API into commuter_service, updated launcher to reflect integrated architecture - Nov 2
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
 
@@ -179,7 +179,7 @@ CONFIGURATION REFACTORING (October 31, 2025):
    - GPS Telemetry Client: client.py, __init__.py, test_client.py, README.md
    - Geospatial Service: main.py
    - Commuter Simulator: geospatial/client.py, database/strapi_client.py, 
-     database/passenger_repository.py, interfaces/http/manifest_api.py, main.py
+     database/passenger_repository.py, interfaces/http/commuter_manifest.py, main.py
    - Transit Simulator: config/config_loader.py, simulator.py, vehicle/conductor.py,
      core/dispatcher.py, vehicle/driver/navigation/vehicle_driver.py, 
      services/config_service.py, __main__.py
@@ -259,7 +259,7 @@ TIER 7 → Redis, Geofencing, Production Optimization
 | **commuter_service/domain/services/spawning/route_spawner.py** | Route passenger generation | ✅ Refactored Oct 29 | Wire to coordinator |
 | **commuter_service/domain/services/reservoirs/** | DB-backed reservoirs | ✅ Refactored Oct 29 | Add Redis integration later |
 | **commuter_service/application/queries/manifest_query.py** | Enriched manifest builder | ✅ Created Oct 29 | Used by API and CLI |
-| **commuter_service/interfaces/http/manifest_api.py** | FastAPI manifest endpoint | ✅ Created Oct 29 | Production ready |
+| **commuter_service/interfaces/http/commuter_manifest.py** | FastAPI manifest endpoint | ✅ Created Oct 29 | Production ready |
 | **commuter_service/interfaces/cli/list_passengers.py** | Console diagnostic tool | ✅ Created Oct 29 | Production ready |
 | **geospatial_service/api/spatial.py** | Route geometry/buildings endpoints | ✅ Operational Oct 28 | Ready for RouteSpawner |
 | **geospatial_service/** | Spatial queries API | ✅ Working | Use for route-depot associations |
@@ -2210,7 +2210,7 @@ Passengers at Bridge Street Station depot:
 To avoid reinventing the wheel when building the production UI, we've centralized the manifest computation in a reusable module following clean architecture.
 
 - Source: `commuter_service/application/queries/manifest_query.py`
-- API: `commuter_service/interfaces/http/manifest_api.py` (FastAPI, port 4000)
+- API: `commuter_service/interfaces/http/commuter_manifest.py` (FastAPI, port 4000)
 - Consumers: CLI (`commuter_service/interfaces/cli/list_passengers.py`), HTTP API, and future UI
 - Architecture: Application layer query (uses domain services and infrastructure clients)
 - Ordering: Ascending by `route_position_m` when a `route_id` is provided (distance from start of the route). Otherwise, positions are 0 and ordering is unspecified.
@@ -2238,7 +2238,7 @@ To avoid reinventing the wheel when building the production UI, we've centralize
 ### How to use
 
 - **HTTP API** (recommended for UI):
-  - Start: `uvicorn commuter_service.interfaces.http.manifest_api:app --port 4000`
+  - Start: `uvicorn commuter_service.interfaces.http.commuter_manifest:app --port 4000`
   - Endpoint: `GET http://localhost:4000/api/manifest?route=<id>&limit=100`
   - Returns: `{"count": N, "route_id": "...", "passengers": [...], "ordered_by_route_position": true}`
   - Docs: <http://localhost:4000/docs>
@@ -2308,7 +2308,7 @@ commuter_service/
 | `core/domain/reservoirs/` | `domain/services/reservoirs/` | Consistent structure |
 | `infrastructure/database/` | `infrastructure/persistence/strapi/` | Organized by system |
 | `infrastructure/spawn/config_loader.py` | `infrastructure/config/spawn_config_loader.py` | Logical grouping |
-| `api/manifest_api.py` | `interfaces/http/manifest_api.py` | Entry point layer |
+| `api/commuter_manifest.py` | `interfaces/http/commuter_manifest.py` | Entry point layer |
 | `scripts/console/list_passengers.py` | `interfaces/cli/list_passengers.py` | Entry point layer |
 
 ### Import Changes
@@ -2339,7 +2339,7 @@ from commuter_service.infrastructure.persistence.strapi import PassengerReposito
 
 All entry points tested and working:
 - ✅ `python -m commuter_service.main`
-- ✅ `uvicorn commuter_service.interfaces.http.manifest_api:app --port 4000`
+- ✅ `uvicorn commuter_service.interfaces.http.commuter_manifest:app --port 4000`
 - ✅ `python -m commuter_service.interfaces.cli.list_passengers --help`
 
 See `commuter_service/ARCHITECTURE.md` for complete layer documentation.
@@ -2363,7 +2363,7 @@ The system runs 3 separate HTTP services on different ports (standalone architec
 - Independent service scaling
 - Clearer separation of concerns
 
-**Note**: The Commuter Service is an integrated service providing both background passenger spawning logic and HTTP manifest API endpoints. Previously split into separate services, it was merged on Nov 1, 2025 for better cohesion.
+**Note**: The Commuter Service is an integrated service providing both background passenger spawning logic and HTTP manifest API endpoints. Previously split into separate services, it was merged on Nov 1-2, 2025 for better cohesion. The launcher was updated on Nov 2, 2025 to reflect this integrated architecture.
 
 ### Architecture
 
@@ -2409,7 +2409,7 @@ The system runs 3 separate HTTP services on different ports (standalone architec
   - GET /geo/health  Service health check
 
 **2. Commuter Service**
-- Source: commuter_service/interfaces/http/manifest_api.py (HTTP interface)
+- Source: commuter_service/interfaces/http/commuter_manifest.py (HTTP interface)
 - Source: commuter_service/main.py (background spawning interface)
 - Functions: Passenger spawning, enriched passenger listings with reverse geocoding
 - Endpoints:
@@ -2504,7 +2504,7 @@ for line in response.iter_lines():
 arknet_fleet_services.py
  _load_geospatial_app()      # Imports geospatial_service.main:app
  _load_gpscentcom_app()      # Imports gpscentcom_server.api_router:api_router
- _load_manifest_app()        # Imports commuter_service.interfaces.http.manifest_api:app
+ _load_manifest_app()        # Imports commuter_service.interfaces.http.commuter_manifest:app
  WebSocket direct route      # @app.websocket("/gps/device")
  Main FastAPI app            # Mounts /geo, /gps, /manifest
 ``
@@ -2550,7 +2550,7 @@ curl http://localhost:4000/health   # Manifest API
 **Expected Responses**:
 - GPSCentCom: `{"status":"ok","uptime_sec":120,"devices":0}`
 - GeospatialService: `{"status":"healthy","database":"connected","features":{...}}`
-- Manifest API: `{"status":"ok","service":"manifest_api","timestamp":"..."}`
+- Manifest API: `{"status":"ok","service":"commuter_manifest","timestamp":"..."}`
 
 ### Verified Test Results (October 30, 2025)
 

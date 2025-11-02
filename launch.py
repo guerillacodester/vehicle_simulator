@@ -8,9 +8,10 @@ Production-grade service manager with API control and automatic staged startup.
 STARTUP SEQUENCE:
 1. Strapi (mandatory) → wait for healthy
 2. GPSCentCom → wait for healthy
-3. Geospatial, Manifest (parallel) → wait for healthy
-4. Vehicle Simulator, Commuter Simulator (if enabled)
+3. Geospatial, Commuter Service (parallel) → wait for healthy
+4. Vehicle Simulator (if enabled)
 
+Note: Commuter Service is integrated (spawning + manifest API on port 4000)
 Each service automatically waits for dependencies before starting.
 
 Usage:
@@ -147,17 +148,6 @@ def register_services():
             spawn_console=launcher_config.spawn_console_geospatial
         ))
     
-    # Register Manifest API
-    if launcher_config.enable_manifest:
-        manager.register_service(ManagedService(
-            name="manifest",
-            port=4000,
-            health_url="http://localhost:4000/health",
-            as_module="commuter_service.interfaces.http.manifest_api",
-            dependencies=["strapi"],
-            spawn_console=launcher_config.spawn_console_manifest
-        ))
-    
     # Register Vehicle Simulator
     if launcher_config.enable_vehicle_simulator:
         manager.register_service(ManagedService(
@@ -170,14 +160,14 @@ def register_services():
             spawn_console=launcher_config.spawn_console_vehicle_simulator
         ))
     
-    # Register Commuter Simulator
+    # Register Commuter Service (integrated spawning + manifest API)
     if launcher_config.enable_commuter_service:
         manager.register_service(ManagedService(
             name="commuter_service",
-            port=None,
-            health_url=None,
-            script_path=root_path / "commuter_service" / "main.py",
-            dependencies=["strapi", "manifest"],
+            port=4000,
+            health_url="http://localhost:4000/health",
+            as_module="commuter_service.interfaces.http.commuter_manifest",
+            dependencies=["strapi", "geospatial"],
             spawn_console=launcher_config.spawn_console_commuter_service
         ))
 

@@ -102,6 +102,6 @@ class ServiceFactory:
             service_type=ServiceType.FLEET,
             port=self.infra_config.commuter_service_port,
             health_url=f"http://localhost:{self.infra_config.commuter_service_port}/health",
-            as_module="commuter_service.interfaces.http.manifest_api",
+            as_module="commuter_service.interfaces.http.commuter_manifest",
             startup_wait_seconds=self.launcher_config.service_startup_wait
         )

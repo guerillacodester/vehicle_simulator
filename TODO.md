@@ -1003,7 +1003,7 @@ Route-Depot Association 🎯 NEXT - OCT 28
 3. ✅ **End-to-End Testing Validated**
    - GPSCentCom (5000): GPS device connected, telemetry flowing
    - GeospatialService (6000): Reverse geocoding working (~18ms)
-   - Manifest API (4000): Health checks passing
+   - Commuter Service (4000): Health checks passing, manifest API integrated
    - GPS client polling live data every 2 seconds
 
 4. ✅ **Code Cleanup**
@@ -1014,13 +1014,13 @@ Route-Depot Association 🎯 NEXT - OCT 28
 **Current Service Ports**:
 - GPSCentCom: `http://localhost:5000`, `ws://localhost:5000/device`
 - GeospatialService: `http://localhost:6000`
-- Manifest API: `http://localhost:4000`
+- Commuter Service: `http://localhost:4000` (integrated spawning + manifest API)
 
 **Test Results**:
 ```
 ✅ GPSCentCom: {"status":"ok","devices":1}
 ✅ GeospatialService: {"status":"healthy","database":"connected","latency_ms":18.38}
-✅ Manifest API: {"status":"ok","service":"manifest_api"}
+✅ Commuter Service: {"status":"ok","service":"commuter_manifest"}
 ✅ GPS Client: Polling live GPS data (GPS-ZR102 on Route 1)
 ✅ Reverse Geocoding: "footway-784848147, near RBC, Saint Michael"
 ```

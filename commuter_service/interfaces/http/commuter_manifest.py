@@ -1,13 +1,13 @@
 """
-Manifest API
-------------
+Commuter Manifest API
+---------------------
 
 FastAPI service providing enriched passenger manifests for UI consumption.
 
 Wraps the manifest_query to provide HTTP access to ordered, geocoded passenger data.
 
 Usage:
-    uvicorn commuter_service.interfaces.http.manifest_api:app --host 0.0.0.0 --port 4000
+    uvicorn commuter_service.interfaces.http.commuter_manifest:app --host 0.0.0.0 --port 4000
 
 Endpoints:
     GET /api/manifest - Query passenger manifest with filters
@@ -48,7 +48,7 @@ except ImportError:
     _config_available = False
 
 app = FastAPI(
-    title="Passenger Manifest API",
+    title="Commuter Manifest API",
     description="Enriched passenger manifest with route positions and geocoded addresses",
     version="1.0.0"
 )
@@ -127,7 +127,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "ok",
-        "service": "manifest_api",
+        "service": "commuter_manifest",
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
@@ -601,8 +601,8 @@ if __name__ == "__main__":
     config_path = Path(__file__).parent.parent.parent.parent / "config.ini"
     config.read(config_path, encoding='utf-8')
     
-    # Extract port from manifest_url (e.g., "http://localhost:4000" -> 4000)
-    manifest_url = config.get('infrastructure', 'manifest_url', fallback='http://localhost:4000')
-    port = int(manifest_url.split(':')[-1])
+    # Extract port from commuter_service_url (e.g., "http://localhost:4000" -> 4000)
+    commuter_service_url = config.get('infrastructure', 'commuter_service_url', fallback='http://localhost:4000')
+    port = int(commuter_service_url.split(':')[-1])
     
     uvicorn.run(app, host="0.0.0.0", port=port)

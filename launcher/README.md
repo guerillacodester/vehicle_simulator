@@ -73,12 +73,11 @@ python launch.py
 
 5. **Stage 5: Simulators** (Parallel Launch)
    - Vehicle Simulator
-   - Commuter Simulator
-   - No health checks (spawn immediately)
+   - Commuter Service (integrated: spawning + manifest API)
+   - Commuter Service has health check on port 4000
 
 6. **Stage 6: Fleet Services**
    - GeospatialService (health gated)
-   - Manifest API (health gated)
    - Console spawns AFTER health passes
 
 7. **Continuous Monitoring**
@@ -94,7 +93,6 @@ Edit `config.ini` in root directory:
 # Service enable flags
 enable_gpscentcom = true
 enable_geospatial = true
-enable_manifest = true
 enable_vehicle_simulator = false
 enable_commuter_service = false
 
@@ -111,7 +109,8 @@ strapi_url = http://localhost:1337
 strapi_port = 1337
 gpscentcom_port = 5000
 geospatial_port = 6000
-manifest_port = 4000
+commuter_service_port = 4000
+commuter_service_url = http://localhost:4000
 ```
 
 ## Cross-Platform Support

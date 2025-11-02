@@ -39,7 +39,7 @@ class InfrastructureConfig:
     geospatial_url: str
     
     # Manifest API
-    manifest_url: str
+    commuter_service_url: str
     
     # Database Connection
     database_host: str
@@ -129,7 +129,7 @@ class ConfigProvider:
         gpscentcom_http_url = infra.get('gpscentcom_http_url', 'http://localhost:5000')
         gpscentcom_ws_url = infra.get('gpscentcom_ws_url', 'ws://localhost:5000')
         geospatial_url = infra.get('geospatial_url', 'http://localhost:6000')
-        manifest_url = infra.get('manifest_url', 'http://localhost:4000')
+        commuter_service_url = infra.get('commuter_service_url', 'http://localhost:4000')
         database_host = infra.get('database_host', 'localhost')
         database_port = infra.getint('database_port', 5432)
         
@@ -144,7 +144,7 @@ class ConfigProvider:
             gpscentcom_ws_url=gpscentcom_ws_url,
             strapi_url=strapi_url,
             geospatial_url=geospatial_url,
-            manifest_url=manifest_url,
+            commuter_service_url=commuter_service_url,
             database_host=database_host,
             database_port=database_port,
             strapi_api_url=strapi_api_url,
