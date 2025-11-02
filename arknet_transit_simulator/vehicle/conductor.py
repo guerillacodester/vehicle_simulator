@@ -777,9 +777,12 @@ class Conductor(BasePerson):
         }
         
         self.logger.info(
-            f"Conductor {self.component_id} signaling driver to stop for "
-            f"{self.current_stop_operation.total_passengers} passengers "
-            f"(duration: {self.current_stop_operation.requested_duration:.0f}s)"
+            f"🔵 Conductor {self.component_id} 🛑 SIGNALING DRIVER TO STOP:\n"
+            f"   🚏 Stop ID: {self.current_stop_operation.stop_id}\n"
+            f"   🚪 Boarding: {len(self.current_stop_operation.passengers_boarding)} passengers\n"
+            f"   🚪 Disembarking: {len(self.current_stop_operation.passengers_disembarking)} passengers\n"
+            f"   ⏱️  Duration: {self.current_stop_operation.requested_duration:.0f} seconds\n"
+            f"   📍 Position: ({self.current_stop_operation.latitude:.6f}, {self.current_stop_operation.longitude:.6f})"
         )
         
         # Try Socket.IO first (Priority 2)
@@ -867,7 +870,11 @@ class Conductor(BasePerson):
                 'timestamp': datetime.now().isoformat()
             }
             
-            self.logger.info(f"Conductor {self.component_id} signaling driver to continue")
+            self.logger.info(
+                f"🔵 Conductor {self.component_id} 🚀 SIGNALING DRIVER TO CONTINUE:\n"
+                f"   💺 Passengers on board: {self.passengers_on_board}\n"
+                f"   ⏰ Time: {datetime.now().strftime('%H:%M:%S')}"
+            )
             
             # DEPOT MODE: Skip Socket.IO, use direct driver call
             # Socket.IO doesn't work reliably in depot mode - driver may not have handlers registered
@@ -1153,8 +1160,11 @@ class Conductor(BasePerson):
         try:
             # Query database for eligible passengers
             logger.info(
-                f"Conductor {self.vehicle_id}: Checking for passengers "
-                f"(route={route}, capacity={self.seats_available})"
+                f"🔵 Conductor {self.vehicle_id} 👁️  LOOKING FOR PASSENGERS:\n"
+                f"   📍 Position: ({vehicle_lat:.6f}, {vehicle_lon:.6f})\n"
+                f"   🚏 Route: {route}\n"
+                f"   🔍 Pickup radius: {self.config.pickup_radius_km} km\n"
+                f"   💺 Seats available: {self.seats_available}/{self.capacity}"
             )
             
             eligible = await self.passenger_db.get_eligible_passengers(
@@ -1166,29 +1176,58 @@ class Conductor(BasePerson):
             )
             
             if not eligible:
-                logger.debug(f"Conductor {self.vehicle_id}: No eligible passengers at this location")
+                logger.info(f"🔵 Conductor {self.vehicle_id}: ❌ No passengers found at this location")
                 return 0
             
-            # Extract passenger IDs (handle both nested attributes and flat structure)
+            # Extract passenger IDs and log details
             passenger_ids = []
-            for p in eligible:
+            logger.info(f"🔵 Conductor {self.vehicle_id}: ✅ Found {len(eligible)} eligible passengers:")
+            
+            for idx, p in enumerate(eligible, 1):
                 # Try flat structure first (Strapi v5)
                 pid = p.get('passenger_id')
+                p_lat = p.get('latitude')
+                p_lon = p.get('longitude')
+                
                 if not pid:
                     # Try nested attributes (Strapi v4)
                     attrs = p.get('attributes', {})
                     pid = attrs.get('passenger_id')
+                    p_lat = attrs.get('latitude')
+                    p_lon = attrs.get('longitude')
+                
                 if pid:
                     passenger_ids.append(pid)
+                    # Calculate distance if coordinates available
+                    if p_lat and p_lon:
+                        distance = self._calculate_distance(vehicle_lat, vehicle_lon, p_lat, p_lon)
+                        logger.info(
+                            f"   {idx}. 🟢 Passenger {pid}\n"
+                            f"      📍 Position: ({p_lat:.6f}, {p_lon:.6f})\n"
+                            f"      📏 Distance: {distance * 1000:.1f} meters"
+                        )
+                    else:
+                        logger.info(f"   {idx}. 🟢 Passenger {pid}")
+                        logger.info(f"   {idx}. 🟢 Passenger {pid}")
             
             if not passenger_ids:
-                logger.warning(f"Conductor {self.vehicle_id}: Found passengers but couldn't extract IDs")
+                logger.warning(f"🔵 Conductor {self.vehicle_id}: ⚠️  Found passengers but couldn't extract IDs")
                 return 0
             
-            logger.info(f"Conductor {self.vehicle_id}: Found {len(passenger_ids)} eligible passengers")
+            logger.info(
+                f"🔵 Conductor {self.vehicle_id}: 🚪 BOARDING {len(passenger_ids)} passengers..."
+            )
             
             # Board them
             boarded = await self.board_passengers_by_id(passenger_ids)
+            
+            if boarded > 0:
+                logger.info(
+                    f"🔵 Conductor {self.vehicle_id}: ✅ Successfully boarded {boarded} passengers\n"
+                    f"   💺 Current occupancy: {self.passengers_on_board}/{self.capacity}\n"
+                    f"   💺 Seats remaining: {self.seats_available}"
+                )
+            
             return boarded
             
         except Exception as e:
@@ -1216,12 +1255,16 @@ class Conductor(BasePerson):
     def start_boarding(self):
         """Start accepting passengers"""
         self.boarding_active = True
-        logger.info(f"Conductor {self.vehicle_id}: Boarding started - {self.seats_available} seats available")
+        logger.info(
+            f"🔵 Conductor {self.vehicle_id}: 🚪 BOARDING ENABLED\n"
+            f"   💺 Seats available: {self.seats_available}/{self.capacity}\n"
+            f"   🔍 Will check for passengers at waypoints"
+        )
         
     def stop_boarding(self):
         """Stop accepting passengers"""
         self.boarding_active = False
-        logger.info(f"Conductor {self.vehicle_id}: Boarding stopped")
+        logger.info(f"🔵 Conductor {self.vehicle_id}: 🚫 BOARDING DISABLED")
         
     def is_boarding_active(self) -> bool:
         """Check if boarding is active"""

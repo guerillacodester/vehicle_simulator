@@ -41,11 +41,149 @@ TIER 4.8: GUI-Agnostic Client Libraries ✅ COMPLETE (Nov 2)
   - ✅ Created clients/geospatial/ (models.py, client.py, __init__.py)
   - ✅ Created clients/commuter/ (models.py, client.py, __init__.py)
   - ✅ Client pattern: Observable, config auto-loading, type-safe Pydantic models
+  - ✅ Conductor-Reservoir architecture audit completed
+  - ✅ Enhanced conductor logging (emoji-based, detailed visibility)
+  - ✅ Created test_conductor_vision.py and CONDUCTOR_VISION_GUIDE.md
+  - 🎯 TODO: Refactor conductor to use reservoirs (detailed plan below)
   - 🎯 TODO: Add simulator control API + client (POST /simulator/start, stop, pause, resume)
   - 🎯 TODO: Add POST /api/manifest/seed endpoint to commuter_manifest.py
   - 🎯 TODO: Create setup.py & requirements.txt for each client
   - 🎯 TODO: Update imports across codebase to use clients
   - Purpose: Enable Next.js, console, .NET, mobile apps to consume services via standardized clients
+
+TIER 4.9: Conductor-Reservoir Integration Refactor 🎯 NEXT (Nov 2, 2025)
+  
+  **Problem Statement:**
+  Current conductor bypasses RouteReservoir/DepotReservoir and queries Strapi directly via PassengerRepository.
+  This creates inconsistent architecture:
+  - Write path: Spawner → Reservoir.push() → Repository → Strapi ✅
+  - Read path: Conductor → Repository → Strapi (bypasses reservoir) ❌
+  Result: Redis caching unused, Socket.IO events ignored, parallel data access paths
+  
+  **Solution:** Refactor conductor to use RouteReservoir.query() with Redis caching
+  
+  **Estimated Time:** 5.5 hours total
+  
+  ### Phase 0: Pre-Flight Validation (30 min)
+  - [ ] 0.1: Start all services (Strapi, Redis, Commuter Service)
+  - [ ] 0.2: Seed test passengers (route 1, 10 passengers)
+  - [ ] 0.3: Run baseline conductor vision test (save to baseline_conductor_test.log)
+  - [ ] 0.4: Verify baseline: passengers found, boarded, driver signals working
+  - Success: Baseline logs show normal conductor operation
+  
+  ### Phase 1: Reservoir Infrastructure (1 hour)
+  - [ ] 1.1: Add Redis client to RouteReservoir.__init__()
+    - File: commuter_service/core/domain/reservoirs/route_reservoir.py
+    - Add: redis_client attribute, connect() method
+    - Verify: push() already populates cache (if not, add)
+  - [ ] 1.2: Implement RouteReservoir.query() method
+    - Signature: query(route_id, vehicle_lat, vehicle_lon, pickup_radius_km, max_results)
+    - Logic: Check Redis cache (TTL 5s) → Cache miss → Query repository → Populate cache
+    - Logging: "🔴 CACHE HIT" vs "🔵 CACHE MISS"
+  - [ ] 1.3: Add Socket.IO event emission to push()
+    - Event: 'commuter:spawned' with {passenger_id, route_id, lat, lon, timestamp}
+    - Graceful degradation if Socket.IO unavailable
+  - [ ] 1.4: Create ReservoirManager singleton
+    - File: commuter_service/core/domain/reservoirs/reservoir_manager.py (NEW)
+    - Methods: get_instance(), initialize(), get_route_reservoir(), get_depot_reservoir()
+    - Purpose: Centralize reservoir instantiation for dependency injection
+  - Success: Reservoir query method exists, Redis connection works, Socket.IO events emit
+  
+  ### Phase 2: Conductor Refactoring (1.5 hours)
+  - [ ] 2.1: Update Conductor.__init__() to accept reservoirs
+    - Add params: route_reservoir, depot_reservoir
+    - Keep passenger_db for backward compatibility
+    - Add flag: use_reservoirs = (route_reservoir is not None)
+  - [ ] 2.2: Refactor check_for_passengers() to use reservoirs
+    - File: arknet_transit_simulator/vehicle/conductor.py (line ~1170)
+    - If use_reservoirs: Call route_reservoir.query()
+    - Else: Call passenger_db.get_eligible_passengers() (legacy fallback)
+    - Update logging: Show "🔴 [CACHE]" vs "🔵 [DIRECT]"
+    - Log query method: "RouteReservoir (cached)" vs "PassengerRepository (legacy)"
+  - [ ] 2.3: Update simulator to inject reservoirs
+    - File: arknet_transit_simulator/simulator.py (line ~470)
+    - Import: from commuter_service...reservoir_manager import get_route_reservoir, get_depot_reservoir
+    - Initialize reservoirs before creating conductor
+    - Pass to conductor: route_reservoir=route_res, depot_reservoir=depot_res
+    - Fallback to legacy if reservoir init fails
+  - Success: Conductor accepts reservoirs, queries via reservoir, logs show cache method
+  
+  ### Phase 3: Testing & Validation (1 hour)
+  - [ ] 3.1: Unit test RouteReservoir.query()
+    - File: commuter_service/tests/test_route_reservoir.py (NEW)
+    - Test cache miss (first query)
+    - Test cache hit (second query same location)
+  - [ ] 3.2: Integration test - Conductor with reservoirs
+    - Seed 15 passengers (route 1)
+    - Run: python test_conductor_vision.py --route 1 --duration 180
+    - Watch for: "✅ using RESERVOIR-based passenger queries"
+    - Watch for: "🔵 CACHE MISS" on first query
+    - Watch for: "🔴 CACHE HIT" on subsequent queries
+    - Save logs to: reservoir_conductor_test.log
+  - [ ] 3.3: Verify Redis cache population
+    - Command: redis-cli MONITOR (watch SET commands)
+    - Command: redis-cli KEYS passengers:* (verify keys exist)
+    - Command: redis-cli TTL passengers:route:1:... (verify 5s TTL)
+    - Command: redis-cli GET passengers:route:1:... (verify JSON data)
+  - [ ] 3.4: Verify Socket.IO event emission
+    - Create test_socketio_listener.py to listen for commuter:spawned
+    - Spawn 5 passengers, verify 5 events received
+    - Check spawner logs: "📡 Emitted commuter:spawned event"
+  - Success: Tests pass, cache populated, events emitted, boarding behavior matches baseline
+  
+  ### Phase 4: Performance Validation (30 min)
+  - [ ] 4.1: Benchmark query performance
+    - File: benchmark_reservoir_performance.py (NEW)
+    - Benchmark 100 cached queries (expect <5ms avg)
+    - Benchmark 100 direct queries (expect 50-200ms avg)
+    - Calculate speedup (expect >10x)
+  - [ ] 4.2: Load test - Multiple concurrent conductors
+    - File: test_multi_conductor_load.py (NEW)
+    - Run 5 conductors concurrently for 60 seconds
+    - Verify cache handles concurrent access
+    - Check Redis memory usage
+  - Success: Cached queries <10ms, speedup >5x, no memory leaks
+  
+  ### Phase 5: Documentation (30 min)
+  - [ ] 5.1: Update CONTEXT.md architecture diagrams
+    - Add "Conductor-Reservoir Integration" section showing:
+      - Before: Conductor → PassengerRepository → Strapi
+      - After: Conductor → RouteReservoir.query() → Redis/Strapi
+    - Document performance improvements
+    - Document configuration (Redis URL, cache TTL, Socket.IO URL)
+  - [ ] 5.2: Update TODO.md
+    - Mark "Refactor conductor to use reservoirs" complete
+    - Add performance metrics
+  - Success: Documentation reflects new architecture
+  
+  ### Phase 6: Final Validation (30 min)
+  - [ ] 6.1: Clean slate end-to-end test
+    - Clear Redis: redis-cli FLUSHALL
+    - Delete all passengers from Strapi
+    - Seed fresh passengers
+    - Run full conductor journey (5 minutes)
+    - Verify: spawning → caching → boarding → driver signals
+  - [ ] 6.2: Compare baseline vs reservoir performance
+    - Boarding counts should match
+    - Query times should be faster with cache
+  - [ ] 6.3: Git commit with detailed message
+    - Include: "Refactor conductor to use RouteReservoir with Redis caching"
+    - List: Changes, benefits, performance improvements
+  - Success: End-to-end test passes, performance improved, committed to branch
+  
+  **Success Criteria:**
+  - ✅ Conductor queries via RouteReservoir.query() (not PassengerRepository directly)
+  - ✅ Redis caching enabled with 5-second TTL
+  - ✅ Socket.IO events emitted on passenger spawn
+  - ✅ Cache hit queries <10ms average
+  - ✅ Speedup >5x vs direct queries
+  - ✅ All baseline functionality preserved (boarding, capacity, driver signals)
+  - ✅ Backward compatibility maintained (falls back to legacy if reservoirs unavailable)
+  
+  **Rollback Plan:**
+  - Phase 1-2 failure: git checkout HEAD -- commuter_service/core/domain/reservoirs/
+  - Phase 3-6 failure: git checkout HEAD -- . (revert all)
+  - Partial rollback: git checkout HEAD -- arknet_transit_simulator/vehicle/conductor.py
 TIER 5: Spawner Integration & Statistical Validation 🎯 NEXT (Nov 1+)
   - 🎯 Phase 5.1: Integrate spawn_calculator into RouteSpawner (Nov 1)
   - 🎯 Phase 5.2: Integrate spawn_calculator into DepotSpawner (Nov 1)

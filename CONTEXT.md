@@ -2991,11 +2991,42 @@ client.stop()
 - ❌ **Conductor** calls `passenger_db` (which is `PassengerRepository`) DIRECTLY
 - **Result**: Reservoirs are only used for WRITE operations (spawning), not READ operations (querying)
 
-### Architecture Analysis
+### Architecture Analysis & Refactoring Plan
 
-**Is this good architecture? ⚠️ MIXED - Has Issues**
+**Current State: ⚠️ INCONSISTENT - Parallel Data Access Paths**
 
-**✅ What Works Well:**
+**The Problem:**
+
+Conductor bypasses RouteReservoir/DepotReservoir and queries Strapi directly via PassengerRepository.
+
+**Data Flow Inconsistency:**
+- **Write Path** (Spawning): Spawner → RouteReservoir.push() → PassengerRepository → Strapi ✅
+- **Read Path** (Conductor): Conductor → PassengerRepository → Strapi (bypasses reservoir) ❌
+
+**Consequences:**
+- 🔴 Redis caching in reservoirs is **never used** (conductor bypasses cache layer)
+- 🔴 Socket.IO events are **never consumed** (conductor doesn't listen to spawn events)
+- 🔴 Inconsistent architecture (half uses reservoirs, half doesn't)
+- 🔴 Code duplication (repository logic in both reservoir and conductor)
+
+**Decision Made:** Use reservoirs consistently (Option 1) - both reads and writes go through reservoirs
+
+**Detailed Refactoring Plan:** See TODO.md TIER 4.9 for complete step-by-step plan (6 phases, 5.5 hours)
+
+**Expected Benefits After Refactor:**
+- ✅ Consistent architecture (all passenger queries via reservoirs)
+- ✅ Redis caching enabled (10-50x faster queries on cache hits)
+- ✅ Socket.IO events utilized (real-time passenger spawn notifications)
+- ✅ Performance improvement (cached queries <10ms vs 50-200ms direct)
+- ✅ Scalability (multiple conductors share Redis cache)
+
+**Files Modified in Refactor:**
+- `commuter_service/core/domain/reservoirs/route_reservoir.py` (add query() method with Redis caching)
+- `commuter_service/core/domain/reservoirs/reservoir_manager.py` (NEW - singleton factory)
+- `arknet_transit_simulator/vehicle/conductor.py` (use reservoir instead of PassengerRepository)
+- `arknet_transit_simulator/simulator.py` (inject reservoirs into conductor)
+
+**What Works Well:**
 
 1. **Single Source of Truth**: Strapi database is authoritative (not split across in-memory + DB)
 2. **PassengerRepository Abstraction**: Clean interface to Strapi API
