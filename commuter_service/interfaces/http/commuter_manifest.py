@@ -20,6 +20,7 @@ Endpoints:
 from __future__ import annotations
 
 import os
+import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -27,6 +28,9 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import httpx
+
+
+logger = logging.getLogger(__name__)
 
 from commuter_service.application.queries import (
     enrich_manifest_rows,
@@ -122,6 +126,22 @@ except Exception:
     GEOSPATIAL_URL = os.getenv("GEOSPATIAL_URL", "http://localhost:6000")
 
 
+async def get_route_document_id(route_short_name: str) -> Optional[str]:
+    """Convert route short name (e.g., '1') to document ID"""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            response = await client.get(f"{STRAPI_URL}/api/routes")
+            routes = response.json().get('data', [])
+            
+            for r in routes:
+                if r.get('short_name') == route_short_name:
+                    return r.get('documentId')
+        except Exception as e:
+            logger.warning(f"Failed to lookup route '{route_short_name}': {e}")
+    
+    return None
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -170,13 +190,23 @@ async def get_manifest(
     strapi_url = strapi_url.rstrip("/")
     token = os.getenv("STRAPI_TOKEN")
     
+    # Convert route short name to document ID
+    route_id = None
+    if route:
+        route_id = await get_route_document_id(route)
+        if not route_id:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Route '{route}' not found"
+            )
+    
     # Build Strapi query params
     params = {
         "pagination[pageSize]": limit,
         "sort": sort,
     }
-    if route:
-        params["filters[route_id][$eq]"] = route
+    if route_id:
+        params["filters[route_id][$eq]"] = route_id
     if depot:
         params["filters[depot_id][$eq]"] = depot
     if start:
@@ -192,17 +222,17 @@ async def get_manifest(
             rows = await fetch_passengers(client, strapi_url, token, params)
             
             # Enrich with positions, addresses, distances
-            enriched = await enrich_manifest_rows(rows, route)
+            enriched = await enrich_manifest_rows(rows, route_id)
             
             # Convert to JSON-serializable dict
             passengers_data = [row.to_json() for row in enriched]
             
             return ManifestResponse(
                 count=len(passengers_data),
-                route_id=route,
+                route_id=route_id,
                 depot_id=depot,
                 passengers=passengers_data,
-                ordered_by_route_position=bool(route)
+                ordered_by_route_position=bool(route_id)
             )
     
     except httpx.HTTPError as e:

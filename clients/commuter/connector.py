@@ -80,10 +80,11 @@ class ManifestQuery(BaseModel):
 
 class ManifestResponse(BaseModel):
     """Manifest API response"""
-    total: int
-    passengers: List[Dict[str, Any]]
-    route_passengers: int
-    depot_passengers: int
+    count: int = Field(..., description="Number of passengers returned")
+    route_id: Optional[str] = Field(None, description="Route filter applied")
+    depot_id: Optional[str] = Field(None, description="Depot filter applied")
+    passengers: List[Dict[str, Any]] = Field(..., description="Enriched passenger data")
+    ordered_by_route_position: bool = Field(..., description="Whether sorted by route position")
 
 
 # ============================================================================
@@ -130,14 +131,15 @@ class CommuterConnector:
         
         # Connection state
         self.connected = False
+        self.is_socketio_connected = False
         
         logger.info(f"CommuterConnector initialized | REST: {self.base_url} | Socket.IO: {self.socketio_url}")
     
-    def _detect_socketio_url(self) -> str:
+    def _detect_socketio_url(self) -> Optional[str]:
         """Detect Socket.IO server URL from REST API"""
-        # Default to same host, port 3001
-        # TODO: Query /health or /config endpoint for actual Socket.IO URL
-        return "http://localhost:3001"
+        # Socket.IO server not implemented yet
+        # Will be added in TIER 4.10
+        return None
     
     def _setup_socketio_handlers(self):
         """Setup Socket.IO event handlers"""
@@ -145,12 +147,14 @@ class CommuterConnector:
         @self.sio.event
         async def connect():
             self.connected = True
+            self.is_socketio_connected = True
             logger.info("✅ Connected to Socket.IO server")
             await self._trigger_event('connect', {})
         
         @self.sio.event
         async def disconnect():
             self.connected = False
+            self.is_socketio_connected = False
             logger.warning("⚫ Disconnected from Socket.IO server")
             await self._trigger_event('disconnect', {})
         
@@ -182,12 +186,17 @@ class CommuterConnector:
     
     async def connect(self):
         """Connect to Socket.IO server for real-time events"""
+        if self.socketio_url is None:
+            logger.info("Socket.IO URL not provided - real-time events disabled")
+            return
+        
         try:
             await self.sio.connect(self.socketio_url)
             logger.info(f"Connected to Socket.IO: {self.socketio_url}")
         except Exception as e:
-            logger.error(f"Failed to connect to Socket.IO: {e}")
-            raise
+            logger.warning(f"Failed to connect to Socket.IO: {e}")
+            logger.warning("Continuing without real-time events (HTTP API still available)")
+            # Don't raise - allow HTTP API to work without Socket.IO
     
     async def disconnect(self):
         """Disconnect from Socket.IO server"""
@@ -203,6 +212,7 @@ class CommuterConnector:
         self,
         route: Optional[str] = None,
         day: Optional[str] = None,
+        date: Optional[str] = None,
         start_hour: Optional[int] = None,
         end_hour: Optional[int] = None,
         limit: int = 1000
@@ -212,25 +222,39 @@ class CommuterConnector:
         
         Args:
             route: Route short name (e.g., "1", "2")
-            day: Day of week (e.g., "monday", "tuesday")
-            start_hour: Start hour (0-23)
-            end_hour: End hour (0-23)
-            limit: Maximum results
+            day: Day of week (e.g., "monday") - DEPRECATED, use date instead
+            date: Specific date (YYYY-MM-DD format)
+            start_hour: Start hour (0-23) - requires date or day
+            end_hour: End hour (0-23) - requires date or day
+            limit: Maximum results (default: 100, max: 1000)
         
         Returns:
             ManifestResponse with passengers
         """
-        params = {}
+        params = {'limit': min(limit, 1000)}
+        
         if route:
             params['route'] = route
-        if day:
-            params['day'] = day
-        if start_hour is not None:
-            params['start_hour'] = start_hour
-        if end_hour is not None:
-            params['end_hour'] = end_hour
-        if limit:
-            params['limit'] = limit
+        
+        # Only apply date/time filters if explicitly provided
+        if date:
+            from datetime import datetime
+            
+            # Parse explicit date
+            target_date = datetime.strptime(date, '%Y-%m-%d')
+            
+            # Set start/end times
+            start_h = start_hour if start_hour is not None else 0
+            end_h = end_hour if end_hour is not None else 23
+            
+            start_dt = target_date.replace(hour=start_h, minute=0, second=0, microsecond=0)
+            end_dt = target_date.replace(hour=end_h, minute=59, second=59, microsecond=999999)
+            
+            params['start'] = start_dt.isoformat()
+            params['end'] = end_dt.isoformat()
+        
+        # Note: 'day' parameter is ignored to avoid hardcoded dates
+        # Users should use 'date' parameter with explicit YYYY-MM-DD format
         
         response = await self.http_client.get("/api/manifest", params=params)
         response.raise_for_status()

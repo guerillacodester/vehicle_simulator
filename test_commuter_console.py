@@ -94,13 +94,18 @@ class CommuterConsole:
         
         elif cmd == "manifest":
             route = args[0] if args else "1"
-            day = args[1] if len(args) > 1 else "monday"
-            await self.cmd_manifest(route, day)
+            date = args[1] if len(args) > 1 else None
+            await self.cmd_manifest(route, date)
         
         elif cmd == "barchart":
             route = args[0] if args else "1"
-            day = args[1] if len(args) > 1 else "monday"
-            await self.cmd_barchart(route, day)
+            date = args[1] if len(args) > 1 else None
+            await self.cmd_barchart(route, date)
+        
+        elif cmd == "json":
+            route = args[0] if args else "1"
+            date = args[1] if len(args) > 1 else None
+            await self.cmd_json(route, date)
         
         elif cmd == "stream":
             route = args[0] if args else "1"
@@ -126,8 +131,9 @@ class CommuterConsole:
         print("=" * 80)
         print("connect                     - Connect to commuter service")
         print("disconnect                  - Disconnect from service")
-        print("manifest <route> [day]      - Get manifest for route (default: route 1, monday)")
-        print("barchart <route> [day]      - Get barchart for route")
+        print("manifest <route> <date>     - Get manifest table (e.g., manifest 1 2024-11-04)")
+        print("json <route> <date>         - Get raw JSON manifest data")
+        print("barchart <route> <date>     - Get barchart for route")
         print("stream <route>              - Stream real-time events for route")
         print("seed <route> <start-end>    - Watch seeding in real-time (e.g., seed 1 7-9)")
         print("stats                       - Show connection statistics")
@@ -177,51 +183,130 @@ class CommuterConsole:
         self.connector = None
         print("Disconnected")
     
-    async def cmd_manifest(self, route: str, day: str):
-        """Get manifest for route"""
+    async def cmd_manifest(self, route: str, date: Optional[str] = None):
+        """Get manifest for route - displays all passengers in table format"""
         if not self.connector:
             print("❌ Not connected. Use 'connect' first.")
             return
         
-        print(f"Fetching manifest for Route {route}, {day.title()}...")
+        date_str = f" on {date}" if date else " (all dates)"
+        print(f"Fetching manifest for Route {route}{date_str}...")
         
         try:
-            manifest = await self.connector.get_manifest(route=route, day=day)
-            passengers = manifest.get('passengers', [])
-            total = manifest.get('total', 0)
+            # Fetch ALL passengers (limit=1000)
+            manifest = await self.connector.get_manifest(route=route, date=date, limit=1000)
+            passengers = manifest.passengers
+            total = manifest.count
             
             print()
-            print("=" * 80)
-            print(f"MANIFEST - Route {route} - {day.title()}")
-            print("=" * 80)
+            print("=" * 140)
+            print(f"PASSENGER MANIFEST - Route {route}{date_str}")
+            print("=" * 140)
             print(f"Total Passengers: {total}")
+            print("=" * 140)
             print()
             
             if passengers:
-                print("First 10 passengers:")
-                for i, p in enumerate(passengers[:10], 1):
-                    spawn_time = p.get('spawn_time', 'N/A')
+                # Table header
+                print(f"{'#':<5} {'Passenger ID':<20} {'Time':<8} {'Status':<10} {'Start Lat':<11} {'Start Lon':<11} {'Stop Lat':<11} {'Stop Lon':<11} {'Distance':<10}")
+                print("-" * 140)
+                
+                # Table rows
+                for i, p in enumerate(passengers, 1):
+                    passenger_id = p.get('passenger_id', 'N/A')
+                    
+                    # Format spawn time
+                    spawn_time = p.get('spawned_at', 'N/A')
                     if spawn_time != 'N/A':
-                        dt = datetime.fromisoformat(spawn_time.replace('Z', '+00:00'))
-                        spawn_time = dt.strftime('%H:%M')
-                    print(f"  {i:>2}. {p.get('passenger_id', 'N/A')[:8]}... | {spawn_time} | Status: {p.get('status', 'N/A')}")
+                        try:
+                            dt = datetime.fromisoformat(spawn_time.replace('Z', '+00:00'))
+                            spawn_time = dt.strftime('%H:%M')
+                        except:
+                            spawn_time = 'N/A'
+                    
+                    status = p.get('status', 'N/A')
+                    
+                    # Get coordinates - use correct field names from API
+                    start_lat = p.get('latitude', 'N/A')
+                    start_lon = p.get('longitude', 'N/A')
+                    stop_lat = p.get('destination_lat', 'N/A')
+                    stop_lon = p.get('destination_lon', 'N/A')
+                    
+                    # Format coordinates
+                    if start_lat != 'N/A' and start_lat is not None:
+                        start_lat = f"{start_lat:.6f}"
+                    else:
+                        start_lat = 'N/A'
+                    
+                    if start_lon != 'N/A' and start_lon is not None:
+                        start_lon = f"{start_lon:.6f}"
+                    else:
+                        start_lon = 'N/A'
+                    
+                    if stop_lat != 'N/A' and stop_lat is not None:
+                        stop_lat = f"{stop_lat:.6f}"
+                    else:
+                        stop_lat = 'N/A'
+                    
+                    if stop_lon != 'N/A' and stop_lon is not None:
+                        stop_lon = f"{stop_lon:.6f}"
+                    else:
+                        stop_lon = 'N/A'
+                    
+                    # Get distance
+                    distance = p.get('travel_distance_km', 'N/A')
+                    if distance != 'N/A' and isinstance(distance, (int, float)):
+                        distance = f"{distance:.2f} km"
+                    
+                    print(f"{i:<5} {passenger_id:<20} {spawn_time:<8} {status:<10} {start_lat:<11} {start_lon:<11} {stop_lat:<11} {stop_lon:<11} {distance:<10}")
+                
+                print()
             
-            print("=" * 80)
+            print("=" * 140)
             print()
             
         except Exception as e:
             print(f"❌ Error: {e}")
     
-    async def cmd_barchart(self, route: str, day: str):
+    async def cmd_json(self, route: str, date: Optional[str] = None):
+        """Get raw JSON manifest data"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        date_str = f" on {date}" if date else " (all dates)"
+        print(f"Fetching JSON manifest for Route {route}{date_str}...")
+        
+        try:
+            import json
+            
+            # Fetch ALL passengers (limit=1000)
+            manifest = await self.connector.get_manifest(route=route, date=date, limit=1000)
+            
+            # Convert Pydantic model to dict
+            manifest_dict = manifest.model_dump()
+            
+            # Pretty print JSON
+            print()
+            print(json.dumps(manifest_dict, indent=2, default=str))
+            print()
+            print(f"Total: {manifest_dict['count']} passengers")
+            print()
+            
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    async def cmd_barchart(self, route: str, date: Optional[str] = None):
         """Get barchart for route"""
         if not self.connector:
             print("❌ Not connected. Use 'connect' first.")
             return
         
-        print(f"Fetching barchart for Route {route}, {day.title()}...")
+        date_str = f" on {date}" if date else " (all dates)"
+        print(f"Fetching barchart for Route {route}{date_str}...")
         
         try:
-            data = await self.connector.get_barchart(route=route, day=day)
+            data = await self.connector.get_barchart(route=route, date=date)
             hours = data.get('hours', [])
             counts = data.get('counts', [])
             total = data.get('total', 0)
@@ -229,7 +314,7 @@ class CommuterConsole:
             
             print()
             print("=" * 80)
-            print(f"BARCHART - Route {route} - {day.title()}")
+            print(f"BARCHART - Route {route}{date_str}")
             print("=" * 80)
             print(f"Total: {total} | Peak Hour: {peak_hour}:00")
             print("=" * 80)
