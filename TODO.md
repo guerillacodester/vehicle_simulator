@@ -184,6 +184,155 @@ TIER 4.9: Conductor-Reservoir Integration Refactor 🎯 NEXT (Nov 2, 2025)
   - Phase 1-2 failure: git checkout HEAD -- commuter_service/core/domain/reservoirs/
   - Phase 3-6 failure: git checkout HEAD -- . (revert all)
   - Partial rollback: git checkout HEAD -- arknet_transit_simulator/vehicle/conductor.py
+
+TIER 4.10: Real-Time Event-Driven Manifest Streaming API 🎯 NEXT (Nov 2, 2025)
+  
+  **Problem Statement:**
+  Current manifest API (GET /api/manifest) returns static snapshots. Users want real-time streaming
+  of passenger events as they occur during spawning/simulation, with CLI support for live visualization.
+  
+  **User Story:**
+  ```bash
+  # User runs CLI visualization
+  python -m commuter_service.interfaces.cli.manifest_cli \
+    --day monday --route 1 --format barchart --start-hour 0 --end-hour 23 --stream
+  
+  # API streams passenger events in real-time:
+  # - passenger_spawned (with location, route, time)
+  # - passenger_boarded (with vehicle_id, pickup_location)
+  # - passenger_alighted (with dropoff_location, trip_duration)
+  
+  # CLI updates barchart live as events arrive
+  ```
+  
+  **Solution:** Add Server-Sent Events (SSE) endpoint for real-time manifest streaming
+  
+  **Estimated Time:** 4 hours total
+  
+  ### Phase 0: Requirements & Design (30 min)
+  - [ ] 0.1: Define event schema (PassengerEvent model)
+    - Fields: event_type, passenger_id, route_id, timestamp, location, metadata
+    - Types: 'spawned', 'boarded', 'alighted', 'cancelled'
+  - [ ] 0.2: Choose streaming protocol
+    - Decision: Server-Sent Events (SSE) over WebSocket
+    - Reason: One-way data flow, HTTP/2 compatible, automatic reconnection
+    - FastAPI: Use StreamingResponse with text/event-stream
+  - [ ] 0.3: Design API endpoint
+    - Endpoint: GET /api/manifest/stream
+    - Query params: route, day, start_hour, end_hour, event_types[]
+    - Response: Content-Type: text/event-stream
+    - Events: data: {json}\n\n format
+  - Success: Event schema defined, protocol chosen, endpoint designed
+  
+  ### Phase 1: Socket.IO Event Integration (1 hour)
+  - [ ] 1.1: Verify Socket.IO events emitted by spawners
+    - Check: RouteSpawner emits 'commuter:spawned' after push()
+    - Check: DepotSpawner emits 'depot:commuter:spawned' after push()
+    - If missing: Add event emission to reservoir.push_batch()
+  - [ ] 1.2: Create EventBridge service
+    - File: commuter_service/services/events/event_bridge.py (NEW)
+    - Class: EventBridge (singleton)
+    - Methods: subscribe_socketio(), forward_to_sse(), broadcast()
+    - Purpose: Bridge Socket.IO → SSE for HTTP clients
+  - [ ] 1.3: Add conductor boarding/alighting events
+    - File: arknet_transit_simulator/vehicle/conductor.py
+    - Add: socket_io.emit('passenger:boarded', data) after boarding
+    - Add: socket_io.emit('passenger:alighted', data) after alighting
+  - Success: All passenger lifecycle events emit via Socket.IO
+  
+  ### Phase 2: SSE Streaming Endpoint (1.5 hours)
+  - [ ] 2.1: Create manifest streaming endpoint
+    - File: commuter_service/interfaces/http/commuter_manifest.py
+    - Add: @app.get("/api/manifest/stream")
+    - Return: StreamingResponse(event_generator(), media_type="text/event-stream")
+  - [ ] 2.2: Implement event_generator() async function
+    - Connect to Socket.IO server as client
+    - Subscribe to: 'commuter:spawned', 'passenger:boarded', 'passenger:alighted'
+    - Filter by query params (route, day, time range)
+    - Yield: f"data: {json.dumps(event)}\n\n"
+    - Handle reconnection on Socket.IO disconnect
+  - [ ] 2.3: Add event filtering logic
+    - Filter by route_id (if provided)
+    - Filter by day_of_week (if provided)
+    - Filter by time range (start_hour to end_hour)
+    - Filter by event_types (if provided, e.g., only 'spawned')
+  - [ ] 2.4: Add keepalive heartbeat
+    - Send: ": keepalive\n\n" every 15 seconds
+    - Prevents proxy/browser timeout
+  - Success: SSE endpoint streams filtered events in real-time
+  
+  ### Phase 3: CLI Streaming Visualization (1 hour)
+  - [ ] 3.1: Add --stream flag to manifest_cli
+    - File: commuter_service/interfaces/cli/manifest_cli.py
+    - Add argparse: --stream (action='store_true')
+    - If --stream: Use httpx.stream() to connect to SSE endpoint
+  - [ ] 3.2: Implement live barchart updater
+    - Create: LiveBarchartRenderer class
+    - Method: update(event) - increment hour bucket
+    - Method: render() - clear screen, redraw chart
+    - Use: cursor movement (ANSI escape codes) for in-place updates
+  - [ ] 3.3: Handle SSE event parsing
+    - Parse: f"data: {json}\n\n" format
+    - Extract event_type, timestamp, route_id
+    - Update hourly counts in real-time
+    - Redraw chart every 500ms (debounced)
+  - [ ] 3.4: Add streaming progress indicator
+    - Show: "🔴 LIVE" badge at top
+    - Show: Last event timestamp
+    - Show: Total events received
+    - Show: Events/second rate
+  - Success: CLI displays live-updating barchart as events arrive
+  
+  ### Phase 4: Testing & Validation (1 hour)
+  - [ ] 4.1: Test SSE endpoint with curl
+    ```bash
+    curl -N http://localhost:4000/api/manifest/stream?route=1&day=monday
+    ```
+    - Verify: Events stream in real-time
+    - Verify: Keepalive messages every 15s
+  - [ ] 4.2: Test CLI streaming mode
+    ```bash
+    # Terminal 1: Start streaming visualization
+    python -m commuter_service.interfaces.cli.manifest_cli \
+      --day monday --route 1 --format barchart --stream
+    
+    # Terminal 2: Seed passengers
+    python commuter_service/seed.py --day monday --route 1 \
+      --type route --start-hour 7 --end-hour 9
+    ```
+    - Verify: Barchart updates live as passengers spawn
+    - Verify: Hour buckets increment in real-time
+  - [ ] 4.3: Test with running simulation
+    - Start simulator with vehicles on route 1
+    - Watch for: 'passenger:boarded' events
+    - Verify: CLI shows boarding events with different color
+  - [ ] 4.4: Load test SSE endpoint
+    - Connect 10 concurrent SSE clients
+    - Seed 100 passengers rapidly
+    - Verify: All clients receive all events
+    - Check: No memory leaks, CPU usage acceptable
+  - Success: SSE streams events, CLI updates live, no performance issues
+  
+  **Success Criteria:**
+  - ✅ SSE endpoint streams passenger events in real-time
+  - ✅ Events filtered by route, day, time range, event type
+  - ✅ CLI --stream flag enables live visualization
+  - ✅ Barchart updates in-place as events arrive
+  - ✅ Supports concurrent clients (>10 simultaneous streams)
+  - ✅ Graceful reconnection on Socket.IO disconnect
+  - ✅ Backward compatibility (non-streaming mode still works)
+  
+  **Rollback Plan:**
+  - Phase 1 failure: Revert Socket.IO event additions
+  - Phase 2 failure: Remove SSE endpoint, keep Socket.IO events
+  - Phase 3-4 failure: Remove --stream flag, keep endpoint for future use
+  
+  **Future Enhancements:**
+  - WebSocket alternative for bidirectional communication
+  - Historical event playback (replay past events at 10x speed)
+  - Event aggregation (hourly summaries instead of individual events)
+  - Multiple output formats (JSON lines, CSV stream)
+
 TIER 5: Spawner Integration & Statistical Validation 🎯 NEXT (Nov 1+)
   - 🎯 Phase 5.1: Integrate spawn_calculator into RouteSpawner (Nov 1)
   - 🎯 Phase 5.2: Integrate spawn_calculator into DepotSpawner (Nov 1)
