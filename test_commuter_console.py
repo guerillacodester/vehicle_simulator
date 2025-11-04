@@ -107,6 +107,14 @@ class CommuterConsole:
             date = args[1] if len(args) > 1 else None
             await self.cmd_json(route, date)
         
+        elif cmd == "subscribe":
+            route = args[0] if args else "1"
+            await self.cmd_subscribe(route)
+        
+        elif cmd == "unsubscribe":
+            route = args[0] if args else "1"
+            await self.cmd_unsubscribe(route)
+        
         elif cmd == "stream":
             route = args[0] if args else "1"
             await self.cmd_stream(route)
@@ -134,7 +142,15 @@ class CommuterConsole:
         print("manifest <route> <date>     - Get manifest table (e.g., manifest 1 2024-11-04)")
         print("json <route> <date>         - Get raw JSON manifest data")
         print("barchart <route> <date>     - Get barchart for route")
+        print("subscribe <route>           - Subscribe to real-time events (WebSocket)")
+        print("unsubscribe <route>         - Unsubscribe from events")
         print("stream <route>              - Stream real-time events for route")
+        print("seed <route> <start-end>    - Watch seeding in real-time (e.g., seed 1 7-9)")
+        print("stats                       - Show connection statistics")
+        print("help                        - Show this help")
+        print("exit                        - Exit console")
+        print("=" * 80)
+        print()
         print("seed <route> <start-end>    - Watch seeding in real-time (e.g., seed 1 7-9)")
         print("stats                       - Show connection statistics")
         print("help                        - Show this help")
@@ -148,8 +164,7 @@ class CommuterConsole:
         
         try:
             self.connector = CommuterConnector(
-                base_url="http://localhost:4000",
-                socketio_url=None  # Socket.IO optional for now
+                base_url="http://localhost:4000"
             )
             
             # Subscribe to events
@@ -164,10 +179,10 @@ class CommuterConsole:
             print("✅ Connected successfully!")
             print(f"   HTTP API: http://localhost:4000")
             
-            if self.connector.is_socketio_connected:
-                print(f"   Socket.IO: ✅ Connected")
+            if self.connector.is_websocket_connected:
+                print(f"   WebSocket: ✅ Connected")
             else:
-                print(f"   Socket.IO: ⚠️ Not available (real-time streaming disabled)")
+                print(f"   WebSocket: ⚠️ Not available (real-time streaming disabled)")
                 print(f"   Note: HTTP queries still work (manifest, barchart)")
             
         except Exception as e:
@@ -182,6 +197,32 @@ class CommuterConsole:
         await self.connector.disconnect()
         self.connector = None
         print("Disconnected")
+    
+    async def cmd_subscribe(self, route: str):
+        """Subscribe to real-time events for a route"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        if not self.connector.is_websocket_connected:
+            print("❌ WebSocket not connected. Real-time events unavailable.")
+            return
+        
+        await self.connector.subscribe(route)
+        print(f"📡 Subscribed to Route {route} events")
+        print("   Listening for passenger:spawned, passenger:boarded, passenger:alighted")
+    
+    async def cmd_unsubscribe(self, route: str):
+        """Unsubscribe from route events"""
+        if not self.connector:
+            print("❌ Not connected.")
+            return
+        
+        if not self.connector.is_websocket_connected:
+            return
+        
+        await self.connector.unsubscribe(route)
+        print(f"🔕 Unsubscribed from Route {route}")
     
     async def cmd_manifest(self, route: str, date: Optional[str] = None):
         """Get manifest for route - displays all passengers in table format"""
@@ -338,7 +379,7 @@ class CommuterConsole:
             print("❌ Not connected. Use 'connect' first.")
             return
         
-        if not self.connector.is_socketio_connected:
+        if not self.connector.is_websocket_connected:
             print("❌ Socket.IO not connected. Real-time streaming unavailable.")
             return
         
@@ -374,7 +415,7 @@ class CommuterConsole:
             print("❌ Not connected. Use 'connect' first.")
             return
         
-        if not self.connector.is_socketio_connected:
+        if not self.connector.is_websocket_connected:
             print("❌ Socket.IO not connected. Real-time streaming unavailable.")
             return
         
@@ -442,7 +483,7 @@ class CommuterConsole:
         print("CONNECTION STATISTICS")
         print("=" * 80)
         print(f"Connected:           {'✅ Yes' if self.connector.is_connected else '❌ No'}")
-        print(f"Socket.IO:           {'✅ Connected' if self.connector.is_socketio_connected else '❌ Not connected'}")
+        print(f"WebSocket:           {'✅ Connected' if self.connector.is_websocket_connected else '❌ Not connected'}")
         print(f"Events received:     {self.event_count}")
         print(f"Buffered events:     {len(self.connector.get_buffered_events())}")
         print("=" * 80)

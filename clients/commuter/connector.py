@@ -3,12 +3,11 @@ Commuter Service Client Connector
 ==================================
 
 GUI-agnostic client for connecting to the Commuter Service API.
-Supports both REST API and real-time Socket.IO/SSE streaming.
+Supports both REST API and real-time WebSocket streaming.
 
 Features:
 - REST API: Query manifest, stats, visualization data
-- Socket.IO: Real-time passenger spawn/board/alight events
-- SSE Streaming: HTTP streaming fallback
+- WebSocket: Real-time passenger spawn/board/alight events
 - Observable pattern: Subscribe to events with callbacks
 - Auto-reconnection on disconnect
 - Type-safe Pydantic models
@@ -19,7 +18,7 @@ Usage:
     connector = CommuterConnector(base_url="http://localhost:4000")
     
     # REST API
-    manifest = await connector.get_manifest(route=1, day="monday")
+    manifest = await connector.get_manifest(route=1, date="2024-11-04")
     
     # Real-time streaming
     def on_passenger_spawned(data):
@@ -34,9 +33,10 @@ import logging
 from typing import Optional, Callable, Dict, Any, List
 from datetime import datetime
 from enum import Enum
+import json
 
 import httpx
-import socketio
+import websockets
 from pydantic import BaseModel, Field
 
 
@@ -97,14 +97,14 @@ class CommuterConnector:
     
     Supports:
     - REST API (HTTP/HTTPS)
-    - Real-time events (Socket.IO)
+    - Real-time events (WebSocket)
     - Observable pattern (callbacks)
     """
     
     def __init__(
         self,
         base_url: str = "http://localhost:4000",
-        socketio_url: Optional[str] = None,
+        ws_url: Optional[str] = None,
         auto_reconnect: bool = True
     ):
         """
@@ -112,97 +112,138 @@ class CommuterConnector:
         
         Args:
             base_url: Base URL for REST API (default: http://localhost:4000)
-            socketio_url: Socket.IO server URL (default: None, will try to detect)
+            ws_url: WebSocket server URL (default: None, will auto-detect)
             auto_reconnect: Auto-reconnect on disconnect (default: True)
         """
         self.base_url = base_url.rstrip('/')
-        self.socketio_url = socketio_url or self._detect_socketio_url()
+        
+        # Detect WebSocket URL if not provided
+        if ws_url:
+            self.ws_url = ws_url
+        else:
+            # Convert http://localhost:4000 -> ws://localhost:4000/ws/stream
+            ws_base = self.base_url.replace('http://', 'ws://').replace('https://', 'wss://')
+            self.ws_url = f"{ws_base}/ws/stream"
+        
         self.auto_reconnect = auto_reconnect
         
         # HTTP client
         self.http_client = httpx.AsyncClient(base_url=self.base_url, timeout=30.0)
         
-        # Socket.IO client
-        self.sio = socketio.AsyncClient(reconnection=auto_reconnect)
-        self._setup_socketio_handlers()
+        # WebSocket connection
+        self.ws: Optional[websockets.WebSocketClientProtocol] = None
+        self._ws_task: Optional[asyncio.Task] = None
         
         # Event handlers (Observable pattern)
         self._event_handlers: Dict[str, List[Callable]] = {}
         
         # Connection state
         self.connected = False
-        self.is_socketio_connected = False
+        self.is_websocket_connected = False
         
-        logger.info(f"CommuterConnector initialized | REST: {self.base_url} | Socket.IO: {self.socketio_url}")
+        logger.info(f"CommuterConnector initialized | REST: {self.base_url} | WebSocket: {self.ws_url}")
     
-    def _detect_socketio_url(self) -> Optional[str]:
-        """Detect Socket.IO server URL from REST API"""
-        # Socket.IO server not implemented yet
-        # Will be added in TIER 4.10
-        return None
-    
-    def _setup_socketio_handlers(self):
-        """Setup Socket.IO event handlers"""
-        
-        @self.sio.event
-        async def connect():
-            self.connected = True
-            self.is_socketio_connected = True
-            logger.info("✅ Connected to Socket.IO server")
-            await self._trigger_event('connect', {})
-        
-        @self.sio.event
-        async def disconnect():
-            self.connected = False
-            self.is_socketio_connected = False
-            logger.warning("⚫ Disconnected from Socket.IO server")
+    async def _websocket_listener(self):
+        """Listen for WebSocket messages"""
+        try:
+            async for message in self.ws:
+                try:
+                    data = json.loads(message)
+                    message_type = data.get("type")
+                    
+                    logger.debug(f"📨 WebSocket message: {message_type}")
+                    
+                    # Handle connection events
+                    if message_type == "connected":
+                        self.is_websocket_connected = True
+                        await self._trigger_event('connect', data)
+                    
+                    # Handle passenger events
+                    elif message_type in ["passenger:spawned", "passenger:boarded", "passenger:alighted"]:
+                        await self._trigger_event(message_type, data.get("data", {}))
+                    
+                    # Handle subscription confirmations
+                    elif message_type in ["subscribed", "unsubscribed"]:
+                        logger.info(f"✅ {data.get('message')}")
+                    
+                    # Handle errors
+                    elif message_type == "error":
+                        logger.error(f"❌ WebSocket error: {data.get('message')}")
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse WebSocket message: {e}")
+                except Exception as e:
+                    logger.error(f"Error processing WebSocket message: {e}")
+                    
+        except websockets.exceptions.ConnectionClosed:
+            logger.warning("⚫ WebSocket connection closed")
+            self.is_websocket_connected = False
             await self._trigger_event('disconnect', {})
-        
-        @self.sio.on('passenger:spawned')
-        async def on_passenger_spawned(data):
-            logger.debug(f"📨 passenger:spawned: {data}")
-            await self._trigger_event(EventType.SPAWNED, data)
-        
-        @self.sio.on('passenger:boarded')
-        async def on_passenger_boarded(data):
-            logger.debug(f"📨 passenger:boarded: {data}")
-            await self._trigger_event(EventType.BOARDED, data)
-        
-        @self.sio.on('passenger:alighted')
-        async def on_passenger_alighted(data):
-            logger.debug(f"📨 passenger:alighted: {data}")
-            await self._trigger_event(EventType.ALIGHTED, data)
-        
-        @self.sio.on('*')
-        async def catch_all(event, data):
-            """Catch all other events"""
-            if event not in ['connect', 'disconnect', 'passenger:spawned', 'passenger:boarded', 'passenger:alighted']:
-                logger.debug(f"📨 {event}: {data}")
-                await self._trigger_event(event, data)
     
     # ========================================================================
     # CONNECTION MANAGEMENT
     # ========================================================================
     
     async def connect(self):
-        """Connect to Socket.IO server for real-time events"""
-        if self.socketio_url is None:
-            logger.info("Socket.IO URL not provided - real-time events disabled")
+        """Connect to WebSocket server for real-time events"""
+        if self.ws_url is None:
+            logger.info("WebSocket URL not provided - real-time events disabled")
             return
         
         try:
-            await self.sio.connect(self.socketio_url)
-            logger.info(f"Connected to Socket.IO: {self.socketio_url}")
+            self.ws = await websockets.connect(self.ws_url)
+            logger.info(f"✅ Connected to WebSocket: {self.ws_url}")
+            
+            # Start listener task
+            self._ws_task = asyncio.create_task(self._websocket_listener())
+            
+            # Wait a bit for the welcome message and set connected flag
+            await asyncio.sleep(0.5)
+            
+            # Check if we received the connected message
+            if not self.is_websocket_connected:
+                # Set it manually since connection succeeded
+                self.is_websocket_connected = True
+                logger.info("WebSocket connected (manual flag set)")
+            
         except Exception as e:
-            logger.warning(f"Failed to connect to Socket.IO: {e}")
+            logger.warning(f"Failed to connect to WebSocket: {e}")
             logger.warning("Continuing without real-time events (HTTP API still available)")
-            # Don't raise - allow HTTP API to work without Socket.IO
+            # Don't raise - allow HTTP API to work without WebSocket
     
     async def disconnect(self):
-        """Disconnect from Socket.IO server"""
-        await self.sio.disconnect()
+        """Disconnect from WebSocket server"""
+        if self.ws:
+            await self.ws.close()
+        
+        if self._ws_task:
+            self._ws_task.cancel()
+        
         await self.http_client.aclose()
         logger.info("Disconnected from Commuter Service")
+    
+    async def subscribe(self, route: str):
+        """Subscribe to passenger events for a specific route"""
+        if not self.ws or not self.is_websocket_connected:
+            logger.warning("Not connected to WebSocket")
+            return
+        
+        await self.ws.send(json.dumps({
+            "type": "subscribe",
+            "route": route
+        }))
+        logger.info(f"📡 Subscribed to route: {route}")
+    
+    async def unsubscribe(self, route: str):
+        """Unsubscribe from passenger events for a route"""
+        if not self.ws or not self.is_websocket_connected:
+            return
+        
+        await self.ws.send(json.dumps({
+            "type": "unsubscribe",
+            "route": route
+        }))
+        logger.info(f"🔕 Unsubscribed from route: {route}")
     
     # ========================================================================
     # REST API
@@ -226,7 +267,7 @@ class CommuterConnector:
             date: Specific date (YYYY-MM-DD format)
             start_hour: Start hour (0-23) - requires date or day
             end_hour: End hour (0-23) - requires date or day
-            limit: Maximum results (default: 100, max: 1000)
+            limit: Maximum results (default: 1000, max: 1000)
         
         Returns:
             ManifestResponse with passengers

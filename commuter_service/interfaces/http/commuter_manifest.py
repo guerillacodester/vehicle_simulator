@@ -24,10 +24,13 @@ import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import httpx
+import json
+import asyncio
+from typing import Set
 
 
 logger = logging.getLogger(__name__)
@@ -619,6 +622,199 @@ async def delete_passengers(
             status_code=500,
             detail=f"Failed to delete passengers: {str(e)}"
         )
+
+
+# ============================================================================
+# WEBSOCKET STREAMING
+# ============================================================================
+
+# Global event queue for spawner → WebSocket communication
+_event_queue: asyncio.Queue = None
+
+def get_event_queue() -> asyncio.Queue:
+    """Get or create the global event queue"""
+    global _event_queue
+    if _event_queue is None:
+        _event_queue = asyncio.Queue()
+    return _event_queue
+
+
+async def emit_passenger_event(event_type: str, passenger_data: dict, route_id: str = None):
+    """
+    Emit passenger lifecycle event to WebSocket clients.
+    
+    Called by spawners when passengers spawn/board/alight.
+    
+    Args:
+        event_type: "spawned", "boarded", "alighted"
+        passenger_data: Passenger information
+        route_id: Route ID for targeted broadcast (optional)
+    """
+    message = {
+        "type": f"passenger:{event_type}",
+        "data": passenger_data,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+    
+    if route_id:
+        await manager.broadcast_to_route(route_id, message)
+    else:
+        await manager.broadcast(message)
+
+
+class ConnectionManager:
+    """Manages WebSocket connections for real-time streaming"""
+    
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+        self.route_subscriptions: Dict[str, Set[WebSocket]] = {}
+        logger.info("🔌 WebSocket ConnectionManager initialized")
+    
+    async def connect(self, websocket: WebSocket):
+        """Accept new WebSocket connection"""
+        await websocket.accept()
+        self.active_connections.add(websocket)
+        logger.info(f"✅ WebSocket connected | Total: {len(self.active_connections)}")
+    
+    async def disconnect(self, websocket: WebSocket):
+        """Remove WebSocket connection"""
+        self.active_connections.discard(websocket)
+        
+        # Remove from route subscriptions
+        for route_id, subscribers in list(self.route_subscriptions.items()):
+            subscribers.discard(websocket)
+            if not subscribers:
+                del self.route_subscriptions[route_id]
+        
+        logger.info(f"⚫ WebSocket disconnected | Total: {len(self.active_connections)}")
+    
+    async def subscribe_to_route(self, websocket: WebSocket, route_id: str):
+        """Subscribe connection to specific route events"""
+        if route_id not in self.route_subscriptions:
+            self.route_subscriptions[route_id] = set()
+        
+        self.route_subscriptions[route_id].add(websocket)
+        logger.info(f"📡 Client subscribed to route: {route_id}")
+    
+    async def unsubscribe_from_route(self, websocket: WebSocket, route_id: str):
+        """Unsubscribe connection from route events"""
+        if route_id in self.route_subscriptions:
+            self.route_subscriptions[route_id].discard(websocket)
+            if not self.route_subscriptions[route_id]:
+                del self.route_subscriptions[route_id]
+        
+        logger.info(f"🔕 Client unsubscribed from route: {route_id}")
+    
+    async def broadcast(self, message: dict):
+        """Broadcast message to all connected clients"""
+        dead_connections = set()
+        
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.error(f"Failed to send to client: {e}")
+                dead_connections.add(connection)
+        
+        # Clean up dead connections
+        for conn in dead_connections:
+            await self.disconnect(conn)
+    
+    async def broadcast_to_route(self, route_id: str, message: dict):
+        """Broadcast message to clients subscribed to specific route"""
+        if route_id not in self.route_subscriptions:
+            return
+        
+        dead_connections = set()
+        subscribers = self.route_subscriptions[route_id].copy()
+        
+        for connection in subscribers:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.error(f"Failed to send to client: {e}")
+                dead_connections.add(connection)
+        
+        # Clean up dead connections
+        for conn in dead_connections:
+            await self.disconnect(conn)
+
+
+# Global connection manager
+manager = ConnectionManager()
+
+
+@app.websocket("/ws/stream")
+async def websocket_stream(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time passenger event streaming.
+    
+    Client → Server messages:
+        {"type": "subscribe", "route": "1"}
+        {"type": "unsubscribe", "route": "1"}
+        {"type": "ping"}
+    
+    Server → Client messages:
+        {"type": "passenger:spawned", "data": {...}}
+        {"type": "passenger:boarded", "data": {...}}
+        {"type": "passenger:alighted", "data": {...}}
+        {"type": "pong"}
+        {"type": "error", "message": "..."}
+    """
+    await manager.connect(websocket)
+    
+    try:
+        # Send welcome message
+        await websocket.send_json({
+            "type": "connected",
+            "message": "Connected to Commuter Service WebSocket",
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        })
+        
+        # Listen for client messages
+        while True:
+            data = await websocket.receive_json()
+            message_type = data.get("type")
+            
+            if message_type == "subscribe":
+                route = data.get("route")
+                if route:
+                    await manager.subscribe_to_route(websocket, route)
+                    await websocket.send_json({
+                        "type": "subscribed",
+                        "route": route,
+                        "message": f"Subscribed to route {route}"
+                    })
+                else:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Missing 'route' parameter"
+                    })
+            
+            elif message_type == "unsubscribe":
+                route = data.get("route")
+                if route:
+                    await manager.unsubscribe_from_route(websocket, route)
+                    await websocket.send_json({
+                        "type": "unsubscribed",
+                        "route": route,
+                        "message": f"Unsubscribed from route {route}"
+                    })
+            
+            elif message_type == "ping":
+                await websocket.send_json({"type": "pong"})
+            
+            else:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Unknown message type: {message_type}"
+                })
+    
+    except WebSocketDisconnect:
+        await manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await manager.disconnect(websocket)
 
 
 if __name__ == "__main__":
