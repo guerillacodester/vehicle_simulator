@@ -2674,9 +2674,10 @@ await client.stream_telemetry(route_code="1A", observers=[observer])
 
 ## GUI-Agnostic Client Libraries (November 2, 2025)
 
-### Architecture
+### Client Library Architecture
 
 All services expose HTTP APIs and provide **GUI-agnostic client libraries** that can be consumed by:
+
 - **Next.js** frontends (via REST)
 - **Console applications** (direct Python import)
 - **.NET desktop apps** (via pythonnet)
@@ -3601,12 +3602,15 @@ python -c "import uuid; print(uuid.uuid4())"
 ```
 
 ---
-# Conductor Implementation Context
+
+## Conductor Implementation Context
+
 **Branch:** branch-0.0.3.0  
 **Date:** November 4, 2025  
 **Status:** In Progress
 
-## Problem Statement
+### Problem Statement
+
 Conductor was bypassing the reservoir pattern and using deprecated `passenger_db.get_eligible_passengers()` method that doesn't exist. Architecture needed refactoring to use HTTP API layer.
 
 ## What's Been Completed
@@ -3750,6 +3754,7 @@ nearby = await geospatial_service.get_passengers_within_radius(lat, lon, radius)
 4. Update CommuterServiceClient if needed
 
 **Performance Impact:**
+
 | Passengers | Before (Python) | After (PostGIS) | Speedup |
 |-----------|----------------|-----------------|---------|
 | 100       | 50ms           | 5ms             | 10x     |
