@@ -23,6 +23,9 @@ import json
 from commuter_service.core.domain.spawner_engine import ReservoirInterface, SpawnRequest
 from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
 
+# Import WebSocket event emitter (will be imported dynamically to avoid circular deps)
+_emit_passenger_event = None
+
 
 class RouteReservoir(ReservoirInterface):
     """
@@ -148,6 +151,9 @@ class RouteReservoir(ReservoirInterface):
                 f"✅ Batch push: {successful} passengers inserted, "
                 f"{failed} failed, caches invalidated for {len(route_ids)} routes"
             )
+            
+            # Emit WebSocket events for spawned passengers
+            await self._emit_spawn_events(spawn_requests)
         
         return (successful, failed)
     
@@ -166,6 +172,38 @@ class RouteReservoir(ReservoirInterface):
     async def _get_cache_key(self, route_id: str) -> str:
         """Get Redis cache key for a route"""
         return f"route_reservoir:{route_id}:passengers"
+
+    async def _emit_spawn_events(self, spawn_requests: List[SpawnRequest]):
+        """Emit websocket events for spawned passengers.
+
+        This dynamically imports the emitter to avoid circular imports when the
+        HTTP interface registers the global ConnectionManager.
+        """
+        try:
+            # Import emitter dynamically to avoid import cycles
+            from commuter_service.interfaces.http.commuter_manifest import emit_passenger_event
+        except Exception as e:
+            self.logger.debug(f"WebSocket emitter not available: {e}")
+            return
+
+        # Fire-and-forget emission for each spawned passenger
+        for req in spawn_requests:
+            try:
+                passenger_data = {
+                    'passenger_id': req.passenger_id,
+                    'route_id': req.route_id,
+                    'spawned_at': req.spawn_time.isoformat() if hasattr(req.spawn_time, 'isoformat') else str(req.spawn_time),
+                    'latitude': req.spawn_location[0],
+                    'longitude': req.spawn_location[1],
+                    'destination_lat': req.destination_location[0],
+                    'destination_lon': req.destination_location[1],
+                    'status': 'WAITING'
+                }
+
+                # Don't await to avoid slowing down DB writes; schedule on loop
+                asyncio.create_task(emit_passenger_event('spawned', passenger_data, route_id=req.route_id))
+            except Exception as e:
+                self.logger.debug(f"Failed to emit spawn event for {req.passenger_id}: {e}")
 
     
     
@@ -201,10 +239,36 @@ class RouteReservoir(ReservoirInterface):
             True if successful
         """
         # Update status in database via PassengerRepository
-        success = await self.passenger_repo.mark_boarded(passenger_id)
+        success = await self.passenger_repo.mark_boarded(passenger_id, vehicle_id=vehicle_id)
         
         if success:
+            # Invalidate cache for this route
+            # (Note: we'd need route_id - could fetch passenger first)
+            
             self.logger.debug(f"✅ Marked {passenger_id} as boarded/picked up")
+            
+            # Emit boarded event
+            try:
+                # Get passenger details for event
+                passengers = await self.passenger_repo.get_waiting_passengers_by_route(
+                    route_id=None,  # Will search all routes
+                    limit=1
+                )
+                # Find our passenger
+                passenger_data = None
+                for p in passengers:
+                    if p.get('passenger_id') == passenger_id:
+                        passenger_data = p
+                        break
+                
+                if passenger_data:
+                    await self._emit_state_change_event(
+                        'boarded',
+                        passenger_data,
+                        vehicle_id=vehicle_id
+                    )
+            except Exception as e:
+                self.logger.debug(f"Failed to emit boarded event: {e}")
         else:
             self.logger.warning(f"❌ Failed to mark {passenger_id} as boarded")
         
@@ -220,15 +284,72 @@ class RouteReservoir(ReservoirInterface):
         Returns:
             True if successful
         """
+        # Get passenger data before marking alighted (for event emission)
+        try:
+            passenger_data = None
+            passengers = await self.passenger_repo.get_waiting_passengers_by_route(
+                route_id=None,
+                limit=1000
+            )
+            for p in passengers:
+                if p.get('passenger_id') == passenger_id:
+                    passenger_data = p
+                    break
+        except:
+            passenger_data = None
+        
         # Update status in database via PassengerRepository
         success = await self.passenger_repo.mark_alighted(passenger_id)
         
         if success:
             self.logger.debug(f"✅ Marked {passenger_id} as alighted/dropped off")
+            
+            # Emit alighted event
+            if passenger_data:
+                try:
+                    await self._emit_state_change_event(
+                        'alighted',
+                        passenger_data
+                    )
+                except Exception as e:
+                    self.logger.debug(f"Failed to emit alighted event: {e}")
         else:
             self.logger.warning(f"❌ Failed to mark {passenger_id} as alighted")
         
         return success
+    
+    async def _emit_state_change_event(self, event_type: str, passenger_data: dict, vehicle_id: Optional[str] = None):
+        """Emit state change event (boarded/alighted)"""
+        try:
+            from commuter_service.interfaces.http.commuter_manifest import emit_passenger_event
+        except Exception as e:
+            self.logger.debug(f"WebSocket emitter not available: {e}")
+            return
+        
+        # Build event payload
+        event_payload = {
+            'passenger_id': passenger_data.get('passenger_id'),
+            'route_id': passenger_data.get('route_id'),
+            'latitude': passenger_data.get('latitude'),
+            'longitude': passenger_data.get('longitude'),
+            'destination_lat': passenger_data.get('destination_lat'),
+            'destination_lon': passenger_data.get('destination_lon'),
+            'status': passenger_data.get('status')
+        }
+        
+        if event_type == 'boarded' and vehicle_id:
+            event_payload['vehicle_id'] = vehicle_id
+            event_payload['boarded_at'] = passenger_data.get('boarded_at')
+        elif event_type == 'alighted':
+            event_payload['vehicle_id'] = passenger_data.get('vehicle_id')
+            event_payload['alighted_at'] = passenger_data.get('alighted_at')
+        
+        # Schedule emission
+        asyncio.create_task(emit_passenger_event(
+            event_type,
+            event_payload,
+            route_id=passenger_data.get('route_id')
+        ))
     
     async def get_stats(self) -> Dict:
         """

@@ -265,12 +265,13 @@ class PassengerRepository:
         
         return (successful, failed)
     
-    async def mark_boarded(self, passenger_id: str) -> bool:
+    async def mark_boarded(self, passenger_id: str, vehicle_id: Optional[str] = None) -> bool:
         """
         Mark passenger as boarded via Strapi API.
         
         Args:
             passenger_id: Passenger to mark as boarded
+            vehicle_id: Optional vehicle ID
         
         Returns:
             True if update successful, False otherwise
@@ -280,8 +281,33 @@ class PassengerRepository:
             return False
         
         try:
-            async with self.session.post(
-                f"{self.strapi_url}/api/active-passengers/mark-boarded/{passenger_id}"
+            # Use direct PUT to update with vehicle_id
+            update_data = {
+                "status": "BOARDED",
+                "boarded_at": datetime.utcnow().isoformat() + "Z"
+            }
+            if vehicle_id:
+                update_data["vehicle_id"] = vehicle_id
+            
+            # First get document ID
+            async with self.session.get(
+                f"{self.strapi_url}/api/active-passengers",
+                params={"filters[passenger_id][$eq]": passenger_id}
+            ) as response:
+                if response.status != 200:
+                    return False
+                
+                data = await response.json()
+                passengers = data.get("data", [])
+                if not passengers:
+                    return False
+                
+                document_id = passengers[0].get("documentId")
+            
+            # Update passenger
+            async with self.session.put(
+                f"{self.strapi_url}/api/active-passengers/{document_id}",
+                json={"data": update_data}
             ) as response:
                 if response.status == 200:
                     self.logger.info(f"✅ Marked passenger {passenger_id} as boarded")

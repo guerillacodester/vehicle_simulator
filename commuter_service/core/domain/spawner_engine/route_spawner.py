@@ -18,6 +18,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import random
+import asyncio
 
 from commuter_service.core.domain.spawner_engine.base_spawner import SpawnerInterface, SpawnRequest, ReservoirInterface
 from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader

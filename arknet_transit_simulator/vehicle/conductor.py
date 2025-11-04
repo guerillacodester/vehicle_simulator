@@ -80,13 +80,13 @@ class StopOperation:
 @dataclass
 class ConductorConfig:
     """
-    Enhanced conductor configuration - Now loaded dynamically from ConfigurationService.
+    Enhanced conductor configuration - Loaded dynamically from ConfigurationService.
     
-    Default values are used as fallbacks if configuration service is unavailable.
-    Actual values are loaded from Strapi via ConfigurationService during initialization.
+    CRITICAL: pickup_radius_km has NO default - must be loaded from database.
+    This ensures proximity settings are always database-driven, not hardcoded.
     """
-    # Proximity settings
-    pickup_radius_km: float = 0.2
+    # Proximity settings - Database-driven (operational-configurations table)
+    pickup_radius_km: Optional[float] = None  # MUST load from DB - no hardcoded default
     boarding_time_window_minutes: float = 5.0
     
     # Stop duration settings
@@ -102,6 +102,31 @@ class ConductorConfig:
     # Communication timeouts
     driver_response_timeout_seconds: float = 30.0
     passenger_boarding_timeout_seconds: float = 120.0
+    
+    def validate(self) -> None:
+        """
+        Validate configuration parameters are within acceptable ranges.
+        
+        Raises:
+            ValueError: If any parameter is out of bounds or missing
+        """
+        if self.pickup_radius_km is None:
+            raise ValueError(
+                "pickup_radius_km is not configured. "
+                "Must load from database (operational-configurations table). "
+                "Run: python arknet_fleet_manager/seed_operational_config.py"
+            )
+        
+        if not (0.05 <= self.pickup_radius_km <= 5.0):
+            raise ValueError(
+                f"pickup_radius_km={self.pickup_radius_km} out of bounds. "
+                f"Must be between 0.05 and 5.0 kilometers"
+            )
+        
+        if not (1.0 <= self.boarding_time_window_minutes <= 30.0):
+            raise ValueError(
+                f"boarding_time_window_minutes={self.boarding_time_window_minutes} out of bounds"
+            )
     
     @classmethod
     async def from_config_service(cls, config_service=None):
@@ -199,7 +224,8 @@ class Conductor(BasePerson):
         config: ConductorConfig = None,
         sio_url: Optional[str] = None,
         use_socketio: bool = True,
-        passenger_db = None,  # Optional: PassengerDatabase instance
+        passenger_db = None,  # DEPRECATED: Use commuter_service_url instead
+        commuter_service_url: Optional[str] = None,  # NEW: URL for commuter_service HTTP API
         hardware_client = None  # Optional: HardwareEventClient for event reporting
     ):
         """
@@ -207,6 +233,8 @@ class Conductor(BasePerson):
         
         Args:
             sio_url: Socket.IO URL. If None, loads from config.ini via ConfigProvider.
+            commuter_service_url: URL for commuter_service API (default: http://localhost:4000)
+            passenger_db: DEPRECATED - kept for backward compatibility
         """
         # Initialize BasePerson with PersonState
         super().__init__(conductor_id, "Conductor", conductor_name)
@@ -228,7 +256,11 @@ class Conductor(BasePerson):
         self.tick_time = tick_time
         self.config = config or ConductorConfig()
         
-        # Passenger database integration
+        # NEW: Commuter Service HTTP Client (replaces direct database access)
+        self.commuter_service_url = commuter_service_url or "http://localhost:4000"
+        self.commuter_client = None  # Initialized in start()
+        
+        # DEPRECATED: Keep for backward compatibility
         self.passenger_db = passenger_db
         self.boarded_passengers: List[str] = []  # Track individual passenger IDs
         
@@ -517,6 +549,25 @@ class Conductor(BasePerson):
                 f"on route {self.assigned_route_id}"
             )
             
+            # Initialize commuter service HTTP client
+            if self.commuter_client is None:
+                from arknet_transit_simulator.services.commuter_http_client import CommuterServiceClient
+                self.commuter_client = CommuterServiceClient(
+                    base_url=self.commuter_service_url,
+                    logger=self.logger
+                )
+                # Test connection
+                connected = await self.commuter_client.connect()
+                if connected:
+                    self.logger.info(
+                        f"[{self.component_id}] ✅ Connected to commuter_service at {self.commuter_service_url}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"[{self.component_id}] ⚠️ Failed to connect to commuter_service - "
+                        f"passenger visibility may be limited"
+                    )
+            
             # Connect to Socket.IO (Priority 2)
             if self.use_socketio:
                 await self._connect_socketio()
@@ -547,7 +598,15 @@ class Conductor(BasePerson):
             if self.use_socketio:
                 await self._disconnect_socketio()
             
-            # Disconnect PassengerDatabase
+            # Disconnect commuter service HTTP client
+            if self.commuter_client:
+                try:
+                    await self.commuter_client.disconnect()
+                    self.logger.info(f"[{self.component_id}] Disconnected from commuter_service")
+                except Exception as e:
+                    self.logger.warning(f"[{self.component_id}] Error disconnecting commuter_client: {e}")
+            
+            # DEPRECATED: Disconnect PassengerDatabase (legacy)
             if self.passenger_db:
                 try:
                     await self.passenger_db.disconnect()
@@ -1139,6 +1198,9 @@ class Conductor(BasePerson):
         """
         Check for eligible passengers at current location and board them.
         
+        Uses commuter_service HTTP API to query via reservoir pattern:
+        Conductor → HTTP API → Reservoir → Repository → Strapi
+        
         Args:
             vehicle_lat: Current vehicle latitude
             vehicle_lon: Current vehicle longitude
@@ -1147,8 +1209,9 @@ class Conductor(BasePerson):
         Returns:
             Number of passengers boarded
         """
-        if not self.passenger_db:
-            logger.warning(f"Conductor {self.vehicle_id}: No passenger database configured")
+        # Prefer HTTP client over legacy passenger_db
+        if not self.commuter_client and not self.passenger_db:
+            logger.warning(f"Conductor {self.vehicle_id}: No commuter_service client configured")
             return 0
         
         if self.is_full():
@@ -1158,22 +1221,42 @@ class Conductor(BasePerson):
         route = route_id or self.assigned_route_id
         
         try:
-            # Query database for eligible passengers
-            logger.info(
-                f"🔵 Conductor {self.vehicle_id} 👁️  LOOKING FOR PASSENGERS:\n"
-                f"   📍 Position: ({vehicle_lat:.6f}, {vehicle_lon:.6f})\n"
-                f"   🚏 Route: {route}\n"
-                f"   🔍 Pickup radius: {self.config.pickup_radius_km} km\n"
-                f"   💺 Seats available: {self.seats_available}/{self.capacity}"
-            )
+            # Query via HTTP client (NEW - uses reservoir pattern)
+            if self.commuter_client:
+                logger.info(
+                    f"🔵 Conductor {self.vehicle_id} 👁️  LOOKING FOR PASSENGERS (via commuter_service API):\n"
+                    f"   📍 Position: ({vehicle_lat:.6f}, {vehicle_lon:.6f})\n"
+                    f"   🚏 Route: {route}\n"
+                    f"   🔍 Pickup radius: {self.config.pickup_radius_km} km\n"
+                    f"   💺 Seats available: {self.seats_available}/{self.capacity}"
+                )
+                
+                eligible = await self.commuter_client.get_eligible_passengers(
+                    vehicle_lat=vehicle_lat,
+                    vehicle_lon=vehicle_lon,
+                    route_id=route,
+                    pickup_radius_km=self.config.pickup_radius_km,
+                    max_results=self.seats_available,
+                    status="WAITING"
+                )
             
-            eligible = await self.passenger_db.get_eligible_passengers(
-                vehicle_lat=vehicle_lat,
-                vehicle_lon=vehicle_lon,
-                route_id=route,
-                pickup_radius_km=self.config.pickup_radius_km,
-                max_results=self.seats_available  # Only get what we can take
-            )
+            # DEPRECATED: Legacy database access
+            elif self.passenger_db:
+                logger.info(
+                    f"🔵 Conductor {self.vehicle_id} 👁️  LOOKING FOR PASSENGERS (legacy passenger_db):\n"
+                    f"   📍 Position: ({vehicle_lat:.6f}, {vehicle_lon:.6f})\n"
+                    f"   🚏 Route: {route}\n"
+                    f"   🔍 Pickup radius: {self.config.pickup_radius_km} km\n"
+                    f"   💺 Seats available: {self.seats_available}/{self.capacity}"
+                )
+                
+                eligible = await self.passenger_db.get_eligible_passengers(
+                    vehicle_lat=vehicle_lat,
+                    vehicle_lon=vehicle_lon,
+                    route_id=route,
+                    pickup_radius_km=self.config.pickup_radius_km,
+                    max_results=self.seats_available
+                )
             
             if not eligible:
                 logger.info(f"🔵 Conductor {self.vehicle_id}: ❌ No passengers found at this location")
@@ -1184,13 +1267,13 @@ class Conductor(BasePerson):
             logger.info(f"🔵 Conductor {self.vehicle_id}: ✅ Found {len(eligible)} eligible passengers:")
             
             for idx, p in enumerate(eligible, 1):
-                # Try flat structure first (Strapi v5)
-                pid = p.get('passenger_id')
+                # Try documentId first (commuter_service API response)
+                pid = p.get('documentId') or p.get('passenger_id')
                 p_lat = p.get('latitude')
                 p_lon = p.get('longitude')
                 
                 if not pid:
-                    # Try nested attributes (Strapi v4)
+                    # Try nested attributes (Strapi v4 legacy)
                     attrs = p.get('attributes', {})
                     pid = attrs.get('passenger_id')
                     p_lat = attrs.get('latitude')
@@ -1207,7 +1290,6 @@ class Conductor(BasePerson):
                             f"      📏 Distance: {distance * 1000:.1f} meters"
                         )
                     else:
-                        logger.info(f"   {idx}. 🟢 Passenger {pid}")
                         logger.info(f"   {idx}. 🟢 Passenger {pid}")
             
             if not passenger_ids:

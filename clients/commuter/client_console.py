@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+import httpx
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -128,6 +129,36 @@ class CommuterConsole:
             hours = args[2]
             await self.cmd_seed(route, day, hours)
         
+        elif cmd == "list":
+            await self.cmd_list_passengers(args)
+        
+        elif cmd == "get":
+            if not args:
+                print("❌ Usage: get <passenger_id>")
+                return
+            await self.cmd_get_passenger(args[0])
+        
+        elif cmd == "board":
+            if len(args) < 2:
+                print("❌ Usage: board <passenger_id> <vehicle_id>")
+                return
+            await self.cmd_board(args[0], args[1])
+        
+        elif cmd == "alight":
+            if not args:
+                print("❌ Usage: alight <passenger_id>")
+                return
+            await self.cmd_alight(args[0])
+        
+        elif cmd == "cancel":
+            if not args:
+                print("❌ Usage: cancel <passenger_id>")
+                return
+            await self.cmd_cancel(args[0])
+        
+        elif cmd == "monitor":
+            await self.cmd_monitor_stats()
+        
         elif cmd == "stats":
             self.cmd_stats()
         
@@ -141,17 +172,34 @@ class CommuterConsole:
         print("=" * 80)
         print("AVAILABLE COMMANDS")
         print("=" * 80)
-        print("connect [url]               - Connect to service (default: http://localhost:4000)")
-        print("disconnect                  - Disconnect from service")
-        print("manifest <route> <date>     - Get manifest table (e.g., manifest 1 2024-11-04)")
-        print("json <route> <date>         - Get raw JSON manifest data")
-        print("barchart <route> <date>     - Get barchart for route")
-        print("subscribe <route>           - Subscribe to real-time events (WebSocket)")
-        print("unsubscribe <route>         - Unsubscribe from events")
-        print("seed <route> <day> <hrs>    - Seed passengers (e.g., seed 1 monday 7-9)")
-        print("stats                       - Show connection statistics")
-        print("help                        - Show this help")
-        print("exit                        - Exit console")
+        print("CONNECTION:")
+        print("  connect [url]               - Connect to service (default: http://localhost:4000)")
+        print("  disconnect                  - Disconnect from service")
+        print()
+        print("QUERIES:")
+        print("  manifest <route> <date>     - Get manifest table (e.g., manifest 1 2024-11-04)")
+        print("  json <route> <date>         - Get raw JSON manifest data")
+        print("  barchart <route> <date>     - Get barchart for route")
+        print("  list [filters]              - List passengers (see 'list help' for filters)")
+        print("  get <passenger_id>          - Get single passenger details")
+        print()
+        print("PASSENGER MANAGEMENT:")
+        print("  board <id> <vehicle_id>     - Board passenger onto vehicle")
+        print("  alight <id>                 - Alight passenger from vehicle")
+        print("  cancel <id>                 - Cancel passenger")
+        print()
+        print("SEEDING:")
+        print("  seed <route> <day> <hrs>    - Seed passengers (e.g., seed 1 monday 7-9)")
+        print()
+        print("REAL-TIME:")
+        print("  subscribe <route>           - Subscribe to real-time events (WebSocket)")
+        print("  unsubscribe <route>         - Unsubscribe from events")
+        print("  monitor                     - Show monitor statistics")
+        print()
+        print("SYSTEM:")
+        print("  stats                       - Show connection statistics")
+        print("  help                        - Show this help")
+        print("  exit                        - Exit console")
         print("=" * 80)
         print()
     
@@ -492,6 +540,201 @@ class CommuterConsole:
         if not self.streaming:
             self.event_count += 1
             # Only show during seeding (when event_count is being tracked)
+    
+    async def cmd_list_passengers(self, args):
+        """List passengers with filters"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        # Parse filter arguments
+        params = {}
+        i = 0
+        while i < len(args):
+            if args[i] == "route" and i + 1 < len(args):
+                params["route"] = args[i + 1]
+                i += 2
+            elif args[i] == "status" and i + 1 < len(args):
+                params["status"] = args[i + 1]
+                i += 2
+            elif args[i] == "vehicle" and i + 1 < len(args):
+                params["vehicle_id"] = args[i + 1]
+                i += 2
+            else:
+                i += 1
+        
+        try:
+            response = await self.connector.http_client.get("/api/passengers", params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            passengers = result.get("data", [])
+            
+            print()
+            print("=" * 120)
+            print(f"PASSENGERS LIST - Total: {len(passengers)}")
+            print("=" * 120)
+            print(f"{'ID':<15} {'Status':<12} {'State':<12} {'Route':<8} {'Vehicle':<10} {'Spawned':<20}")
+            print("-" * 120)
+            
+            for p in passengers:
+                print(f"{p['passenger_id']:<15} {p['status']:<12} {p['computed_state']:<12} "
+                      f"{p.get('route_id', 'N/A')[:8]:<8} {p.get('vehicle_id', 'N/A'):<10} "
+                      f"{p['spawned_at'][:19]:<20}")
+            
+            print("=" * 120)
+            print()
+            
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    async def cmd_get_passenger(self, passenger_id):
+        """Get detailed passenger information"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        try:
+            response = await self.connector.http_client.get(f"/api/passengers/{passenger_id}")
+            response.raise_for_status()
+            p = response.json()
+            
+            print()
+            print("=" * 80)
+            print(f"PASSENGER DETAILS - {p['passenger_id']}")
+            print("=" * 80)
+            print(f"Document ID:      {p['documentId']}")
+            print(f"Status:           {p['status']}")
+            print(f"Computed State:   {p['computed_state']}")
+            print(f"Route:            {p.get('route_id', 'N/A')}")
+            print(f"Vehicle:          {p.get('vehicle_id', 'N/A')}")
+            print()
+            print(f"Location:         ({p['latitude']}, {p['longitude']})")
+            print(f"Destination:      ({p['destination_lat']}, {p['destination_lon']})")
+            print(f"Dest Name:        {p.get('destination_name', 'N/A')}")
+            print()
+            print(f"Spawned At:       {p.get('spawned_at', 'N/A')}")
+            print(f"Boarded At:       {p.get('boarded_at', 'N/A')}")
+            print(f"Alighted At:      {p.get('alighted_at', 'N/A')}")
+            print()
+            print(f"Created:          {p['createdAt']}")
+            print(f"Updated:          {p['updatedAt']}")
+            print("=" * 80)
+            print()
+            
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                print(f"❌ Passenger {passenger_id} not found")
+            else:
+                print(f"❌ Error: {e}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    async def cmd_board(self, passenger_id, vehicle_id):
+        """Board a passenger onto a vehicle"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        try:
+            response = await self.connector.http_client.patch(
+                f"/api/passengers/{passenger_id}/board",
+                json={"vehicle_id": vehicle_id}
+            )
+            response.raise_for_status()
+            p = response.json()
+            
+            print()
+            print(f"✅ Passenger {p['passenger_id']} boarded onto {vehicle_id}")
+            print(f"   Status: {p['status']} | State: {p['computed_state']}")
+            print(f"   Boarded At: {p['boarded_at']}")
+            print()
+            
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json().get("detail", str(e))
+            print(f"❌ Error: {error_detail}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    async def cmd_alight(self, passenger_id):
+        """Alight a passenger from vehicle"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        try:
+            response = await self.connector.http_client.patch(
+                f"/api/passengers/{passenger_id}/alight",
+                json={}
+            )
+            response.raise_for_status()
+            p = response.json()
+            
+            print()
+            print(f"✅ Passenger {p['passenger_id']} alighted")
+            print(f"   Status: {p['status']} | State: {p['computed_state']}")
+            print(f"   Alighted At: {p['alighted_at']}")
+            print()
+            
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json().get("detail", str(e))
+            print(f"❌ Error: {error_detail}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    async def cmd_cancel(self, passenger_id):
+        """Cancel a passenger"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        try:
+            response = await self.connector.http_client.patch(
+                f"/api/passengers/{passenger_id}/cancel"
+            )
+            response.raise_for_status()
+            p = response.json()
+            
+            print()
+            print(f"✅ Passenger {p['passenger_id']} cancelled")
+            print(f"   Status: {p['status']} | State: {p['computed_state']}")
+            print()
+            
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json().get("detail", str(e))
+            print(f"❌ Error: {error_detail}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    async def cmd_monitor_stats(self):
+        """Show passenger monitor statistics"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        try:
+            response = await self.connector.http_client.get("/api/monitor/stats")
+            response.raise_for_status()
+            stats = response.json()
+            
+            print()
+            print("=" * 80)
+            print("PASSENGER MONITOR STATISTICS")
+            print("=" * 80)
+            print(f"Running:              {'✅ Yes' if stats.get('running') else '❌ No'}")
+            print(f"Monitored Routes:     {stats.get('monitored_routes', 0)}")
+            print(f"Cached Passengers:    {stats.get('cached_passengers', 0)}")
+            print()
+            print(f"State Transitions:    {stats.get('state_transitions', 0)}")
+            print(f"External Updates:     {stats.get('external_updates', 0)}")
+            print(f"Total Changes:        {stats.get('total_changes_detected', 0)}")
+            print()
+            print(f"Last Poll:            {stats.get('last_poll', 'N/A')}")
+            print("=" * 80)
+            print()
+            
+        except Exception as e:
+            print(f"❌ Error: {e}")
 
 
 async def main():

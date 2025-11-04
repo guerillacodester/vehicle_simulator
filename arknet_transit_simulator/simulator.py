@@ -465,12 +465,14 @@ class CleanVehicleSimulator:
                     logger.warning(f"[CONDUCTOR] Failed to get capacity from database: {perf_error}, using default 40")
                     vehicle_capacity = 40  # Fallback to standard minibus capacity
                 
-                # Create passenger service using new commuter_service infrastructure
-                # This breaks the tight coupling to deprecated commuter_service module
-                passenger_repo = PassengerRepository()  # Auto-loads URL from ConfigProvider
-                passenger_service = StrapiPassengerService(passenger_repo)
-                await passenger_service.connect()
-                logger.info(f"[CONDUCTOR] Connected to PassengerService via commuter_service infrastructure")
+                # NEW: Use HTTP client to commuter_service API (reservoir pattern)
+                # Conductor → HTTP API → Reservoir → Repository → Strapi
+                # This ensures all passenger operations go through the reservoir layer
+                from common.config_provider import get_config
+                config = get_config()
+                commuter_service_url = getattr(config.infrastructure, 'commuter_service_url', 'http://localhost:4000')
+                
+                logger.info(f"[CONDUCTOR] Using commuter_service HTTP API at {commuter_service_url}")
                 
                 conductor = Conductor(
                     conductor_id=f"COND-{driver_assignment.driver_id}",
@@ -478,7 +480,7 @@ class CleanVehicleSimulator:
                     vehicle_id=vehicle_assignment.vehicle_id,
                     assigned_route_id=vehicle_assignment.route_id,
                     capacity=vehicle_capacity,
-                    passenger_db=passenger_service  # Inject new passenger service (via dependency injection)
+                    commuter_service_url=commuter_service_url  # NEW: HTTP client instead of direct DB
                 )
                 
                 # Attach conductor to driver for future integration

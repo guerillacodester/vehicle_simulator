@@ -47,6 +47,7 @@ from commuter_service.application.queries.manifest_visualization import (
     calculate_route_metrics
 )
 from commuter_service.infrastructure.config import get_config
+from commuter_service.interfaces.http.passenger_crud import router as passenger_router
 
 try:
     from common.config_provider import get_config
@@ -59,6 +60,9 @@ app = FastAPI(
     description="Enriched passenger manifest with route positions and geocoded addresses",
     version="1.0.0"
 )
+
+# Include CRUD router
+app.include_router(passenger_router)
 
 # CORS for UI consumption
 app.add_middleware(
@@ -116,6 +120,27 @@ class DeleteResponse(BaseModel):
     deleted_count: int = Field(..., description="Number of passengers deleted")
     filters_applied: Dict[str, Any] = Field(..., description="Filters used for deletion")
     message: str = Field(..., description="Success message")
+
+
+class SeedRequest(BaseModel):
+    """Request model for seeding passengers"""
+    route: str = Field(..., description="Route short name (e.g., '1', '5')")
+    day: Optional[str] = Field(None, description="Day of week (monday-sunday)")
+    date: Optional[str] = Field(None, description="Specific date (YYYY-MM-DD)")
+    type: str = Field("route", description="Spawn type: 'route', 'depot', or 'both'")
+    start_hour: int = Field(0, ge=0, le=23, description="Start hour (0-23)")
+    end_hour: int = Field(23, ge=0, le=23, description="End hour (0-23)")
+
+
+class SeedResponse(BaseModel):
+    """Response model for seed operation"""
+    status: str = Field(..., description="Status: 'started', 'completed', 'error'")
+    message: str = Field(..., description="Status message")
+    route: str = Field(..., description="Route being seeded")
+    date: str = Field(..., description="Target date")
+    spawn_type: str = Field(..., description="Type of spawning")
+    time_range: str = Field(..., description="Hour range")
+    total_spawned: Optional[int] = Field(None, description="Total passengers spawned")
 
 
 # Load config on startup
@@ -468,6 +493,188 @@ async def get_manifest_stats(
         )
 
 
+class SeedRequest(BaseModel):
+    """Request model for seeding passengers"""
+    route: str = Field(..., description="Route short name (e.g., '1', '5')")
+    day: Optional[str] = Field(None, description="Day of week (monday-sunday)")
+    date: Optional[str] = Field(None, description="Specific date (YYYY-MM-DD)")
+    spawn_type: str = Field("route", description="Type: 'route', 'depot', or 'both'")
+    start_hour: int = Field(0, ge=0, le=23, description="Start hour (0-23)")
+    end_hour: int = Field(23, ge=0, le=23, description="End hour (0-23)")
+
+
+class SeedResponse(BaseModel):
+    """Response model for seed operation"""
+    success: bool = Field(..., description="Whether seeding completed successfully")
+    route: str = Field(..., description="Route short name")
+    date: str = Field(..., description="Target date")
+    spawn_type: str = Field(..., description="Spawn type used")
+    route_passengers: int = Field(0, description="Route passengers created")
+    depot_passengers: int = Field(0, description="Depot passengers created")
+    total_created: int = Field(..., description="Total passengers created")
+    message: str = Field(..., description="Status message")
+
+
+@app.post("/api/seed", response_model=SeedResponse)
+async def seed_passengers(request: SeedRequest):
+    """
+    Seed passengers for a route (remote seeding trigger).
+    
+    This endpoint triggers the seeding process on the server, allowing
+    remote clients to seed passengers without direct access to seed.py.
+    
+    Examples:
+    - POST /api/seed with body:
+      {
+        "route": "1",
+        "day": "monday",
+        "spawn_type": "route",
+        "start_hour": 7,
+        "end_hour": 9
+      }
+    """
+    try:
+        # Import seeding components
+        from commuter_service.core.domain.spawner_engine.route_spawner import RouteSpawner
+        from commuter_service.core.domain.spawner_engine.depot_spawner import DepotSpawner
+        from commuter_service.domain.services.reservoirs.route_reservoir import RouteReservoir
+        from commuter_service.domain.services.reservoirs.depot_reservoir import DepotReservoir
+        from commuter_service.infrastructure.spawn.config_loader import SpawnConfigLoader
+        from commuter_service.infrastructure.geospatial.client import GeospatialClient
+        from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
+        from datetime import timedelta
+        
+        # Validate date or day
+        if not request.day and not request.date:
+            raise HTTPException(status_code=400, detail="Either 'day' or 'date' must be specified")
+        
+        if request.day and request.date:
+            raise HTTPException(status_code=400, detail="Cannot specify both 'day' and 'date'")
+        
+        # Determine target date
+        if request.date:
+            try:
+                target_date = datetime.strptime(request.date, '%Y-%m-%d')
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        else:
+            # Map day to date
+            day_map = {
+                'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+                'friday': 4, 'saturday': 5, 'sunday': 6
+            }
+            if request.day.lower() not in day_map:
+                raise HTTPException(status_code=400, detail="Invalid day. Use monday-sunday")
+            
+            base_date = datetime(2024, 11, 4)  # Monday, Nov 4, 2024
+            day_offset = day_map[request.day.lower()]
+            target_date = base_date + timedelta(days=day_offset)
+        
+        # Get route documentId
+        route_doc_id = await get_route_document_id(request.route)
+        if not route_doc_id:
+            raise HTTPException(status_code=404, detail=f"Route '{request.route}' not found")
+        
+        # Initialize components
+        passenger_repo = PassengerRepository(strapi_url=STRAPI_URL)
+        await passenger_repo.connect()
+        
+        config_loader = SpawnConfigLoader(api_base_url=f"{STRAPI_URL}/api")
+        geo_client = GeospatialClient(base_url=GEOSPATIAL_URL)
+        
+        total_route = 0
+        total_depot = 0
+        
+        try:
+            # Create spawners based on type
+            if request.spawn_type in ['route', 'both']:
+                route_reservoir = RouteReservoir(
+                    passenger_repository=passenger_repo,
+                    enable_redis_cache=False
+                )
+                
+                route_spawner = RouteSpawner(
+                    reservoir=route_reservoir,
+                    config={},
+                    route_id=route_doc_id,
+                    config_loader=config_loader,
+                    geo_client=geo_client
+                )
+                
+                # Spawn for each hour
+                for hour in range(request.start_hour, request.end_hour + 1):
+                    spawn_time = target_date.replace(hour=hour, minute=0, second=0)
+                    route_requests = await route_spawner.spawn(current_time=spawn_time, time_window_minutes=60)
+                    
+                    if route_requests:
+                        successful, failed = await route_reservoir.push_batch(route_requests)
+                        total_route += successful
+                    
+                    await asyncio.sleep(0.1)
+            
+            if request.spawn_type in ['depot', 'both']:
+                # Fetch depot info
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(f"{GEOSPATIAL_URL}/routes/by-document-id/{route_doc_id}/depot")
+                    depot_info = response.json().get('depot')
+                    depot_doc_id = depot_info['documentId']
+                    depot_lat = depot_info['latitude']
+                    depot_lon = depot_info['longitude']
+                
+                depot_reservoir = DepotReservoir(
+                    depot_id=depot_doc_id,
+                    passenger_repository=passenger_repo,
+                    enable_redis_cache=False
+                )
+                
+                depot_spawner = DepotSpawner(
+                    reservoir=depot_reservoir,
+                    config={},
+                    depot_id=depot_doc_id,
+                    depot_location=(depot_lat, depot_lon),
+                    available_routes=[route_doc_id],
+                    depot_document_id=depot_doc_id,
+                    config_loader=config_loader,
+                    geo_client=geo_client
+                )
+                
+                # Spawn for each hour
+                for hour in range(request.start_hour, request.end_hour + 1):
+                    spawn_time = target_date.replace(hour=hour, minute=0, second=0)
+                    depot_requests = await depot_spawner.spawn(current_time=spawn_time, time_window_minutes=60)
+                    
+                    if depot_requests:
+                        successful, failed = await depot_reservoir.push_batch(depot_requests)
+                        total_depot += successful
+                    
+                    await asyncio.sleep(0.1)
+            
+            total_created = total_route + total_depot
+            
+            return SeedResponse(
+                success=True,
+                route=request.route,
+                date=target_date.strftime('%Y-%m-%d'),
+                spawn_type=request.spawn_type,
+                route_passengers=total_route,
+                depot_passengers=total_depot,
+                total_created=total_created,
+                message=f"Successfully seeded {total_created} passengers for route {request.route}"
+            )
+        
+        finally:
+            await passenger_repo.disconnect()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Seeding failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Seeding failed: {str(e)}"
+        )
+
+
 @app.delete("/api/manifest", response_model=DeleteResponse)
 async def delete_passengers(
     date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
@@ -780,6 +987,15 @@ async def websocket_stream(websocket: WebSocket):
                 route = data.get("route")
                 if route:
                     await manager.subscribe_to_route(websocket, route)
+                    
+                    # Start monitoring this route
+                    try:
+                        from commuter_service.services.passenger_monitor import get_monitor
+                        monitor = get_monitor()
+                        monitor.add_monitored_route(route)
+                    except:
+                        pass
+                    
                     await websocket.send_json({
                         "type": "subscribed",
                         "route": route,
@@ -815,6 +1031,25 @@ async def websocket_stream(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await manager.disconnect(websocket)
+
+
+@app.get("/api/monitor/stats")
+async def get_monitor_stats():
+    """
+    Get passenger monitor statistics.
+    
+    Returns real-time monitoring stats including:
+    - Number of state changes detected
+    - External updates detected
+    - Cached passengers
+    - Monitored routes
+    """
+    try:
+        from commuter_service.services.passenger_monitor import get_monitor
+        monitor = get_monitor()
+        return monitor.get_stats()
+    except Exception as e:
+        return {"error": str(e), "running": False}
 
 
 if __name__ == "__main__":

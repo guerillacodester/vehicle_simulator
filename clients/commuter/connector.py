@@ -347,6 +347,48 @@ class CommuterConnector:
         response.raise_for_status()
         return response.json()
     
+    async def seed_passengers(
+        self,
+        route: str,
+        day: Optional[str] = None,
+        date: Optional[str] = None,
+        spawn_type: str = "route",
+        start_hour: int = 0,
+        end_hour: int = 23
+    ) -> Dict[str, Any]:
+        """
+        Trigger passenger seeding on the server
+        
+        Args:
+            route: Route short name (e.g., "1", "2")
+            day: Day of week (e.g., "monday") - alternative to date
+            date: Specific date (YYYY-MM-DD format) - alternative to day
+            spawn_type: Type of spawning: 'route', 'depot', or 'both'
+            start_hour: Start hour (0-23)
+            end_hour: End hour (0-23)
+        
+        Returns:
+            Seed response with counts and status
+        """
+        payload = {
+            'route': route,
+            'spawn_type': spawn_type,
+            'start_hour': start_hour,
+            'end_hour': end_hour
+        }
+        
+        if day:
+            payload['day'] = day
+        elif date:
+            payload['date'] = date
+        else:
+            raise ValueError("Either 'day' or 'date' must be specified")
+        
+        response = await self.http_client.post("/api/seed", json=payload)
+        response.raise_for_status()
+        
+        return response.json()
+    
     # ========================================================================
     # EVENT STREAMING (Observable Pattern)
     # ========================================================================
