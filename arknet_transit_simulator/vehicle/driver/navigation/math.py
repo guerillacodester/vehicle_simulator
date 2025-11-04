@@ -2,46 +2,19 @@
 """
 math.py
 -------
-Pure math helpers for navigation:
-- haversine distance
-- initial bearing
-- interpolation along a polyline route
+Navigation math helpers for the vehicle driver.
+Uses shared geospatial utilities from arknet_transit_simulator.utils.geospatial
 """
 
 import math
 from typing import List, Tuple
 
+# Import shared geospatial utilities
+from arknet_transit_simulator.utils.geospatial import haversine, bearing, forward_point
+
 # ---------------------------
-# LEGACY FUNCTIONS
+# ROUTE INTERPOLATION
 # ---------------------------
-
-def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Great-circle distance between two points on Earth.
-    Returns kilometers.
-    """
-    R = 6371.0  # Earth radius km
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-
-    a = math.sin(dphi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
-
-
-def bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Initial bearing (forward azimuth) in degrees from point A to point B.
-    """
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dlambda = math.radians(lon2 - lon1)
-
-    x = math.sin(dlambda) * math.cos(phi2)
-    y = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(dlambda)
-
-    brng = math.degrees(math.atan2(x, y))
-    return (brng + 360.0) % 360.0
 
 
 def interpolate_along_route(route: List[Tuple[float, float]], distance: float) -> Tuple[float, float, float]:
