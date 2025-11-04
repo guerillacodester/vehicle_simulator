@@ -3,14 +3,25 @@
 math.py
 -------
 Navigation math helpers for the vehicle driver.
-Uses shared geospatial utilities from arknet_transit_simulator.utils.geospatial
+Uses shared geospatial utilities.
 """
 
 import math
+import sys
+import os
 from typing import List, Tuple
 
-# Import shared geospatial utilities
-from arknet_transit_simulator.utils.geospatial import haversine, bearing, forward_point
+# Add project root to path for absolute imports
+if __name__ != "__main__":
+    try:
+        from arknet_transit_simulator.utils.geospatial import haversine, bearing, forward_point
+    except ImportError:
+        # Fallback for direct execution or testing
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
+        from arknet_transit_simulator.utils.geospatial import haversine, bearing, forward_point
+else:
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
+    from arknet_transit_simulator.utils.geospatial import haversine, bearing, forward_point
 
 # ---------------------------
 # ROUTE INTERPOLATION
@@ -45,30 +56,6 @@ def interpolate_along_route(route: List[Tuple[float, float]], distance: float) -
     lat1, lon1 = route[-2]
     lat2, lon2 = route[-1]
     return (lat2, lon2, bearing(lat1, lon1, lat2, lon2))
-
-# ---------------------------
-# NEW FUNCTIONS
-# ---------------------------
-
-def forward_point(lat1: float, lon1: float, bearing_deg: float, distance_m: float) -> Tuple[float, float]:
-    """
-    Compute destination point given start (lat1, lon1), bearing (degrees), and distance (m).
-    Uses a spherical Earth model.
-    """
-    R = 6371000.0  # Earth radius (m)
-    phi1 = math.radians(lat1)
-    lam1 = math.radians(lon1)
-    brng = math.radians(bearing_deg)
-
-    d_div_R = distance_m / R
-
-    phi2 = math.asin(math.sin(phi1) * math.cos(d_div_R) +
-                     math.cos(phi1) * math.sin(d_div_R) * math.cos(brng))
-
-    lam2 = lam1 + math.atan2(math.sin(brng) * math.sin(d_div_R) * math.cos(phi1),
-                             math.cos(d_div_R) - math.sin(phi1) * math.sin(phi2))
-
-    return math.degrees(phi2), math.degrees(lam2)
 
 
 def interpolate_along_route_geodesic(route: List[Tuple[float, float]], distance_km: float) -> Tuple[float, float, float]:
