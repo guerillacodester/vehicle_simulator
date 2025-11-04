@@ -13,6 +13,12 @@ Full CRUD operations for passenger management:
 """
 
 from typing import Optional, List
+import sys
+import os
+
+# Add project root to path for shared utilities
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+from arknet_transit_simulator.utils.geospatial import haversine
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -215,16 +221,6 @@ async def query_passengers_nearby(
     
     config = get_config()
     strapi_url = config.infrastructure.strapi_url.rstrip("/")
-    
-    def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Calculate haversine distance in kilometers"""
-        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-        c = 2 * asin(sqrt(a))
-        r = 6371  # Radius of earth in km
-        return c * r
     
     # Query Strapi for passengers on this route with matching status
     params = {
