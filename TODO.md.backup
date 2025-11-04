@@ -1,11 +1,11 @@
-# Vehicle Simulator - TODO & Progress Tracking
+# Vehicle Simulator - Commuter Spawning & Fleet Coordination
 
 **Project**: ArkNet Vehicle Simulator  
-**Branch**: branch-0.0.3.0  
-**Date**: November 4, 2025  
-**Status**: 🎯 Conductor Spatial Awareness & Performance Optimization (IN PROGRESS)  
-**Current Phase**: PostGIS Integration for Real-Time Passenger Queries  
-**Estimated Completion**: 3 hours (7 phases remaining)
+**Branch**: branch-0.0.2.9  
+**Started**: October 25, 2025  
+**Updated**: November 1, 2025 - Spawn Calculator Kernel, Repository Cleanup, Tests Consolidated  
+**Status**: ✅ Spawn Calculator Kernel | ✅ Tests Organized | ✅ Docs Consolidated | 🎯 Integrate Kernel into Spawners NEXT  
+**Strategy**: Modular Calculation Kernel → Spawner Integration → Statistical Validation → MVP
 
 > **📌 Key Documentation**:
 > - `CONTEXT.md` - Complete project context, architecture, all technical details
