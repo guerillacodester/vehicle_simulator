@@ -181,6 +181,84 @@ async def health_check():
     }
 
 
+@app.get("/api/query")
+async def flexible_query(
+    # Filters
+    route: Optional[str] = Query(None, description="Filter by route ID or short name"),
+    depot: Optional[str] = Query(None, description="Filter by depot ID"),
+    status: Optional[str] = Query(None, description="Filter by status (WAITING, BOARDED, etc.)"),
+    date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    hour_start: Optional[int] = Query(None, ge=0, le=23, description="Filter hour >= (0-23)"),
+    hour_end: Optional[int] = Query(None, ge=0, le=23, description="Filter hour <= (0-23)"),
+    vehicle: Optional[str] = Query(None, description="Filter by vehicle ID"),
+    
+    # Grouping and aggregation
+    group_by: Optional[str] = Query(None, description="Group by field (hour, route, depot, status, date)"),
+    aggregate: Optional[str] = Query(None, description="Aggregate function (count, avg, sum, min, max)"),
+    
+    # Sorting and limiting
+    sort_by: Optional[str] = Query(None, description="Sort by field"),
+    limit: Optional[int] = Query(None, gt=0, description="Limit number of results"),
+    
+    # Output format
+    format: str = Query("json", description="Output format (json, table, barchart, csv)"),
+    geocode: bool = Query(False, description="Include geocoded addresses"),
+):
+    """
+    Flexible query endpoint supporting dynamic filters, grouping, and formats.
+    
+    Examples:
+        - /api/query?route=1&status=WAITING - All waiting passengers on route 1
+        - /api/query?depot=DEPOT_001&group_by=hour&aggregate=count - Hourly counts by depot
+        - /api/query?date=2024-11-04&group_by=route&aggregate=count - Passenger counts by route
+        - /api/query?route=1&geocode=true&format=table - Geocoded table for route 1
+        - /api/query?hour_start=7&hour_end=9&group_by=depot&format=barchart - Morning rush by depot
+    """
+    from commuter_service.application.queries.flexible_query import execute_flexible_query
+    
+    # Translate route short name to document ID if needed
+    route_id = None
+    if route:
+        route_id = await get_route_document_id(route)
+        if not route_id:
+            route_id = route
+    
+    # Build filters dict
+    filters = {}
+    if route_id:
+        filters['route'] = route_id
+    if depot:
+        filters['depot'] = depot
+    if status:
+        filters['status'] = status
+    if date:
+        filters['date'] = date
+    if hour_start is not None:
+        filters['hour_start'] = hour_start
+    if hour_end is not None:
+        filters['hour_end'] = hour_end
+    if vehicle:
+        filters['vehicle'] = vehicle
+    
+    try:
+        result = await execute_flexible_query(
+            strapi_url=STRAPI_URL,
+            filters=filters,
+            group_by=group_by,
+            aggregate=aggregate,
+            sort_by=sort_by,
+            limit=limit,
+            format=format,
+            geocode=geocode,
+            geo_url=GEOSPATIAL_URL if geocode else None
+        )
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+
 @app.get("/api/manifest", response_model=ManifestResponse)
 async def get_manifest(
     route: Optional[str] = Query(None, description="Filter by route_id"),
@@ -1180,6 +1258,171 @@ async def websocket_stream(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await manager.disconnect(websocket)
+
+
+@app.get("/api/query")
+async def flexible_query(
+    route: Optional[str] = Query(None, description="Filter by route short name or document ID"),
+    depot: Optional[str] = Query(None, description="Filter by depot ID"),
+    status: Optional[str] = Query(None, description="Filter by status (WAITING, BOARDING, etc.)"),
+    date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    start_hour: Optional[int] = Query(None, ge=0, le=23, description="Start hour (0-23)"),
+    end_hour: Optional[int] = Query(None, ge=0, le=23, description="End hour (0-23)"),
+    vehicle: Optional[str] = Query(None, description="Filter by vehicle ID"),
+    format: str = Query("json", description="Output format: json, table, barchart, csv, summary"),
+    groupby: Optional[str] = Query(None, description="Group by: hour, depot, route, status"),
+    geocode: bool = Query(False, description="Include geocoded addresses (slower)"),
+    limit: Optional[int] = Query(None, description="Limit results"),
+    sort: Optional[str] = Query(None, description="Sort by field")
+):
+    """
+    Flexible query endpoint for passenger data with dynamic filtering and output formats.
+    
+    Examples:
+        /api/query?route=1&status=WAITING&format=table
+        /api/query?depot=DEPOT_001&format=barchart&groupby=hour
+        /api/query?date=2024-11-04&start_hour=7&end_hour=9&format=summary
+        /api/query?route=1&geocode=true&format=csv
+    """
+    strapi_url = STRAPI_URL
+    token = os.getenv("STRAPI_TOKEN")
+    
+    # Translate route short name to document ID if needed
+    route_id = None
+    if route:
+        route_id = await get_route_document_id(route)
+        if not route_id:
+            route_id = route  # Fallback if already document ID
+    
+    try:
+        # Fetch all passengers
+        params = {"pagination[pageSize]": 100}
+        
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            all_rows = await fetch_passengers(client, strapi_url, token, params)
+        
+        # Apply filters
+        filtered = []
+        for row in all_rows:
+            # Route filter
+            if route_id and row.get("route_id") != route_id:
+                continue
+            
+            # Depot filter
+            if depot and row.get("depot_id") != depot:
+                continue
+            
+            # Status filter
+            if status and row.get("status") != status:
+                continue
+            
+            # Vehicle filter
+            if vehicle and row.get("vehicle_id") != vehicle:
+                continue
+            
+            # Date/time filters
+            if date or start_hour is not None or end_hour is not None:
+                spawned = row.get("spawned_at")
+                if spawned:
+                    spawn_dt = datetime.fromisoformat(spawned.replace('Z', '+00:00'))
+                    
+                    if date:
+                        target_date = datetime.strptime(date, '%Y-%m-%d')
+                        if spawn_dt.date() != target_date.date():
+                            continue
+                    
+                    if start_hour is not None and spawn_dt.hour < start_hour:
+                        continue
+                    
+                    if end_hour is not None and spawn_dt.hour > end_hour:
+                        continue
+            
+            filtered.append(row)
+        
+        # Apply limit
+        if limit:
+            filtered = filtered[:limit]
+        
+        # Apply sort
+        if sort:
+            filtered.sort(key=lambda x: x.get(sort, ""))
+        
+        # Format output
+        if format == "summary":
+            return {
+                "total": len(filtered),
+                "by_status": _group_by(filtered, "status"),
+                "by_route": _group_by(filtered, "route_id"),
+                "by_depot": _group_by(filtered, "depot_id"),
+                "by_hour": _group_by_hour(filtered)
+            }
+        
+        elif format == "barchart" or groupby == "hour":
+            hourly = _group_by_hour(filtered)
+            total = len(filtered)
+            peak_hour = max(hourly.items(), key=lambda x: x[1])[0] if hourly else 0
+            return {
+                "hourly_counts": [hourly.get(h, 0) for h in range(24)],
+                "total": total,
+                "peak_hour": peak_hour
+            }
+        
+        elif format == "table" and geocode:
+            # Enrich with geocoding
+            enriched = await enrich_passengers_with_geocoding(filtered, GEOSPATIAL_URL)
+            return {"passengers": enriched, "total": len(enriched)}
+        
+        elif format == "csv":
+            # Return CSV-friendly format
+            csv_data = []
+            for row in filtered:
+                csv_data.append({
+                    "passenger_id": row.get("passenger_id"),
+                    "spawned_at": row.get("spawned_at"),
+                    "route_id": row.get("route_id"),
+                    "depot_id": row.get("depot_id"),
+                    "status": row.get("status"),
+                    "latitude": row.get("latitude"),
+                    "longitude": row.get("longitude"),
+                    "destination_lat": row.get("destination_lat"),
+                    "destination_lon": row.get("destination_lon")
+                })
+            return {"data": csv_data, "total": len(csv_data)}
+        
+        else:  # default json format
+            if groupby:
+                return {
+                    "grouped": _group_by(filtered, groupby),
+                    "total": len(filtered)
+                }
+            return {"passengers": filtered, "total": len(filtered)}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+
+def _group_by(data: List[Dict], field: str) -> Dict[str, int]:
+    """Group data by field and count"""
+    groups = {}
+    for item in data:
+        key = item.get(field, "unknown")
+        groups[key] = groups.get(key, 0) + 1
+    return groups
+
+
+def _group_by_hour(data: List[Dict]) -> Dict[int, int]:
+    """Group data by hour of spawned_at"""
+    groups = {}
+    for item in data:
+        spawned = item.get("spawned_at")
+        if spawned:
+            try:
+                spawn_dt = datetime.fromisoformat(spawned.replace('Z', '+00:00'))
+                hour = spawn_dt.hour
+                groups[hour] = groups.get(hour, 0) + 1
+            except:
+                pass
+    return groups
 
 
 @app.get("/api/monitor/stats")

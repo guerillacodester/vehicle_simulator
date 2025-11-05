@@ -97,20 +97,20 @@ class CommuterConsole:
             await self.cmd_disconnect()
         
         elif cmd == "manifest":
-            route = args[0] if args else "1"
-            date = args[1] if len(args) > 1 else None
-            hours = args[2] if len(args) > 2 else None
-            await self.cmd_manifest(route, date, hours)
+            # Support: manifest route=1, manifest depot=A, manifest route=1 depot=A, manifest route=1 date=2024-11-04 hours=7-9
+            await self.cmd_manifest_flexible(args)
+        
+        elif cmd == "query":
+            # Flexible query with dynamic filters and formats
+            await self.cmd_query(args)
         
         elif cmd == "barchart":
-            route = args[0] if args else "1"
-            date = args[1] if len(args) > 1 else None
-            await self.cmd_barchart(route, date)
+            # Support: barchart route=1, barchart depot=A, etc.
+            await self.cmd_barchart_flexible(args)
         
         elif cmd == "table":
-            route = args[0] if args else "1"
-            date = args[1] if len(args) > 1 else None
-            await self.cmd_table(route, date)
+            # Support: table route=1, table depot=A, etc.
+            await self.cmd_table_flexible(args)
         
         elif cmd == "json":
             route = args[0] if args else "1"
@@ -126,14 +126,9 @@ class CommuterConsole:
             await self.cmd_unsubscribe(route)
         
         elif cmd == "seed":
-            if len(args) < 3:
-                print("❌ Usage: seed <route> <day> <start-end>")
-                print("   Example: seed 1 monday 7-9")
-                return
-            route = args[0]
-            day = args[1]
-            hours = args[2]
-            await self.cmd_seed(route, day, hours)
+            # Support: seed route=1 day=monday hours=7-9 type=both
+            #          seed depot=A day=monday hours=7-9
+            await self.cmd_seed_flexible(args)
         
         elif cmd == "list":
             await self.cmd_list_passengers(args)
@@ -186,6 +181,12 @@ class CommuterConsole:
         print("  disconnect                  - Disconnect from service")
         print()
         print("QUERIES:")
+        print("  query --filter key=val ...  - Flexible query with dynamic filters & formats")
+        print("                                  Examples:")
+        print("                                    query --filter route=1 --filter status=WAITING")
+        print("                                    query --filter depot=DEPOT_001 --groupby hour --format barchart")
+        print("                                    query --filter date=2024-11-04 --groupby route --aggregate count")
+        print("                                    query --filter route=1 --geocode --format csv --export data.csv")
         print("  manifest <route> [date] [start_hour-end_hour]  - Manifest table")
         print("                                                    Examples:")
         print("                                                      manifest 1")
@@ -290,6 +291,261 @@ class CommuterConsole:
         
         await self.connector.unsubscribe(route)
         print(f"🔕 Unsubscribed from Route {route}")
+    
+    async def cmd_query(self, args: list):
+        """Flexible query with dynamic filters and output formats
+        
+        Usage:
+            query --filter route=1 --filter status=WAITING --format table
+            query --filter depot=DEPOT_001 --groupby hour --aggregate count
+            query --filter date=2024-11-04 --groupby route --format barchart
+            query --filter route=1 --geocode --format csv --export passengers.csv
+        """
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        # Parse arguments
+        filters = {}
+        group_by = None
+        aggregate = None
+        sort_by = None
+        limit = None
+        format = "table"
+        geocode = False
+        export_file = None
+        show_rows = 100  # Default display limit
+        
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            
+            if arg == "--filter" and i + 1 < len(args):
+                # Parse filter (e.g., route=1, status=WAITING)
+                filter_str = args[i + 1]
+                if '=' in filter_str:
+                    key, value = filter_str.split('=', 1)
+                    filters[key] = value
+                i += 2
+            
+            elif arg == "--groupby" and i + 1 < len(args):
+                group_by = args[i + 1]
+                i += 2
+            
+            elif arg == "--aggregate" and i + 1 < len(args):
+                aggregate = args[i + 1]
+                i += 2
+            
+            elif arg == "--sortby" and i + 1 < len(args):
+                sort_by = args[i + 1]
+                i += 2
+            
+            elif arg == "--limit" and i + 1 < len(args):
+                limit = int(args[i + 1])
+                i += 2
+            
+            elif arg == "--show" and i + 1 < len(args):
+                show_rows = int(args[i + 1])
+                i += 2
+            
+            elif arg == "--format" and i + 1 < len(args):
+                format = args[i + 1]
+                i += 2
+            
+            elif arg == "--geocode":
+                geocode = True
+                i += 1
+            
+            elif arg == "--export" and i + 1 < len(args):
+                export_file = args[i + 1]
+                i += 2
+            
+            else:
+                i += 1
+        
+        # Build query params
+        params = {}
+        for key, value in filters.items():
+            params[key] = value
+        
+        if group_by:
+            params['group_by'] = group_by
+        if aggregate:
+            params['aggregate'] = aggregate
+        if sort_by:
+            params['sort_by'] = sort_by
+        if limit:
+            params['limit'] = limit
+        if format:
+            params['format'] = format
+        if geocode:
+            params['geocode'] = 'true'
+        
+        print(f"\n🔍 Executing flexible query...")
+        print(f"Filters: {filters}")
+        if group_by:
+            print(f"Group by: {group_by}")
+        if aggregate:
+            print(f"Aggregate: {aggregate}")
+        print(f"Format: {format}")
+        print()
+        
+        try:
+            response = await self.connector.http_client.get("/api/query", params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            data = result.get('data')
+            count = result.get('count', 0)
+            
+            # Display results based on format
+            if format == "barchart":
+                self._display_barchart(data, filters)
+            
+            elif format == "table":
+                self._display_table(data, count, filters, show_rows)
+            
+            elif format == "csv":
+                if export_file:
+                    with open(export_file, 'w') as f:
+                        f.write(data)
+                    print(f"✅ Exported to {export_file}")
+                else:
+                    print(data)
+            
+            elif format == "json":
+                import json
+                print(json.dumps(data, indent=2))
+            
+            print(f"\n📊 Total results: {count}")
+            
+        except Exception as e:
+            print(f"❌ Query failed: {e}")
+    
+    def _display_barchart(self, data, filters):
+        """Display barchart visualization"""
+        if isinstance(data, dict) and 'hourly_counts' in data:
+            hourly_counts = data['hourly_counts']
+            total = data.get('total', 0)
+            peak_hour = data.get('peak_hour', 0)
+            
+            print("=" * 80)
+            print(f"BARCHART - {filters}")
+            print("=" * 80)
+            print(f"Total: {total} | Peak Hour: {peak_hour}:00")
+            print("=" * 80)
+            
+            max_count = max(hourly_counts) if hourly_counts else 1
+            for hour, count in enumerate(hourly_counts):
+                if count > 0:
+                    bar_width = int((count / max_count) * 50) if max_count > 0 else 0
+                    bar = "█" * bar_width
+                    peak = "🔥" if hour == peak_hour else "  "
+                    print(f"{hour:>2}:00 │ {bar:<50} {count:>3} {peak}")
+            
+            print("=" * 80)
+        else:
+            # Generic barchart
+            categories = data.get('categories', [])
+            values = data.get('values', [])
+            total = data.get('total', 0)
+            
+            print("=" * 80)
+            print(f"BARCHART - {filters}")
+            print("=" * 80)
+            print(f"Total: {total}")
+            print("=" * 80)
+            
+            max_val = max(values) if values else 1
+            for cat, val in zip(categories, values):
+                bar_width = int((val / max_val) * 50) if max_val > 0 else 0
+                bar = "█" * bar_width
+                print(f"{cat:>10} │ {bar:<50} {val:>3}")
+            
+            print("=" * 80)
+    
+    def _display_table(self, data, count, filters, show_rows=100):
+        """Display table visualization"""
+        if not data:
+            print("⚠️  No results found")
+            return
+        
+        print("=" * 200)
+        print(f"QUERY RESULTS - {filters}")
+        print("=" * 200)
+        
+        # Detect columns from first row
+        if isinstance(data, list) and len(data) > 0:
+            first_row = data[0]
+            
+            # Select important columns to display
+            priority_cols = ['passenger_id', 'spawned_at', 'status', 'route_id', 'depot_id', 
+                           'start_address', 'dest_address', 'latitude', 'longitude', 
+                           'destination_lat', 'destination_lon']
+            
+            display_cols = []
+            for col in priority_cols:
+                if col in first_row:
+                    display_cols.append(col)
+            
+            # Add any other important columns not in priority list
+            for col in first_row.keys():
+                if col not in display_cols and col not in ['id', 'documentId', 'createdAt', 'updatedAt', 'publishedAt']:
+                    display_cols.append(col)
+            
+            # Limit to reasonable number
+            display_cols = display_cols[:12]
+            
+            # Print header with dynamic widths
+            col_widths = {}
+            for col in display_cols:
+                if col in ['passenger_id', 'start_address', 'dest_address']:
+                    col_widths[col] = 30
+                elif col in ['spawned_at']:
+                    col_widths[col] = 20
+                elif col in ['status', 'route_id', 'depot_id']:
+                    col_widths[col] = 15
+                else:
+                    col_widths[col] = 12
+            
+            header_parts = []
+            for col in display_cols:
+                width = col_widths.get(col, 12)
+                header_parts.append(f"{col[:width]:<{width}}")
+            
+            print(" | ".join(header_parts))
+            print("-" * 200)
+            
+            # Print rows (use show_rows parameter)
+            for row in data[:show_rows]:
+                row_parts = []
+                for col in display_cols:
+                    width = col_widths.get(col, 12)
+                    val = row.get(col, '')
+                    
+                    # Format value based on type
+                    if val is None or val == '':
+                        val_str = '-'
+                    elif isinstance(val, float):
+                        val_str = f"{val:.4f}"
+                    elif isinstance(val, str) and 'T' in val and len(val) > 15:
+                        # Datetime - show only time
+                        val_str = val.split('T')[1][:8] if 'T' in val else val[:width]
+                    else:
+                        val_str = str(val)
+                    
+                    # Truncate to column width
+                    val_str = val_str[:width]
+                    row_parts.append(f"{val_str:<{width}}")
+                
+                print(" | ".join(row_parts))
+            
+            if len(data) > show_rows:
+                print(f"... ({len(data) - show_rows} more rows)")
+        
+        print("-" * 200)
+        print(f"Total: {count} rows")
+        print("=" * 200)
     
     async def cmd_manifest(self, route: str, date: Optional[str] = None, hours: Optional[str] = None):
         """Get manifest for route - displays all passengers in table format
