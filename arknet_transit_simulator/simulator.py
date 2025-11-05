@@ -83,6 +83,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Optional
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ except ImportError:
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: Optional[str] = None, enable_boarding_after: float = None, gps_config: dict = None) -> None:
+    def __init__(self, api_url: Optional[str] = None, enable_boarding_after: float = None, gps_config: dict = None, sim_time = None, enable_api: bool = True, api_port: int = 5001) -> None:
         """
         Initialize vehicle simulator.
         
@@ -104,6 +105,9 @@ class CleanVehicleSimulator:
             api_url: Strapi API URL. If None, loads from config.ini via ConfigProvider.
             enable_boarding_after: Delay in seconds before auto-enabling boarding
             gps_config: GPS server configuration dict
+            sim_time: Simulation time (datetime) for testing passenger spawn windows
+            enable_api: Whether to start the embedded fleet management API
+            api_port: Port for the fleet management API (default: 5001)
         """
         # Load api_url from config if not provided
         if api_url is None:
@@ -119,11 +123,15 @@ class CleanVehicleSimulator:
         self.api_url = api_url
         self.enable_boarding_after = enable_boarding_after  # Delay in seconds before auto-enabling boarding
         self.gps_config = gps_config or {}  # GPS server configuration
+        self.sim_time = sim_time  # Simulation time for testing
+        self.enable_api = enable_api  # Whether to start embedded API
+        self.api_port = api_port  # Fleet management API port
         self.dispatcher = None
         self.depot = None
         self._running = False
         self.active_drivers = []
         self.idle_drivers = []
+        self._api_server = None  # uvicorn server instance
 
     async def initialize(self) -> bool:
         try:
@@ -139,6 +147,11 @@ class CleanVehicleSimulator:
             if not ok:
                 logger.error("Depot initialization failed")
                 return False
+            
+            # Initialize Fleet Management API if enabled
+            if self.enable_api:
+                await self._initialize_api()
+            
             logger.info("Clean simulator initialized ✔")
             return True
         except Exception as e:  # pragma: no cover (defensive)
@@ -150,6 +163,10 @@ class CleanVehicleSimulator:
             logger.error("Simulator not initialized")
             return
         self._running = True
+        
+        # Start Fleet Management API server if enabled
+        if self.enable_api:
+            await self._start_api_server()
         
         # Start drivers boarding and GPS initialization
         await self._start_vehicle_operations()
@@ -593,11 +610,132 @@ class CleanVehicleSimulator:
             traceback.print_exc()
             return None
 
+    # ========================================================================
+    # SIMULATOR CONTROL METHODS (for remote API)
+    # ========================================================================
+    
+    def pause(self) -> bool:
+        """
+        Pause the simulator.
+        
+        Returns:
+            True if paused, False if already paused
+        """
+        if self._running:
+            self._running = False
+            logger.info("⏸️  Simulator paused")
+            return True
+        else:
+            logger.warning("Simulator is already paused")
+            return False
+    
+    def resume(self) -> bool:
+        """
+        Resume the simulator.
+        
+        Returns:
+            True if resumed, False if already running
+        """
+        if not self._running:
+            self._running = True
+            logger.info("▶️  Simulator resumed")
+            return True
+        else:
+            logger.warning("Simulator is already running")
+            return False
+    
+    def stop(self) -> bool:
+        """
+        Stop the simulator (signals shutdown).
+        
+        Returns:
+            True if stopped, False if already stopped
+        """
+        if self._running:
+            self._running = False
+            logger.info("⏹️  Simulator stop requested")
+            return True
+        else:
+            return False
+    
+    def is_running(self) -> bool:
+        """Check if simulator is currently running."""
+        return self._running
+    
+    def get_sim_time(self) -> Optional[datetime]:
+        """Get current simulation time (if set)."""
+        return self.sim_time
+    
+    def set_sim_time(self, new_time: datetime) -> None:
+        """
+        Set simulation time.
+        
+        Args:
+            new_time: New simulation datetime
+        """
+        self.sim_time = new_time
+        logger.info(f"🕐 Simulation time set to: {new_time}")
+
+    async def _initialize_api(self) -> None:
+        """Initialize the Fleet Management API."""
+        try:
+            from arknet_transit_simulator.api.app import create_app
+            from arknet_transit_simulator.api.dependencies import set_simulator
+            
+            logger.info(f"🌐 Initializing Fleet Management API on port {self.api_port}...")
+            
+            # Set simulator reference for dependency injection
+            set_simulator(self)
+            
+            # Create FastAPI app
+            self.fastapi_app = create_app()
+            
+            logger.info("✅ Fleet Management API initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Fleet Management API: {e}")
+            raise
+
+    async def _start_api_server(self) -> None:
+        """Start the uvicorn API server in background."""
+        import uvicorn
+        
+        logger.info(f"🚀 Starting Fleet Management API server on http://0.0.0.0:{self.api_port}")
+        
+        # Configure uvicorn server
+        config = uvicorn.Config(
+            app=self.fastapi_app,
+            host="0.0.0.0",
+            port=self.api_port,
+            log_level="info",
+            access_log=True
+        )
+        
+        self._api_server = uvicorn.Server(config)
+        
+        # Run server in background task (non-blocking)
+        asyncio.create_task(self._api_server.serve())
+        
+        logger.info(f"✅ Fleet Management API running at http://localhost:{self.api_port}")
+        logger.info(f"   📖 API docs: http://localhost:{self.api_port}/docs")
+        logger.info(f"   🔍 Health check: http://localhost:{self.api_port}/health")
+
+    async def _stop_api_server(self) -> None:
+        """Stop the uvicorn API server."""
+        if self._api_server:
+            logger.info("🛑 Stopping Fleet Management API server...")
+            self._api_server.should_exit = True
+            await asyncio.sleep(0.5)  # Give server time to cleanup
+            logger.info("✅ Fleet Management API stopped")
+
     async def shutdown(self) -> None:
         if self._running:
             self._running = False
         logger.info("Shutting down clean simulator...")
         try:
+            # Stop Fleet Management API if running
+            if self.enable_api and self._api_server:
+                await self._stop_api_server()
+            
             # Stop active drivers first
             if hasattr(self, 'active_drivers') and self.active_drivers:
                 logger.info(f"🛑 Stopping {len(self.active_drivers)} active drivers...")

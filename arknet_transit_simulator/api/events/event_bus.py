@@ -1,4 +1,4 @@
-"""Non-blocking event bus using asyncio.Queue for pub/sub pattern."""
+﻿"""Non-blocking event bus using asyncio.Queue for pub/sub pattern."""
 
 import asyncio
 import logging

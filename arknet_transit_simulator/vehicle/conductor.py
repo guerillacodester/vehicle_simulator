@@ -613,10 +613,12 @@ class Conductor(BasePerson):
                                 f"[{self.component_id}] 🏢 Depot coordinates loaded for route {self.assigned_route_id}"
                             )
                         else:
-                            self.logger.warning(
-                                f"[{self.component_id}] ⚠️ No depot found for route {self.assigned_route_id} - "
-                                f"depot boarding mode will be unavailable"
+                            self.logger.info(
+                                f"[{self.component_id}] ℹ️ No start depot for route {self.assigned_route_id} - "
+                                f"will enable boarding immediately and signal driver to start"
                             )
+                            # No depot means start driving immediately with boarding enabled
+                            self.boarding_active = True
                 else:
                     self.logger.warning(
                         f"[{self.component_id}] ⚠️ Failed to connect to commuter_service - "
@@ -710,7 +712,10 @@ class Conductor(BasePerson):
         Update current vehicle GPS position for proximity calculations.
         
         Also checks if vehicle is at depot and triggers depot boarding mode if needed.
+        On FIRST position update, decides whether to auto-start the driver.
         """
+        is_first_position = self.current_vehicle_position is None
+        
         self.current_vehicle_position = (latitude, longitude)
         self.current_latitude = latitude
         self.current_longitude = longitude
@@ -719,8 +724,39 @@ class Conductor(BasePerson):
         if self.current_stop_operation and not self.current_stop_operation.gps_position:
             self.current_stop_operation.gps_position = (latitude, longitude)
         
-        # Check if at depot and auto-trigger depot boarding mode
-        if self.depot_coordinates and not self.depot_boarding_active:
+        # FIRST POSITION UPDATE: Decide whether to auto-start driver
+        if is_first_position:
+            should_auto_start = False
+            if not self.depot_coordinates:
+                self.logger.info(
+                    f"[{self.component_id}] 🚦 No depot configured - will signal driver to start"
+                )
+                should_auto_start = True
+            else:
+                # Check if vehicle is at depot
+                at_depot = self.is_at_depot(latitude, longitude)
+                if not at_depot:
+                    self.logger.info(
+                        f"[{self.component_id}] 🚦 Vehicle NOT at depot - will signal driver to start\n"
+                        f"   📍 Vehicle position: ({latitude:.6f}, {longitude:.6f})\n"
+                        f"   🏢 Depot position: ({self.depot_coordinates['latitude']:.6f}, "
+                        f"{self.depot_coordinates['longitude']:.6f})"
+                    )
+                    should_auto_start = True
+                else:
+                    self.logger.info(
+                        f"[{self.component_id}] 🏢 Vehicle AT depot - entering depot boarding mode"
+                    )
+            
+            if should_auto_start:
+                self.logger.info(
+                    f"[{self.component_id}] 🚦 Signaling driver to start engine and begin route"
+                )
+                asyncio.create_task(self._signal_driver_start_no_depot())
+                return  # Don't check for depot boarding on first position
+        
+        # Check if at depot and auto-trigger depot boarding mode (SUBSEQUENT updates)
+        if self.depot_coordinates and not self.depot_boarding_active and not is_first_position:
             at_depot = self.is_at_depot(latitude, longitude)
             
             if at_depot and self.assigned_route_id:
@@ -1048,6 +1084,43 @@ class Conductor(BasePerson):
         self.current_stop_operation = None
         self.preserved_gps_position = None
         self.conductor_state = ConductorState.MONITORING
+    
+    async def _signal_driver_start_no_depot(self) -> None:
+        """Signal driver to start engine when there's no depot (route starts immediately)."""
+        try:
+            # Give driver a moment to finish initialization
+            await asyncio.sleep(2)
+            
+            self.logger.info(
+                f"🔵 Conductor {self.component_id} 🚀 NO DEPOT - SIGNALING DRIVER TO START:\n"
+                f"   📍 Route starts without depot boarding\n"
+                f"   🔄 Boarding enabled for pickup along route\n"
+                f"   ⏰ Time: {datetime.now().strftime('%H:%M:%S')}"
+            )
+            
+            # Direct driver method call
+            if hasattr(self, 'driver') and self.driver:
+                self.logger.info(f"[{self.component_id}] Calling driver.start_engine()...")
+                try:
+                    result = await self.driver.start_engine()
+                    self.logger.info(
+                        f"[{self.component_id}] ✅ Driver engine started successfully (result={result})\n"
+                        f"   🚌 Vehicle ready to pickup passengers along route"
+                    )
+                    return
+                except Exception as e:
+                    self.logger.error(f"[{self.component_id}] Failed to start engine: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                self.logger.warning(
+                    f"[{self.component_id}] No driver reference - cannot signal start"
+                )
+        
+        except Exception as e:
+            self.logger.error(f"[{self.component_id}] Error in _signal_driver_start_no_depot: {e}")
+            import traceback
+            traceback.print_exc()
         
     async def receive_stop_request(self, passenger_id: str, message: str) -> None:
         """Receive stop request from passenger."""

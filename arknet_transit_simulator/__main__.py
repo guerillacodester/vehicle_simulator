@@ -25,6 +25,19 @@ def parse_args(argv=None):
     p.add_argument('--debug', action='store_true', help='Enable debug logging')
     p.add_argument('--enable-boarding-after', type=float, default=None, 
                    help='Auto-enable boarding after N seconds (for testing; default: manual control)')
+    
+    # Simulation time control for testing
+    p.add_argument('--sim-time', type=str, default=None,
+                   help='Set simulation time (ISO format: 2025-11-05T14:30:00Z or HH:MM for today)')
+    p.add_argument('--sim-date', type=str, default=None,
+                   help='Set simulation date (YYYY-MM-DD, combines with --sim-time or uses current time)')
+    
+    # Fleet Management API control
+    p.add_argument('--no-api', action='store_true',
+                   help='Disable embedded Fleet Management API (default: enabled)')
+    p.add_argument('--api-port', type=int, default=5001,
+                   help='Port for Fleet Management API (default: 5001)')
+    
     return p.parse_args(argv)
 
 
@@ -386,6 +399,44 @@ async def main_async(argv=None):
     if args.mode == 'status':
         return await run_status(args.api_url)
     
+    # Parse simulation time if provided
+    sim_time = None
+    if args.sim_time or args.sim_date:
+        from datetime import datetime, timezone
+        
+        if args.sim_time:
+            # Try ISO format first
+            if 'T' in args.sim_time or len(args.sim_time) > 10:
+                try:
+                    sim_time = datetime.fromisoformat(args.sim_time.replace('Z', '+00:00'))
+                except ValueError:
+                    print(f"Error: Invalid ISO time format: {args.sim_time}")
+                    return 1
+            # Try HH:MM format
+            else:
+                try:
+                    from datetime import date
+                    base_date = datetime.fromisoformat(args.sim_date) if args.sim_date else datetime.now(timezone.utc)
+                    time_parts = args.sim_time.split(':')
+                    hour = int(time_parts[0])
+                    minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+                    sim_time = base_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                except ValueError as e:
+                    print(f"Error: Invalid time format: {args.sim_time} - {e}")
+                    return 1
+        elif args.sim_date:
+            # Date only - use current time
+            try:
+                base_date = datetime.fromisoformat(args.sim_date)
+                now = datetime.now(timezone.utc)
+                sim_time = base_date.replace(hour=now.hour, minute=now.minute, second=now.second)
+            except ValueError as e:
+                print(f"Error: Invalid date format: {args.sim_date} - {e}")
+                return 1
+        
+        if sim_time:
+            print(f"🕒 Simulation time set to: {sim_time.isoformat()}")
+    
     # Load GPS configuration from environment
     from arknet_transit_simulator.config.config_loader import ConfigLoader
     config_loader = ConfigLoader()
@@ -395,7 +446,10 @@ async def main_async(argv=None):
     sim = CleanVehicleSimulator(
         api_url=args.api_url, 
         enable_boarding_after=args.enable_boarding_after,
-        gps_config=gps_config
+        gps_config=gps_config,
+        sim_time=sim_time,
+        enable_api=not args.no_api,
+        api_port=args.api_port
     )
     if not await sim.initialize():
         print("Initialization failed. Exiting.")

@@ -231,12 +231,11 @@ class CommuterServiceClient:
         """
         try:
             # Query route-depots with populated depot relation
-            # Filter for depots that are start terminus (where buses begin their route)
+            # Get ANY depot for this route (start or end terminus - buses board at both)
             params = {
                 "filters[route_short_name][$eq]": route_id,
-                "filters[is_start_terminus][$eq]": "true",
                 "populate": "depot",
-                "pagination[limit]": 1  # Just need first start depot
+                "pagination[limit]": 1  # Just need first depot
             }
             
             response = await self.client.get(
