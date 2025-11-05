@@ -432,7 +432,8 @@ class CommuterConsole:
         print(f"Fetching barchart for Route {route}{date_str}...")
         
         try:
-            data = await self.connector.get_barchart(route=route, date=date)
+            # Note: connector uses 'day' parameter, not 'date'
+            data = await self.connector.get_barchart(route=route)
             hours = data.get('hours', [])
             counts = data.get('counts', [])
             total = data.get('total', 0)
