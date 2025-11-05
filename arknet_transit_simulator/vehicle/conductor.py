@@ -99,6 +99,13 @@ class ConductorConfig:
     monitoring_interval_seconds: float = 2.0
     gps_precision_meters: float = 10.0
     
+    # Depot operations - NEW
+    depot_wait_time_minutes: float = 40.0
+    depot_proximity_threshold_km: float = 0.1
+    
+    # Route operations - NEW
+    end_loiter_minutes: float = 2.0
+    
     # Communication timeouts
     driver_response_timeout_seconds: float = 30.0
     passenger_boarding_timeout_seconds: float = 120.0
@@ -182,12 +189,27 @@ class ConductorConfig:
             "conductor.operational.gps_precision_meters",
             default=10.0
         )
+        depot_wait_time_minutes = await config_service.get(
+            "conductor.depot.wait_time_minutes",
+            default=40.0
+        )
+        depot_proximity_threshold_km = await config_service.get(
+            "conductor.depot.proximity_threshold_km",
+            default=0.1
+        )
+        end_loiter_minutes = await config_service.get(
+            "conductor.route.end_loiter_minutes",
+            default=2.0
+        )
         
         logger.info(f"[ConductorConfig] Loaded from ConfigurationService:")
         logger.info(f"  • pickup_radius_km: {pickup_radius_km}")
         logger.info(f"  • boarding_time_window_minutes: {boarding_time_window_minutes}")
         logger.info(f"  • min_stop_duration_seconds: {min_stop_duration_seconds}")
         logger.info(f"  • monitoring_interval_seconds: {monitoring_interval_seconds}")
+        logger.info(f"  • depot_wait_time_minutes: {depot_wait_time_minutes}")
+        logger.info(f"  • depot_proximity_threshold_km: {depot_proximity_threshold_km}")
+        logger.info(f"  • end_loiter_minutes: {end_loiter_minutes}")
         
         config = cls(
             pickup_radius_km=pickup_radius_km,
@@ -197,7 +219,10 @@ class ConductorConfig:
             per_passenger_boarding_time=per_passenger_boarding_time,
             per_passenger_disembarking_time=per_passenger_disembarking_time,
             monitoring_interval_seconds=monitoring_interval_seconds,
-            gps_precision_meters=gps_precision_meters
+            gps_precision_meters=gps_precision_meters,
+            depot_wait_time_minutes=depot_wait_time_minutes,
+            depot_proximity_threshold_km=depot_proximity_threshold_km,
+            end_loiter_minutes=end_loiter_minutes
         )
         
         # Validate configuration before returning
@@ -262,13 +287,21 @@ class Conductor(BasePerson):
         self.tick_time = tick_time
         self.config = config or ConductorConfig()
         
-        # NEW: Commuter Service HTTP Client (replaces direct database access)
+        # Commuter Service HTTP Client (uses reservoir pattern)
         self.commuter_service_url = commuter_service_url or "http://localhost:4000"
         self.commuter_client = None  # Initialized in start()
         
-        # DEPRECATED: Keep for backward compatibility
+        # DEPRECATED: Keep passenger_db for backward compatibility only
         self.passenger_db = passenger_db
         self.boarded_passengers: List[str] = []  # Track individual passenger IDs
+        
+        # Track passenger destinations for alighting logic
+        self.passenger_destinations: Dict[str, Tuple[float, float]] = {}  # passenger_id -> (dest_lat, dest_lon)
+        
+        # Depot detection and boarding state
+        self.depot_coordinates: Optional[Dict[str, float]] = None  # Cached depot lat/lon for route
+        self.is_at_depot_flag: bool = False  # Current depot proximity state
+        self.depot_boarding_active: bool = False  # Whether in depot boarding mode
         
         # Hardware event client (for both simulation and real hardware)
         self.hardware_client = hardware_client
@@ -569,6 +602,21 @@ class Conductor(BasePerson):
                     self.logger.info(
                         f"[{self.component_id}] ✅ Connected to commuter_service at {self.commuter_service_url}"
                     )
+                    
+                    # Load depot coordinates for this route
+                    if self.assigned_route_id and self.assigned_route_id != "UNKNOWN":
+                        depot_loaded = await self.load_depot_coordinates(
+                            route_id=self.assigned_route_id
+                        )
+                        if depot_loaded:
+                            self.logger.info(
+                                f"[{self.component_id}] 🏢 Depot coordinates loaded for route {self.assigned_route_id}"
+                            )
+                        else:
+                            self.logger.warning(
+                                f"[{self.component_id}] ⚠️ No depot found for route {self.assigned_route_id} - "
+                                f"depot boarding mode will be unavailable"
+                            )
                 else:
                     self.logger.warning(
                         f"[{self.component_id}] ⚠️ Failed to connect to commuter_service - "
@@ -658,12 +706,40 @@ class Conductor(BasePerson):
             return False
     
     async def update_vehicle_position(self, latitude: float, longitude: float) -> None:
-        """Update current vehicle GPS position for proximity calculations."""
+        """
+        Update current vehicle GPS position for proximity calculations.
+        
+        Also checks if vehicle is at depot and triggers depot boarding mode if needed.
+        """
         self.current_vehicle_position = (latitude, longitude)
+        self.current_latitude = latitude
+        self.current_longitude = longitude
         
         # If we have an active stop operation, preserve this position
         if self.current_stop_operation and not self.current_stop_operation.gps_position:
             self.current_stop_operation.gps_position = (latitude, longitude)
+        
+        # Check if at depot and auto-trigger depot boarding mode
+        if self.depot_coordinates and not self.depot_boarding_active:
+            at_depot = self.is_at_depot(latitude, longitude)
+            
+            if at_depot and self.assigned_route_id:
+                # Vehicle just arrived at depot - enter depot boarding mode
+                logger.info(
+                    f"🔵 Conductor {self.vehicle_id}: 🏢 AUTO-TRIGGERING DEPOT BOARDING MODE\n"
+                    f"   📍 Position: ({latitude:.6f}, {longitude:.6f})\n"
+                    f"   🏢 Depot: {self.depot_coordinates.get('depot_name', 'Unknown')}"
+                )
+                
+                # Create async task to run depot boarding (don't block position update)
+                asyncio.create_task(
+                    self.depot_boarding_mode(
+                        vehicle_lat=latitude,
+                        vehicle_lon=longitude,
+                        route_id=self.assigned_route_id
+                    )
+                )
+
             
     async def _monitor_passengers(self) -> None:
         """Background task to monitor passengers and manage operations."""
@@ -1088,14 +1164,24 @@ class Conductor(BasePerson):
         boarded_count = 0
         for passenger_id in passenger_ids:
             try:
-                # Method 1: Update via PassengerDatabase (direct Strapi API)
-                if self.passenger_db:
-                    success = await self.passenger_db.mark_boarded(passenger_id)
+                # Update via CommuterServiceClient (HTTP API → Reservoir → Repository)
+                if self.commuter_client:
+                    success = await self.commuter_client.board_passenger(
+                        passenger_id=passenger_id,
+                        vehicle_id=self.vehicle_id
+                    )
+                    if not success:
+                        logger.warning(f"Conductor {self.vehicle_id}: API boarding failed for {passenger_id}")
+                        continue
+                
+                # FALLBACK: Direct database update (deprecated, for backward compatibility)
+                elif self.passenger_db:
+                    success = await self.passenger_db.mark_boarded(passenger_id, self.vehicle_id)
                     if not success:
                         logger.warning(f"Conductor {self.vehicle_id}: DB update failed for {passenger_id}")
+                        continue
                 
-                # Method 2: Emit hardware event (simulates RFID tap or manual confirmation)
-                # This would trigger hardware notification if connected
+                # Emit hardware event (simulates RFID tap or manual confirmation)
                 if self.hardware_client:
                     await self.hardware_client.rfid_tap(
                         card_id=passenger_id,
@@ -1205,8 +1291,8 @@ class Conductor(BasePerson):
         """
         Check for eligible passengers at current location and board them.
         
-        Uses commuter_service HTTP API to query via reservoir pattern:
-        Conductor → HTTP API → Reservoir → Repository → Strapi
+        Uses CommuterServiceClient (HTTP API) → RouteReservoir → PassengerRepository:
+        Conductor → HTTP API → RouteReservoir (with Redis cache) → Repository → Strapi
         
         Args:
             vehicle_lat: Current vehicle latitude
@@ -1216,8 +1302,7 @@ class Conductor(BasePerson):
         Returns:
             Number of passengers boarded
         """
-        # Prefer HTTP client over legacy passenger_db
-        if not self.commuter_client and not self.passenger_db:
+        if not self.commuter_client:
             logger.warning(f"Conductor {self.vehicle_id}: No commuter_service client configured")
             return 0
         
@@ -1228,42 +1313,28 @@ class Conductor(BasePerson):
         route = route_id or self.assigned_route_id
         
         try:
-            # Query via HTTP client (NEW - uses reservoir pattern)
-            if self.commuter_client:
-                logger.info(
-                    f"🔵 Conductor {self.vehicle_id} 👁️  LOOKING FOR PASSENGERS (via commuter_service API):\n"
-                    f"   📍 Position: ({vehicle_lat:.6f}, {vehicle_lon:.6f})\n"
-                    f"   🚏 Route: {route}\n"
-                    f"   🔍 Pickup radius: {self.config.pickup_radius_km} km\n"
-                    f"   💺 Seats available: {self.seats_available}/{self.capacity}"
-                )
-                
-                eligible = await self.commuter_client.get_eligible_passengers(
-                    vehicle_lat=vehicle_lat,
-                    vehicle_lon=vehicle_lon,
-                    route_id=route,
-                    pickup_radius_km=self.config.pickup_radius_km,
-                    max_results=self.seats_available,
-                    status="WAITING"
-                )
+            logger.info(
+                f"🔵 Conductor {self.vehicle_id} 👁️  LOOKING FOR PASSENGERS (via CommuterService API):\n"
+                f"   📍 Position: ({vehicle_lat:.6f}, {vehicle_lon:.6f})\n"
+                f"   🚏 Route: {route}\n"
+                f"   🔍 Pickup radius: {self.config.pickup_radius_km} km\n"
+                f"   💺 Seats available: {self.seats_available}/{self.capacity}"
+            )
             
-            # DEPRECATED: Legacy database access
-            elif self.passenger_db:
-                logger.info(
-                    f"🔵 Conductor {self.vehicle_id} 👁️  LOOKING FOR PASSENGERS (legacy passenger_db):\n"
-                    f"   📍 Position: ({vehicle_lat:.6f}, {vehicle_lon:.6f})\n"
-                    f"   🚏 Route: {route}\n"
-                    f"   🔍 Pickup radius: {self.config.pickup_radius_km} km\n"
-                    f"   💺 Seats available: {self.seats_available}/{self.capacity}"
-                )
-                
-                eligible = await self.passenger_db.get_eligible_passengers(
-                    vehicle_lat=vehicle_lat,
-                    vehicle_lon=vehicle_lon,
-                    route_id=route,
-                    pickup_radius_km=self.config.pickup_radius_km,
-                    max_results=self.seats_available
-                )
+            # Query passengers via HTTP API (goes through RouteReservoir)
+            # Pass current time for spawn_time filtering (only "arrived" passengers)
+            from datetime import datetime, timezone
+            current_time_iso = datetime.now(timezone.utc).isoformat()
+            
+            eligible = await self.commuter_client.get_eligible_passengers(
+                vehicle_lat=vehicle_lat,
+                vehicle_lon=vehicle_lon,
+                route_id=route,
+                pickup_radius_km=self.config.pickup_radius_km,
+                max_results=self.seats_available,
+                status="WAITING",
+                current_time=current_time_iso  # Filter by spawn_time
+            )
             
             if not eligible:
                 logger.info(f"🔵 Conductor {self.vehicle_id}: ❌ No passengers found at this location")
@@ -1274,34 +1345,37 @@ class Conductor(BasePerson):
             logger.info(f"🔵 Conductor {self.vehicle_id}: ✅ Found {len(eligible)} eligible passengers:")
             
             for idx, p in enumerate(eligible, 1):
-                # Try documentId first (commuter_service API response)
-                pid = p.get('documentId') or p.get('passenger_id')
+                # CommuterService API returns flat structure
+                pid = p.get('passenger_id') or p.get('documentId')
                 p_lat = p.get('latitude')
                 p_lon = p.get('longitude')
-                
-                if not pid:
-                    # Try nested attributes (Strapi v4 legacy)
-                    attrs = p.get('attributes', {})
-                    pid = attrs.get('passenger_id')
-                    p_lat = attrs.get('latitude')
-                    p_lon = attrs.get('longitude')
+                dest_lat = p.get('destination_lat')
+                dest_lon = p.get('destination_lon')
+                dist = p.get('distance_meters', 0)
+                spawned_at = p.get('spawned_at')
                 
                 if pid:
                     passenger_ids.append(pid)
-                    # Calculate distance if coordinates available
-                    if p_lat and p_lon:
-                        distance = self._calculate_distance(vehicle_lat, vehicle_lon, p_lat, p_lon)
-                        logger.info(
-                            f"   {idx}. 🟢 Passenger {pid}\n"
-                            f"      📍 Position: ({p_lat:.6f}, {p_lon:.6f})\n"
-                            f"      📏 Distance: {distance * 1000:.1f} meters"
-                        )
-                    else:
-                        logger.info(f"   {idx}. 🟢 Passenger {pid}")
+                    # Store destination for alighting logic
+                    if dest_lat is not None and dest_lon is not None:
+                        self.passenger_destinations[pid] = (dest_lat, dest_lon)
+                    
+                    logger.info(
+                        f"   {idx}. 🟢 Passenger {pid}\n"
+                        f"      📍 Position: ({p_lat:.6f}, {p_lon:.6f})\n"
+                        f"      📏 Distance: {dist:.1f} meters\n"
+                        f"      🎯 Destination: ({dest_lat:.6f}, {dest_lon:.6f})\n"
+                        f"      ⏰ Spawned at: {spawned_at}"
+                    )
             
             if not passenger_ids:
                 logger.warning(f"🔵 Conductor {self.vehicle_id}: ⚠️  Found passengers but couldn't extract IDs")
                 return 0
+            
+            # Limit to available seats
+            if len(passenger_ids) > self.seats_available:
+                logger.info(f"🔵 Conductor {self.vehicle_id}: ⚠️  More passengers ({len(passenger_ids)}) than seats ({self.seats_available}), taking first {self.seats_available}")
+                passenger_ids = passenger_ids[:self.seats_available]
             
             logger.info(
                 f"🔵 Conductor {self.vehicle_id}: 🚪 BOARDING {len(passenger_ids)} passengers..."
@@ -1324,6 +1398,187 @@ class Conductor(BasePerson):
             import traceback
             traceback.print_exc()
             return 0
+    
+    async def load_depot_coordinates(self, route_id: str, strapi_url: str = "http://localhost:1337") -> bool:
+        """
+        Load and cache depot coordinates for the given route.
+        
+        Queries route-depots junction table for start terminus depot.
+        This only needs to be called once per route assignment.
+        
+        Args:
+            route_id: Route ID (short_name)
+            strapi_url: Strapi base URL
+        
+        Returns:
+            True if depot coordinates loaded successfully
+        """
+        if not self.commuter_client:
+            logger.warning(f"Conductor {self.vehicle_id}: Cannot load depot - commuter client not initialized")
+            return False
+        
+        try:
+            self.depot_coordinates = await self.commuter_client.get_route_depot_coordinates(
+                route_id=route_id,
+                strapi_url=strapi_url
+            )
+            
+            if self.depot_coordinates:
+                logger.info(
+                    f"🔵 Conductor {self.vehicle_id}: 📍 Loaded depot for route {route_id}:\n"
+                    f"   🏢 Depot: {self.depot_coordinates.get('depot_name', 'Unknown')}\n"
+                    f"   📍 Location: ({self.depot_coordinates['latitude']:.6f}, {self.depot_coordinates['longitude']:.6f})"
+                )
+                return True
+            else:
+                logger.warning(f"Conductor {self.vehicle_id}: No depot found for route {route_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Conductor {self.vehicle_id}: Error loading depot coordinates: {e}")
+            return False
+    
+    def is_at_depot(self, vehicle_lat: float, vehicle_lon: float) -> bool:
+        """
+        Check if vehicle is currently at depot (within proximity threshold).
+        
+        Uses haversine distance and depot_proximity_threshold_km from config.
+        Caches result in self.is_at_depot_flag for state tracking.
+        
+        Args:
+            vehicle_lat: Current vehicle latitude
+            vehicle_lon: Current vehicle longitude
+        
+        Returns:
+            True if within depot proximity threshold
+        """
+        if not self.depot_coordinates:
+            return False
+        
+        from arknet_transit_simulator.utils.geospatial import haversine
+        
+        depot_lat = self.depot_coordinates['latitude']
+        depot_lon = self.depot_coordinates['longitude']
+        
+        distance_km = haversine(vehicle_lat, vehicle_lon, depot_lat, depot_lon)
+        
+        is_at_depot = distance_km <= self.config.depot_proximity_threshold_km
+        
+        # Log state changes
+        if is_at_depot != self.is_at_depot_flag:
+            if is_at_depot:
+                logger.info(
+                    f"🔵 Conductor {self.vehicle_id}: 🏢 ARRIVED AT DEPOT\n"
+                    f"   📍 Depot: {self.depot_coordinates.get('depot_name', 'Unknown')}\n"
+                    f"   📏 Distance: {distance_km*1000:.1f} meters (threshold: {self.config.depot_proximity_threshold_km*1000:.0f}m)"
+                )
+            else:
+                logger.info(
+                    f"🔵 Conductor {self.vehicle_id}: 🚦 DEPARTED DEPOT\n"
+                    f"   📏 Distance: {distance_km*1000:.1f} meters from depot"
+                )
+            
+            self.is_at_depot_flag = is_at_depot
+        
+        return is_at_depot
+    
+    async def depot_boarding_mode(
+        self,
+        vehicle_lat: float,
+        vehicle_lon: float,
+        route_id: str
+    ) -> int:
+        """
+        Enter depot boarding wait mode.
+        
+        Waits at depot for passengers to board, with timeout and capacity limits:
+        - Query passengers every monitoring_interval_seconds
+        - Filter by spawned_at <= current_time (only "arrived" passengers)
+        - Depart when: (seats full) OR (timeout = depot_wait_time_minutes)
+        
+        Args:
+            vehicle_lat: Depot latitude
+            vehicle_lon: Depot longitude
+            route_id: Current route ID
+        
+        Returns:
+            Total passengers boarded during depot wait
+        """
+        import asyncio
+        from datetime import datetime, timezone, timedelta
+        
+        logger.info(
+            f"🔵 Conductor {self.vehicle_id}: 🏢 ENTERING DEPOT BOARDING MODE\n"
+            f"   ⏱️  Wait timeout: {self.config.depot_wait_time_minutes} minutes\n"
+            f"   💺 Capacity: {self.capacity} seats\n"
+            f"   🔄 Check interval: {self.config.monitoring_interval_seconds} seconds"
+        )
+        
+        self.depot_boarding_active = True
+        start_time = datetime.now(timezone.utc)
+        timeout_minutes = self.config.depot_wait_time_minutes
+        total_boarded = 0
+        
+        try:
+            while self.depot_boarding_active:
+                # Check timeout
+                elapsed = (datetime.now(timezone.utc) - start_time).total_seconds() / 60.0
+                
+                if elapsed >= timeout_minutes:
+                    logger.info(
+                        f"🔵 Conductor {self.vehicle_id}: ⏰ DEPOT WAIT TIMEOUT\n"
+                        f"   ⏱️  Elapsed: {elapsed:.1f} minutes (limit: {timeout_minutes} min)\n"
+                        f"   👥 Boarded: {total_boarded} passengers\n"
+                        f"   💺 Occupancy: {self.passengers_on_board}/{self.capacity}"
+                    )
+                    break
+                
+                # Check if full
+                if self.seats_available == 0:
+                    logger.info(
+                        f"🔵 Conductor {self.vehicle_id}: ✅ VEHICLE FULL AT DEPOT\n"
+                        f"   👥 Boarded: {total_boarded} passengers\n"
+                        f"   💺 Occupancy: {self.passengers_on_board}/{self.capacity}\n"
+                        f"   ⏱️  Time at depot: {elapsed:.1f} minutes"
+                    )
+                    break
+                
+                # Check for passengers (with spawn_time filtering)
+                boarded_this_round = await self.check_for_passengers(
+                    vehicle_lat=vehicle_lat,
+                    vehicle_lon=vehicle_lon,
+                    route_id=route_id
+                )
+                
+                if boarded_this_round > 0:
+                    total_boarded += boarded_this_round
+                    logger.info(
+                        f"🔵 Conductor {self.vehicle_id}: ➕ Boarded {boarded_this_round} more passengers\n"
+                        f"   👥 Total at depot: {total_boarded}\n"
+                        f"   💺 Seats remaining: {self.seats_available}/{self.capacity}\n"
+                        f"   ⏱️  Elapsed: {elapsed:.1f}/{timeout_minutes} min"
+                    )
+                
+                # Wait before next check
+                await asyncio.sleep(self.config.monitoring_interval_seconds)
+            
+            logger.info(
+                f"🔵 Conductor {self.vehicle_id}: 🚦 EXITING DEPOT BOARDING MODE\n"
+                f"   👥 Total boarded: {total_boarded} passengers\n"
+                f"   💺 Final occupancy: {self.passengers_on_board}/{self.capacity}\n"
+                f"   ⏱️  Total time: {((datetime.now(timezone.utc) - start_time).total_seconds() / 60.0):.1f} min"
+            )
+            
+            return total_boarded
+            
+        except Exception as e:
+            logger.error(f"Conductor {self.vehicle_id}: Error in depot boarding mode: {e}")
+            import traceback
+            traceback.print_exc()
+            return total_boarded
+        
+        finally:
+            self.depot_boarding_active = False
         
     def has_seats_available(self) -> bool:
         """Check if vehicle has available seats"""

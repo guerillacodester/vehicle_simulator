@@ -203,102 +203,90 @@ async def query_passengers_nearby(
     route_id: str = Query(..., description="Route ID to filter"),
     radius_km: float = Query(0.2, ge=0.001, le=10.0, description="Search radius in kilometers"),
     max_results: int = Query(50, ge=1, le=100, description="Maximum passengers to return"),
-    status: Optional[str] = Query("WAITING", description="Filter by status")
+    status: Optional[str] = Query("WAITING", description="Filter by status"),
+    current_time: Optional[str] = Query(None, description="Current simulation time (ISO8601). Only passengers with spawned_at <= current_time are returned")
 ):
     """
     Query passengers near a location (for conductor visibility).
     
-    This endpoint is used by vehicle conductors to find eligible passengers
-    within pickup radius of their current position.
+    This endpoint goes through RouteReservoir (single source of truth):
+    HTTP API → RouteReservoir → PassengerRepository → Strapi
     
     Example:
     - GET /api/passengers/nearby?latitude=13.0975&longitude=-59.6139&route_id=gg3pv3z19hhm117v9xth5ezq&radius_km=0.2
+    - GET /api/passengers/nearby?latitude=13.0975&longitude=-59.6139&route_id=gg3pv3z19hhm117v9xth5ezq&radius_km=0.2&current_time=2024-10-27T14:30:00Z
     
     Returns passengers sorted by distance (closest first).
+    Optionally filters by spawn_time if current_time provided.
     """
     from commuter_service.infrastructure.config import get_config
-    from math import radians, cos, sin, asin, sqrt
+    from commuter_service.core.domain.reservoirs.route_reservoir import RouteReservoir
+    from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
+    import logging
     
+    logger = logging.getLogger(__name__)
     config = get_config()
-    strapi_url = config.infrastructure.strapi_url.rstrip("/")
     
-    # Query Strapi for passengers on this route with matching status
-    params = {
-        "filters[route_id][$eq]": route_id,
-        "pagination[limit]": 100  # Get more than needed, filter by distance
-    }
+    # Initialize reservoir with repository
+    passenger_repo = PassengerRepository(strapi_url=config.infrastructure.strapi_url)
+    await passenger_repo.connect()
     
-    if status:
-        params["filters[status][$eq]"] = status
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(f"{strapi_url}/api/active-passengers", params=params)
-        response.raise_for_status()
+    try:
+        reservoir = RouteReservoir(
+            passenger_repository=passenger_repo,
+            enable_redis_cache=False,  # Disable Redis for now (can enable later)
+            logger=logger
+        )
         
-        data = response.json()
+        # Query through reservoir (SINGLE SOURCE OF TRUTH)
+        nearby_passengers = await reservoir.query_nearby(
+            vehicle_lat=latitude,
+            vehicle_lon=longitude,
+            route_id=route_id,
+            radius_km=radius_km,
+            max_results=max_results,
+            status=status,
+            current_time=current_time  # Pass through spawn_time filter
+        )
         
-        # Calculate distances and filter by radius
-        passengers_with_distance = []
-        for item in data.get("data", []):
-            p = item
-            p_lat = p.get("latitude")
-            p_lon = p.get("longitude")
+        # Convert to response format
+        passengers = []
+        for p in nearby_passengers:
+            computed_state = calculate_passenger_state(
+                spawned_at=p.get("spawned_at"),
+                boarded_at=p.get("boarded_at"),
+                alighted_at=p.get("alighted_at"),
+                status=p.get("status")
+            )
             
-            if p_lat is not None and p_lon is not None:
-                distance_km = haversine(latitude, longitude, p_lat, p_lon)
-                
-                if distance_km <= radius_km:
-                    # Calculate computed state
-                    computed_state = calculate_passenger_state(
-                        spawned_at=p.get("spawned_at"),
-                        boarded_at=p.get("boarded_at"),
-                        alighted_at=p.get("alighted_at"),
-                        status=p.get("status")
-                    )
-                    
-                    passenger_response = PassengerResponse(
-                        id=p.get("id"),
-                        documentId=p.get("documentId"),
-                        passenger_id=p.get("passenger_id"),
-                        route_id=p.get("route_id"),
-                        depot_id=p.get("depot_id"),
-                        latitude=p_lat,
-                        longitude=p_lon,
-                        destination_lat=p.get("destination_lat"),
-                        destination_lon=p.get("destination_lon"),
-                        destination_name=p.get("destination_name", "Stop"),
-                        spawned_at=p.get("spawned_at"),
-                        boarded_at=p.get("boarded_at"),
-                        alighted_at=p.get("alighted_at"),
-                        vehicle_id=p.get("vehicle_id"),
-                        status=PassengerStatus(p.get("status", "WAITING")),
-                        computed_state=computed_state,
-                        createdAt=p.get("createdAt"),
-                        updatedAt=p.get("updatedAt")
-                    )
-                    
-                    passengers_with_distance.append((distance_km, passenger_response))
-        
-        # Sort by distance (closest first) and limit results
-        passengers_with_distance.sort(key=lambda x: x[0])
-        nearby_passengers = [p for _, p in passengers_with_distance[:max_results]]
+            passengers.append(PassengerResponse(
+                id=p.get("id"),
+                documentId=p.get("documentId"),
+                passenger_id=p.get("passenger_id"),
+                route_id=p.get("route_id"),
+                depot_id=p.get("depot_id"),
+                latitude=p.get("latitude"),
+                longitude=p.get("longitude"),
+                destination_lat=p.get("destination_lat"),
+                destination_lon=p.get("destination_lon"),
+                destination_name=p.get("destination_name", "Stop"),
+                spawned_at=p.get("spawned_at"),
+                boarded_at=p.get("boarded_at"),
+                alighted_at=p.get("alighted_at"),
+                vehicle_id=p.get("vehicle_id"),
+                status=PassengerStatus(p.get("status", "WAITING")),
+                computed_state=computed_state,
+                createdAt=p.get("createdAt"),
+                updatedAt=p.get("updatedAt")
+            ))
         
         return PassengerListResponse(
-            data=nearby_passengers,
-            meta={
-                "pagination": {
-                    "total": len(nearby_passengers),
-                    "page": 1,
-                    "pageSize": len(nearby_passengers)
-                },
-                "query": {
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "route_id": route_id,
-                    "radius_km": radius_km
-                }
-            }
+            data=passengers,
+            meta={"total": len(passengers), "source": "RouteReservoir"}
         )
+    
+    finally:
+        await passenger_repo.disconnect()
 
 
 @router.get("/{passenger_id}", response_model=PassengerResponse)

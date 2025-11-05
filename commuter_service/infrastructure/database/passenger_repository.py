@@ -360,7 +360,8 @@ class PassengerRepository:
         route_id: str,
         latitude: float,
         longitude: float,
-        max_distance_meters: float = 1000.0
+        max_distance_meters: float = 1000.0,
+        current_time: Optional[datetime] = None
     ) -> List[Dict]:
         """
         Query passengers near a location via Strapi API.
@@ -370,6 +371,7 @@ class PassengerRepository:
             latitude: Center latitude
             longitude: Center longitude
             max_distance_meters: Maximum distance in meters
+            current_time: Optional simulation time - only return passengers where spawned_at <= current_time
         
         Returns:
             List of passenger dictionaries

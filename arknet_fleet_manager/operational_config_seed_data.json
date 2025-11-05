@@ -136,6 +136,57 @@
     "requires_restart": false
   },
   {
+    "section": "conductor.depot",
+    "parameter": "wait_time_minutes",
+    "value": "40.0",
+    "value_type": "number",
+    "default_value": "40.0",
+    "constraints": {
+      "min": 1.0,
+      "max": 120.0,
+      "step": 1.0,
+      "unit": "minutes"
+    },
+    "description": "Maximum time to wait at depot for passengers before departing",
+    "display_name": "Depot Wait Time",
+    "ui_group": "Depot Operations",
+    "requires_restart": false
+  },
+  {
+    "section": "conductor.depot",
+    "parameter": "proximity_threshold_km",
+    "value": "0.1",
+    "value_type": "number",
+    "default_value": "0.1",
+    "constraints": {
+      "min": 0.05,
+      "max": 1.0,
+      "step": 0.05,
+      "unit": "kilometers"
+    },
+    "description": "Distance threshold to consider vehicle at depot (100 meters default)",
+    "display_name": "Depot Proximity Threshold",
+    "ui_group": "Depot Operations",
+    "requires_restart": false
+  },
+  {
+    "section": "conductor.route",
+    "parameter": "end_loiter_minutes",
+    "value": "2.0",
+    "value_type": "number",
+    "default_value": "2.0",
+    "constraints": {
+      "min": 0.5,
+      "max": 30.0,
+      "step": 0.5,
+      "unit": "minutes"
+    },
+    "description": "Time to loiter at end of route before reversing direction",
+    "display_name": "End-of-Route Loiter Time",
+    "ui_group": "Route Operations",
+    "requires_restart": false
+  },
+  {
     "section": "driver.waypoints",
     "parameter": "proximity_threshold_km",
     "value": "0.05",

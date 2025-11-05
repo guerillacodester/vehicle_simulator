@@ -56,7 +56,8 @@ class CommuterServiceClient:
         route_id: str,
         pickup_radius_km: float = 0.2,
         max_results: int = 50,
-        status: str = "WAITING"
+        status: str = "WAITING",
+        current_time: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Query for eligible passengers near vehicle position.
@@ -71,6 +72,8 @@ class CommuterServiceClient:
             pickup_radius_km: Search radius in kilometers (default: 0.2 km)
             max_results: Maximum passengers to return (default: 50)
             status: Filter by passenger status (default: WAITING)
+            current_time: Current simulation time (ISO8601). If provided, only passengers
+                         with spawned_at <= current_time are returned
         
         Returns:
             List of passenger dictionaries, sorted by distance (closest first)
@@ -84,6 +87,10 @@ class CommuterServiceClient:
                 "max_results": max_results,
                 "status": status
             }
+            
+            # Add current_time if provided
+            if current_time:
+                params["current_time"] = current_time
             
             response = await self.client.get(
                 f"{self.base_url}/api/passengers/nearby",
@@ -202,4 +209,76 @@ class CommuterServiceClient:
                 
         except Exception as e:
             self.logger.error(f"[CommuterServiceClient] Error getting passenger {passenger_id}: {e}")
+            return None
+    
+    async def get_route_depot_coordinates(
+        self,
+        route_id: str,
+        strapi_url: str = "http://localhost:1337"
+    ) -> Optional[Dict[str, float]]:
+        """
+        Get depot coordinates for a route by querying route-depots junction table.
+        
+        Returns depot coordinates that are marked as start_terminus for the given route.
+        This is used by conductor to detect when vehicle is at depot.
+        
+        Args:
+            route_id: Route ID (short_name or document_id)
+            strapi_url: Strapi base URL
+        
+        Returns:
+            Dict with 'latitude' and 'longitude' keys, or None if not found
+        """
+        try:
+            # Query route-depots with populated depot relation
+            # Filter for depots that are start terminus (where buses begin their route)
+            params = {
+                "filters[route_short_name][$eq]": route_id,
+                "filters[is_start_terminus][$eq]": "true",
+                "populate": "depot",
+                "pagination[limit]": 1  # Just need first start depot
+            }
+            
+            response = await self.client.get(
+                f"{strapi_url}/api/route-depots",
+                params=params
+            )
+            
+            if response.status_code == 200:
+                data = response.json().get("data", [])
+                if data:
+                    # Get first depot marked as start terminus
+                    depot = data[0].get("depot")
+                    if depot:
+                        lat = depot.get("latitude")
+                        lon = depot.get("longitude")
+                        depot_name = depot.get("name", "Unknown")
+                        
+                        if lat is not None and lon is not None:
+                            self.logger.debug(
+                                f"[CommuterServiceClient] Found depot for route {route_id}: "
+                                f"{depot_name} ({lat:.6f}, {lon:.6f})"
+                            )
+                            return {
+                                "latitude": lat,
+                                "longitude": lon,
+                                "depot_name": depot_name,
+                                "depot_id": depot.get("depot_id")
+                            }
+                
+                self.logger.warning(
+                    f"[CommuterServiceClient] No start depot found for route {route_id}"
+                )
+                return None
+            
+            else:
+                self.logger.warning(
+                    f"[CommuterServiceClient] Failed to query route-depots: {response.status_code}"
+                )
+                return None
+                
+        except Exception as e:
+            self.logger.error(
+                f"[CommuterServiceClient] Error getting depot for route {route_id}: {e}"
+            )
             return None

@@ -232,6 +232,124 @@ class RouteReservoir(ReservoirInterface):
         
         return success
     
+    async def query_nearby(
+        self,
+        vehicle_lat: float,
+        vehicle_lon: float,
+        route_id: str,
+        radius_km: float = 0.2,
+        max_results: int = 50,
+        status: str = "WAITING",
+        current_time: Optional[str] = None  # ISO8601 timestamp for spawn_time filtering
+    ) -> List[Dict]:
+        """
+        Query passengers near a vehicle position (spatial query through reservoir).
+        
+        This is the SINGLE SOURCE OF TRUTH for conductor passenger visibility.
+        All conductor queries should go through this method, not direct Strapi access.
+        
+        Args:
+            vehicle_lat: Current vehicle latitude
+            vehicle_lon: Current vehicle longitude
+            route_id: Route ID to filter passengers
+            radius_km: Search radius in kilometers (default 0.2 km = 200m)
+            max_results: Maximum passengers to return (default 50)
+            status: Filter by passenger status (default WAITING)
+            current_time: Current simulation time (ISO8601). If provided, only return passengers
+                         where spawned_at <= current_time (i.e., passenger has "arrived")
+        
+        Returns:
+            List of passenger dicts sorted by distance (closest first)
+            
+        Example:
+            nearby = await reservoir.query_nearby(
+                vehicle_lat=13.0975,
+                vehicle_lon=-59.6139,
+                route_id="route_1",
+                radius_km=0.2,
+                current_time="2024-10-27T14:30:00Z"  # Only spawned passengers
+            )
+            # Returns: [{'passenger_id': 'P_123', 'distance_km': 0.05, ...}, ...]
+        """
+        # Import haversine for distance calculation
+        import sys
+        import os
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+        from arknet_transit_simulator.utils.geospatial import haversine
+        from datetime import datetime
+        
+        # Parse current_time if provided
+        current_dt = None
+        if current_time:
+            try:
+                current_dt = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
+            except Exception as e:
+                self.logger.warning(f"Failed to parse current_time '{current_time}': {e}")
+        
+        # Query all passengers for this route with matching status
+        # Note: This uses PassengerRepository which handles Strapi pagination
+        all_passengers = await self.passenger_repo.get_waiting_passengers_by_route(
+            route_id=route_id,
+            limit=100  # Fetch more than max_results to ensure coverage
+        )
+        
+        if not all_passengers:
+            self.logger.debug(f"No passengers found for route {route_id} with status {status}")
+            return []
+        
+        # Calculate distances and filter by radius
+        passengers_with_distance = []
+        
+        for passenger in all_passengers:
+            # Filter by spawn_time if current_time provided
+            if current_dt:
+                spawned_at_str = passenger.get("spawned_at")
+                if spawned_at_str:
+                    try:
+                        spawned_at_dt = datetime.fromisoformat(spawned_at_str.replace('Z', '+00:00'))
+                        # Only include passengers who have "arrived" (spawned_at <= current_time)
+                        if spawned_at_dt > current_dt:
+                            self.logger.debug(
+                                f"Passenger {passenger.get('passenger_id')} not yet spawned "
+                                f"(spawned_at={spawned_at_str} > current_time={current_time})"
+                            )
+                            continue  # Skip this passenger (not yet arrived)
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to parse spawned_at '{spawned_at_str}' for passenger "
+                            f"{passenger.get('passenger_id')}: {e}"
+                        )
+            
+            p_lat = passenger.get("latitude")
+            p_lon = passenger.get("longitude")
+            
+            if p_lat is None or p_lon is None:
+                self.logger.warning(f"Passenger {passenger.get('passenger_id')} missing coordinates")
+                continue
+            
+            # Calculate haversine distance
+            distance_km = haversine(vehicle_lat, vehicle_lon, p_lat, p_lon)
+            
+            # Filter by radius
+            if distance_km <= radius_km:
+                # Add distance to passenger dict for sorting
+                passenger_copy = passenger.copy()
+                passenger_copy['distance_km'] = distance_km
+                passengers_with_distance.append((distance_km, passenger_copy))
+        
+        # Sort by distance (closest first)
+        passengers_with_distance.sort(key=lambda x: x[0])
+        
+        # Take top max_results
+        nearby_passengers = [p for _, p in passengers_with_distance[:max_results]]
+        
+        self.logger.info(
+            f"🔍 Reservoir query_nearby: Found {len(nearby_passengers)} passengers "
+            f"for route {route_id} within {radius_km}km of ({vehicle_lat:.6f}, {vehicle_lon:.6f})"
+        )
+        
+        return nearby_passengers
+    
     async def get_stats(self) -> Dict:
         """
         Get reservoir statistics from database queries.
