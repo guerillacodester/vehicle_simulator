@@ -146,7 +146,7 @@ async def enrich_manifest_rows(rows: List[Dict[str, Any]], route_id: Optional[st
 
         # Reverse geocode with bounded concurrency
         addr_cache: Dict[Tuple[float, float], str] = {}
-        sem = asyncio.Semaphore(int(os.getenv("GEOCODE_CONCURRENCY", "5")))
+        sem = asyncio.Semaphore(int(os.getenv("GEOCODE_CONCURRENCY", "20")))  # Increase from 5 to 20
 
         async def addr_pair(r: Dict[str, Any]) -> Tuple[str, str]:
             async with sem:
@@ -190,17 +190,56 @@ async def fetch_passengers(
     token: Optional[str],
     params: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
+    """Fetch ALL passengers from Strapi, paginating through all pages"""
     headers = {"Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    r = await client.get(f"{strapi_url}/api/active-passengers", params=params, headers=headers)
-    r.raise_for_status()
-    data = r.json()
-    items = data.get("data", [])
-    # normalize attrs
+    
+    all_items = []
+    page = 1
+    max_pages = 100  # Safety limit to prevent infinite loops
+    
+    # Parse attributes helper - handle both wrapped and unwrapped formats
     def parse_attrs(item: Dict[str, Any]) -> Dict[str, Any]:
-        attrs = item.get("attributes", {})
-        if attrs:
-            return {"id": item.get("id"), **attrs}
+        # Check if data is wrapped in 'attributes' (Strapi page 1 format)
+        if "attributes" in item:
+            attrs = item.get("attributes", {})
+            return {"id": item.get("id"), "documentId": item.get("documentId"), **attrs}
+        # Otherwise data is already flat (Strapi page 2+ format)
         return item
-    return [parse_attrs(it) for it in items]
+    
+    while page <= max_pages:
+        # Add pagination to params
+        page_params = {**params, "pagination[page]": page}
+        
+        print(f"[DEBUG] Fetching page {page}...")
+        r = await client.get(f"{strapi_url}/api/active-passengers", params=page_params, headers=headers)
+        r.raise_for_status()
+        data = r.json()
+        items = data.get("data", [])
+        
+        print(f"[DEBUG] Page {page}: got {len(items)} items")
+        
+        if not items:
+            print(f"[DEBUG] No items on page {page}, stopping")
+            break
+        
+        all_items.extend([parse_attrs(it) for it in items])
+        
+        # Check if there are more pages
+        meta = data.get("meta", {})
+        pagination = meta.get("pagination", {})
+        total_pages = pagination.get("pageCount", 1)
+        current_page = pagination.get("page", page)
+        
+        print(f"[DEBUG] Pagination meta: page={current_page}, total_pages={total_pages}, total_items={len(all_items)}")
+        
+        if page >= total_pages:
+            print(f"[DEBUG] Reached last page ({page} >= {total_pages})")
+            break
+        
+        page += 1
+    
+    print(f"[DEBUG] Returning {len(all_items)} total items")
+    return all_items
+

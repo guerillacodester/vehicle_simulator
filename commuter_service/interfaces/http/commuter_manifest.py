@@ -188,12 +188,12 @@ async def get_manifest(
     status: Optional[str] = Query(None, description="Filter by status (e.g., WAITING, BOARDED)"),
     start: Optional[str] = Query(None, description="Filter spawned_at >= ISO8601 timestamp"),
     end: Optional[str] = Query(None, description="Filter spawned_at <= ISO8601 timestamp"),
-    limit: int = Query(100, ge=1, le=1000, description="Max passengers to return"),
     sort: str = Query("spawned_at:asc", description="Sort order (default: spawned_at:asc)")
 ):
     """
     Get enriched passenger manifest with route positions and geocoded addresses.
     
+    Returns ALL passengers matching the filters (no pagination limit).
     When a route_id is provided, passengers are ordered by distance from route start.
     Includes reverse geocoded start/stop addresses and travel distance.
     
@@ -229,26 +229,38 @@ async def get_manifest(
                 detail=f"Route '{route}' not found"
             )
     
-    # Build Strapi query params
+    # Build Strapi query params - NO FILTERS because Strapi pagination breaks with filters
+    # We'll filter in Python after fetching all passengers
+    # Strapi max pageSize is 100, not 1000
     params = {
-        "pagination[pageSize]": limit,
+        "pagination[pageSize]": 100,
         "sort": sort,
     }
-    if route_id:
-        params["filters[route_id][$eq]"] = route_id
-    if depot:
-        params["filters[depot_id][$eq]"] = depot
-    if start:
-        params["filters[spawned_at][$gte]"] = start
-    if end:
-        params["filters[spawned_at][$lte]"] = end
-    if status:
-        params["filters[status][$eq]"] = status
     
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            # Fetch raw passengers from Strapi
-            rows = await fetch_passengers(client, strapi_url, token, params)
+        async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes for geocoding 300+ passengers
+            # Fetch ALL passengers from Strapi (no filters - Strapi pagination bug)
+            all_rows = await fetch_passengers(client, strapi_url, token, params)
+            
+            # Filter in Python (Strapi pagination doesn't work with filters)
+            rows = []
+            for row in all_rows:
+                # Apply filters
+                if route_id and row.get("route_id") != route_id:
+                    continue
+                if depot and row.get("depot_id") != depot:
+                    continue
+                if status and row.get("status") != status:
+                    continue
+                if start:
+                    spawned = row.get("spawned_at", "")
+                    if spawned < start:
+                        continue
+                if end:
+                    spawned = row.get("spawned_at", "")
+                    if spawned > end:
+                        continue
+                rows.append(row)
             
             # Enrich with positions, addresses, distances
             enriched = await enrich_manifest_rows(rows, route_id)
@@ -279,7 +291,7 @@ async def get_manifest(
 @app.get("/api/manifest/visualization/barchart", response_model=BarchartResponse)
 async def get_barchart_visualization(
     date: str = Query(..., description="Target date (YYYY-MM-DD)"),
-    route: Optional[str] = Query(None, description="Filter by route document ID"),
+    route: Optional[str] = Query(None, description="Filter by route short name or document ID"),
     start_hour: int = Query(0, ge=0, le=23, description="Start hour (0-23)"),
     end_hour: int = Query(23, ge=0, le=23, description="End hour (0-23)")
 ):
@@ -296,11 +308,18 @@ async def get_barchart_visualization(
     if start_hour > end_hour:
         raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
     
+    # Translate route short name to document ID if needed
+    route_id = None
+    if route:
+        route_id = await get_route_document_id(route)
+        if not route_id:
+            route_id = route  # Fallback if already document ID
+    
     try:
         # Fetch passengers
         passengers = await fetch_passengers_from_strapi(
             strapi_url=STRAPI_URL,
-            route_id=route,
+            route_id=route_id,
             target_date=target_date,
             start_hour=start_hour,
             end_hour=end_hour

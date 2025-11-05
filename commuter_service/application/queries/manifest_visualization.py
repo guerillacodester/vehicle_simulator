@@ -47,7 +47,7 @@ async def fetch_passengers_from_strapi(
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         while True:
-            url = f"{strapi_url}/api/active-passengers?pagination[page]={page}&pagination[pageSize]=100"
+            url = f"{strapi_url}/api/active-passengers?pagination[page]={page}&pagination[pageSize]=1000"
             response = await client.get(url)
             
             if response.status_code != 200:

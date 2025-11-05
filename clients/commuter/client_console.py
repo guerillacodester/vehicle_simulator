@@ -434,8 +434,7 @@ class CommuterConsole:
         try:
             # Note: connector uses 'day' parameter, not 'date'
             data = await self.connector.get_barchart(route=route)
-            hours = data.get('hours', [])
-            counts = data.get('counts', [])
+            hourly_counts = data.get('hourly_counts', [])
             total = data.get('total', 0)
             peak_hour = data.get('peak_hour', 0)
             
@@ -446,12 +445,17 @@ class CommuterConsole:
             print(f"Total: {total} | Peak Hour: {peak_hour}:00")
             print("=" * 80)
             
-            max_count = max(counts) if counts else 1
-            for hour, count in zip(hours, counts):
-                bar_width = int((count / max_count) * 50) if max_count > 0 else 0
-                bar = "█" * bar_width
-                peak = "🔥" if hour == peak_hour else "  "
-                print(f"{hour:>2}:00 │ {bar:<50} {count:>3} {peak}")
+            if not hourly_counts:
+                print("⚠️  No hourly data available")
+                print(f"Debug: hourly_counts={hourly_counts}")
+            else:
+                max_count = max(hourly_counts) if hourly_counts else 1
+                for hour, count in enumerate(hourly_counts):
+                    if count > 0:  # Only show hours with passengers
+                        bar_width = int((count / max_count) * 50) if max_count > 0 else 0
+                        bar = "█" * bar_width
+                        peak = "🔥" if hour == peak_hour else "  "
+                        print(f"{hour:>2}:00 │ {bar:<50} {count:>3} {peak}")
             
             print("=" * 80)
             print()

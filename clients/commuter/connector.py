@@ -314,18 +314,34 @@ class CommuterConnector:
         self,
         route: Optional[str] = None,
         day: Optional[str] = None,
+        date: Optional[str] = None,
         start_hour: int = 0,
         end_hour: int = 23
     ) -> Dict[str, Any]:
         """Get barchart visualization data"""
+        # If no date provided, use Monday Nov 4, 2024 (the base simulation date)
+        if not date:
+            if day:
+                # Map day to date (base = Monday Nov 4, 2024)
+                day_map = {
+                    'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+                    'friday': 4, 'saturday': 5, 'sunday': 6
+                }
+                from datetime import datetime, timedelta
+                base_date = datetime(2024, 11, 4)
+                offset = day_map.get(day.lower(), 0)
+                target_date = base_date + timedelta(days=offset)
+                date = target_date.strftime('%Y-%m-%d')
+            else:
+                date = '2024-11-04'  # Default to Monday
+        
         params = {
+            'date': date,
             'start_hour': start_hour,
             'end_hour': end_hour
         }
         if route:
             params['route'] = route
-        if day:
-            params['day'] = day
         
         response = await self.http_client.get("/api/manifest/visualization/barchart", params=params)
         response.raise_for_status()
