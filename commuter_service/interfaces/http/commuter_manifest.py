@@ -686,21 +686,15 @@ async def seed_passengers(request: SeedRequest):
         from commuter_service.infrastructure.database.passenger_repository import PassengerRepository
         from datetime import timedelta
         
-        # Validate date or day
-        if not request.day and not request.date:
-            raise HTTPException(status_code=400, detail="Either 'day' or 'date' must be specified")
-        
-        if request.day and request.date:
-            raise HTTPException(status_code=400, detail="Cannot specify both 'day' and 'date'")
-        
-        # Determine target date
+        # Validate and determine target date
         if request.date:
+            # User specified explicit date
             try:
                 target_date = datetime.strptime(request.date, '%Y-%m-%d')
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-        else:
-            # Map day to date
+        elif request.day:
+            # User specified day name - use current week
             day_map = {
                 'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
                 'friday': 4, 'saturday': 5, 'sunday': 6
@@ -708,9 +702,17 @@ async def seed_passengers(request: SeedRequest):
             if request.day.lower() not in day_map:
                 raise HTTPException(status_code=400, detail="Invalid day. Use monday-sunday")
             
-            base_date = datetime(2024, 11, 4)  # Monday, Nov 4, 2024
-            day_offset = day_map[request.day.lower()]
-            target_date = base_date + timedelta(days=day_offset)
+            # Use today as reference and find the specified day in current week
+            today = datetime.now()
+            current_weekday = today.weekday()
+            target_weekday = day_map[request.day.lower()]
+            
+            # Calculate days offset from today
+            days_offset = target_weekday - current_weekday
+            target_date = today + timedelta(days=days_offset)
+        else:
+            # No day or date specified - default to today
+            target_date = datetime.now()
         
         # Get route documentId
         route_doc_id = await get_route_document_id(request.route)

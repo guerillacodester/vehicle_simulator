@@ -126,9 +126,19 @@ class CommuterConsole:
             await self.cmd_unsubscribe(route)
         
         elif cmd == "seed":
-            # Support: seed route=1 day=monday hours=7-9 type=both
-            #          seed depot=A day=monday hours=7-9
-            await self.cmd_seed_flexible(args)
+            if len(args) < 1:
+                print("❌ Usage: seed <route> [day/date] [hours]")
+                print("   Examples:")
+                print("     seed 1                    - Route 1, today, all 24 hours")
+                print("     seed 1 monday 7-9         - Route 1, this week's Monday, hours 7-9")
+                print("     seed 1 2024-11-05 0-23    - Route 1, Nov 5 2024, all hours")
+                return
+            
+            route = args[0]
+            day_or_date = args[1] if len(args) > 1 else None
+            hours = args[2] if len(args) > 2 else "0-23"
+            
+            await self.cmd_seed(route, day_or_date, hours)
         
         elif cmd == "list":
             await self.cmd_list_passengers(args)
@@ -211,7 +221,12 @@ class CommuterConsole:
         print("                                  delete route=1 date=2024-11-04 hours=7-9")
         print()
         print("SEEDING:")
-        print("  seed <route> <day> <hrs>    - Seed passengers (e.g., seed 1 monday 7-9)")
+        print("  seed <route> [day/date] [hrs] - Seed passengers")
+        print("                                  Examples:")
+        print("                                    seed 1                    (today, all 24 hours)")
+        print("                                    seed 1 monday 7-9         (this week's Monday, 7-9)")
+        print("                                    seed 1 2024-11-05 0-23    (explicit date, all hours)")
+        print("                                    seed 1 tuesday            (this week's Tuesday, all 24 hrs)")
         print()
         print("REAL-TIME:")
         print("  subscribe <route>           - Subscribe to real-time events (WebSocket)")
@@ -873,25 +888,47 @@ class CommuterConsole:
             print("\n⏹️  Streaming stopped")
             self.streaming = False
     
-    async def cmd_seed(self, route: str, day: str, hours: str):
-        """Trigger passenger seeding on the server"""
+    async def cmd_seed(self, route: str, day_or_date: str = None, hours: str = "0-23"):
+        """Trigger passenger seeding on the server
+        
+        Args:
+            route: Route short name (e.g., "1")
+            day_or_date: Day name (monday-sunday) or explicit date (YYYY-MM-DD), defaults to today if omitted
+            hours: Hour range (e.g., "7-9" or "0-23"), defaults to "0-23"
+        
+        Examples:
+            seed 1                     # Seed route 1, today, all 24 hours
+            seed 1 monday 7-9          # Seed route 1, this week's Monday, hours 7-9
+            seed 1 2024-11-05 0-23     # Seed route 1, Nov 5 2024, all 24 hours
+            seed 1 tuesday             # Seed route 1, this week's Tuesday, all 24 hours
+        """
         if not self.connector:
             print("❌ Not connected. Use 'connect' first.")
             return
         
-        # Parse hours (e.g., "7-9")
+        # Parse hours (e.g., "7-9" or "0-23")
         try:
             start_hour, end_hour = map(int, hours.split('-'))
         except:
-            print("❌ Invalid hours format. Use: seed <route> <day> <start-end> (e.g., seed 1 monday 7-9)")
+            print("❌ Invalid hours format. Use: seed <route> [day_or_date] <start-end>")
             return
+        
+        # Determine if it's a date or day name (or today if None)
+        is_date = day_or_date and '-' in day_or_date and len(day_or_date) == 10
+        is_today = day_or_date is None
         
         print()
         print("=" * 80)
         print(f"🌱 SEEDING PASSENGERS")
         print("=" * 80)
         print(f"Route:        {route}")
-        print(f"Day:          {day}")
+        if is_today:
+            from datetime import datetime
+            print(f"Date:         {datetime.now().strftime('%Y-%m-%d')} (today)")
+        elif is_date:
+            print(f"Date:         {day_or_date}")
+        else:
+            print(f"Day:          {day_or_date}")
         print(f"Hours:        {start_hour}:00 - {end_hour}:00")
         print("=" * 80)
         print()
@@ -939,13 +976,21 @@ class CommuterConsole:
         try:
             print("⏳ Triggering seeding on server...")
             
-            result = await self.connector.seed_passengers(
-                route=route,
-                day=day,
-                spawn_type="route",
-                start_hour=start_hour,
-                end_hour=end_hour
-            )
+            # Build request based on whether it's a day, date, or today
+            seed_params = {
+                "route": route,
+                "spawn_type": "route",
+                "start_hour": start_hour,
+                "end_hour": end_hour
+            }
+            
+            if is_date:
+                seed_params["date"] = day_or_date
+            elif day_or_date:
+                seed_params["day"] = day_or_date
+            # If None (today), server will default to today
+            
+            result = await self.connector.seed_passengers(**seed_params)
             
             # Wait a bit for events to arrive
             if self.connector.is_websocket_connected:
