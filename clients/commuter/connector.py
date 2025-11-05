@@ -127,8 +127,8 @@ class CommuterConnector:
         
         self.auto_reconnect = auto_reconnect
         
-        # HTTP client
-        self.http_client = httpx.AsyncClient(base_url=self.base_url, timeout=30.0)
+        # HTTP client with extended timeout for long operations (seed can take minutes)
+        self.http_client = httpx.AsyncClient(base_url=self.base_url, timeout=300.0)
         
         # WebSocket connection
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
@@ -158,8 +158,12 @@ class CommuterConnector:
                         self.is_websocket_connected = True
                         await self._trigger_event('connect', data)
                     
-                    # Handle passenger events
+                    # Handle passenger lifecycle events
                     elif message_type in ["passenger:spawned", "passenger:boarded", "passenger:alighted"]:
+                        await self._trigger_event(message_type, data.get("data", {}))
+                    
+                    # Handle seed progress events
+                    elif message_type in ["seed:progress", "seed:hour_complete"]:
                         await self._trigger_event(message_type, data.get("data", {}))
                     
                     # Handle subscription confirmations
@@ -169,6 +173,10 @@ class CommuterConnector:
                     # Handle errors
                     elif message_type == "error":
                         logger.error(f"❌ WebSocket error: {data.get('message')}")
+                    
+                    # Handle any other event types (catch-all)
+                    elif ":" in message_type:
+                        await self._trigger_event(message_type, data.get("data", {}))
                     
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse WebSocket message: {e}")
@@ -384,10 +392,21 @@ class CommuterConnector:
         else:
             raise ValueError("Either 'day' or 'date' must be specified")
         
-        response = await self.http_client.post("/api/seed", json=payload)
-        response.raise_for_status()
-        
-        return response.json()
+        try:
+            response = await self.http_client.post("/api/seed", json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            # Enhance error message with response details
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_data = e.response.json()
+                    detail = error_data.get('detail', str(e))
+                    raise Exception(f"{detail}") from e
+                except:
+                    raise Exception(f"HTTP {e.response.status_code}: {e.response.text}") from e
+            raise
+
     
     # ========================================================================
     # EVENT STREAMING (Observable Pattern)
@@ -436,6 +455,49 @@ class CommuterConnector:
             # Remove specific handler
             self._event_handlers[event_name].remove(callback)
             logger.debug(f"Unsubscribed handler from: {event_name}")
+    
+    async def delete_passengers(
+        self,
+        route: Optional[str] = None,
+        date: Optional[str] = None,
+        day: Optional[str] = None,
+        status: Optional[str] = None,
+        start_hour: Optional[int] = None,
+        end_hour: Optional[int] = None,
+        confirm: bool = False
+    ) -> dict:
+        """
+        Delete passengers matching filters
+        
+        Args:
+            route: Route short name (e.g., "1", "2")
+            date: Specific date (YYYY-MM-DD)
+            day: Day of week (e.g., "monday")
+            status: Filter by status (e.g., "WAITING")
+            start_hour: Start hour (0-23)
+            end_hour: End hour (0-23)
+            confirm: Must be True to actually delete (safety check)
+        
+        Returns:
+            dict with 'deleted' count and 'message'
+        """
+        params = {'confirm': confirm}
+        
+        if route:
+            params['route'] = route
+        if date:
+            params['date'] = date
+        if day:
+            params['day'] = day
+        if status:
+            params['status'] = status
+        if start_hour is not None:
+            params['start_hour'] = start_hour
+        if end_hour is not None:
+            params['end_hour'] = end_hour
+        
+        response = await self.http_client.delete("/api/manifest", params=params)
+        return response.json()
     
     async def _trigger_event(self, event: str, data: Any):
         """Trigger event callbacks"""

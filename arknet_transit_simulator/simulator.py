@@ -483,6 +483,9 @@ class CleanVehicleSimulator:
                     commuter_service_url=commuter_service_url  # NEW: HTTP client instead of direct DB
                 )
                 
+                # Initialize conductor configuration from Strapi (Phase 2)
+                await conductor.initialize_config()
+                
                 # Attach conductor to driver for future integration
                 driver.conductor = conductor
                 

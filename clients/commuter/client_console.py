@@ -29,7 +29,7 @@ from typing import Optional
 import httpx
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from clients.commuter.connector import CommuterConnector, EventType
 
@@ -99,7 +99,8 @@ class CommuterConsole:
         elif cmd == "manifest":
             route = args[0] if args else "1"
             date = args[1] if len(args) > 1 else None
-            await self.cmd_manifest(route, date)
+            hours = args[2] if len(args) > 2 else None
+            await self.cmd_manifest(route, date, hours)
         
         elif cmd == "barchart":
             route = args[0] if args else "1"
@@ -156,6 +157,9 @@ class CommuterConsole:
                 return
             await self.cmd_cancel(args[0])
         
+        elif cmd == "delete":
+            await self.cmd_delete(args)
+        
         elif cmd == "monitor":
             await self.cmd_monitor_stats()
         
@@ -177,16 +181,27 @@ class CommuterConsole:
         print("  disconnect                  - Disconnect from service")
         print()
         print("QUERIES:")
-        print("  manifest <route> <date>     - Get manifest table (e.g., manifest 1 2024-11-04)")
+        print("  manifest <route> [date] [start_hour-end_hour]  - Manifest table")
+        print("                                                    Examples:")
+        print("                                                      manifest 1")
+        print("                                                      manifest 1 2024-11-04")
+        print("                                                      manifest 1 2024-11-04 7-9")
         print("  json <route> <date>         - Get raw JSON manifest data")
         print("  barchart <route> <date>     - Get barchart for route")
-        print("  list [filters]              - List passengers (see 'list help' for filters)")
+        print("  list [filters]              - List passengers with filters")
+        print("                                  list route=1 status=WAITING")
+        print("                                  list vehicle=BUS_001")
         print("  get <passenger_id>          - Get single passenger details")
         print()
         print("PASSENGER MANAGEMENT:")
         print("  board <id> <vehicle_id>     - Board passenger onto vehicle")
         print("  alight <id>                 - Alight passenger from vehicle")
         print("  cancel <id>                 - Cancel passenger")
+        print("  delete [filters]            - Delete passengers with confirmation")
+        print("                                  delete route=1")
+        print("                                  delete date=2024-11-04")
+        print("                                  delete route=1 status=WAITING")
+        print("                                  delete route=1 date=2024-11-04 hours=7-9")
         print()
         print("SEEDING:")
         print("  seed <route> <day> <hrs>    - Seed passengers (e.g., seed 1 monday 7-9)")
@@ -270,18 +285,42 @@ class CommuterConsole:
         await self.connector.unsubscribe(route)
         print(f"🔕 Unsubscribed from Route {route}")
     
-    async def cmd_manifest(self, route: str, date: Optional[str] = None):
-        """Get manifest for route - displays all passengers in table format"""
+    async def cmd_manifest(self, route: str, date: Optional[str] = None, hours: Optional[str] = None):
+        """Get manifest for route - displays all passengers in table format
+        
+        Args:
+            route: Route short name (e.g., "1")
+            date: Optional date filter (YYYY-MM-DD)
+            hours: Optional hour range (e.g., "7-9" for 07:00-09:59)
+        """
         if not self.connector:
             print("❌ Not connected. Use 'connect' first.")
             return
         
+        # Parse hour range
+        start_hour, end_hour = None, None
+        if hours:
+            try:
+                parts = hours.split('-')
+                start_hour = int(parts[0])
+                end_hour = int(parts[1]) if len(parts) > 1 else start_hour
+            except:
+                print(f"⚠️  Invalid hour range: {hours}. Use format: 7-9")
+                return
+        
         date_str = f" on {date}" if date else " (all dates)"
-        print(f"Fetching manifest for Route {route}{date_str}...")
+        hours_str = f" {start_hour:02d}:00-{end_hour:02d}:59" if hours else ""
+        print(f"Fetching manifest for Route {route}{date_str}{hours_str}...")
         
         try:
-            # Fetch ALL passengers (limit=1000)
-            manifest = await self.connector.get_manifest(route=route, date=date, limit=1000)
+            # Fetch passengers with filters
+            manifest = await self.connector.get_manifest(
+                route=route, 
+                date=date, 
+                start_hour=start_hour,
+                end_hour=end_hour,
+                limit=1000
+            )
             passengers = manifest.passengers
             total = manifest.count
             
@@ -480,7 +519,40 @@ class CommuterConsole:
         
         # Subscribe to route if WebSocket is available
         if self.connector.is_websocket_connected:
-            print("📡 Subscribing to real-time events...")
+            print("📡 Subscribing to real-time seeding events...")
+            
+            # Set up event handlers for seed progress
+            seed_event_count = [0]  # Use list for mutable counter in closure
+            current_hour = [None]
+            
+            def on_seed_progress(data):
+                """Handle individual passenger spawn events"""
+                seed_event_count[0] += 1
+                hour = data.get('hour', 0)
+                passenger_id = data.get('passenger_id', 'UNKNOWN')
+                total = data.get('total_so_far', 0)
+                spawn_time = data.get('spawn_time', '')
+                
+                # Only show every 10th passenger to avoid spam
+                if seed_event_count[0] % 10 == 0 or seed_event_count[0] == 1:
+                    print(f"   └─ {passenger_id[:20]}... at {spawn_time[11:19]} (Total: {total})")
+            
+            def on_hour_complete(data):
+                """Handle hour completion events"""
+                hour = data.get('hour', 0)
+                passengers = data.get('passengers_this_hour', 0)
+                total = data.get('total_so_far', 0)
+                percent = data.get('progress_percent', 0)
+                completed = data.get('hours_completed', 0)
+                total_hours = data.get('total_hours', 0)
+                
+                bar_width = int((percent / 100) * 50)
+                bar = "█" * bar_width + "░" * (50 - bar_width)
+                print(f"\n✅ Hour {hour:02d}:00 complete - {passengers} passengers spawned")
+                print(f"   Progress: [{bar}] {percent:.1f}% ({completed}/{total_hours} hours) | Total: {total}")
+            
+            self.connector.on('seed:progress', on_seed_progress)
+            self.connector.on('seed:hour_complete', on_hour_complete)
             await self.connector.subscribe(route)
             self.event_count = 0
             print()
@@ -504,13 +576,19 @@ class CommuterConsole:
             print("=" * 80)
             print("✅ SEEDING COMPLETE")
             print("=" * 80)
-            print(f"Success:          {result['success']}")
-            print(f"Route:            {result['route']}")
-            print(f"Date:             {result['date']}")
-            print(f"Spawn Type:       {result['spawn_type']}")
-            print(f"Route Passengers: {result['route_passengers']}")
-            print(f"Depot Passengers: {result['depot_passengers']}")
-            print(f"Total Created:    {result['total_created']}")
+            
+            # Safely access result fields
+            if result:
+                print(f"Success:          {result.get('success', 'N/A')}")
+                print(f"Route:            {result.get('route', 'N/A')}")
+                print(f"Date:             {result.get('date', 'N/A')}")
+                print(f"Spawn Type:       {result.get('spawn_type', 'N/A')}")
+                print(f"Route Passengers: {result.get('route_passengers', 0)}")
+                print(f"Depot Passengers: {result.get('depot_passengers', 0)}")
+                print(f"Total Created:    {result.get('total_created', 0)}")
+            else:
+                print("⚠️  No result returned from server")
+                
             if self.connector.is_websocket_connected:
                 print(f"Events Received:  {self.event_count}")
             print("=" * 80)
@@ -518,6 +596,17 @@ class CommuterConsole:
             
         except Exception as e:
             print(f"❌ Seeding failed: {e}")
+            import traceback
+            traceback.print_exc()
+            # Show more details if it's an HTTP error
+            if hasattr(e, 'response'):
+                try:
+                    error_detail = e.response.json()
+                    print(f"   Server error: {error_detail}")
+                except:
+                    print(f"   Status code: {e.response.status_code}")
+                    print(f"   Response: {e.response.text}")
+
     
     def cmd_stats(self):
         """Show connection statistics"""
@@ -705,6 +794,181 @@ class CommuterConsole:
             print(f"❌ Error: {error_detail}")
         except Exception as e:
             print(f"❌ Error: {e}")
+    
+    async def cmd_delete(self, args):
+        """
+        Delete passengers with flexible filters
+        
+        Usage:
+            delete help                                    - Show detailed help
+            delete route=<route>                          - Delete all passengers for a route
+            delete route=<route> day=<day>                - Delete for specific day
+            delete route=<route> date=<YYYY-MM-DD>        - Delete for specific date
+            delete route=<route> status=<status>          - Delete by status
+            delete route=<route> hours=<start>-<end>      - Delete for hour range
+            delete all                                     - Delete ALL passengers (dangerous!)
+        
+        Examples:
+            delete route=1 day=monday                     - Delete all Monday passengers on route 1
+            delete route=1 date=2024-11-04 hours=7-9      - Delete passengers between 7-9 AM
+            delete route=1 status=WAITING                 - Delete all waiting passengers
+            delete all                                     - Delete everything (requires confirmation)
+        """
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        # Show help
+        if not args or (len(args) == 1 and args[0] == 'help'):
+            print()
+            print("="*80)
+            print("DELETE COMMAND HELP")
+            print("="*80)
+            print()
+            print("Delete passengers with flexible filtering options:")
+            print()
+            print("BASIC USAGE:")
+            print("  delete route=<route>                  - Delete all passengers for route")
+            print("  delete route=<route> day=<day>        - Delete by day (monday-sunday)")
+            print("  delete route=<route> date=<date>      - Delete by date (YYYY-MM-DD)")
+            print("  delete route=<route> status=<status>  - Delete by status (WAITING, BOARDED, etc.)")
+            print()
+            print("ADVANCED FILTERS:")
+            print("  hours=<start>-<end>                   - Hour range (e.g., hours=7-9)")
+            print("  all                                    - Delete ALL passengers (⚠️ DANGEROUS!)")
+            print()
+            print("EXAMPLES:")
+            print("  delete route=1 day=monday             - Delete all Monday route 1 passengers")
+            print("  delete route=1 date=2024-11-04        - Delete specific date")
+            print("  delete route=1 hours=7-9              - Delete 7 AM - 9 AM passengers")
+            print("  delete route=1 status=WAITING         - Delete only waiting passengers")
+            print("  delete all                             - Delete everything (⚠️ requires confirmation)")
+            print()
+            print("="*80)
+            return
+        
+        # Parse arguments
+        filters = {}
+        delete_all = False
+        
+        for arg in args:
+            if arg.lower() == 'all':
+                delete_all = True
+                continue
+            
+            if '=' in arg:
+                key, value = arg.split('=', 1)
+                key = key.lower().strip()
+                value = value.strip()
+                
+                if key == 'route':
+                    filters['route'] = value
+                elif key == 'day':
+                    filters['day'] = value.lower()
+                elif key == 'date':
+                    filters['date'] = value
+                elif key == 'status':
+                    filters['status'] = value.upper()
+                elif key == 'hours':
+                    if '-' in value:
+                        start, end = value.split('-')
+                        filters['start_hour'] = int(start)
+                        filters['end_hour'] = int(end)
+                    else:
+                        print(f"❌ Invalid hours format: {value}. Use 'start-end' (e.g., 7-9)")
+                        return
+                else:
+                    print(f"⚠️  Unknown filter: {key}")
+        
+        # Build description
+        if delete_all:
+            desc = "ALL PASSENGERS (⚠️ DANGER!)"
+        else:
+            parts = []
+            if 'route' in filters:
+                parts.append(f"Route {filters['route']}")
+            if 'day' in filters:
+                parts.append(f"{filters['day'].capitalize()}")
+            if 'date' in filters:
+                parts.append(filters['date'])
+            if 'status' in filters:
+                parts.append(f"status={filters['status']}")
+            if 'start_hour' in filters:
+                parts.append(f"{filters['start_hour']:02d}:00-{filters['end_hour']:02d}:59")
+            
+            if not parts:
+                print("❌ No filters specified. Use 'delete help' for usage.")
+                return
+            
+            desc = ", ".join(parts)
+        
+        # Confirm deletion
+        print()
+        print("="*80)
+        print("⚠️  DELETE CONFIRMATION")
+        print("="*80)
+        print(f"You are about to DELETE passengers matching:")
+        print(f"  {desc}")
+        print()
+        
+        # Get count first (dry run)
+        try:
+            result = await self.connector.delete_passengers(**filters, confirm=False)
+            count = result.get('deleted_count', 0)
+            print(f"📊 This will delete approximately {count} passengers")
+        except Exception as e:
+            print(f"⚠️  Could not get count: {e}")
+            count = "unknown"
+        
+        print()
+        confirmation = input("Type 'DELETE' (all caps) to confirm: ")
+        
+        if confirmation != 'DELETE':
+            print("❌ Deletion cancelled")
+            return
+        
+        # Execute deletion
+        try:
+            print()
+            print("🗑️  Deleting passengers...")
+            
+            # Set up WebSocket event handler for delete progress
+            if self.connector.is_websocket_connected:
+                def on_delete_progress(data):
+                    """Handle delete progress events"""
+                    deleted = data.get('deleted_so_far', 0)
+                    total = data.get('total', 0)
+                    percent = data.get('progress_percent', 0)
+                    
+                    bar_width = int((percent / 100) * 50)
+                    bar = "█" * bar_width + "░" * (50 - bar_width)
+                    print(f"\r   Progress: [{bar}] {percent:.1f}% ({deleted}/{total})", end='', flush=True)
+                
+                self.connector.on('delete:progress', on_delete_progress)
+            
+            result = await self.connector.delete_passengers(**filters, confirm=True)
+            deleted = result.get('deleted_count', 0)
+            
+            # Clear progress line and print newline
+            if self.connector.is_websocket_connected:
+                print()  # New line after progress bar
+            
+            print()
+            print("="*80)
+            print("✅ DELETION COMPLETE")
+            print("="*80)
+            print(f"Deleted: {deleted} passengers")
+            print(f"Message: {result.get('message', 'Success')}")
+            print("="*80)
+            print()
+            
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json().get("detail", str(e))
+            print(f"❌ Error: {error_detail}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
     
     async def cmd_monitor_stats(self):
         """Show passenger monitor statistics"""

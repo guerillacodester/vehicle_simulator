@@ -149,9 +149,10 @@ class ConductorConfig:
                 return cls()
         
         # Load all conductor configuration parameters
+        # CRITICAL: No hardcoded defaults - must come from database
         pickup_radius_km = await config_service.get(
             "conductor.proximity.pickup_radius_km",
-            default=0.2
+            default=None  # Force fail-fast if not configured in Strapi
         )
         boarding_time_window_minutes = await config_service.get(
             "conductor.proximity.boarding_time_window_minutes",
@@ -188,7 +189,7 @@ class ConductorConfig:
         logger.info(f"  • min_stop_duration_seconds: {min_stop_duration_seconds}")
         logger.info(f"  • monitoring_interval_seconds: {monitoring_interval_seconds}")
         
-        return cls(
+        config = cls(
             pickup_radius_km=pickup_radius_km,
             boarding_time_window_minutes=boarding_time_window_minutes,
             min_stop_duration_seconds=min_stop_duration_seconds,
@@ -198,6 +199,11 @@ class ConductorConfig:
             monitoring_interval_seconds=monitoring_interval_seconds,
             gps_precision_meters=gps_precision_meters
         )
+        
+        # Validate configuration before returning
+        config.validate()
+        
+        return config
 
 
 class Conductor(BasePerson):
@@ -382,7 +388,8 @@ class Conductor(BasePerson):
             
             if 'conductor' in config_data:
                 conductor_section = config_data['conductor']
-                conductor_config.pickup_radius_km = float(conductor_section.get('pickup_radius_km', 0.2))
+                # No hardcoded defaults - INI file must have all required values
+                conductor_config.pickup_radius_km = float(conductor_section['pickup_radius_km'])  # Required
                 conductor_config.boarding_time_window_minutes = float(conductor_section.get('boarding_time_window_minutes', 5.0))
                 conductor_config.min_stop_duration_seconds = float(conductor_section.get('min_stop_duration_seconds', 15.0))
                 conductor_config.max_stop_duration_seconds = float(conductor_section.get('max_stop_duration_seconds', 180.0))

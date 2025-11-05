@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 import logging
+import traceback
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -602,13 +603,54 @@ async def seed_passengers(request: SeedRequest):
                 )
                 
                 # Spawn for each hour
-                for hour in range(request.start_hour, request.end_hour + 1):
+                total_hours = request.end_hour - request.start_hour + 1
+                logger.info(f"Spawning route passengers for {total_hours} hours ({request.start_hour}-{request.end_hour})...")
+                
+                for idx, hour in enumerate(range(request.start_hour, request.end_hour + 1), 1):
                     spawn_time = target_date.replace(hour=hour, minute=0, second=0)
                     route_requests = await route_spawner.spawn(current_time=spawn_time, time_window_minutes=60)
                     
+                    successful = 0
                     if route_requests:
                         successful, failed = await route_reservoir.push_batch(route_requests)
                         total_route += successful
+                        
+                        # Emit WebSocket event for each passenger spawned
+                        for passenger in route_requests[:successful]:  # Only successful ones
+                            spawn_lat, spawn_lon = passenger.spawn_location
+                            dest_lat, dest_lon = passenger.destination_location
+                            await manager.broadcast({
+                                "type": "seed:progress",
+                                "data": {
+                                    "passenger_id": passenger.passenger_id,
+                                    "route": request.route,
+                                    "hour": hour,
+                                    "spawn_time": passenger.spawn_time.isoformat(),
+                                    "spawn_location": {"lat": spawn_lat, "lon": spawn_lon},
+                                    "destination": {"lat": dest_lat, "lon": dest_lon},
+                                    "total_so_far": total_route
+                                },
+                                "timestamp": datetime.utcnow().isoformat() + "Z"
+                            })
+                    
+                    # Emit hour completion event
+                    percent = (idx / total_hours) * 100
+                    await manager.broadcast({
+                        "type": "seed:hour_complete",
+                        "data": {
+                            "route": request.route,
+                            "hour": hour,
+                            "passengers_this_hour": successful,
+                            "total_so_far": total_route,
+                            "progress_percent": percent,
+                            "hours_completed": idx,
+                            "total_hours": total_hours
+                        },
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    })
+                    
+                    # Log progress
+                    logger.info(f"Route spawn progress: Hour {hour} ({idx}/{total_hours}, {percent:.1f}%) - {successful} passengers")
                     
                     await asyncio.sleep(0.1)
             
@@ -668,7 +710,8 @@ async def seed_passengers(request: SeedRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Seeding failed: {e}")
+        error_traceback = traceback.format_exc()
+        logger.error(f"Seeding failed: {e}\n{error_traceback}")
         raise HTTPException(
             status_code=500,
             detail=f"Seeding failed: {str(e)}"
@@ -706,11 +749,13 @@ async def delete_passengers(
     - Delete all waiting passengers:
       DELETE /api/manifest?status=WAITING&confirm=true
     """
-    if not confirm:
-        raise HTTPException(
-            status_code=400,
-            detail="Must set confirm=true to delete passengers. This is a safety check."
-        )
+    # Convert route short name to document ID (e.g., "1" -> "gg3pv3z19hhm117v9xth5ezq")
+    route_id = None
+    if route:
+        route_id = await get_route_document_id(route)
+        if not route_id:
+            # Maybe it's already a document ID, try using it as-is
+            route_id = route
     
     # Parse date if provided
     target_date = None
@@ -743,7 +788,7 @@ async def delete_passengers(
         # Fetch passengers matching filters (don't geocode, just get raw data)
         passengers = await fetch_passengers_from_strapi(
             strapi_url=STRAPI_URL,
-            route_id=route,
+            route_id=route_id,  # Use translated route_id instead of route
             target_date=target_date,
             start_hour=start_hour or 0,
             end_hour=end_hour or 23
@@ -795,16 +840,57 @@ async def delete_passengers(
                 message="No passengers found matching the specified filters"
             )
         
+        # If confirm not set, return count only (dry-run)
+        if not confirm:
+            return DeleteResponse(
+                deleted_count=len(filtered_passengers),
+                filters_applied={
+                    "date": date,
+                    "day": day,
+                    "route": route,
+                    "depot": depot,
+                    "status": status,
+                    "start_hour": start_hour,
+                    "end_hour": end_hour,
+                    "start_time": start_time,
+                    "end_time": end_time
+                },
+                message=f"Dry run: Would delete {len(filtered_passengers)} passenger(s). Use confirm=true to proceed."
+            )
+        
         # Delete passengers via Strapi API
+        total_to_delete = len(filtered_passengers)
         deleted_count = 0
+        logger.info(f"Starting deletion of {total_to_delete} passengers...")
+        
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for p in filtered_passengers:
-                passenger_id = p.get('id')
-                if passenger_id:
-                    delete_url = f"{STRAPI_URL}/api/active-passengers/{passenger_id}"
+            for idx, p in enumerate(filtered_passengers, 1):
+                # Strapi 5 uses document_id, not sequential id
+                document_id = p.get('documentId')  # Note: Strapi returns camelCase
+                if document_id:
+                    delete_url = f"{STRAPI_URL}/api/active-passengers/{document_id}"
                     response = await client.delete(delete_url)
                     if response.status_code in [200, 204]:
                         deleted_count += 1
+                        
+                        # Emit WebSocket progress event every 10 deletions
+                        if idx % 10 == 0 or idx == total_to_delete:
+                            percent = (idx / total_to_delete) * 100
+                            await manager.broadcast({
+                                "type": "delete:progress",
+                                "data": {
+                                    "deleted_so_far": deleted_count,
+                                    "total": total_to_delete,
+                                    "progress_percent": percent,
+                                    "passenger_id": p.get('passenger_id', 'unknown')
+                                },
+                                "timestamp": datetime.utcnow().isoformat() + "Z"
+                            })
+                        
+                        # Log progress every 10% or every 50 passengers
+                        if idx % 50 == 0 or idx % (total_to_delete // 10) == 0 and total_to_delete > 10:
+                            percent = (idx / total_to_delete) * 100
+                            logger.info(f"Delete progress: {idx}/{total_to_delete} ({percent:.1f}%)")
         
         return DeleteResponse(
             deleted_count=deleted_count,
