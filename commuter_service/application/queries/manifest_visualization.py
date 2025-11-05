@@ -47,7 +47,8 @@ async def fetch_passengers_from_strapi(
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         while True:
-            url = f"{strapi_url}/api/active-passengers?pagination[page]={page}&pagination[pageSize]=1000"
+            # Strapi max pageSize is 100, not 1000
+            url = f"{strapi_url}/api/active-passengers?pagination[page]={page}&pagination[pageSize]=100"
             response = await client.get(url)
             
             if response.status_code != 200:
@@ -59,7 +60,15 @@ async def fetch_passengers_from_strapi(
             if not passengers:
                 break
             
-            all_passengers.extend(passengers)
+            # Handle both wrapped (page 1) and flat (page 2+) response formats
+            for p in passengers:
+                if "attributes" in p:
+                    # Page 1 format: {id, documentId, attributes: {...}}
+                    attrs = p.get("attributes", {})
+                    all_passengers.append({"id": p.get("id"), "documentId": p.get("documentId"), **attrs})
+                else:
+                    # Page 2+ format: {id, documentId, spawned_at, ...} (flat)
+                    all_passengers.append(p)
             
             meta = data.get('meta', {})
             pagination = meta.get('pagination', {})

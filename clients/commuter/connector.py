@@ -348,6 +348,31 @@ class CommuterConnector:
         
         return response.json()
     
+    async def get_table(
+        self,
+        route: Optional[str] = None,
+        date: Optional[str] = None,
+        start_hour: int = 0,
+        end_hour: int = 23
+    ) -> Dict[str, Any]:
+        """Get enriched table visualization data with addresses and distances"""
+        # If no date provided, use Monday Nov 4, 2024 (the base simulation date)
+        if not date:
+            date = '2024-11-04'  # Default to Monday
+        
+        params = {
+            'date': date,
+            'start_hour': start_hour,
+            'end_hour': end_hour
+        }
+        if route:
+            params['route'] = route
+        
+        response = await self.http_client.get("/api/manifest/visualization/table", params=params)
+        response.raise_for_status()
+        
+        return response.json()
+    
     async def get_stats(
         self,
         route: Optional[str] = None,

@@ -107,6 +107,11 @@ class CommuterConsole:
             date = args[1] if len(args) > 1 else None
             await self.cmd_barchart(route, date)
         
+        elif cmd == "table":
+            route = args[0] if args else "1"
+            date = args[1] if len(args) > 1 else None
+            await self.cmd_table(route, date)
+        
         elif cmd == "json":
             route = args[0] if args else "1"
             date = args[1] if len(args) > 1 else None
@@ -188,6 +193,7 @@ class CommuterConsole:
         print("                                                      manifest 1 2024-11-04 7-9")
         print("  json <route> <date>         - Get raw JSON manifest data")
         print("  barchart <route> <date>     - Get barchart for route")
+        print("  table <route> <date>        - Get enriched table with addresses & distances")
         print("  list [filters]              - List passengers with filters")
         print("                                  list route=1 status=WAITING")
         print("                                  list vehicle=BUS_001")
@@ -297,6 +303,46 @@ class CommuterConsole:
             print("❌ Not connected. Use 'connect' first.")
             return
         
+        # Streaming progress tracking
+        import time
+        start_time = time.time()
+        passengers_received = []
+        
+        # WebSocket handlers for real-time progress
+        def on_manifest_start(data):
+            total = data.get('total_passengers', 0)
+            print(f"\n📡 Fetching {total} passengers from Strapi...")
+        
+        def on_manifest_filtered(data):
+            total = data.get('total_filtered', 0)
+            print(f"✅ Filtered: {total} passengers | 🔄 Geocoding addresses...")
+            print()
+        
+        def on_manifest_passenger(data):
+            # Store passenger as it arrives
+            passenger = data.get('passenger')
+            if passenger:
+                passengers_received.append(passenger)
+            
+            index = data.get('index', 0)
+            total = data.get('total', 0)
+            progress = data.get('progress_percent', 0)
+            
+            # Show each passenger as it's geocoded
+            bar_width = int((progress / 100) * 50)
+            bar = "█" * bar_width + "░" * (50 - bar_width)
+            print(f"\r   [{bar}] {progress:.1f}% ({index}/{total}) - {passenger.get('passenger_id', 'N/A')}", end='', flush=True)
+        
+        def on_manifest_complete(data):
+            elapsed = time.time() - start_time
+            print(f"\n✅ Complete in {elapsed:.1f}s\n")
+        
+        # Register streaming handlers
+        self.connector.on('manifest:start', on_manifest_start)
+        self.connector.on('manifest:filtered', on_manifest_filtered)
+        self.connector.on('manifest:passenger', on_manifest_passenger)
+        self.connector.on('manifest:complete', on_manifest_complete)
+        
         # Parse hour range
         start_hour, end_hour = None, None
         if hours:
@@ -306,6 +352,10 @@ class CommuterConsole:
                 end_hour = int(parts[1]) if len(parts) > 1 else start_hour
             except:
                 print(f"⚠️  Invalid hour range: {hours}. Use format: 7-9")
+                self.connector.off('manifest:start', on_manifest_start)
+                self.connector.off('manifest:filtered', on_manifest_filtered)
+                self.connector.off('manifest:passenger', on_manifest_passenger)
+                self.connector.off('manifest:complete', on_manifest_complete)
                 return
         
         date_str = f" on {date}" if date else " (all dates)"
@@ -313,16 +363,21 @@ class CommuterConsole:
         print(f"Fetching manifest for Route {route}{date_str}{hours_str}...")
         
         try:
-            # Fetch passengers with filters
-            manifest = await self.connector.get_manifest(
+            # Start the HTTP request (don't await yet - let WebSocket events stream)
+            manifest_task = self.connector.get_manifest(
                 route=route, 
                 date=date, 
                 start_hour=start_hour,
                 end_hour=end_hour,
                 limit=1000
             )
-            passengers = manifest.passengers
-            total = manifest.count
+            
+            # Wait for it to complete while WebSocket events stream in real-time
+            manifest = await manifest_task
+            
+            # Use passengers from WebSocket stream if available, otherwise from HTTP response
+            passengers = passengers_received if passengers_received else manifest.passengers
+            total = len(passengers)
             
             print()
             print("=" * 140)
@@ -458,6 +513,69 @@ class CommuterConsole:
                         print(f"{hour:>2}:00 │ {bar:<50} {count:>3} {peak}")
             
             print("=" * 80)
+            print()
+            
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    async def cmd_table(self, route: str, date: Optional[str] = None):
+        """Get enriched table visualization with addresses and distances"""
+        if not self.connector:
+            print("❌ Not connected. Use 'connect' first.")
+            return
+        
+        date_str = date if date else "all dates"
+        print(f"Fetching enriched table for Route {route} on {date_str}...")
+        
+        try:
+            data = await self.connector.get_table(route=route, date=date)
+            passengers = data.get('passengers', [])
+            metrics = data.get('metrics', {})
+            
+            print()
+            print("=" * 160)
+            print(f"ENRICHED TABLE - Route {route} on {date_str}")
+            print("=" * 160)
+            print(f"Total: {metrics.get('total_passengers', 0)} | "
+                  f"Avg Commute: {metrics.get('avg_commute_distance', 0):.2f} km | "
+                  f"Avg Depot Distance: {metrics.get('avg_depot_distance', 0):.2f} km")
+            print("=" * 160)
+            print()
+            
+            if passengers:
+                # Table header
+                print(f"{'#':<5} {'ID':<37} {'Time':<8} {'Status':<10} "
+                      f"{'Start Address':<40} {'Stop Address':<40} {'Distance':<10}")
+                print("-" * 160)
+                
+                # Table rows
+                for idx, p in enumerate(passengers, 1):
+                    passenger_id = p.get('passenger_id', 'N/A')
+                    if passenger_id and passenger_id != 'N/A':
+                        passenger_id = str(passenger_id)[:35]
+                    
+                    spawned = p.get('spawned_at', 'N/A')
+                    time_str = spawned.split('T')[1][:5] if isinstance(spawned, str) and 'T' in spawned else 'N/A'
+                    status = p.get('status', 'N/A')
+                    start_addr = p.get('start_address', 'N/A')
+                    if start_addr and start_addr != 'N/A':
+                        start_addr = str(start_addr)[:38]
+                    stop_addr = p.get('dest_address', 'N/A')
+                    if stop_addr and stop_addr != 'N/A':
+                        stop_addr = str(stop_addr)[:38]
+                    
+                    distance = p.get('commute_distance', 0)
+                    distance_str = f"{distance:.2f} km" if isinstance(distance, (int, float)) else 'N/A'
+                    
+                    print(f"{idx:<5} {passenger_id:<37} {time_str:<8} {status:<10} "
+                          f"{start_addr:<40} {stop_addr:<40} {distance_str:<10}")
+                
+                print("-" * 160)
+                print(f"Total: {len(passengers)} passengers")
+            else:
+                print("⚠️  No passengers found")
+            
+            print("=" * 160)
             print()
             
         except Exception as e:

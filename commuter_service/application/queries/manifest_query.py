@@ -121,9 +121,18 @@ async def reverse_geocode(client: httpx.AsyncClient, geo_url: str, lat: Optional
     return "-"
 
 
-async def enrich_manifest_rows(rows: List[Dict[str, Any]], route_id: Optional[str]) -> List[ManifestRow]:
+async def enrich_manifest_rows(
+    rows: List[Dict[str, Any]], 
+    route_id: Optional[str],
+    progress_callback = None
+) -> List[ManifestRow]:
     """Enrich raw Strapi rows with computed positions, addresses, and distances.
     Returns list of ManifestRow ordered by route_position_m.
+    
+    Args:
+        rows: Raw passenger data from Strapi
+        route_id: Route ID for position calculation
+        progress_callback: Optional async callback(enriched_row, index, total) for streaming
     """
     geo_url = os.getenv("GEO_URL", "http://localhost:6000").rstrip("/")
 
@@ -144,23 +153,22 @@ async def enrich_manifest_rows(rows: List[Dict[str, Any]], route_id: Optional[st
             else:
                 travel_km.append(0.0)
 
-        # Reverse geocode with bounded concurrency
+        # Reverse geocode with bounded concurrency and streaming
         addr_cache: Dict[Tuple[float, float], str] = {}
-        sem = asyncio.Semaphore(int(os.getenv("GEOCODE_CONCURRENCY", "20")))  # Increase from 5 to 20
-
-        async def addr_pair(r: Dict[str, Any]) -> Tuple[str, str]:
-            async with sem:
-                a = await reverse_geocode(client, geo_url, r.get("latitude"), r.get("longitude"), addr_cache)
-            async with sem:
-                b = await reverse_geocode(client, geo_url, r.get("destination_lat"), r.get("destination_lon"), addr_cache)
-            return a, b
-
-        addr_pairs = await asyncio.gather(*(addr_pair(r) for r in rows))
-
+        sem = asyncio.Semaphore(int(os.getenv("GEOCODE_CONCURRENCY", "20")))
+        
         enriched: List[ManifestRow] = []
-        for i, r in enumerate(rows):
-            start_addr, stop_addr = addr_pairs[i]
-            enriched.append(ManifestRow(
+        total = len(rows)
+        completed = 0
+
+        async def process_passenger(i: int, r: Dict[str, Any]):
+            """Process single passenger with geocoding"""
+            async with sem:
+                start_addr = await reverse_geocode(client, geo_url, r.get("latitude"), r.get("longitude"), addr_cache)
+            async with sem:
+                stop_addr = await reverse_geocode(client, geo_url, r.get("destination_lat"), r.get("destination_lon"), addr_cache)
+            
+            row = ManifestRow(
                 index=i+1,
                 spawned_at=r.get("spawned_at"),
                 passenger_id=r.get("passenger_id"),
@@ -175,7 +183,20 @@ async def enrich_manifest_rows(rows: List[Dict[str, Any]], route_id: Optional[st
                 travel_distance_km=float(travel_km[i] or 0.0),
                 start_address=start_addr or "-",
                 stop_address=stop_addr or "-",
-            ))
+            )
+            
+            return row
+
+        # Process all passengers concurrently and emit progress as each completes
+        tasks = [process_passenger(i, r) for i, r in enumerate(rows)]
+        for coro in asyncio.as_completed(tasks):
+            row = await coro
+            enriched.append(row)
+            completed += 1
+            
+            # Stream progress callback - fires as each passenger completes
+            if progress_callback:
+                await progress_callback(row, completed, total)
 
         enriched.sort(key=lambda x: x.route_position_m)
         # Re-assign indices according to sorted order

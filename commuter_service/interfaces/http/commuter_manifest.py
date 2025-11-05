@@ -242,9 +242,15 @@ async def get_manifest(
             # Fetch ALL passengers from Strapi (no filters - Strapi pagination bug)
             all_rows = await fetch_passengers(client, strapi_url, token, params)
             
+            # Broadcast total count
+            await manager.broadcast({
+                "type": "manifest:start",
+                "data": {"total_passengers": len(all_rows), "route_id": route_id}
+            })
+            
             # Filter in Python (Strapi pagination doesn't work with filters)
             rows = []
-            for row in all_rows:
+            for idx, row in enumerate(all_rows, 1):
                 # Apply filters
                 if route_id and row.get("route_id") != route_id:
                     continue
@@ -261,9 +267,40 @@ async def get_manifest(
                     if spawned > end:
                         continue
                 rows.append(row)
+                
+                # Broadcast progress every 50 passengers
+                if idx % 50 == 0:
+                    await manager.broadcast({
+                        "type": "manifest:filter_progress",
+                        "data": {"processed": idx, "total": len(all_rows), "matched": len(rows)}
+                    })
             
-            # Enrich with positions, addresses, distances
-            enriched = await enrich_manifest_rows(rows, route_id)
+            # Broadcast filtered count
+            await manager.broadcast({
+                "type": "manifest:filtered",
+                "data": {"total_filtered": len(rows), "route_id": route_id}
+            })
+            
+            # Progress callback for streaming enriched passengers
+            async def on_passenger_enriched(row, index, total):
+                await manager.broadcast({
+                    "type": "manifest:passenger",
+                    "data": {
+                        "passenger": row.to_json(),
+                        "index": index,
+                        "total": total,
+                        "progress_percent": round((index / total) * 100, 1)
+                    }
+                })
+            
+            # Enrich with positions, addresses, distances (streams via callback)
+            enriched = await enrich_manifest_rows(rows, route_id, progress_callback=on_passenger_enriched)
+            
+            # Broadcast completion
+            await manager.broadcast({
+                "type": "manifest:complete",
+                "data": {"total_passengers": len(enriched), "route_id": route_id}
+            })
             
             # Convert to JSON-serializable dict
             passengers_data = [row.to_json() for row in enriched]
@@ -355,7 +392,7 @@ async def get_barchart_visualization(
 @app.get("/api/manifest/visualization/table", response_model=TableResponse)
 async def get_table_visualization(
     date: str = Query(..., description="Target date (YYYY-MM-DD)"),
-    route: Optional[str] = Query(None, description="Filter by route document ID"),
+    route: Optional[str] = Query(None, description="Filter by route short name or document ID"),
     start_hour: int = Query(0, ge=0, le=23, description="Start hour (0-23)"),
     end_hour: int = Query(23, ge=0, le=23, description="End hour (0-23)")
 ):
@@ -372,11 +409,18 @@ async def get_table_visualization(
     if start_hour > end_hour:
         raise HTTPException(status_code=400, detail="start_hour cannot be greater than end_hour")
     
+    # Translate route short name to document ID if needed
+    route_id = None
+    if route:
+        route_id = await get_route_document_id(route)
+        if not route_id:
+            route_id = route  # Fallback if already document ID
+    
     try:
         # Fetch passengers
         passengers = await fetch_passengers_from_strapi(
             strapi_url=STRAPI_URL,
-            route_id=route,
+            route_id=route_id,
             target_date=target_date,
             start_hour=start_hour,
             end_hour=end_hour
