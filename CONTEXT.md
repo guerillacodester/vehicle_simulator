@@ -2422,7 +2422,7 @@ The system runs 3 separate HTTP services on different ports (standalone architec
 ### Component Details
 
 **1. GeospatialService (/geo/*)**
-- Source: geospatial_service/main.py
+- Source: geospatial_service/ (module, run with: `python -m geospatial_service`)
 - Functions: PostGIS spatial queries, reverse geocoding
 - Endpoints:
   - GET /geo/route-geometry/{route_id}  Route geometry (LineString)
@@ -3891,3 +3891,165 @@ ORDER BY distance;
 - Architecture documentation: `CONDUCTOR_VISION_ARCHITECTURE.md`
 - Spatial awareness analysis: `CONDUCTOR_SPATIAL_AWARENESS_ANALYSIS.md`
 - Session log: `SESSION_LOG_OCT27.md`
+
+---
+
+#  SIMULATOR API SPECIFICATIONS
+
+## Complete Command & Query Reference (Consolidated from deleted SIMULATOR_COMMANDS_SPEC.md)
+
+**Simulator Base URL:** http://localhost:5001
+
+### Simulator Control Endpoints
+| Command | Method | Endpoint | CLI Usage |
+|---------|--------|----------|-----------|
+| Get Status | GET | /api/sim/status | fleet> sim |
+| Pause | POST | /api/sim/pause | fleet> pause |
+| Resume | POST | /api/sim/resume | fleet> resume |
+| Stop | POST | /api/sim/stop | fleet> stop-sim |
+| Set Time | POST | /api/sim/set-time | fleet> set-time 14:30 |
+
+### Vehicle Endpoints
+| Command | Method | Endpoint | CLI Usage |
+|---------|--------|----------|-----------|
+| List Vehicles | GET | /api/vehicles | fleet> vehicles |
+| Get Vehicle | GET | /api/vehicles/{id} | fleet> vehicle ZR102 |
+| Start Engine | POST | /api/vehicles/{id}/start-engine | fleet> start ZR102 |
+| Stop Engine | POST | /api/vehicles/{id}/stop-engine | fleet> stop ZR102 |
+| Enable Boarding | POST | /api/vehicles/{id}/enable-boarding | fleet> enable ZR102 |
+| Disable Boarding | POST | /api/vehicles/{id}/disable-boarding | fleet> disable ZR102 |
+| Trigger Boarding | POST | /api/vehicles/{id}/trigger-boarding | fleet> trigger ZR102 |
+
+### WebSocket Events (ws://localhost:5001/ws/events)
+- engine_started, engine_stopped
+- position_update, boarding_enabled, boarding_disabled
+- passenger_boarded, passenger_alighted
+
+---
+
+#  TRACKING API & DEVELOPMENT STRATEGY (Consolidated from deleted TRACKING_DESIGN_SPEC.md and DEVELOPMENT_STRATEGY.md)
+
+## Missing Endpoints (To Be Implemented)
+
+### Phase 1 (Critical - 2 hours)
+- GET /api/drivers - List all drivers with status
+- GET /api/routes - List all routes with stops
+- GET /api/vehicles/{id}/track - Current position + route progress
+
+### Phase 2 (High - 2.5 hours)
+- GET /api/vehicles/{id}/telemetry - Full motion telemetry snapshot
+- WS /ws/vehicle-telemetry/{id} - Stream single vehicle telemetry
+
+### Phase 3 (Medium - 1 hour)
+- WS /ws/all-telemetry - Stream all vehicles telemetry
+
+## Recommended Development Approach: Hybrid
+
+**Phase 1: Baseline Backend** (4-6 hours total)
+- Add 3 critical endpoints above
+- Skip caching/pagination (premature optimization)
+- Skip advanced auth (internal tool)
+
+**Phase 2: GUI Development** (parallel, 2+ weeks)
+- Create Next.js dashboard project
+- Use mock data initially
+- Connect to live APIs as endpoints complete
+
+**Phase 3: Hardening** (ongoing)
+- Performance issues  Add caching
+- Validation failures  Add input validation
+- Pagination needs  Add limits
+- Driven by real usage patterns
+
+## Current State
+
+###  Already Working
+- Vehicle Simulator (5001) - Full control API
+- GPS CentCom (5000) - Telemetry collection
+- Commuter Service (4000) - Passenger management
+- Geospatial Service (6001) - PostGIS queries
+- Host Server (6000) - Service orchestration
+- Fleet Console (CLI) - 1119 lines, 21+ commands
+- WebSocket streaming - Live event feed
+
+###  Production Considerations
+- No caching layer (repeated queries will slow down)
+- No rate limiting (DOS vulnerability)
+- No pagination (potential OOM with large datasets)
+- No authentication (anyone can control vehicles)
+- Limited error handling for edge cases
+
+---
+
+#  CLEANUP COMPLETION SUMMARY (Nov 6, 2025)
+
+## What Was Deleted
+
+### Duplicate Service Manager Files
+-  services/host_server/service_manager.py (256 lines)
+-  services/host_server/service_manager_base.py (177 lines)
+-  Kept: base_service_manager.py + service_managers.py (single source of truth)
+
+### Old Test Files (Root Level)
+-  test_commuter_workflow.py
+-  test_console_quick.py
+-  test_console_workflow.py
+-  test_direct_simulator.py
+-  test_event_bus.py
+-  test_fleet_cli.py
+-  test_production.py
+
+### Backup & Junk Files
+-  CONTEXT.md.backup
+-  TODO.md.backup
+-  host_server_test*.log
+-  .host_server.pid
+-  console_commands.txt
+-  test_services_cmd.txt
+
+### Extra Markdown Files (Consolidated to CONTEXT.md/TODO.md)
+-  CLEANUP_REFACTORING_PLAN.md  TODO.md
+-  DEVELOPMENT_STRATEGY.md  CONTEXT.md
+-  FLEET_CONSOLE_GUIDE.md  Archived
+-  PHASE_1_CLEANUP_COMPLETED.md  TODO.md
+-  SIMULATOR_COMMANDS_SPEC.md  CONTEXT.md
+-  STARTUP_COMMANDS.md  Archived
+-  TRACKING_DESIGN_SPEC.md  CONTEXT.md
+-  DOCUMENTATION.md  Consolidated
+
+## Consolidation Results
+
+### CONTEXT.md Additions
+- Complete Simulator API specification (all endpoints)
+- Development strategy (GUI-first vs backend-first analysis)
+- Tracking API design (drivers, routes, vehicle tracking)
+- Architecture layers diagram
+- Next steps roadmap
+
+### TODO.md Additions
+- TIER 4.9.A: Root Directory & Codebase Cleanup (completed)
+- Updated execution priority tracker
+- Cleanup verification results
+
+### .env.example
+- Created comprehensive environment variable documentation
+- 40+ variables documented with descriptions
+- Separated required vs optional settings
+- Clear categorization by system
+
+## Verification
+
+ Host Server starts successfully post-cleanup (port 6000)
+ All core services operational
+ No import errors or circular dependencies
+ Root directory clean and organized
+ Only CONTEXT.md and TODO.md remain for documentation
+
+## Impact
+
+- **Lines removed:** ~430 (duplicates + unnecessary files)
+- **Codebase complexity:** Reduced
+- **Maintenance burden:** Lower
+- **New developer clarity:** Higher
+- **Documentation:** Consolidated and current
+

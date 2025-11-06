@@ -23,7 +23,7 @@ def main():
         print("✅ Client created successfully\n")
     except Exception as e:
         print(f"❌ Failed to create client: {e}")
-        print("   Make sure geospatial API is running: python geospatial_service/main.py")
+        print("   Make sure geospatial API is running: python -m geospatial_service")
         return
     
     # Test 2: Reverse geocoding

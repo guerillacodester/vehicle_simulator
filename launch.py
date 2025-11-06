@@ -25,6 +25,11 @@ import httpx
 from pathlib import Path
 from threading import Thread
 from time import sleep
+import io
+
+# Force UTF-8 encoding for stdout (Windows console emoji support)
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Add launcher package to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -141,9 +146,9 @@ def register_services():
     if launcher_config.enable_geospatial:
         manager.register_service(ManagedService(
             name="geospatial",
-            port=6000,
-            health_url="http://localhost:6000/health",
-            script_path=root_path / "geospatial_service" / "main.py",
+            port=6001,
+            health_url="http://localhost:6001/health",
+            as_module="geospatial_service",
             dependencies=["strapi"],
             spawn_console=launcher_config.spawn_console_geospatial
         ))
@@ -166,7 +171,7 @@ def register_services():
             name="commuter_service",
             port=4000,
             health_url="http://localhost:4000/health",
-            as_module="commuter_service.interfaces.http.commuter_manifest",
+            as_module="commuter_service",
             dependencies=["strapi", "geospatial"],
             spawn_console=launcher_config.spawn_console_commuter_service
         ))
@@ -242,7 +247,7 @@ def main():
         )
     except KeyboardInterrupt:
         print()
-        print("� Shutdown via Ctrl+C...")
+        print("⏹ Shutdown via Ctrl+C...")
         shutdown_handler(None, None)
     except Exception as e:
         print()

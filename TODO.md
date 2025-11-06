@@ -27,10 +27,8 @@ TIER 4.7: Spawn Calculation Kernel & Repository Cleanup ✅ COMPLETE (Nov 1)
   - ✅ Validated with Route 1 data: 202 pass/hr peak, 5 pass/hr night (40x variation)
   - ✅ Zero-sum conservation verified: Terminal population constant, routes redistribute
   - ✅ Unit tests: 40+ test cases covering all calculation methods
-  - ✅ Documentation: SPAWN_CALCULATOR_README.md with examples and API reference
   - ✅ Repository cleanup: Moved 27+ temp files, consolidated test/ → tests/
   - ✅ Tests organized: tests/{geospatial,integration,validation}/
-  - ✅ Docs consolidated: SECURITY.md → CONTEXT.md
   - ✅ Markdown linting: All .md files passing markdownlint
   - Files: commuter_service/core/domain/spawner_engine/spawn_calculator.py (370 lines)
   - Tests: commuter_service/tests/test_spawn_calculator.py (465 lines)
@@ -43,7 +41,6 @@ TIER 4.8: GUI-Agnostic Client Libraries ✅ COMPLETE (Nov 2)
   - ✅ Client pattern: Observable, config auto-loading, type-safe Pydantic models
   - ✅ Conductor-Reservoir architecture audit completed
   - ✅ Enhanced conductor logging (emoji-based, detailed visibility)
-  - ✅ Created test_conductor_vision.py and CONDUCTOR_VISION_GUIDE.md
   - ✅ Created test_commuter_console.py - Interactive GUI-agnostic test client
   - ✅ Commuter client connector ready for production (HTTP API + Socket.IO support)
   - ✅ Seeding infrastructure tested and working (seed.py + manifest_cli.py)
@@ -56,6 +53,26 @@ TIER 4.8: GUI-Agnostic Client Libraries ✅ COMPLETE (Nov 2)
   - 🎯 TODO: Create setup.py & requirements.txt for each client
   - 🎯 TODO: Update imports across codebase to use clients
   - Purpose: Enable Next.js, console, .NET, mobile apps to consume services via standardized clients
+
+TIER 4.9.A: Root Directory & Codebase Cleanup ✅ COMPLETE (Nov 6, 2025)
+  - ✅ Phase 1 Cleanup: Consolidated duplicate service manager files
+    - Deleted: service_manager.py (256 lines), service_manager_base.py (177 lines)
+    - Kept: base_service_manager.py, service_managers.py (single source of truth)
+  - ✅ Deleted 7 old root-level test files (not referenced anywhere)
+    - test_commuter_workflow.py, test_console_quick.py, test_console_workflow.py
+    - test_direct_simulator.py, test_event_bus.py, test_fleet_cli.py, test_production.py
+  - ✅ Deleted debug scripts from scripts/ directory
+  - ✅ Standardized imports across core service files (no circular dependencies)
+  - ✅ Created comprehensive .env.example documentation (84 lines, 40+ variables)
+  - ✅ Deleted backup files: CONTEXT.md.backup, TODO.md.backup, host_server_test*.log, etc.
+  - ✅ Deleted all extra .md files from root (kept only CONTEXT.md and TODO.md)
+    - Deleted: CLEANUP_REFACTORING_PLAN.md, DEVELOPMENT_STRATEGY.md, FLEET_CONSOLE_GUIDE.md
+    - Deleted: PHASE_1_CLEANUP_COMPLETED.md, SIMULATOR_COMMANDS_SPEC.md, STARTUP_COMMANDS.md
+    - Deleted: TRACKING_DESIGN_SPEC.md, DOCUMENTATION.md
+    - All content consolidated into CONTEXT.md or TODO.md
+  - ✅ Cleaned up root directory: 20 unnecessary files removed
+  - Status: Root is now clean, no junk files or duplicate .md files
+  - Host Server verified: Starts successfully post-cleanup (port 6000)
 
 TIER 4.9: Conductor Spatial Awareness & Performance Optimization 🎯 IN PROGRESS (Nov 4, 2025)
   
