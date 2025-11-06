@@ -32,8 +32,8 @@ class VehicleState(BaseModel):
 
 class VehicleListResponse(BaseModel):
     """List of vehicles response"""
-    vehicles: list[VehicleState]
-    count: int
+    drivers: list[VehicleState] = Field(..., alias="drivers")
+    total: int
 
 
 class ConductorState(BaseModel):
@@ -65,9 +65,12 @@ class HealthResponse(BaseModel):
     """API health check response"""
     status: str
     timestamp: datetime
-    simulator_running: bool
-    active_vehicles: int
-    event_bus_stats: Dict[str, Any]
+    version: Optional[str] = None
+    services: Optional[Dict[str, Any]] = None
+    # Legacy fields (optional, for backward compatibility)
+    simulator_running: Optional[bool] = None
+    active_vehicles: Optional[int] = None
+    event_bus_stats: Optional[Dict[str, Any]] = None
 
 
 class FleetEvent(BaseModel):

@@ -11,7 +11,7 @@ import configparser
 from pathlib import Path
 import httpx
 
-from services.postgis_client import postgis_client
+from ..services.postgis_client import postgis_client
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 

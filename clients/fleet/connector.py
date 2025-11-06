@@ -89,7 +89,7 @@ class FleetConnector:
     
     def __init__(
         self,
-        base_url: str = "http://localhost:5001",
+        base_url: str = "http://localhost:6000",
         ws_url: Optional[str] = None,
         auto_reconnect: bool = True
     ):
@@ -97,7 +97,7 @@ class FleetConnector:
         Initialize connector
         
         Args:
-            base_url: Base URL for REST API (default: http://localhost:5001)
+            base_url: Base URL for Host Server API (default: http://localhost:6000)
             ws_url: WebSocket server URL (default: None, will auto-detect)
             auto_reconnect: Auto-reconnect on disconnect (default: True)
         """
@@ -288,7 +288,7 @@ class FleetConnector:
         response = await self.http_client.get("/api/vehicles")
         response.raise_for_status()
         data = VehicleListResponse(**response.json())
-        return data.vehicles
+        return data.drivers
     
     async def get_vehicle(self, vehicle_id: str) -> VehicleState:
         """
@@ -478,6 +478,292 @@ class FleetConnector:
         return CommandResult(**response.json())
     
     # ========================================================================
+    # SERVICE MANAGEMENT (Host Server)
+    # ========================================================================
+    
+    async def start_simulator_service(
+        self,
+        api_port: Optional[int] = None,
+        sim_time: Optional[str] = None,
+        enable_boarding_after: Optional[float] = None,
+        data_api_url: Optional[str] = None
+    ) -> CommandResult:
+        """
+        Start the simulator service
+        
+        Args:
+            api_port: Override API port
+            sim_time: Simulation time (ISO or HH:MM)
+            enable_boarding_after: Auto-enable boarding delay
+            data_api_url: Fleet data API URL (vehicles/drivers/routes source)
+        
+        Returns:
+            CommandResult with success status
+        """
+        payload = {}
+        if api_port:
+            payload["api_port"] = api_port
+        if sim_time:
+            payload["sim_time"] = sim_time
+        if enable_boarding_after:
+            payload["enable_boarding_after"] = enable_boarding_after
+        if data_api_url:
+            payload["data_api_url"] = data_api_url
+        
+        response = await self.http_client.post(
+            "/api/services/simulator/start",
+            json=payload
+        )
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
+    
+    async def stop_simulator_service(self) -> CommandResult:
+        """
+        Stop the simulator service
+        
+        Returns:
+            CommandResult with success status
+        """
+        response = await self.http_client.post("/api/services/simulator/stop")
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
+    
+    async def restart_simulator_service(
+        self,
+        api_port: Optional[int] = None,
+        sim_time: Optional[str] = None,
+        enable_boarding_after: Optional[float] = None
+    ) -> CommandResult:
+        """
+        Restart the simulator service
+        
+        Args:
+            api_port: Override API port
+            sim_time: Simulation time (ISO or HH:MM)
+            enable_boarding_after: Auto-enable boarding delay
+        
+        Returns:
+            CommandResult with success status
+        """
+        payload = {}
+        if api_port:
+            payload["api_port"] = api_port
+        if sim_time:
+            payload["sim_time"] = sim_time
+        if enable_boarding_after:
+            payload["enable_boarding_after"] = enable_boarding_after
+        
+        response = await self.http_client.post(
+            "/api/services/simulator/restart",
+            json=payload
+        )
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
+    
+    async def get_simulator_service_status(self) -> Dict[str, Any]:
+        """
+        Get simulator service status
+        
+        Returns:
+            Dict with service status
+        """
+        response = await self.http_client.get("/api/services/simulator/status")
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_all_services_status(self) -> Dict[str, Any]:
+        """
+        Get all services status
+        
+        Returns:
+            Dict with all service statuses
+        """
+        response = await self.http_client.get("/api/services/status")
+        response.raise_for_status()
+        return response.json()
+    
+    # ========================================================================
+    # Multi-Service Control (Registry-based)
+    # ========================================================================
+    
+    async def start_service(
+        self,
+        service_name: str,
+        api_port: Optional[int] = None,
+        sim_time: Optional[str] = None,
+        enable_boarding_after: Optional[float] = None,
+        data_api_url: Optional[str] = None
+    ) -> CommandResult:
+        """
+        Start a specific service by name
+        
+        Args:
+            service_name: Service name (simulator, gpscentcom, commuter_service, geospatial)
+            api_port: Override API port (simulator only)
+            sim_time: Simulation time (simulator only)
+            enable_boarding_after: Auto-enable boarding delay (simulator only)
+            data_api_url: Fleet data API URL (simulator only)
+        
+        Returns:
+            CommandResult with success status
+        """
+        payload = {}
+        if api_port:
+            payload["api_port"] = api_port
+        if sim_time:
+            payload["sim_time"] = sim_time
+        if enable_boarding_after:
+            payload["enable_boarding_after"] = enable_boarding_after
+        if data_api_url:
+            payload["data_api_url"] = data_api_url
+        
+        response = await self.http_client.post(
+            f"/api/services/{service_name}/start",
+            json=payload
+        )
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
+    
+    async def stop_service(self, service_name: str) -> CommandResult:
+        """
+        Stop a specific service by name
+        
+        Args:
+            service_name: Service name (simulator, gpscentcom, commuter_service, geospatial)
+        
+        Returns:
+            CommandResult with success status
+        """
+        response = await self.http_client.post(f"/api/services/{service_name}/stop")
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
+    
+    async def restart_service(
+        self,
+        service_name: str,
+        api_port: Optional[int] = None,
+        sim_time: Optional[str] = None,
+        enable_boarding_after: Optional[float] = None,
+        data_api_url: Optional[str] = None
+    ) -> CommandResult:
+        """
+        Restart a specific service by name
+        
+        Args:
+            service_name: Service name (simulator, gpscentcom, commuter_service, geospatial)
+            api_port: Override API port (simulator only)
+            sim_time: Simulation time (simulator only)
+            enable_boarding_after: Auto-enable boarding delay (simulator only)
+            data_api_url: Fleet data API URL (simulator only)
+        
+        Returns:
+            CommandResult with success status
+        """
+        payload = {}
+        if api_port:
+            payload["api_port"] = api_port
+        if sim_time:
+            payload["sim_time"] = sim_time
+        if enable_boarding_after:
+            payload["enable_boarding_after"] = enable_boarding_after
+        if data_api_url:
+            payload["data_api_url"] = data_api_url
+        
+        response = await self.http_client.post(
+            f"/api/services/{service_name}/restart",
+            json=payload
+        )
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
+    
+    async def get_service_status(self, service_name: str) -> Dict[str, Any]:
+        """
+        Get status of a specific service
+        
+        Args:
+            service_name: Service name (simulator, gpscentcom, commuter_service, geospatial)
+        
+        Returns:
+            Dict with service status
+        """
+        response = await self.http_client.get(f"/api/services/{service_name}/status")
+        response.raise_for_status()
+        return response.json()
+    
+    async def start_all_services(
+        self,
+        data_api_url: Optional[str] = None
+    ) -> CommandResult:
+        """
+        Start all services in dependency order
+        
+        Args:
+            data_api_url: Fleet data API URL (passed to simulator)
+        
+        Returns:
+            CommandResult with success status and service results
+        """
+        payload = {}
+        if data_api_url:
+            payload["data_api_url"] = data_api_url
+        
+        response = await self.http_client.post(
+            "/api/services/start-all",
+            json=payload
+        )
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
+    
+    async def stop_all_services(self) -> CommandResult:
+        """
+        Stop all services in reverse dependency order
+        
+        Returns:
+            CommandResult with success status and service results
+        """
+        response = await self.http_client.post("/api/services/stop-all")
+        response.raise_for_status()
+        result = response.json()
+        return CommandResult(
+            success=result["success"],
+            message=result["message"],
+            data=result.get("data")
+        )
     # CLEANUP
     # ========================================================================
     

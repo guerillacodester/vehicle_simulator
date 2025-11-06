@@ -15,7 +15,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from services.postgis_client import postgis_client
+from ..services.postgis_client import postgis_client
 
 router = APIRouter(prefix="/spawn", tags=["Spawn Analysis"])
 

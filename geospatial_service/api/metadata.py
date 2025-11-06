@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 import time
 
-from services.postgis_client import postgis_client
+from ..services.postgis_client import postgis_client
 
 router = APIRouter(prefix="/meta", tags=["Metadata"])
 

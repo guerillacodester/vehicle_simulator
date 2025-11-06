@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 import time
 
-from services.postgis_client import postgis_client
+from ..services.postgis_client import postgis_client
 
 router = APIRouter(prefix="/geofence", tags=["Geofencing"])
 

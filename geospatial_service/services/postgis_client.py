@@ -7,7 +7,7 @@ import asyncpg
 import time
 import decimal
 from typing import List, Dict, Optional, Tuple, Any
-from config.database import db_config
+from ..config.database import db_config
 
 
 class PostGISClient:

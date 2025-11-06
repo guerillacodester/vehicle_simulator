@@ -1,0 +1,25 @@
+[Unit]
+Description=ArkNet Host Server - Fleet Management Orchestration
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/arknet/vehicle_simulator
+Environment="PATH=/opt/arknet/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/arknet/venv/bin/python -m services.host_server --host 0.0.0.0 --port 6000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=arknet-host
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

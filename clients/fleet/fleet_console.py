@@ -16,7 +16,7 @@ Usage:
     python -m clients.fleet.fleet_console
     
     # Or with custom API URL:
-    python -m clients.fleet.fleet_console --url http://localhost:5001
+    python -m clients.fleet.fleet_console --url http://localhost:6000
 
 Commands:
     status              - Show API health and connection status
@@ -472,6 +472,319 @@ class FleetConsole:
         except Exception as e:
             self.print(f"[red]❌ Failed to set time: {e}[/red]" if self.console else f"❌ Error: {e}")
     
+    async def cmd_services(self):
+        """Show all services status"""
+        try:
+            response = await self.connector.get_all_services_status()
+            
+            # Extract services dict from response (may be nested)
+            services = response.get('services', response) if isinstance(response, dict) and 'services' in response else response
+            summary = response.get('summary', {}) if isinstance(response, dict) else {}
+            
+            if self.console:
+                table = Table(title="🔧 Services Status", box=box.ROUNDED)
+                table.add_column("Service", style="cyan")
+                table.add_column("Status", style="white")
+                table.add_column("PID", style="yellow")
+                table.add_column("Uptime", style="green")
+                table.add_column("Details", style="white")
+                
+                for service_name, service_data in services.items():
+                    status_str = service_data.get('status', 'unknown')
+                    pid = str(service_data.get('pid', 'N/A'))
+                    uptime = service_data.get('uptime')
+                    uptime_str = f"{int(uptime)}s" if uptime else "N/A"
+                    details = service_data.get('error', '')
+                    
+                    status_emoji = {
+                        'running': '🟢',
+                        'stopped': '🔴',
+                        'starting': '🟡',
+                        'stopping': '🟡',
+                        'error': '❌'
+                    }.get(status_str, '⚪')
+                    
+                    table.add_row(
+                        service_name,
+                        f"{status_emoji} {status_str}",
+                        pid,
+                        uptime_str,
+                        details
+                    )
+                
+                if summary:
+                    table.add_row("", "", "", "", "")
+                    table.add_row("[bold]Summary[/bold]", f"Running: {summary.get('running', 0)}", f"Stopped: {summary.get('stopped', 0)}", f"Error: {summary.get('error', 0)}", "")
+                
+                self.console.print(table)
+            else:
+                print("\n" + "="*80)
+                print("🔧 SERVICES STATUS")
+                print("="*80)
+                for service_name, service_data in services.items():
+                    print(f"\n{service_name}:")
+                    print(f"  Status:  {service_data.get('status', 'unknown')}")
+                    print(f"  PID:     {service_data.get('pid', 'N/A')}")
+                    print(f"  Uptime:  {service_data.get('uptime', 'N/A')}s")
+                    if service_data.get('error'):
+                        print(f"  Error:   {service_data['error']}")
+                
+                if summary:
+                    print(f"\n{'='*80}")
+                    print(f"Running: {summary.get('running', 0)}, Stopped: {summary.get('stopped', 0)}, Error: {summary.get('error', 0)}")
+                print("="*80 + "\n")
+                
+        except Exception as e:
+            self.print(f"[red]❌ Failed to get services status: {e}[/red]" if self.console else f"❌ Error: {e}")
+    
+    async def cmd_start_service(self, service_name: str, args_str: str = ""):
+        """Start a service"""
+        try:
+            if service_name == "all":
+                # Start all services
+                kwargs = {}
+                if args_str and "data_api_url=" in args_str:
+                    for part in args_str.split():
+                        if '=' in part:
+                            key, value = part.split('=', 1)
+                            if key == "data_api_url":
+                                kwargs["data_api_url"] = value
+                
+                result = await self.connector.start_all_services(**kwargs)
+                
+                if result.success:
+                    self.print(f"[green]✅ {result.message}[/green]" if self.console else f"✅ {result.message}")
+                    # Show results for each service
+                    if result.data and "services" in result.data:
+                        for svc_name, svc_result in result.data["services"].items():
+                            status = "✅" if svc_result.get("success") else "❌"
+                            self.print(f"   {status} {svc_name}: {svc_result.get('message', 'N/A')}")
+                else:
+                    self.print(f"[red]❌ {result.message}[/red]" if self.console else f"❌ {result.message}")
+                    if result.data and "services" in result.data:
+                        for svc_name, svc_result in result.data["services"].items():
+                            status = "✅" if svc_result.get("success") else "❌"
+                            self.print(f"   {status} {svc_name}: {svc_result.get('message', 'N/A')}")
+            
+            elif service_name == "simulator":
+                # Parse optional arguments
+                kwargs = {}
+                if args_str:
+                    # Simple parsing: key=value key=value
+                    for part in args_str.split():
+                        if '=' in part:
+                            key, value = part.split('=', 1)
+                            if key == "api_port":
+                                kwargs["api_port"] = int(value)
+                            elif key == "sim_time":
+                                kwargs["sim_time"] = value
+                            elif key == "enable_boarding_after":
+                                kwargs["enable_boarding_after"] = float(value)
+                            elif key == "data_api_url":
+                                kwargs["data_api_url"] = value
+                
+                result = await self.connector.start_service("simulator", **kwargs)
+                
+                if result.success:
+                    self.print(f"[green]✅ {result.message}[/green]" if self.console else f"✅ {result.message}")
+                    if result.data and result.data.get('pid'):
+                        self.print(f"   PID: {result.data['pid']}")
+                    if result.data and result.data.get('api_url'):
+                        self.print(f"   API: {result.data['api_url']}")
+                else:
+                    self.print(f"[red]❌ {result.message}[/red]" if self.console else f"❌ {result.message}")
+            
+            elif service_name in ["gpscentcom", "commuter_service", "geospatial"]:
+                # Generic service start
+                result = await self.connector.start_service(service_name)
+                
+                if result.success:
+                    self.print(f"[green]✅ {result.message}[/green]" if self.console else f"✅ {result.message}")
+                    if result.data and result.data.get('pid'):
+                        self.print(f"   PID: {result.data['pid']}")
+                else:
+                    self.print(f"[red]❌ {result.message}[/red]" if self.console else f"❌ {result.message}")
+            
+            else:
+                services = "all, simulator, gpscentcom, commuter_service, geospatial"
+                self.print(f"[red]Unknown service: {service_name}. Available: {services}[/red]" if self.console else f"Unknown service: {service_name}")
+                
+        except Exception as e:
+            self.print(f"[red]❌ Failed to start service: {e}[/red]" if self.console else f"❌ Error: {e}")
+    
+    async def cmd_stop_service(self, service_name: str):
+        """Stop a service"""
+        try:
+            if service_name == "all":
+                # Stop all services
+                result = await self.connector.stop_all_services()
+                
+                if result.success:
+                    self.print(f"[yellow]⏹️  {result.message}[/yellow]" if self.console else f"⏹️  {result.message}")
+                    if result.data and "services" in result.data:
+                        for svc_name, svc_result in result.data["services"].items():
+                            status = "✅" if svc_result.get("success") else "❌"
+                            self.print(f"   {status} {svc_name}: {svc_result.get('message', 'N/A')}")
+                else:
+                    self.print(f"[red]❌ {result.message}[/red]" if self.console else f"❌ {result.message}")
+            
+            elif service_name in ["simulator", "gpscentcom", "commuter_service", "geospatial"]:
+                result = await self.connector.stop_service(service_name)
+                
+                if result.success:
+                    self.print(f"[yellow]⏹️  {result.message}[/yellow]" if self.console else f"⏹️  {result.message}")
+                else:
+                    self.print(f"[red]❌ {result.message}[/red]" if self.console else f"❌ {result.message}")
+            
+            else:
+                services = "all, simulator, gpscentcom, commuter_service, geospatial"
+                self.print(f"[red]Unknown service: {service_name}. Available: {services}[/red]" if self.console else f"Unknown service: {service_name}")
+                
+        except Exception as e:
+            self.print(f"[red]❌ Failed to stop service: {e}[/red]" if self.console else f"❌ Error: {e}")
+    
+    async def cmd_restart_service(self, service_name: str):
+        """Restart a service"""
+        try:
+            if service_name in ["simulator", "gpscentcom", "commuter_service", "geospatial"]:
+                result = await self.connector.restart_service(service_name)
+                
+                if result.success:
+                    self.print(f"[green]🔄 {result.message}[/green]" if self.console else f"🔄 {result.message}")
+                else:
+                    self.print(f"[red]❌ {result.message}[/red]" if self.console else f"❌ {result.message}")
+            
+            else:
+                services = "simulator, gpscentcom, commuter_service, geospatial"
+                self.print(f"[red]Unknown service: {service_name}. Available: {services}[/red]" if self.console else f"Unknown service: {service_name}")
+                
+        except Exception as e:
+            self.print(f"[red]❌ Failed to restart service: {e}[/red]" if self.console else f"❌ Error: {e}")
+    
+    async def cmd_dashboard(self, vehicle_id: str = None):
+        """Live vehicle telemetry dashboard (Ctrl+C to stop)"""
+        if not vehicle_id:
+            # Show all vehicles
+            vehicles = await self.connector.get_vehicles()
+            if not vehicles:
+                self.print("[yellow]No vehicles to monitor[/yellow]")
+                return
+            vehicle_id = vehicles[0].vehicle_id
+        
+        self.print(f"[cyan]📊 Live Dashboard for {vehicle_id} (Ctrl+C to stop)[/cyan]" if self.console else f"📊 Live Dashboard for {vehicle_id}")
+        
+        # Track events
+        events = []
+        
+        def on_boarding(data):
+            if data.get("vehicle_id") == vehicle_id:
+                events.append({
+                    "type": "boarding",
+                    "time": datetime.now(),
+                    "passengers": data.get("passengers", 0)
+                })
+        
+        def on_alighting(data):
+            if data.get("vehicle_id") == vehicle_id:
+                events.append({
+                    "type": "alighting",
+                    "time": datetime.now(),
+                    "passengers": data.get("passengers", 0)
+                })
+        
+        def on_engine(data):
+            if data.get("vehicle_id") == vehicle_id:
+                events.append({
+                    "type": "engine_" + ("started" if "started" in data.get("event_type", "") else "stopped"),
+                    "time": datetime.now()
+                })
+        
+        self.connector.on("passenger_boarded", on_boarding)
+        self.connector.on("passenger_alighted", on_alighting)
+        self.connector.on("engine_started", on_engine)
+        self.connector.on("engine_stopped", on_engine)
+        
+        await self.connector.connect_websocket()
+        
+        try:
+            while True:
+                # Get current vehicle state
+                try:
+                    vehicle = await self.connector.get_vehicle(vehicle_id)
+                    
+                    if self.console:
+                        # Rich dashboard
+                        dashboard = f"""
+[bold cyan]Vehicle:[/bold cyan] {vehicle.vehicle_id}
+[cyan]Driver:[/cyan] {vehicle.driver_name or 'N/A'} | [cyan]Route:[/cyan] {vehicle.route_id or 'N/A'} | [cyan]State:[/cyan] {vehicle.driver_state or 'N/A'}
+
+[bold yellow]📍 POSITION:[/bold yellow]
+  Lat: {vehicle.current_position.latitude if vehicle.current_position else 'N/A':.6f}
+  Lon: {vehicle.current_position.longitude if vehicle.current_position else 'N/A':.6f}
+
+[bold green]⚙️  DEVICES:[/bold green]
+  Engine:  {'🟢 RUNNING' if vehicle.engine_running else '🔴 STOPPED'}
+  GPS:     {'🟢 ACTIVE' if vehicle.gps_running else '🔴 OFFLINE'}
+  Boarding: {'✅ ENABLED' if vehicle.boarding_active else '⏸️  DISABLED'}
+
+[bold blue]👥 PASSENGERS:[/bold blue]
+  On Board: {vehicle.passenger_count} / {vehicle.capacity}
+  Capacity: {100 * vehicle.passenger_count // max(1, vehicle.capacity)}%
+
+[bold magenta]📊 RECENT EVENTS:[/bold magenta]"""
+                        
+                        for evt in events[-10:]:
+                            if evt["type"] == "boarding":
+                                dashboard += f"\n  ✅ Boarded {evt['passengers']} passengers @ {evt['time'].strftime('%H:%M:%S')}"
+                            elif evt["type"] == "alighting":
+                                dashboard += f"\n  ↩️  Alighted {evt['passengers']} passengers @ {evt['time'].strftime('%H:%M:%S')}"
+                            elif evt["type"] == "engine_started":
+                                dashboard += f"\n  🔥 Engine started @ {evt['time'].strftime('%H:%M:%S')}"
+                            elif evt["type"] == "engine_stopped":
+                                dashboard += f"\n  ❄️  Engine stopped @ {evt['time'].strftime('%H:%M:%S')}"
+                        
+                        if self.console:
+                            self.console.clear()
+                            self.console.print(Panel(dashboard, title=f"🚌 Live Telemetry: {vehicle_id}", border_style="blue", expand=False))
+                    else:
+                        # Plain text dashboard
+                        print("\033[2J\033[H")  # Clear screen
+                        print("="*70)
+                        print(f"🚌 LIVE TELEMETRY: {vehicle_id}")
+                        print("="*70)
+                        print(f"\nVehicle:  {vehicle.vehicle_id}")
+                        print(f"Driver:   {vehicle.driver_name or 'N/A'} | Route: {vehicle.route_id or 'N/A'} | State: {vehicle.driver_state or 'N/A'}")
+                        print(f"\n📍 POSITION:")
+                        print(f"  Latitude:  {vehicle.current_position.latitude if vehicle.current_position else 'N/A'}")
+                        print(f"  Longitude: {vehicle.current_position.longitude if vehicle.current_position else 'N/A'}")
+                        print(f"\n⚙️  DEVICES:")
+                        print(f"  Engine:   {'RUNNING' if vehicle.engine_running else 'STOPPED'}")
+                        print(f"  GPS:      {'ACTIVE' if vehicle.gps_running else 'OFFLINE'}")
+                        print(f"  Boarding: {'ENABLED' if vehicle.boarding_active else 'DISABLED'}")
+                        print(f"\n👥 PASSENGERS: {vehicle.passenger_count} / {vehicle.capacity}")
+                        print(f"\n📊 RECENT EVENTS:")
+                        for evt in events[-10:]:
+                            if evt["type"] == "boarding":
+                                print(f"  ✅ Boarded {evt['passengers']} @ {evt['time'].strftime('%H:%M:%S')}")
+                            elif evt["type"] == "alighting":
+                                print(f"  ↩️  Alighted {evt['passengers']} @ {evt['time'].strftime('%H:%M:%S')}")
+                            elif evt["type"] == "engine_started":
+                                print(f"  🔥 Engine started @ {evt['time'].strftime('%H:%M:%S')}")
+                            elif evt["type"] == "engine_stopped":
+                                print(f"  ❄️  Engine stopped @ {evt['time'].strftime('%H:%M:%S')}")
+                        print("\n(Ctrl+C to stop)")
+                        print("="*70)
+                    
+                    await asyncio.sleep(2)  # Refresh every 2 seconds
+                    
+                except Exception as e:
+                    self.print(f"[red]Error updating dashboard: {e}[/red]" if self.console else f"Error: {e}")
+                    await asyncio.sleep(2)
+                    
+        except KeyboardInterrupt:
+            self.print("\n[yellow]📊 Dashboard closed[/yellow]" if self.console else "\n📊 Dashboard closed")
+            await self.connector.disconnect_websocket()
+    
     async def cmd_stream(self):
         """Start live event streaming"""
         self.print("[cyan]📡 Starting event stream... (Ctrl+C to stop)[/cyan]" if self.console else "📡 Starting event stream...")
@@ -506,51 +819,140 @@ class FleetConsole:
             await self.connector.disconnect_websocket()
     
     def cmd_help(self):
-        """Show help message"""
+        """Show comprehensive help with menu system"""
         help_text = """
-🚌 FLEET MANAGEMENT CONSOLE - COMMANDS
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                  ArkNet FLEET MANAGEMENT CONSOLE - HELP                  ║
+║                         Professional Grade CLI                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
 
-STATUS & MONITORING:
-  status              - Show API health and connection status
-  sim                 - Show simulator status (running, time, vehicles)
-  vehicles            - List all vehicles with current state
-  vehicle <id>        - Show detailed state for specific vehicle
-  conductors          - List all conductors
-  conductor <id>      - Show conductor for specific vehicle
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. SERVICE MANAGEMENT (Start/Stop Infrastructure)                       │
+└─────────────────────────────────────────────────────────────────────────┘
 
-SIMULATOR CONTROL:
-  pause               - Pause the simulator
-  resume              - Resume the simulator
-  stop-sim            - Stop the simulator (shutdown)
-  set-time <time>     - Set simulation time (ISO or HH:MM format)
+  ⚡ QUICK START:
+  ├─ start-service all              - ⭐ START ALL SERVICES (gpscentcom, geospatial, 
+  │                                       commuter_service, simulator)
+  ├─ services                       - ⭐ CHECK ALL SERVICE STATUS
+  └─ stop-service all               - ⭐ STOP ALL SERVICES
 
-ENGINE CONTROL:
-  start <id>          - Start engine for vehicle
-  stop <id>           - Stop engine for vehicle
+  START INDIVIDUAL SERVICES:
+  ├─ start-service simulator        - Start vehicle transit simulator (port 5001)
+  ├─ start-service gpscentcom       - Start GPS/location server (port 5000)
+  ├─ start-service geospatial       - Start geospatial query service (port 6000)
+  └─ start-service commuter_service - Start passenger management service (port 4000)
 
-BOARDING CONTROL:
-  enable <id>         - Enable boarding for vehicle
-  disable <id>        - Disable boarding for vehicle
-  trigger <id>        - Trigger manual boarding check
+  STOP INDIVIDUAL SERVICES:
+  ├─ stop-service simulator         - Stop vehicle transit simulator
+  ├─ stop-service gpscentcom        - Stop GPS/location server
+  ├─ stop-service geospatial        - Stop geospatial query service
+  ├─ stop-service commuter_service  - Stop passenger management service
+  └─ restart-service <service_name> - Restart any service
 
-REAL-TIME:
-  stream              - Start live event streaming (Ctrl+C to stop)
+  SERVICE STATUS:
+  └─ services                       - Show detailed status: status, PID, uptime, errors
 
-GENERAL:
-  help                - Show this help message
-  exit / quit         - Exit console
+  SIMULATOR STARTUP WITH OPTIONS:
+  ├─ start-service simulator sim_time=14:30                    - Set start time
+  ├─ start-service simulator api_port=5001                    - Custom API port
+  ├─ start-service simulator data_api_url=http://localhost:1337 - Custom data API
+  ├─ start-service simulator enable_boarding_after=30.0       - Enable boarding delay
+  └─ start-service simulator sim_time=14:30 api_port=5001     - Multiple options
 
-EXAMPLES:
-  sim                       # Show simulator status
-  pause                     # Pause simulation
-  set-time 14:30            # Set time to 2:30 PM
-  set-time 2025-11-05T14:30 # Set specific date/time
-  vehicles                  # List all vehicles
-  vehicle ZR102             # Show details for ZR102
-  start ZR102               # Start engine
-  enable ZR102              # Enable boarding
-  trigger ZR102             # Manually trigger boarding
-  stream                    # Watch live events
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. VEHICLE & FLEET OPERATIONS                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  VEHICLE MONITORING:
+  ├─ vehicles              - List ALL vehicles with status summary
+  ├─ vehicle <vehicle_id>  - Show detailed state for specific vehicle
+  ├─ conductors            - List ALL conductors and assignments
+  └─ conductor <vehicle_id>- Show conductor details for vehicle
+
+  ENGINE CONTROL:
+  ├─ start <vehicle_id>    - Start engine (e.g., start ZR102)
+  └─ stop <vehicle_id>     - Stop engine (e.g., stop ZR102)
+
+  BOARDING MANAGEMENT:
+  ├─ enable <vehicle_id>   - Enable passenger boarding
+  ├─ disable <vehicle_id>  - Disable passenger boarding
+  └─ trigger <vehicle_id>  - Manual boarding check cycle
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. SIMULATOR CONTROL                                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  SIMULATOR STATE:
+  ├─ sim                   - Show simulator status (time, vehicles, events)
+  ├─ pause                 - Pause simulation (vehicles halt, time stops)
+  ├─ resume                - Resume simulation from pause
+  └─ stop-sim              - SHUTDOWN simulator (full stop)
+
+  TIME CONTROL:
+  ├─ set-time 14:30        - Set simulation time (HH:MM format)
+  └─ set-time 2025-11-06T14:30 - Set specific date/time (ISO format)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. DIAGNOSTICS & MONITORING                                             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  STATUS & HEALTH:
+  ├─ status                - Show API connection & system health
+  ├─ services              - Service status with PID, uptime, error details
+  └─ stream                - LIVE EVENT STREAMING (real-time events)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. COMMAND EXAMPLES & WORKFLOWS                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  QUICK START WORKFLOW:
+    fleet> start-service all              # Start all services
+    fleet> services                       # Check all services running
+    fleet> vehicles                       # List all vehicles
+    fleet> vehicle ZR102                  # Check specific vehicle
+    fleet> start ZR102                    # Start engine
+    fleet> enable ZR102                   # Enable boarding
+    fleet> stream                         # Watch live events
+
+  INDIVIDUAL SERVICE TESTS:
+    fleet> stop-service simulator
+    fleet> start-service simulator sim_time=09:00
+    fleet> services
+    fleet> vehicles
+
+  SIMULATION CONTROL:
+    fleet> pause                          # Pause all vehicles
+    fleet> set-time 16:45                 # Jump to 4:45 PM
+    fleet> resume                         # Continue simulation
+    fleet> stop-sim                       # End simulation session
+
+  TROUBLESHOOTING:
+    fleet> services                       # Check for service errors (❌ status)
+    fleet> vehicle ZR102                  # Verify vehicle state
+    fleet> status                         # Check connection health
+    fleet> stream                         # Monitor real-time errors
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 6. COMMAND REFERENCE                                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  GENERAL:
+  ├─ help                  - Show this help message
+  ├─ help <topic>          - Show help for specific topic
+  ├─ exit / quit           - Exit console cleanly
+  └─ Ctrl+C                - Interrupt command (use 'exit' to quit)
+
+  TIPS & NOTES:
+  • All service names: simulator, gpscentcom, geospatial, commuter_service
+  • Vehicle IDs: ZR102, ZR103, etc. (from database)
+  • Times: Use HH:MM (24-hour) or ISO format YYYY-MM-DDTHH:MM
+  • Options: Multiple options separated by spaces (key=value format)
+  • Live Streaming: Ctrl+C to stop, then type next command
+  • Colors: 🟢 running, 🔴 stopped, 🟡 starting, ❌ error, ⚪ unknown
+
+═══════════════════════════════════════════════════════════════════════════
+Type a command (e.g., 'services' or 'vehicles') and press Enter to begin.
+═══════════════════════════════════════════════════════════════════════════
         """.strip()
         
         self.print(help_text)
@@ -609,6 +1011,26 @@ EXAMPLES:
                     break
                 elif cmd == "status":
                     await self.cmd_status()
+                elif cmd == "services":
+                    await self.cmd_services()
+                elif cmd == "start-service":
+                    if not args:
+                        self.print("[red]Usage: start-service <service_name> [args][/red]" if self.console else "Usage: start-service <service_name>")
+                    else:
+                        parts = args.split(maxsplit=1)
+                        service_name = parts[0]
+                        service_args = parts[1] if len(parts) > 1 else ""
+                        await self.cmd_start_service(service_name, service_args)
+                elif cmd == "stop-service":
+                    if not args:
+                        self.print("[red]Usage: stop-service <service_name>[/red]" if self.console else "Usage: stop-service <service_name>")
+                    else:
+                        await self.cmd_stop_service(args)
+                elif cmd == "restart-service":
+                    if not args:
+                        self.print("[red]Usage: restart-service <service_name>[/red]" if self.console else "Usage: restart-service <service_name>")
+                    else:
+                        await self.cmd_restart_service(args)
                 elif cmd == "sim":
                     await self.cmd_sim_status()
                 elif cmd == "pause":
@@ -685,7 +1107,7 @@ EXAMPLES:
 
 async def main():
     parser = argparse.ArgumentParser(description="Fleet Management Console")
-    parser.add_argument("--url", default="http://localhost:5001", help="Fleet API URL")
+    parser.add_argument("--url", default="http://localhost:6000", help="Fleet API URL")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
     

@@ -11,7 +11,7 @@ import httpx
 import configparser
 from pathlib import Path
 
-from services.postgis_client import postgis_client
+from ..services.postgis_client import postgis_client
 
 # Load config
 config = configparser.ConfigParser()

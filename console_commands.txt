@@ -1,0 +1,7 @@
+services
+start-service gpscentcom
+start-service geospatial
+start-service commuter_service
+start-service simulator
+services
+vehicles

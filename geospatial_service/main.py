@@ -15,19 +15,25 @@ Performance targets:
 - Depot catchment: <150ms
 """
 
+import sys
+import io
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import time
 
-from api import geocoding_router, geofence_router, spatial_router
-from api.spawn import router as spawn_router
-from api.routes import router as routes_router
-from api.depots import router as depots_router
-from api.buildings import router as buildings_router
-from api.analytics import router as analytics_router
-from api.metadata import router as metadata_router
-from services.postgis_client import postgis_client
+# Force UTF-8 encoding for stdout (Windows compatibility)
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+from .api import geocoding_router, geofence_router, spatial_router
+from .api.spawn import router as spawn_router
+from .api.routes import router as routes_router
+from .api.depots import router as depots_router
+from .api.buildings import router as buildings_router
+from .api.analytics import router as analytics_router
+from .api.metadata import router as metadata_router
+from .services.postgis_client import postgis_client
 
 
 @asynccontextmanager
