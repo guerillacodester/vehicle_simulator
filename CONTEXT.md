@@ -786,20 +786,39 @@ To ensure Separation of Duties (SoD) and adhere to best engineering practices, t
      - `disconnectTelemetry`: Closes the connection when no longer needed.
 
 2. **GraphQLDataProvider**:
-   - **Purpose**: Interacts with Strapi via GraphQL for hierarchical data (e.g., vehicles, routes, depots).
+   - **Purpose**: Interacts with Strapi via GraphQL for hierarchical data (e.g., vehicles, routes, depots, drivers).
    - **Responsibilities**:
      - Fetch hierarchical data securely and efficiently.
-     - Perform mutations for updating data when required.
+     - Perform CRUD operations for vehicles, routes, depots, and drivers.
    - **Methods**:
-     - `getVehicles`, `getRoutes`, `getDepots`: Fetch data from Strapi.
-     - `updateVehicle`, `updateRoute`: Perform mutations (if needed).
+     - `getVehicles`, `getRoutes`, `getDepots`, `getDrivers`: Fetch data from Strapi.
+     - `createVehicle`, `updateVehicle`, `deleteVehicle`: CRUD operations for vehicles.
+     - `createRoute`, `updateRoute`, `deleteRoute`: CRUD operations for routes.
+     - `createDepot`, `updateDepot`, `deleteDepot`: CRUD operations for depots.
+     - `createDriver`, `updateDriver`, `deleteDriver`: CRUD operations for drivers.
 
-### Benefits of Separation
-- **Scalability**: Each provider can evolve independently as the project grows.
-- **Testability**: Providers can be tested in isolation, ensuring robust functionality.
-- **Maintainability**: Clear boundaries make the codebase easier to understand and modify.
-- **Flexibility**: Changes to one data source (e.g., gpscentcom_server or Strapi) do not impact the other.
+### Service Management
 
-### Security Considerations
-- Avoid fetching sensitive identifiers like user IDs or document IDs.
-- Ensure secure authentication and authorization for both telemetry and GraphQL data access.
+#### ServiceManager
+To centralize the management of all services, the project includes a `ServiceManager` module.
+
+- **Purpose**: Provides a unified interface for starting, stopping, and checking the status of all services (e.g., gpscentcom_server, simulator).
+- **Responsibilities**:
+  - Start and stop services remotely.
+  - Check the real-time status of services.
+  - Ensure secure and reliable communication with services.
+- **Methods**:
+  - `startService(serviceName)`: Starts the specified service.
+  - `stopService(serviceName)`: Stops the specified service.
+  - `getServiceStatus(serviceName)`: Returns the real-time status of the specified service.
+  - `getAllServiceStatuses()`: Returns the status of all services in a single call.
+
+#### Integration with TelemetryDataProvider
+- The `TelemetryDataProvider` uses the `ServiceManager` to manage telemetry-related services (e.g., gpscentcom_server).
+- This ensures a clear separation of concerns and simplifies service management.
+
+### Benefits of Centralized Service Management
+- **Scalability**: Easily add or remove services without affecting other parts of the application.
+- **Testability**: Test service management independently of data providers.
+- **Maintainability**: Simplifies the codebase by centralizing service management logic.
+- **Real-Time Updates**: Provides accurate and timely status updates for all services.

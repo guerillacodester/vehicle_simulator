@@ -65,9 +65,17 @@
   - Ensure secure connection and caching of telemetry data.
 - [ ] Implement GraphQLDataProvider
   - Create a provider to interact with Strapi via GraphQL.
-  - Implement methods: getVehicles, getRoutes, getDepots, updateVehicle, updateRoute.
+  - Implement methods: getVehicles, getRoutes, getDepots, getDrivers, updateVehicle, updateRoute, updateDepot, updateDriver, deleteVehicle, deleteRoute, deleteDepot, deleteDriver.
   - Ensure secure and efficient data fetching.
+- [ ] Implement ServiceManager
+  - Create a centralized module to manage all services (gpscentcom_server, simulator, etc.).
+  - Implement methods: startService, stopService, getServiceStatus, getAllServiceStatuses.
+  - Ensure real-time status updates using WebSocket or polling.
+- [ ] Integrate ServiceManager with TelemetryDataProvider
+  - Use ServiceManager to manage telemetry-related services.
+  - Test integration with gpscentcom_server and simulator.
 - [ ] Test DataProviders
   - Write unit tests for TelemetryDataProvider.
   - Write unit tests for GraphQLDataProvider.
-  - Test integration of both providers with the application.
+  - Write unit tests for ServiceManager.
+  - Test integration of all providers with the application.
