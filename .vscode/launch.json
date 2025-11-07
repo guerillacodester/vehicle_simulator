@@ -88,6 +88,52 @@
         "**/node_modules/**"
       ],
       "sourceMaps": true
+    },
+    {
+      "name": "Debug Next.js App (Server)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/arknet_fleet_manager/dashboard",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "sourceMaps": true,
+      "smartStep": true
+    },
+    {
+      "name": "Debug Next.js App (Client)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/arknet_fleet_manager/dashboard",
+      "sourceMaps": true,
+      "smartStep": true
+    },
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "Debug GPSCentCom Server",
+      "program": "${workspaceFolder}/gpscentcom_server/server_main.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": []
+    },
+    {
+      "name": "Debug Fleet Manager Server",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/launcher/launch.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": []
     }
   ]
 }
