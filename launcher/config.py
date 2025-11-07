@@ -7,44 +7,43 @@ Handles loading and validation of launcher configuration from config.ini.
 import configparser
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional, List
+
+
+@dataclass
+class ServiceConfig:
+    """Configuration for a single service plugin."""
+    name: str
+    enabled: bool
+    port: Optional[int]
+    url: Optional[str]
+    health_url: Optional[str]
+    spawn_console: bool
+    startup_wait: int
+    category: str
+    display_name: str
+    description: str
+    icon: str
+    dependencies: List[str]
+    extra_config: Dict[str, str]  # Service-specific settings
 
 
 @dataclass
 class LauncherConfig:
-    """Launcher timing and behavior configuration."""
+    """Global launcher configuration."""
+    api_port: int
+    cors_origins: List[str]
     monitor_port: int
+    startup_wait_default: int
     strapi_startup_wait: int
-    gpscentcom_startup_wait: int
     simulator_delay: int
-    service_startup_wait: int
-    
-    # API configuration
-    launcher_api_port: int
-    launcher_cors_origins: list
-    
-    # Subsystem enable flags
-    enable_gpscentcom: bool
-    enable_geospatial: bool
-    enable_vehicle_simulator: bool
-    enable_commuter_service: bool
-    
-    # Console spawning flags
-    spawn_console_strapi: bool
-    spawn_console_gpscentcom: bool
-    spawn_console_geospatial: bool
-    spawn_console_vehicle_simulator: bool
-    spawn_console_commuter_service: bool
 
 
 @dataclass
 class InfrastructureConfig:
-    """Infrastructure ports and URLs."""
-    strapi_url: str
-    strapi_port: int
-    gpscentcom_port: int
-    geospatial_port: int
-    commuter_service_port: int
+    """Global infrastructure settings."""
+    database_host: str
+    database_port: int
 
 
 class ConfigurationManager:
@@ -66,40 +65,67 @@ class ConfigurationManager:
         self.config.read(config_path, encoding='utf-8')
     
     def get_launcher_config(self) -> LauncherConfig:
-        """Get launcher-specific configuration."""
+        """Get global launcher configuration."""
         launcher = self.config['launcher']
         
         # Parse CORS origins
-        cors_origins_str = launcher.get('launcher_cors_origins', 'http://localhost:3000')
+        cors_origins_str = launcher.get('cors_origins', 'http://localhost:3000')
         cors_origins = [origin.strip() for origin in cors_origins_str.split(',')]
         
         return LauncherConfig(
+            api_port=launcher.getint('api_port', 7000),
+            cors_origins=cors_origins,
             monitor_port=launcher.getint('monitor_port', 8000),
+            startup_wait_default=launcher.getint('startup_wait_default', 10),
             strapi_startup_wait=launcher.getint('strapi_startup_wait', 15),
-            gpscentcom_startup_wait=launcher.getint('gpscentcom_startup_wait', 10),
-            simulator_delay=launcher.getint('simulator_delay', 5),
-            service_startup_wait=launcher.getint('service_startup_wait', 8),
-            launcher_api_port=launcher.getint('launcher_api_port', 7000),
-            launcher_cors_origins=cors_origins,
-            enable_gpscentcom=launcher.getboolean('enable_gpscentcom', True),
-            enable_geospatial=launcher.getboolean('enable_geospatial', True),
-            enable_vehicle_simulator=launcher.getboolean('enable_vehicle_simulator', False),
-            enable_commuter_service=launcher.getboolean('enable_commuter_service', False),
-            spawn_console_strapi=launcher.getboolean('spawn_console_strapi', False),
-            spawn_console_gpscentcom=launcher.getboolean('spawn_console_gpscentcom', False),
-            spawn_console_geospatial=launcher.getboolean('spawn_console_geospatial', False),
-            spawn_console_vehicle_simulator=launcher.getboolean('spawn_console_vehicle_simulator', False),
-            spawn_console_commuter_service=launcher.getboolean('spawn_console_commuter_service', False)
+            simulator_delay=launcher.getint('simulator_delay', 5)
         )
     
     def get_infrastructure_config(self) -> InfrastructureConfig:
-        """Get infrastructure configuration."""
+        """Get global infrastructure configuration."""
         infra = self.config['infrastructure']
         
         return InfrastructureConfig(
-            strapi_url=infra.get('strapi_url', 'http://localhost:1337'),
-            strapi_port=infra.getint('strapi_port', 1337),
-            gpscentcom_port=infra.getint('gpscentcom_port', 5000),
-            geospatial_port=infra.getint('geospatial_port', 6000),
-            commuter_service_port=infra.getint('commuter_service_port', 4000)
+            database_host=infra.get('database_host', 'localhost'),
+            database_port=infra.getint('database_port', 5432)
         )
+    
+    def get_service_configs(self) -> Dict[str, ServiceConfig]:
+        """Get all service configurations from plugin sections."""
+        services = {}
+        
+        # Known service sections (could be made dynamic in the future)
+        service_names = ['strapi', 'gpscentcom', 'geospatial', 'vehicle_simulator', 'commuter_service']
+        
+        for service_name in service_names:
+            if service_name in self.config:
+                section = self.config[service_name]
+                
+                # Parse dependencies
+                dependencies_str = section.get('dependencies', '')
+                dependencies = [dep.strip() for dep in dependencies_str.split(',') if dep.strip()]
+                
+                # Collect extra config (all other settings in the section)
+                extra_config = {}
+                for key, value in section.items():
+                    if key not in ['enabled', 'port', 'url', 'health_url', 'spawn_console', 
+                                 'startup_wait', 'category', 'display_name', 'description', 'icon', 'dependencies']:
+                        extra_config[key] = value
+                
+                services[service_name] = ServiceConfig(
+                    name=service_name,
+                    enabled=section.getboolean('enabled', False),
+                    port=section.getint('port', None) if section.get('port') else None,
+                    url=section.get('url'),
+                    health_url=section.get('health_url'),
+                    spawn_console=section.getboolean('spawn_console', False),
+                    startup_wait=section.getint('startup_wait', 10),
+                    category=section.get('category', 'unknown'),
+                    display_name=section.get('display_name', service_name),
+                    description=section.get('description', ''),
+                    icon=section.get('icon', '⚙️'),
+                    dependencies=dependencies,
+                    extra_config=extra_config
+                )
+        
+        return services

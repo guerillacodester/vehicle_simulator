@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ServiceManager from "@/providers/ServiceManager";
-import { ServiceStatus } from "@/providers/ServiceManager";
+import ServiceManager, { ServiceStatus, ServiceState, ConnectionStatus, ConnectionState } from "@/providers/ServiceManager";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ServiceCard } from "@/components/features/ServiceCard";
 import { Button } from "@/components/ui";
@@ -11,8 +10,11 @@ import { theme } from "@/lib/theme";
 
 export default function ServicesPage() {
   const [statuses, setStatuses] = useState<ServiceStatus[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [loadingService, setLoadingService] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
+    state: ConnectionState.CONNECTING,
+    message: 'Connecting to launcher...'
+  });
   const { mode } = useTheme();
   const t = theme.colors[mode];
 
@@ -23,63 +25,105 @@ export default function ServicesPage() {
     }
   };
 
+  const handleReloadServices = async () => {
+    setLoadingService('reloading');
+    await ServiceManager.reloadServices();
+    await fetchStatuses();
+    setLoadingService(null);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
+      // Initial load only - fetch statuses once on component mount
       await fetchStatuses();
     };
     fetchData();
 
-    // Auto-refresh every 2 seconds if enabled
-    let intervalId: NodeJS.Timeout;
-    if (autoRefresh) {
-      intervalId = setInterval(fetchData, 2000);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [autoRefresh]);
-
-  // Subscribe to realtime events from ServiceManager (via launcher websocket)
-  useEffect(() => {
-    const onEvent = (status: ServiceStatus) => {
+    // Subscribe to real-time service status updates
+    const onServiceEvent = (status: ServiceStatus) => {
       setStatuses(prev => {
-        const exists = prev.find(s => s.name === status.name);
-        if (exists) {
-          return prev.map(s => (s.name === status.name ? status : s));
+        // Update the matching service, or add if not present
+        const found = prev.find(s => s.name === status.name);
+        if (found) {
+          return prev.map(s => s.name === status.name ? { ...s, ...status } : s);
+        } else {
+          return [...prev, status];
         }
-        return [...prev, status];
       });
     };
+    ServiceManager.onEvent(onServiceEvent);
 
-    ServiceManager.onEvent(onEvent);
     return () => {
-      ServiceManager.offEvent(onEvent);
+      ServiceManager.offEvent(onServiceEvent);
+    };
+  }, []); // Empty dependency array - only run once on mount
+
+  // Subscribe to connection status events
+  useEffect(() => {
+    const onConnectionEvent = (status: ConnectionStatus) => {
+      setConnectionStatus(status);
+    };
+    
+    ServiceManager.onConnectionEvent(onConnectionEvent);
+    
+    return () => {
+      ServiceManager.offConnectionEvent(onConnectionEvent);
     };
   }, []);
 
   const handleStart = async (serviceName: string) => {
-    setLoading(true);
-    const result = await ServiceManager.startService(serviceName);
-    if (result.success) {
-      // Immediately update the UI with the new status
-      if (result.status) {
+    setLoadingService(serviceName);
+    
+    // Immediately set status to starting
+    setStatuses(prev => prev.map(s => 
+      s.name === serviceName ? { ...s, state: ServiceState.STARTING, message: 'Starting service...' } : s
+    ));
+    
+    try {
+      const result = await ServiceManager.startService(serviceName);
+      if (!result.success) {
+        // Update status on failure
         setStatuses(prev => prev.map(s => 
-          s.name === serviceName ? result.status! : s
+          s.name === serviceName ? { ...s, state: ServiceState.FAILED, message: result.message } : s
         ));
       }
+      // Success updates come via WebSocket
+    } finally {
+      setLoadingService(null);
     }
-    await fetchStatuses();
-    setLoading(false);
   };
 
   const handleStop = async (serviceName: string) => {
-    setLoading(true);
-    await ServiceManager.stopService(serviceName);
-    await fetchStatuses();
-    setLoading(false);
+    setLoadingService(serviceName);
+    
+    // Immediately set status to stopping
+    setStatuses(prev => prev.map(s => 
+      s.name === serviceName ? { ...s, message: 'Stopping service...' } : s
+    ));
+    
+    try {
+      await ServiceManager.stopService(serviceName);
+      // Status updates come via WebSocket
+    } finally {
+      setLoadingService(null);
+    }
+  };
+
+  const handleReloadConfig = async () => {
+    setLoadingService('config');
+    
+    try {
+      const result = await ServiceManager.reloadConfig();
+      if (result.success) {
+        // Refresh statuses after config reload
+        await fetchStatuses();
+      } else {
+        console.error('Failed to reload config:', result.message);
+        // Could add a toast notification here
+      }
+    } finally {
+      setLoadingService(null);
+    }
   };
 
   const gridStyles = {
@@ -136,16 +180,6 @@ export default function ServicesPage() {
     gap: theme.spacing.md,
   };
 
-  const checkboxLabelStyles = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    cursor: 'pointer',
-    color: t.text.secondary,
-    fontSize: '0.875rem',
-    userSelect: 'none' as const,
-  };
-
   return (
     <DashboardLayout currentPath="/services">
       <div style={controlsStyles}>
@@ -154,30 +188,81 @@ export default function ServicesPage() {
             <h2 style={titleStyles}>Services</h2>
             
             <div style={autoRefreshStyles}>
-              <label style={checkboxLabelStyles}>
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '0.875rem' }}>Auto-refresh</span>
-              </label>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: theme.spacing.sm, 
+                marginBottom: theme.spacing.xs,
+                padding: theme.spacing.sm,
+                backgroundColor: 
+                  connectionStatus.state === ConnectionState.CONNECTED ? 'rgba(16, 185, 129, 0.1)' :
+                  connectionStatus.state === ConnectionState.CONNECTING ? 'rgba(245, 158, 11, 0.1)' :
+                  connectionStatus.state === ConnectionState.DISCONNECTED ? 'rgba(239, 68, 68, 0.1)' :
+                  'rgba(239, 68, 68, 0.1)',
+                borderRadius: theme.borderRadius.md,
+                border: `1px solid ${
+                  connectionStatus.state === ConnectionState.CONNECTED ? 'rgba(16, 185, 129, 0.3)' :
+                  connectionStatus.state === ConnectionState.CONNECTING ? 'rgba(245, 158, 11, 0.3)' :
+                  connectionStatus.state === ConnectionState.DISCONNECTED ? 'rgba(239, 68, 68, 0.3)' :
+                  'rgba(239, 68, 68, 0.3)'
+                }`
+              }}>
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: 
+                    connectionStatus.state === ConnectionState.CONNECTED ? '#10b981' :
+                    connectionStatus.state === ConnectionState.CONNECTING ? '#f59e0b' :
+                    connectionStatus.state === ConnectionState.DISCONNECTED ? '#ef4444' :
+                    '#ef4444',
+                  animation: connectionStatus.state === ConnectionState.CONNECTING ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                }} />
+                <span style={{ 
+                  fontSize: '0.875rem', 
+                  fontWeight: '500',
+                  color: 
+                    connectionStatus.state === ConnectionState.CONNECTED ? '#10b981' :
+                    connectionStatus.state === ConnectionState.CONNECTING ? '#f59e0b' :
+                    connectionStatus.state === ConnectionState.DISCONNECTED ? '#ef4444' :
+                    '#ef4444'
+                }}>
+                  {connectionStatus.message}
+                </span>
+              </div>
               
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={fetchStatuses}
-                disabled={loading}
+                disabled={loadingService !== null || connectionStatus.state !== ConnectionState.CONNECTED}
               >
                 🔄 Refresh
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReloadServices}
+                disabled={loadingService === 'reloading' || connectionStatus.state !== ConnectionState.CONNECTED}
+              >
+                {loadingService === 'reloading' ? '⏳' : '🔃'} Reload Services
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReloadConfig}
+                disabled={loadingService !== null}
+              >
+                ⚙️ Reload Config
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {statuses.length === 0 && !loading && (
+      {statuses.length === 0 && loadingService === null && (
         <div style={{
           textAlign: 'center',
           backgroundColor: t.bg.elevated,
@@ -222,7 +307,8 @@ export default function ServicesPage() {
             service={service}
             onStart={handleStart}
             onStop={handleStop}
-            disabled={loading}
+            disabled={loadingService === service.name}
+            isDisconnected={connectionStatus.state !== ConnectionState.CONNECTED}
           />
         ))}
       </div>

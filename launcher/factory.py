@@ -7,101 +7,56 @@ Single Responsibility: Service instantiation and configuration.
 from pathlib import Path
 from typing import Optional
 from .models import ServiceDefinition, ServiceType
-from .config import LauncherConfig, InfrastructureConfig
+from .config import ServiceConfig
 
 
 class ServiceFactory:
     """
-    Creates service definitions based on configuration.
+    Creates service definitions based on service configurations.
     
     Single Responsibility: Service creation and configuration.
     """
     
-    def __init__(self, root_path: Path, launcher_config: LauncherConfig, infra_config: InfrastructureConfig):
+    def __init__(self, root_path: Path):
         """Initialize service factory."""
         self.root_path = root_path
-        self.launcher_config = launcher_config
-        self.infra_config = infra_config
     
-    def create_monitor_service(self) -> Optional[ServiceDefinition]:
-        """Create monitoring service definition."""
-        # TODO: Implement monitoring service
-        return None
-    
-    def create_strapi_service(self) -> Optional[ServiceDefinition]:
-        """Create Strapi service definition."""
-        strapi_path = self.root_path / "arknet_fleet_manager" / "arknet-fleet-api"
-        
-        if not strapi_path.exists():
+    def create_service_definition(self, service_config: ServiceConfig) -> Optional[ServiceDefinition]:
+        """Create a service definition from a service configuration."""
+        if not service_config.enabled:
             return None
         
-        return ServiceDefinition(
-            name="Strapi CMS",
-            service_type=ServiceType.FOUNDATION,
-            port=self.infra_config.strapi_port,
-            health_url=f"{self.infra_config.strapi_url}/_health",
-            script_path=strapi_path,
-            is_npm=True,
-            npm_command="develop",
-            startup_wait_seconds=self.launcher_config.strapi_startup_wait
-        )
-    
-    def create_gpscentcom_service(self) -> Optional[ServiceDefinition]:
-        """Create GPSCentCom service definition."""
-        if not self.launcher_config.enable_gpscentcom:
-            return None
+        # Determine service type from category
+        service_type_map = {
+            'foundation': ServiceType.FOUNDATION,
+            'core': ServiceType.CORE,
+            'simulator': ServiceType.SIMULATOR,
+            'fleet': ServiceType.FLEET
+        }
+        service_type = service_type_map.get(service_config.category, ServiceType.CORE)
         
-        return ServiceDefinition(
-            name="GPSCentCom Server",
-            service_type=ServiceType.CORE,
-            port=self.infra_config.gpscentcom_port,
-            health_url=f"http://localhost:{self.infra_config.gpscentcom_port}/health",
-            script_path=self.root_path / "gpscentcom_server" / "server_main.py",
-            startup_wait_seconds=self.launcher_config.gpscentcom_startup_wait
+        # Create service definition
+        definition = ServiceDefinition(
+            name=service_config.display_name,
+            service_type=service_type,
+            port=service_config.port,
+            health_url=service_config.health_url,
+            startup_wait_seconds=service_config.startup_wait
         )
-    
-    def create_geospatial_service(self) -> Optional[ServiceDefinition]:
-        """Create Geospatial service definition."""
-        if not self.launcher_config.enable_geospatial:
-            return None
         
-        return ServiceDefinition(
-            name="GeospatialService",
-            service_type=ServiceType.CORE,
-            port=self.infra_config.geospatial_port,
-            health_url=f"http://localhost:{self.infra_config.geospatial_port}/health",
-            script_path=self.root_path / "geospatial_service" / "main.py",
-            startup_wait_seconds=self.launcher_config.service_startup_wait
-        )
-    
-    def create_vehicle_simulator_service(self) -> Optional[ServiceDefinition]:
-        """Create Vehicle Simulator service definition."""
-        if not self.launcher_config.enable_vehicle_simulator:
-            return None
+        # Set launch configuration based on service name
+        if service_config.name == 'strapi':
+            definition.script_path = self.root_path / "arknet_fleet_manager" / "arknet-fleet-api"
+            definition.is_npm = True
+            definition.npm_command = "develop"
+        elif service_config.name == 'gpscentcom':
+            definition.script_path = self.root_path / "gpscentcom_server" / "server_main.py"
+        elif service_config.name == 'geospatial':
+            definition.as_module = "geospatial_service"
+        elif service_config.name == 'vehicle_simulator':
+            definition.as_module = "arknet_transit_simulator"
+            definition.extra_args = ["--mode", service_config.extra_config.get('mode', 'depot')]
+        elif service_config.name == 'commuter_service':
+            definition.as_module = "commuter_service"
         
-        return ServiceDefinition(
-            name="Vehicle Simulator",
-            service_type=ServiceType.SIMULATOR,
-            as_module="arknet_transit_simulator",
-            startup_wait_seconds=0  # No health check for simulators
-        )
-    
-    def create_commuter_service_service(self) -> Optional[ServiceDefinition]:
-        """
-        Create Commuter Service definition.
-        
-        Runs the integrated commuter service which includes:
-        - Passenger spawning (background)
-        - Manifest API (HTTP on port 4000)
-        """
-        if not self.launcher_config.enable_commuter_service:
-            return None
-        
-        return ServiceDefinition(
-            name="Commuter Service",
-            service_type=ServiceType.FLEET,
-            port=self.infra_config.commuter_service_port,
-            health_url=f"http://localhost:{self.infra_config.commuter_service_port}/health",
-            as_module="commuter_service.interfaces.http.commuter_manifest",
-            startup_wait_seconds=self.launcher_config.service_startup_wait
-        )
+        return definition

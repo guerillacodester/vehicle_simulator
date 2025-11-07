@@ -41,17 +41,6 @@ export function ServiceCard({ service, onStart, onStop, disabled = false }: Serv
               <span>{service.pid}</span>
             </div>
           )}
-          
-          {service.message && (
-            <div style={{ 
-              fontSize: '0.875rem', 
-              color: t.text.tertiary,
-              fontStyle: 'italic',
-              marginTop: theme.spacing.sm,
-            }}>
-              {service.message}
-            </div>
-          )}
         </div>
 
         <div style={{ 
@@ -79,6 +68,21 @@ export function ServiceCard({ service, onStart, onStop, disabled = false }: Serv
           </Button>
         </div>
       </CardContent>
+      
+      {/* Status Bar */}
+      <div style={{
+        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+        borderTop: service.message ? `1px solid ${t.border.subtle}` : 'none',
+        backgroundColor: service.message ? t.bg.tertiary : 'transparent',
+        fontSize: '0.875rem',
+        color: t.text.secondary,
+        fontWeight: '500',
+        minHeight: '32px',
+        display: 'flex',
+        alignItems: 'center'
+      }}>
+        {service.message || ''}
+      </div>
     </Card>
   );
 }

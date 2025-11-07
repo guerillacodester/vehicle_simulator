@@ -39,6 +39,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from launcher.service_manager import app, manager, ManagedService, configure_cors
 from launcher.config import ConfigurationManager
+from launcher.socket_server import sio, socket_app
+import socketio
 
 
 def register_services():
@@ -49,83 +51,67 @@ def register_services():
     config_path = Path(__file__).parent / "config.ini"
     config_manager = ConfigurationManager(config_path)
     launcher_config = config_manager.get_launcher_config()
-    infra_config = config_manager.get_infrastructure_config()
+    service_configs = config_manager.get_service_configs()
     root_path = Path(__file__).parent
     
     print("📋 Registering available services...")
     print()
     
-    # Register Strapi
-    manager.register_service(ManagedService(
-        name="strapi",
-        port=infra_config.strapi_port,
-        health_url=f"http://localhost:{infra_config.strapi_port}/_health",
-        script_path=root_path / "arknet_fleet_manager" / "arknet-fleet-api",
-        is_npm=True,
-        npm_command="develop",
-        dependencies=[],
-        spawn_console=launcher_config.spawn_console_strapi
-    ))
-    print(f"   ✅ Registered: strapi (port {infra_config.strapi_port})")
-    
-    # Register GPSCentCom
-    manager.register_service(ManagedService(
-        name="gpscentcom",
-        port=infra_config.gpscentcom_port,
-        health_url=f"http://localhost:{infra_config.gpscentcom_port}/health",
-        script_path=root_path / "gpscentcom_server" / "server_main.py",
-        dependencies=["strapi"],
-        spawn_console=launcher_config.spawn_console_gpscentcom
-    ))
-    print(f"   ✅ Registered: gpscentcom (port {infra_config.gpscentcom_port})")
-    
-    # Register Geospatial Service
-    if launcher_config.enable_geospatial:
-        manager.register_service(ManagedService(
-            name="geospatial",
-            port=6001,
-            health_url="http://localhost:6001/health",
-            as_module="geospatial_service",
-            dependencies=["strapi"],
-            spawn_console=launcher_config.spawn_console_geospatial
-        ))
-        print(f"   ✅ Registered: geospatial (port 6001)")
-    
-    # Register Manifest API
-    manager.register_service(ManagedService(
-        name="manifest",
-        port=4000,
-        health_url="http://localhost:4000/health",
-        as_module="commuter_service",
-        dependencies=["strapi", "geospatial"],
-        spawn_console=launcher_config.spawn_console_commuter_service
-    ))
-    print(f"   ✅ Registered: manifest (port 4000)")
-    
-    # Register Vehicle Simulator
-    if launcher_config.enable_vehicle_simulator:
-        manager.register_service(ManagedService(
-            name="vehicle_simulator",
-            port=None,
-            health_url=None,
-            as_module="arknet_transit_simulator",
-            extra_args=["--mode", "depot"],  # Run in depot mode (continuous operation)
-            dependencies=["strapi", "gpscentcom"],
-            spawn_console=launcher_config.spawn_console_vehicle_simulator
-        ))
-        print(f"   ✅ Registered: vehicle_simulator (no fixed port)")
-    
-    # Register Commuter Service
-    if launcher_config.enable_commuter_service:
-        manager.register_service(ManagedService(
-            name="commuter_service",
-            port=4000,
-            health_url="http://localhost:4000/health",
-            as_module="commuter_service",
-            dependencies=["strapi", "geospatial"],
-            spawn_console=launcher_config.spawn_console_commuter_service
-        ))
-        print(f"   ✅ Registered: commuter_service (port 4000)")
+    # Register services from plugin configuration
+    for service_name, service_config in service_configs.items():
+        if not service_config.enabled:
+            print(f"   ⏭️  Skipped: {service_name} (disabled)")
+            continue
+            
+        # Determine script path and execution method based on service type
+        if service_name == "strapi":
+            script_path = root_path / "arknet_fleet_manager" / "arknet-fleet-api"
+            is_npm = True
+            npm_command = "develop"
+            as_module = None
+        elif service_name == "gpscentcom":
+            script_path = root_path / "gpscentcom_server" / "server_main.py"
+            is_npm = False
+            npm_command = None
+            as_module = None
+        elif service_name == "geospatial":
+            script_path = None
+            is_npm = False
+            npm_command = None
+            as_module = "geospatial_service"
+        elif service_name == "commuter_service":
+            script_path = None
+            is_npm = False
+            npm_command = None
+            as_module = "commuter_service"
+        elif service_name == "vehicle_simulator":
+            script_path = root_path / "arknet_transit_simulator" / "main.py"
+            is_npm = False
+            npm_command = None
+            as_module = None
+        else:
+            print(f"   ⚠️  Unknown service type: {service_name}")
+            continue
+        
+        # Create the managed service
+        service = ManagedService(
+            name=service_name,
+            port=service_config.port,
+            health_url=service_config.health_url,
+            script_path=script_path,
+            is_npm=is_npm,
+            npm_command=npm_command,
+            as_module=as_module,
+            dependencies=service_config.dependencies,
+            spawn_console=service_config.spawn_console,
+            display_name=service_config.display_name,
+            description=service_config.description,
+            category=service_config.category,
+            icon=service_config.icon
+        )
+        
+        manager.register_service(service)
+        print(f"   ✅ Registered: {service_name} (port {service_config.port})")
     
     print()
     print(f"✅ Total services registered: {len(manager.services)}")
@@ -188,17 +174,18 @@ def main():
         # Configure CORS from config
         print()
         print("🔒 Configuring CORS...")
-        print(f"   Allowed origins: {', '.join(launcher_config.launcher_cors_origins)}")
-        configure_cors(launcher_config.launcher_cors_origins)
+        print(f"   Allowed origins: {', '.join(launcher_config.cors_origins)}")
+        configure_cors(launcher_config.cors_origins)
         
         print()
         print("=" * 70)
         print("🌐 Starting API Server")
         print("=" * 70)
         print()
-        print(f"   Server URL:     http://localhost:{launcher_config.launcher_api_port}")
-        print(f"   WebSocket:      ws://localhost:{launcher_config.launcher_api_port}/events")
-        print(f"   API Docs:       http://localhost:{launcher_config.launcher_api_port}/docs")
+        print(f"   Server URL:     http://localhost:{launcher_config.api_port}")
+        print(f"   WebSocket:      ws://localhost:{launcher_config.api_port}/events")
+        print(f"   Socket.IO:      http://localhost:{launcher_config.api_port}/socket.io")
+        print(f"   API Docs:       http://localhost:{launcher_config.api_port}/docs")
         print()
         print("📡 Available Endpoints:")
         print("   GET  /services                    - List all services")
@@ -221,11 +208,23 @@ def main():
             """Start the health monitoring task."""
             asyncio.create_task(manager._monitor_health())
         
-        # Run FastAPI with uvicorn
+        # Create combined ASGI app with Socket.IO
+        print()
+        print("🔌 Integrating Socket.IO server...")
+        # Socket.IO must wrap the FastAPI app, not be mounted
+        # NOTE: python-socketio expects socketio_path WITHOUT leading slash ('socket.io').
+        # The JS client normally sends '/socket.io'. Engine.IO strips leading slash.
+        combined_app = socketio.ASGIApp(
+            sio,
+            other_asgi_app=app,
+            socketio_path='socket.io'
+        )
+        
+        # Run combined app with uvicorn
         uvicorn.run(
-            app,
+            combined_app,
             host="0.0.0.0",
-            port=launcher_config.launcher_api_port,
+            port=launcher_config.api_port,
             log_level="info"
         )
         

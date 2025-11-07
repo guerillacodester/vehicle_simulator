@@ -26,7 +26,7 @@ class LauncherApplication:
         # Load configuration
         self.config_manager = ConfigurationManager(config_path)
         self.launcher_config = self.config_manager.get_launcher_config()
-        self.infra_config = self.config_manager.get_infrastructure_config()
+        self.service_configs = self.config_manager.get_service_configs()
         
         # Initialize dependencies
         self.health_checker = HealthChecker()
@@ -35,7 +35,7 @@ class LauncherApplication:
         
         # Initialize service factory
         root_path = config_path.parent
-        self.service_factory = ServiceFactory(root_path, self.launcher_config, self.infra_config)
+        self.service_factory = ServiceFactory(root_path)
     
     def run(self):
         """Execute the staged startup sequence."""
@@ -96,7 +96,12 @@ class LauncherApplication:
         print("=" * 70)
         print()
         
-        strapi_service = self.service_factory.create_strapi_service()
+        strapi_config = self.service_configs.get('strapi')
+        if not strapi_config or not strapi_config.enabled:
+            print("   ⏭️  Strapi not enabled - skipping")
+            return True
+        
+        strapi_service = self.service_factory.create_service_definition(strapi_config)
         
         if not strapi_service:
             print("   ❌ Strapi directory not found")
@@ -108,12 +113,17 @@ class LauncherApplication:
     
     def _stage_gpscentcom(self) -> bool:
         """Stage 3: Launch GPSCentCom."""
-        gps_service = self.service_factory.create_gpscentcom_service()
-        
-        if not gps_service:
+        gps_config = self.service_configs.get('gpscentcom')
+        if not gps_config or not gps_config.enabled:
             print("   ⏭️  GPSCentCom disabled - skipping")
             print()
             return True  # Not required
+        
+        gps_service = self.service_factory.create_service_definition(gps_config)
+        
+        if not gps_service:
+            print("   ❌ GPSCentCom service creation failed")
+            return False
         
         print("=" * 70)
         print("STAGE 3: GPSCentCom Server")
@@ -141,13 +151,19 @@ class LauncherApplication:
         """Stage 5: Launch simulators in parallel."""
         simulators = []
         
-        vehicle_sim = self.service_factory.create_vehicle_simulator_service()
-        if vehicle_sim:
-            simulators.append(vehicle_sim)
+        # Check vehicle simulator
+        vehicle_config = self.service_configs.get('vehicle_simulator')
+        if vehicle_config and vehicle_config.enabled:
+            vehicle_sim = self.service_factory.create_service_definition(vehicle_config)
+            if vehicle_sim:
+                simulators.append(vehicle_sim)
         
-        commuter_sim = self.service_factory.create_commuter_service_service()
-        if commuter_sim:
-            simulators.append(commuter_sim)
+        # Check commuter service
+        commuter_config = self.service_configs.get('commuter_service')
+        if commuter_config and commuter_config.enabled:
+            commuter_sim = self.service_factory.create_service_definition(commuter_config)
+            if commuter_sim:
+                simulators.append(commuter_sim)
         
         if not simulators:
             return
@@ -164,9 +180,12 @@ class LauncherApplication:
         """Stage 6: Launch fleet services."""
         services = []
         
-        geospatial = self.service_factory.create_geospatial_service()
-        if geospatial:
-            services.append(geospatial)
+        # Check geospatial service
+        geospatial_config = self.service_configs.get('geospatial')
+        if geospatial_config and geospatial_config.enabled:
+            geospatial = self.service_factory.create_service_definition(geospatial_config)
+            if geospatial:
+                services.append(geospatial)
         
         if not services:
             return

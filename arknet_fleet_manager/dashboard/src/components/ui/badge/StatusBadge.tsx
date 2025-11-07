@@ -28,6 +28,11 @@ const statusConfig: Record<ServiceState, { variant: 'default' | 'success' | 'war
     label: 'HEALTHY',
     emoji: '🟢',
   },
+  [ServiceState.UNHEALTHY]: {
+    variant: 'error',
+    label: 'UNHEALTHY',
+    emoji: '🟠',
+  },
   [ServiceState.FAILED]: {
     variant: 'error',
     label: 'FAILED',
@@ -37,6 +42,16 @@ const statusConfig: Record<ServiceState, { variant: 'default' | 'success' | 'war
 
 export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   const config = statusConfig[status];
+
+  // Handle unknown status values
+  if (!config) {
+    return (
+      <Badge variant="neutral" size={size}>
+        <span style={{ marginRight: '4px' }}>⚪</span>
+        {String(status).toUpperCase()}
+      </Badge>
+    );
+  }
 
   return (
     <Badge variant={config.variant} size={size}>
