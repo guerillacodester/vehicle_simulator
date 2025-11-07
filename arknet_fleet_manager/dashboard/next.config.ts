@@ -3,9 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
-  turbopack: {
-    root: ".",
-  },
+  // Disable Turbopack due to internal errors - use webpack instead
+  // turbopack: {
+  //   root: ".",
+  // },
 };
 
 export default nextConfig;

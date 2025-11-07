@@ -15,6 +15,7 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import httpx
@@ -495,6 +496,18 @@ class ServiceManager:
 # Create FastAPI app
 app = FastAPI(title="ArkNet Service Manager", version="1.0.0")
 manager = ServiceManager()
+
+# Configure CORS - will be set from config by launcher_server.py
+# This is just a placeholder, actual origins are loaded from config.ini
+def configure_cors(cors_origins: list):
+    """Configure CORS middleware with origins from config."""
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.on_event("startup")

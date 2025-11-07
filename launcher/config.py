@@ -19,6 +19,10 @@ class LauncherConfig:
     simulator_delay: int
     service_startup_wait: int
     
+    # API configuration
+    launcher_api_port: int
+    launcher_cors_origins: list
+    
     # Subsystem enable flags
     enable_gpscentcom: bool
     enable_geospatial: bool
@@ -65,12 +69,18 @@ class ConfigurationManager:
         """Get launcher-specific configuration."""
         launcher = self.config['launcher']
         
+        # Parse CORS origins
+        cors_origins_str = launcher.get('launcher_cors_origins', 'http://localhost:3000')
+        cors_origins = [origin.strip() for origin in cors_origins_str.split(',')]
+        
         return LauncherConfig(
             monitor_port=launcher.getint('monitor_port', 8000),
             strapi_startup_wait=launcher.getint('strapi_startup_wait', 15),
             gpscentcom_startup_wait=launcher.getint('gpscentcom_startup_wait', 10),
             simulator_delay=launcher.getint('simulator_delay', 5),
             service_startup_wait=launcher.getint('service_startup_wait', 8),
+            launcher_api_port=launcher.getint('launcher_api_port', 7000),
+            launcher_cors_origins=cors_origins,
             enable_gpscentcom=launcher.getboolean('enable_gpscentcom', True),
             enable_geospatial=launcher.getboolean('enable_geospatial', True),
             enable_vehicle_simulator=launcher.getboolean('enable_vehicle_simulator', False),
