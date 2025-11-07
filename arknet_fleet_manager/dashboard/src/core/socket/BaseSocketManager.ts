@@ -1,5 +1,6 @@
 // Base Socket.IO Manager following SOLID principles
 import { io, Socket } from 'socket.io-client';
+import { createComponentLogger } from '../../lib/observability';
 import {
   ISocketConnectionManager,
   ISocketReconnectionStrategy,
@@ -46,70 +47,131 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
   protected reconnectAttempts = 0;
   protected connectionListeners: Array<(status: SocketConnectionStatus) => void> = [];
   protected eventBus = new SocketEventBus<unknown>();
+  // No polling: remove custom heartbeat/backoff timers; rely on Socket.IO reconnection
+  private readonly logger = createComponentLogger('SocketManager');
+  // Heartbeat configuration
+  private heartbeatTimer?: ReturnType<typeof setInterval>;
+  private readonly heartbeatIntervalMs: number = 5000; // configurable cadence
+  private missedHeartbeats = 0;
+  private readonly maxMissedHeartbeats = 2; // after N misses trigger reconnect
+  private heartbeatAckTimeouts: Map<number, ReturnType<typeof setTimeout>> = new Map();
+  private boundOnlineHandler?: () => void;
+  private boundVisibilityHandler?: () => void;
 
   constructor(
     protected config: ISocketConfig,
     protected reconnectionStrategy: ISocketReconnectionStrategy = new ExponentialBackoffReconnectionStrategy()
   ) {}
+  
+  private attachWindowConnectivityHooks(): void {
+    if (typeof window === 'undefined') return;
+    if (!this.boundOnlineHandler) {
+      this.boundOnlineHandler = () => {
+        // If browser regained connectivity, try to reconnect immediately (no polling)
+        if (this.socket && !this.socket.connected) {
+          try { this.socket.connect(); } catch {}
+        }
+      };
+      window.addEventListener('online', this.boundOnlineHandler);
+    }
+    if (!this.boundVisibilityHandler) {
+      this.boundVisibilityHandler = () => {
+        if (document.visibilityState === 'visible' && this.socket && !this.socket.connected) {
+          try { this.socket.connect(); } catch {}
+        }
+      };
+      window.addEventListener('visibilitychange', this.boundVisibilityHandler);
+    }
+  }
+  
+  private detachWindowConnectivityHooks(): void {
+    if (typeof window === 'undefined') return;
+    if (this.boundOnlineHandler) {
+      window.removeEventListener('online', this.boundOnlineHandler);
+      this.boundOnlineHandler = undefined;
+    }
+    if (this.boundVisibilityHandler) {
+      window.removeEventListener('visibilitychange', this.boundVisibilityHandler);
+      this.boundVisibilityHandler = undefined;
+    }
+  }
 
   async connect(): Promise<void> {
     if (this.socket?.connected) {
-      console.log('[BaseSocketManager] Already connected');
+      this.logger.debug('Already connected');
       return;
     }
 
-    console.log('[BaseSocketManager] Connecting to', this.config.url);
+    // If we're already trying to connect, don't create a new attempt
+    if (this.connectionState === SocketConnectionState.CONNECTING) {
+      this.logger.debug('Connection attempt already in progress');
+      return;
+    }
+  this.logger.info('Connecting', { metadata: { url: this.config.url } });
     this.updateConnectionState(SocketConnectionState.CONNECTING);
 
     try {
-      this.socket = io(this.config.url, this.config.options);
+      // Clean up existing socket if any
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
+        this.socket = null;
+      }
+
+  this.socket = io(this.config.url, this.config.options);
 
       this.setupSocketEventHandlers();
       this.setupCustomEventHandlers();
+  this.attachWindowConnectivityHooks();
+  this.startHeartbeat();
 
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          console.error('[BaseSocketManager] Connection timeout after', this.config.options?.timeout || 10000, 'ms');
+          this.logger.error('Connection timeout', new Error('timeout'), { metadata: { timeoutMs: this.config.options?.timeout || 10000 } });
           this.updateConnectionState(SocketConnectionState.DISCONNECTED);
           reject(new Error('Connection timeout'));
         }, this.config.options?.timeout || 10000);
 
         this.socket!.once('connect', () => {
-          console.log('[BaseSocketManager] Successfully connected!');
+          this.logger.info('Connected');
           clearTimeout(timeout);
           this.reconnectionStrategy.reset();
           this.reconnectAttempts = 0;
+          
+          // Built-in reconnection paths only
+          
           this.updateConnectionState(SocketConnectionState.CONNECTED);
           resolve();
         });
 
         this.socket!.once('connect_error', (error) => {
-          console.warn('[BaseSocketManager] Connection error:', error.message || error);
+          this.logger.warn('Connection error', { metadata: { errorMessage: (error as Error).message || String(error) } });
           clearTimeout(timeout);
           this.handleConnectionError(error);
-          // If connection fails, set state to DISCONNECTED
-          this.updateConnectionState(SocketConnectionState.DISCONNECTED);
           reject(error);
         });
 
         // Manually trigger connection if autoConnect is false
         if (this.config.options?.autoConnect === false) {
-          console.log('[BaseSocketManager] Manually triggering connection (autoConnect=false)');
+          this.logger.debug('Manual connect trigger (autoConnect false)');
           this.socket!.connect();
         }
       });
     } catch (error) {
-      console.error('[BaseSocketManager] Exception during connect:', error);
+      this.logger.error('Exception during connect', error as Error);
       this.handleConnectionError(error as Error);
       throw error;
     }
   }
 
   async disconnect(): Promise<void> {
+    // Intentional disconnect, no polling cleanup needed
+    this.detachWindowConnectivityHooks();
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.stopHeartbeat();
     this.updateConnectionState(SocketConnectionState.DISCONNECTED);
     this.reconnectionStrategy.reset();
     this.reconnectAttempts = 0;
@@ -119,7 +181,7 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
     if (this.socket?.connected) {
       this.socket.emit(event, data);
     } else {
-      console.warn('[BaseSocketManager] Cannot emit event: socket not connected', event);
+      this.logger.warn('Emit failed - not connected', { metadata: { event } });
     }
   }
 
@@ -234,49 +296,61 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
 
     // Set up socket event handlers that publish to the event bus
     this.socket.on('connect', () => {
-      console.log('[BaseSocketManager] Connected to server');
+      this.logger.debug('Low-level connect event');
       this.reconnectionStrategy.reset();
       this.reconnectAttempts = 0;
       this.updateConnectionState(SocketConnectionState.CONNECTED);
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('[BaseSocketManager] Disconnected:', reason);
+      this.logger.info('Disconnected', { metadata: { reason } });
       this.updateConnectionState(SocketConnectionState.DISCONNECTED);
+      this.stopHeartbeat();
 
-      if (reason === 'io server disconnect' || reason === 'io client disconnect') {
-        // Don't auto-reconnect for intentional disconnects
+      if (reason === 'io client disconnect') {
+        // Client asked to disconnect; do not auto-reconnect
+        this.logger.debug('Client-initiated disconnect - not reconnecting');
         return;
       }
-
-      this.attemptReconnection();
+      if (reason === 'io server disconnect') {
+        // Per Socket.IO docs: server disconnect requires manual connect()
+        this.logger.debug('Server-initiated disconnect - manual reconnect');
+        try { this.socket?.connect(); } catch {}
+        return;
+      }
+      // For other reasons (transport close, ping timeout), built-in reconnection will handle it
     });
 
     this.socket.on('connect_error', (error) => {
-      console.warn('[BaseSocketManager] Connection error (will retry):', error.message || error);
+      // Only log connection errors if we're not already reconnecting
+    if (this.connectionState !== SocketConnectionState.RECONNECTING) {
+      this.logger.warn('Connect error', { metadata: { errorMessage: (error as Error).message || String(error) } });
+      }
       this.handleConnectionError(error);
     });
 
+    // Built-in reconnection lifecycle (no polling, websocket-only transport)
     this.socket.on('reconnect_attempt', (attempt) => {
-      console.log(`[BaseSocketManager] Reconnection attempt ${attempt}`);
       this.reconnectAttempts = attempt;
       this.updateConnectionState(SocketConnectionState.RECONNECTING);
+      if (attempt <= 3 || attempt % 5 === 1) {
+        this.logger.info('Reconnect attempt', { metadata: { attempt } });
+      }
     });
-
     this.socket.on('reconnect', (attempt) => {
-      console.log(`[BaseSocketManager] Reconnected after ${attempt} attempts`);
+      this.logger.info('Reconnected', { metadata: { attempt } });
+      this.reconnectionStrategy.reset();
       this.reconnectAttempts = 0;
       this.updateConnectionState(SocketConnectionState.CONNECTED);
+      this.missedHeartbeats = 0;
+      this.startHeartbeat();
     });
-
-    this.socket.on('reconnect_error', (error) => {
-      console.warn('[BaseSocketManager] Reconnection error:', error.message || error);
-      this.handleConnectionError(error);
+    this.socket.on('reconnect_error', (err) => {
+      this.logger.warn('Reconnect error', { metadata: { errorMessage: (err as Error).message || String(err) } });
     });
-
     this.socket.on('reconnect_failed', () => {
-      console.log('[BaseSocketManager] Reconnection failed');
-      this.updateConnectionState(SocketConnectionState.ERROR);
+      this.logger.warn('Reconnect failed - giving up');
+      this.updateConnectionState(SocketConnectionState.DISCONNECTED);
     });
 
     // Set up custom event forwarding to event bus
@@ -294,42 +368,96 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
         'reconnect', 'reconnect_error', 'reconnect_failed'
       ];
       if (!builtInEvents.includes(event)) {
-        try {
-          console.debug('[BaseSocketManager] Forwarding event', event, args[0]);
-        } catch {}
+        this.logger.debug('Forwarding event', { metadata: { event, payloadPreview: args[0] } });
         this.eventBus.publish(event, args[0]);
       }
     });
   }
 
   private handleConnectionError(error: Error): void {
-    this.updateConnectionState(SocketConnectionState.ERROR);
+    // Don't update state if we're already reconnecting
+    if (this.connectionState !== SocketConnectionState.RECONNECTING) {
+      this.updateConnectionState(SocketConnectionState.ERROR);
+    }
+    // Increment attempt counter (used by event handlers for visibility)
+    this.reconnectAttempts++;
 
-    if (this.reconnectionStrategy.shouldReconnect(error)) {
-      this.attemptReconnection();
-    } else {
-      // If not reconnecting, set state to DISCONNECTED
+    // If strategy says no reconnect, move to disconnected
+    if (!this.reconnectionStrategy.shouldReconnect(error)) {
       this.updateConnectionState(SocketConnectionState.DISCONNECTED);
     }
   }
 
-  private attemptReconnection(): void {
-    const delay = this.reconnectionStrategy.getReconnectDelay(this.reconnectAttempts);
+  // ---------------- Heartbeat -----------------
+  private startHeartbeat(): void {
+    this.stopHeartbeat(); // ensure clean
+    if (!this.socket) return;
+    this.logger.debug('Starting heartbeat', { metadata: { intervalMs: this.heartbeatIntervalMs } });
+    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), this.heartbeatIntervalMs);
+    // Immediately send first heartbeat for faster detection
+    this.sendHeartbeat();
+    // Listen for ack
+    this.socket.on('dashboard_heartbeat_ack', (payload: { ts: number }) => {
+      if (payload?.ts) {
+        const timeoutHandle = this.heartbeatAckTimeouts.get(payload.ts);
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          this.heartbeatAckTimeouts.delete(payload.ts);
+        }
+        this.missedHeartbeats = 0; // reset miss counter
+      }
+    });
+  }
 
-    if (delay > 0) {
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
+    // Clear pending ack timeouts
+    for (const handle of this.heartbeatAckTimeouts.values()) {
+      clearTimeout(handle);
+    }
+    this.heartbeatAckTimeouts.clear();
+  }
+
+  private sendHeartbeat(): void {
+    if (!this.socket || !this.socket.connected) return;
+    const ts = Date.now();
+    try {
+      this.socket.emit('dashboard_heartbeat', { ts });
+      // Set an ack timeout for this heartbeat
+      const ackTimeout = setTimeout(() => {
+        this.heartbeatAckTimeouts.delete(ts);
+        this.missedHeartbeats++;
+        this.logger.warn('Heartbeat ack missed', { metadata: { ts, missedHeartbeats: this.missedHeartbeats } });
+        if (this.missedHeartbeats >= this.maxMissedHeartbeats) {
+          this.logger.warn('Heartbeat threshold exceeded - forcing reconnect');
+          this.forceReconnect();
+        }
+      }, Math.min(this.heartbeatIntervalMs - 100, 4000));
+      this.heartbeatAckTimeouts.set(ts, ackTimeout);
+    } catch (err) {
+      this.logger.error('Heartbeat emit failed', err as Error);
+    }
+  }
+
+  private forceReconnect(): void {
+    if (!this.socket) return;
+    this.stopHeartbeat();
+    try {
+      this.socket.disconnect();
+    } catch {}
+    this.updateConnectionState(SocketConnectionState.RECONNECTING);
+    this.missedHeartbeats = 0;
+    // Immediate fresh connect attempt
+    this.connect().catch(() => {
+      // If connect fails, schedule a follow-up short retry without polling loop
       setTimeout(() => {
         if (this.connectionState !== SocketConnectionState.CONNECTED) {
-          console.log(`[BaseSocketManager] Attempting reconnection in ${delay}ms`);
-          this.connect().catch(err => {
-            console.error('[BaseSocketManager] Reconnection failed:', err);
-            // If reconnection fails, set state to DISCONNECTED
-            this.updateConnectionState(SocketConnectionState.DISCONNECTED);
-          });
+          this.connect().catch(() => {});
         }
-      }, delay);
-    } else {
-      console.log('[BaseSocketManager] Max reconnection attempts reached');
-      this.updateConnectionState(SocketConnectionState.DISCONNECTED);
-    }
+      }, 750);
+    });
   }
 }

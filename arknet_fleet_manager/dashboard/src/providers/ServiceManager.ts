@@ -2,6 +2,7 @@
 // Centralized module to manage all services (gpscentcom_server, simulator, etc.)
 
 import { ServiceSocketManager } from '../core/socket';
+import { createComponentLogger } from '../lib/observability';
 import { SocketConnectionState, SocketConnectionStatus } from '../interfaces/socket';
 
 export enum ServiceState {
@@ -62,6 +63,7 @@ class ServiceManager implements ServiceManagerInterface {
   private socketManager: ServiceSocketManager;
   private listeners: Array<(status: ServiceStatus) => void> = [];
   private serviceListeners: Record<string, Array<(status: ServiceStatus) => void>> = {};
+  private readonly logger = createComponentLogger('ServiceManager');
 
   private async loadServices() {
     try {
@@ -71,15 +73,15 @@ class ServiceManager implements ServiceManagerInterface {
         // Extract service names from the response
         this.services = servicesData.map(service => service.name);
         this.servicesLoaded = true;
-        console.log('[ServiceManager] Loaded services:', this.services);
+        this.logger.info('Loaded services', { metadata: { services: this.services } });
       } else {
-        console.warn('[ServiceManager] Failed to load services from API');
+        this.logger.warn('Failed to load services from API');
         // Don't use hardcoded fallback - services should be loaded from launcher
         this.services = [];
         this.servicesLoaded = true;
       }
     } catch (error) {
-      console.warn('[ServiceManager] Error loading services:', error);
+      this.logger.warn('Error loading services', { metadata: { errorMessage: (error as Error).message || String(error) } });
       // Don't use hardcoded fallback - services should be loaded from launcher
       this.services = [];
       this.servicesLoaded = true;
@@ -91,12 +93,9 @@ class ServiceManager implements ServiceManagerInterface {
     this.socketManager = new ServiceSocketManager({
       url: this.LAUNCHER_API_BASE,
       options: {
-        transports: ['websocket', 'polling'], // Prefer websocket, fallback to polling
+        transports: ['websocket', 'polling'], // Allow polling fallback so Socket.IO handshake can succeed and then upgrade
         timeout: 20000,
-        reconnection: true,
-        reconnectionAttempts: 0, // Infinite attempts
-        reconnectionDelay: 1000,
-        forceNew: true, // Always create new connection
+        reconnection: false, // We will use custom heartbeat-based reconnect (no dual loops)
         autoConnect: false, // We'll connect manually after setup
         auth: { // Add authentication
           token: 'dashboard-client'
@@ -110,7 +109,7 @@ class ServiceManager implements ServiceManagerInterface {
 
     // Connect to the launcher
     this.socketManager.connect().catch(err => {
-      console.error('[ServiceManager] Failed to connect to launcher:', err);
+      this.logger.error('Failed initial socket connect', err as Error);
     });
 
     // Load available services from the API
@@ -120,16 +119,16 @@ class ServiceManager implements ServiceManagerInterface {
   private setupServiceEventHandling(): void {
     // Subscribe to all service status updates
     this.socketManager.subscribeToServiceUpdates((status: ServiceStatus) => {
-      console.debug('[ServiceManager] socket update received', status);
+  this.logger.debug('Socket service update', { metadata: { service: status.name, state: status.state } });
       // Notify general listeners
       this.listeners.forEach(cb => {
-        try { cb(status); } catch (err) { console.error('listener error', err); }
+  try { cb(status); } catch (err) { this.logger.error('General listener error', err as Error); }
       });
 
       // Notify service-specific listeners
       if (this.serviceListeners[status.name]) {
         this.serviceListeners[status.name].forEach(cb => {
-          try { cb(status); } catch (err) { console.error('service listener error', err); }
+          try { cb(status); } catch (err) { this.logger.error('Service listener error', err as Error, { metadata: { service: status.name } }); }
         });
       }
     });
@@ -234,7 +233,7 @@ class ServiceManager implements ServiceManagerInterface {
 
   async startService(serviceName: string): Promise<{ success: boolean; message: string }> {
     try {
-      console.log(`Starting ${serviceName} via launcher API...`);
+  this.logger.info('Start service requested', { metadata: { service: serviceName } });
 
       const response = await fetch(`${this.LAUNCHER_API_BASE}/services/${serviceName}/start`, {
         method: 'POST',
@@ -257,7 +256,7 @@ class ServiceManager implements ServiceManagerInterface {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Failed to start ${serviceName}:`, errorMessage);
+  this.logger.error(`Failed to start service ${serviceName}`, error as Error);
       return {
         success: false,
         message: `Failed to start ${serviceName}: ${errorMessage}`
@@ -267,7 +266,7 @@ class ServiceManager implements ServiceManagerInterface {
 
   async stopService(serviceName: string): Promise<{ success: boolean; message: string }> {
     try {
-      console.log(`Stopping ${serviceName} via launcher API...`);
+  this.logger.info('Stop service requested', { metadata: { service: serviceName } });
 
       const response = await fetch(`${this.LAUNCHER_API_BASE}/services/${serviceName}/stop`, {
         method: 'POST',
@@ -288,7 +287,7 @@ class ServiceManager implements ServiceManagerInterface {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Failed to stop ${serviceName}:`, errorMessage);
+  this.logger.error(`Failed to stop service ${serviceName}`, error as Error);
       return {
         success: false,
         message: `Failed to stop ${serviceName}: ${errorMessage}`
@@ -298,7 +297,7 @@ class ServiceManager implements ServiceManagerInterface {
 
   async getServiceStatus(serviceName: string): Promise<{ success: boolean; status?: ServiceStatus; message?: string }> {
     try {
-      console.log(`Fetching status for ${serviceName}...`);
+  this.logger.debug('Fetch service status', { metadata: { service: serviceName } });
 
       const response = await fetch(`${this.LAUNCHER_API_BASE}/services/${serviceName}/status`);
 
@@ -320,7 +319,7 @@ class ServiceManager implements ServiceManagerInterface {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Failed to fetch status for ${serviceName}:`, errorMessage);
+  this.logger.error(`Failed to fetch status for ${serviceName}`, error as Error);
       return {
         success: false,
         message: `Failed to fetch status for ${serviceName}: ${errorMessage}`
@@ -330,7 +329,7 @@ class ServiceManager implements ServiceManagerInterface {
 
   async reloadConfig(): Promise<{ success: boolean; message: string; services?: string[] }> {
     try {
-      console.log('Reloading launcher configuration...');
+  this.logger.info('Reload config requested');
 
       const response = await fetch(`${this.LAUNCHER_API_BASE}/reload-config`, {
         method: 'POST',
@@ -359,7 +358,7 @@ class ServiceManager implements ServiceManagerInterface {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Failed to reload config:', errorMessage);
+  this.logger.error('Failed to reload config', error as Error);
       return {
         success: false,
         message: `Failed to reload configuration: ${errorMessage}`
@@ -369,7 +368,7 @@ class ServiceManager implements ServiceManagerInterface {
 
   async getAllServiceStatuses(): Promise<{ success: boolean; statuses?: ServiceStatus[]; message?: string }> {
     try {
-      console.log('Fetching statuses for all services...');
+  this.logger.debug('Fetch all service statuses');
 
       // Ensure services are loaded
       if (!this.servicesLoaded) {
@@ -390,7 +389,7 @@ class ServiceManager implements ServiceManagerInterface {
 
       return { success: true, statuses };
     } catch (error) {
-      console.error('Failed to fetch statuses for all services:', error);
+  this.logger.error('Failed to fetch all service statuses', error as Error);
       return { success: false, message: 'Failed to fetch statuses for all services.' };
     }
   }
@@ -400,7 +399,7 @@ class ServiceManager implements ServiceManagerInterface {
    */
   public destroy() {
     this.socketManager.disconnect().catch((err: unknown) => {
-      console.error('[ServiceManager] Error disconnecting:', err);
+      this.logger.error('Error disconnecting', err as Error);
     });
   }
 }

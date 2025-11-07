@@ -72,6 +72,9 @@ export interface ISocketConfig {
     reconnection?: boolean;
     reconnectionAttempts?: number;
     reconnectionDelay?: number;
+    // Optional advanced Socket.IO reconnection tuning
+    reconnectionDelayMax?: number;
+    randomizationFactor?: number;
     autoConnect?: boolean;
     auth?: Record<string, string>;
     path?: string;
