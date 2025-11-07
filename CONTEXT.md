@@ -1,98 +1,132 @@
 # ArkNet Vehicle Simulator - Project Context
 
-**Project**: ArkNet Fleet Manager & Vehicle Simulator  
-**Repository**: vehicle_simulator  
-**Branch**: branch-0.0.3.3  
-**Date**: November 7, 2025  
-**Status**: 🚀 Transitioning to Component-Driven Development
-**Current Phase**: Component Design & Testing
+**Project**: ArkNet Fleet Manager & Vehicle Simulator
+**Repository**: vehicle_simulator
+**Branch**: branch-0.0.3.3
+**Date**: November 7, 2025
+**Status**: 🚀 Production-Grade Dashboard Implementation
+**Current Phase**: Component Architecture & Service Management
 
-> **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
+> **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.---
 
----
-
-## 🚀 Transition to Component-Driven Development
+## 🚀 **CURRENT STATUS: Production-Grade Next.js Dashboard**
 
 ### Overview
-We are transitioning to a **component-driven development** approach to ensure reusability, scalability, and maintainability. The project will follow the **MVVM (Model-View-ViewModel)** architecture to separate concerns and streamline development.
+The project has successfully transitioned to a **production-grade Next.js dashboard** with a comprehensive component architecture. The dashboard provides real-time service management capabilities with a professional UI/UX design system.
 
-### Key Principles
-1. **Reusability**: Components are modular and adaptable to different data contexts.
-2. **MVVM Structure**:
-   - **Model**: Data layer (e.g., API calls, Zustand state management).
-   - **ViewModel**: Intermediary layer for data transformation.
-   - **View**: UI components for rendering data.
-3. **Data-Driven Design**: Components are designed to accept data as props or through context/state management.
+### Key Achievements
+1. **✅ Component Architecture**: Fully implemented reusable component library with theme system
+2. **✅ Service Management**: Real-time service orchestration via WebSocket + REST API
+3. **✅ Professional UI**: Light/dark theme system with consistent design tokens
+4. **✅ Routing Structure**: Organized navigation with landing page and service management
+5. **✅ Production Ready**: End-to-end tested with launcher service integration
 
-### Updated Folder Structure
+### Current Architecture
 ```
-src/
-├── components/       # Reusable UI components
-│   ├── Breadcrumb/
-│   ├── Card/
-│   ├── DashboardLayout/
-├── views/            # View layer (UI composition)
-│   ├── CountryDashboard/
-│   ├── DepotDashboard/
-│   ├── DetailDashboard/
-├── viewmodels/       # ViewModel layer (data transformation)
-│   ├── useCountryData.js
-│   ├── useDepotData.js
-│   ├── useDetailData.js
-├── models/           # Model layer (state management, API calls)
-│   ├── countryStore.js
-│   ├── depotStore.js
-│   ├── detailStore.js
+arknet_fleet_manager/dashboard/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── page.tsx           # Landing page with feature cards
+│   │   └── services/          # Service management page
+│   │       └── page.tsx
+│   ├── components/            # Component Library (Organized)
+│   │   ├── ui/               # Base UI Components
+│   │   │   ├── button/       # Button variants
+│   │   │   ├── card/         # Card components
+│   │   │   ├── badge/        # Badge & StatusBadge
+│   │   │   └── index.ts      # UI exports
+│   │   ├── layout/           # Layout Components
+│   │   │   └── DashboardLayout.tsx
+│   │   ├── features/         # Feature-Specific Components
+│   │   │   └── ServiceCard.tsx
+│   │   └── landing/          # Landing Page Components
+│   │       ├── HeroSection.tsx
+│   │       ├── FeatureCard.tsx
+│   │       └── FeatureGrid.tsx
+│   ├── contexts/             # React Contexts
+│   │   └── ThemeContext.tsx # Theme provider
+│   ├── lib/                  # Utilities
+│   │   └── theme.ts         # Design tokens
+│   └── providers/           # Data Providers
+│       └── ServiceManager.ts # Service orchestration
 ```
 
-### Next Steps
-1. **Core Components**: Design and test foundational components (e.g., Breadcrumb, Card, Dashboard Layout).
-2. **Dashboard-Specific Components**: Build components tailored to specific dashboard tiers.
-3. **Utility Components**: Implement additional components for enhanced functionality.
-4. **Integrate Components**: Assemble components into dashboards, starting with the Country Dashboard.
-
-### Execution Priority
-Refer to `TODO.md` for detailed task tracking and progress updates.
+### Technology Stack
+- **Framework**: Next.js 16.0.1 (React 19.2.0, TypeScript)
+- **Styling**: Theme-based CSS-in-JS with design tokens
+- **State**: React Context + WebSocket for real-time updates
+- **Backend**: FastAPI launcher service (Port 7000)
+- **Communication**: WebSocket + REST API integration
+- **Theme**: Light/Dark mode with localStorage persistence
 
 ---
 
-## 🎉 **MAJOR DEVELOPMENT MILESTONE - November 6, 2025**
+## 🎉 **MAJOR DEVELOPMENT MILESTONE - November 7, 2025**
 
-### ✅ Phase 0 Completion: Unified Service Architecture
+### ✅ **COMPLETED: Production-Grade Next.js Dashboard**
 
-**Achievement**: All 5 services (Strapi, GPSCentCom, Geospatial, Commuter Service, Vehicle Simulator) are now **unified and executable through a single `launch.py` entry point** with proper module-based execution.
+**Achievement**: Full production-grade dashboard with component architecture, service management, and professional UI/UX.
 
 **What This Means**:
-- ✅ Single command to start entire backend: `python launch.py`
-- ✅ Services auto-start in correct dependency order (staged startup)
-- ✅ Health checks verify each service before proceeding
-- ✅ Graceful shutdown handling
-- ✅ All services emit emojis and proper status indicators
-- ✅ Production-ready launcher pattern for systemd/container deployment
+- ✅ Professional Next.js 16 dashboard with TypeScript
+- ✅ Component-driven architecture with reusable UI library
+- ✅ Light/dark theme system with design tokens
+- ✅ Real-time service management via WebSocket + REST API
+- ✅ FastAPI launcher service integration (port 7000)
+- ✅ Organized routing structure (landing page + services)
+- ✅ Production-ready component organization and folder structure
 
-**Key Technical Fixes Applied**:
-1. Fixed geospatial_service: Changed from direct script execution to module pattern (`python -m geospatial_service`)
-2. Fixed commuter_service: Unified module execution
-3. Fixed launch.py: Added UTF-8 encoding support for emoji output on Windows console
-4. Unified configuration: All services managed through single ConfigurationManager
-5. Clean root directory: Only 2 production Python scripts (launch.py, service_main.py) in root
+**Key Technical Achievements**:
+1. **Component Architecture**: Organized into logical folders (ui/, layout/, features/, landing/)
+2. **Theme System**: Complete light/dark mode with localStorage persistence
+3. **Service Management**: Real-time WebSocket updates for service status
+4. **UI Components**: Button, Card, Badge, StatusBadge with theme-aware styling
+5. **Layout System**: DashboardLayout with header and theme toggle
+6. **Landing Experience**: Professional welcome page with feature navigation
 
 **Code Quality Improvements**:
-- Deleted 13+ junk files from root directory
-- Consolidated 7 separate .md documentation files into CONTEXT.md + TODO.md only
-- Created comprehensive .env.example documentation
-- No circular dependencies
-- All imports verified working
-- Clean architecture ready for next phase
+- Component-based architecture for maintainability
+- TypeScript throughout for type safety
+- Theme system for consistent design
+- Logical folder organization
+- Reusable component library
+- Clean separation of concerns
 
----
+### Component Organization Structure
+```
+src/components/
+├── ui/                    # Base UI Components (categorized)
+│   ├── button/           # Button variants and styles
+│   ├── card/             # Enhanced Card with 3D effects, hover states, compact sizing
+│   ├── badge/            # Badge and StatusBadge components
+│   └── index.ts         # Centralized UI exports
+├── layout/               # Layout Components
+│   └── DashboardLayout.tsx  # Main dashboard wrapper with navigation
+├── features/             # Feature-Specific Components
+│   └── ServiceCard.tsx  # Enhanced service management card with icons and monospace display
+├── landing/              # Landing Page Components
+│   ├── HeroSection.tsx  # Welcome hero section
+│   ├── FeatureCard.tsx  # Feature navigation cards with consistent sizing
+│   ├── FeatureGrid.tsx  # Grid layout for features with uniform card heights
+│   └── index.ts         # Landing component exports
+└── index.ts             # Main component exports
+```
 
-## 🚀 **NEXT PHASE: Production-Grade Next.js GUI**
+### Enhanced UI/UX Features
+- **Card Consistency**: All cards use uniform 280px height with 3D shadows and hover effects
+- **Compact Design**: Optimized spacing and padding for better information density
+- **Global Theme**: Consistent color scheme across entire Next.js application
+- **Navigation System**: Header navigation with active state highlighting and hover effects
+- **Service Cards**: Enhanced with status icons, monospace port/PID display, improved badges
+- **Empty States**: Professional empty state design with clear messaging and visual hierarchy
+- **Controls Panel**: Styled control panel with gradient title and consistent theming
 
-**Rationale**: Console-based fleet manager served its purpose for testing and validation. Moving to Next.js GUI for:
-- Professional user experience (web-based, responsive, modern)
-- Real-time features (WebSocket integration for vehicle tracking, passenger events)
-- Analytics and reporting (dashboards, charts, KPIs)
+### Design System
+- **Theme Tokens**: Centralized color, spacing, typography, shadows
+- **Component Variants**: Consistent styling across light/dark modes
+- **Responsive Design**: Mobile-first approach with breakpoints
+- **Accessibility**: ARIA labels, keyboard navigation support
+- **Performance**: Optimized re-renders with React best practices
 - Scalability (React component architecture, API layer abstraction)
 - Maintainability (TypeScript, tests, documentation)
 - Team collaboration (design system, component library)

@@ -1,9 +1,17 @@
 // ServiceManager.ts
 // Centralized module to manage all services (gpscentcom_server, simulator, etc.)
 
-interface ServiceStatus {
+export enum ServiceState {
+  STOPPED = 'stopped',
+  STARTING = 'starting',
+  RUNNING = 'running',
+  HEALTHY = 'healthy',
+  FAILED = 'failed',
+}
+
+export interface ServiceStatus {
   name: string;
-  state: 'stopped' | 'starting' | 'running' | 'healthy' | 'unhealthy' | 'failed';
+  state: ServiceState;
   port?: number;
   message?: string;
   pid?: number;
