@@ -10,9 +10,7 @@ import {
   NetworkError,
   ValidationError,
   ConnectionError,
-  handleError,
-  retry,
-  isRetryableError
+  handleError
 } from '@/lib/observability';
 
 // ============================================================================
@@ -108,28 +106,21 @@ function handleConnectionFailure() {
 // RETRY LOGIC
 // ============================================================================
 
-// Retry a network operation
+// Simple retry example (local implementation for docs)
 async function connectWithRetry() {
-  return retry(
-    async () => {
+  const maxAttempts = 3;
+  const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
       const response = await fetch('http://localhost:7000/health');
-      if (!response.ok) {
-        throw new Error('Health check failed');
-      }
+      if (!response.ok) throw new Error('Health check failed');
       return response.json();
-    },
-    {
-      maxAttempts: 3,
-      delay: 1000,
-      backoff: 'exponential',
-      shouldRetry: isRetryableError,
-      onRetry: (attempt: number, error: Error) => {
-        serviceLogger.warn(`Retry attempt ${attempt}`, {
-          metadata: { error: error.message }
-        });
-      }
+    } catch (error) {
+      serviceLogger.warn(`Retry attempt ${attempt}`, { metadata: { error: (error as Error).message } });
+      if (attempt < maxAttempts) await delay(1000 * attempt);
+      else throw error;
     }
-  );
+  }
 }
 
 // ============================================================================

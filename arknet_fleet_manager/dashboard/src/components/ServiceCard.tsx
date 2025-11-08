@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, StatusBadge } from './ui';
 import { ServiceStatus } from '@/providers/ServiceManager';

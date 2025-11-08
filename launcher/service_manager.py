@@ -56,6 +56,8 @@ class ManagedService:
     extra_args: Optional[List[str]] = None
     dependencies: List[str] = field(default_factory=list)
     spawn_console: bool = False  # Whether to spawn in separate console window
+    # How long to wait (seconds) before performing health check after start
+    startup_wait: int = 10
     
     # UI Metadata
     display_name: Optional[str] = None
@@ -328,7 +330,10 @@ class ServiceManager:
                     await self._emit_event(progress_event)
                     await asyncio.sleep(0.5)  # Brief pause for UI update
                 
-                await asyncio.sleep(2)  # Give it time to bind port
+                # Wait for configured startup window before health check (allows slower services like Strapi)
+                wait_seconds = getattr(service, 'startup_wait', 2) or 2
+                startup_logger.info(f"Waiting {wait_seconds}s for {name} to bind before health check...")
+                await asyncio.sleep(wait_seconds)
                 healthy = await self._check_health(service)
                 if healthy:
                     service.state = ServiceState.HEALTHY
@@ -729,6 +734,7 @@ async def reload_config():
                 health_url=service_config.health_url,
                 dependencies=service_config.dependencies,
                 spawn_console=service_config.spawn_console,
+                startup_wait=service_config.startup_wait,
                 display_name=service_config.display_name,
                 description=service_config.description,
                 category=service_config.category,
