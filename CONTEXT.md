@@ -410,11 +410,11 @@ High-level responsibilities:
 - gpscentcom_server: existing telemetry server (source of raw telemetry). It publishes vehicle packets via WebSocket/TCP (configurable) to subscribers.
 - Connector (gpscentcom adapter): lightweight consumer that subscribes to `gpscentcom_server`, validates and normalizes raw messages into the canonical TelemetryPoint schema, and forwards them to the Telemetry Gateway ingestion endpoint or Redis stream.
 - Telemetry Gateway (FastAPI): central broker and ingestion service that:
-   - Exposes a secure WebSocket endpoint for dashboard and external clients: `/ws/telemetry`
-   - Exposes internal REST ingestion endpoint (protected) for connectors: `POST /internal/telemetry`
-   - Persists telemetry to Postgres/PostGIS via an async worker pipeline
-   - Provides REST endpoints for historical queries and latest position lookups
-   - Broadcasts validated telemetry to connected clients in near-real-time
+  - Exposes a secure WebSocket endpoint for dashboard and external clients: `/ws/telemetry`
+  - Exposes internal REST ingestion endpoint (protected) for connectors: `POST /internal/telemetry`
+  - Persists telemetry to Postgres/PostGIS via an async worker pipeline
+  - Provides REST endpoints for historical queries and latest position lookups
+  - Broadcasts validated telemetry to connected clients in near-real-time
 
 Data flow (sequence):
 1. `gpscentcom_server` emits raw telemetry packets (binary or JSON) on its feed.
