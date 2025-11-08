@@ -3,9 +3,9 @@
 **Project**: ArkNet Fleet Manager & Vehicle Simulator
 **Repository**: vehicle_simulator
 **Branch**: branch-0.0.3.3
-**Date**: November 7, 2025
-**Status**: 🚀 Production-Grade Dashboard Implementation
-**Current Phase**: Component Architecture & Service Management
+**Date**: November 8, 2025
+**Status**: 🚀 Production-Grade Dashboard Implementation (Dashboard build fix pending)
+**Current Phase**: Component Architecture, Service Management & Simulator Route Validation
 
 > **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.---
 
@@ -19,7 +19,11 @@ The project has successfully transitioned to a **production-grade Next.js dashbo
 2. **✅ Service Management**: Real-time service orchestration via WebSocket + REST API
 3. **✅ Professional UI**: Light/dark theme system with consistent design tokens
 4. **✅ Routing Structure**: Organized navigation with landing page and service management
-5. **✅ Production Ready**: End-to-end tested with launcher service integration
+5. **✅ Route Geometry Validation**: Dispatcher now fetches and concatenates ALL route shapes (Route 1 length ≈ 12.982 km)
+6. **✅ Distance & Speed Analysis**: Interval A→C along-route distance 10.222 km in 424.141 s (avg ≈ 86.8 km/h) consistent with 90 km/h instantaneous reading
+7. **✅ StatusBadge Enum Coverage**: Added missing `UNHEALTHY` mapping to prevent TypeScript build failure
+8. **✅ Driver Code Integrity**: Reverted temporary auto-stop modification; awaiting chosen implementation strategy
+9. **⏳ Build Verification Pending**: Need to re-run dashboard build to confirm StatusBadge fix
 
 ### Current Architecture
 ```
@@ -62,6 +66,39 @@ arknet_fleet_manager/dashboard/
 ---
 
 ## 🎉 **MAJOR DEVELOPMENT MILESTONE - November 7, 2025**
+
+## 🔄 Recent Updates — November 8, 2025
+
+### Simulator & Route Diagnostics
+- Dispatcher now aggregates all Strapi route shapes; verified Route 1 length ≈ 12.982 km (indices 0→394).
+- Start GPS fix snapped to polyline index 64 (offset 32 m); end fix at terminal index 394.
+- Straight-line distance: 7.383 km; along-route subpath: 10.222 km.
+- Elapsed time: 424.141 s ⇒ avg along-route speed ≈ 86.8 km/h (consistent with 90 km/h instantaneous reading).
+- Conclusion: Route traversal logic correct; no premature termination.
+
+### Engine Auto-Stop Planning (No Code Yet)
+- Goal: Auto-stop engine at route completion without disrupting current continuous simulation.
+- Options: (A) Driver-local terminal check; (B) Simulator orchestration watcher; (C) Conductor policy event.
+- Decision Pending: Await selection—recommend (B) for clearer separation of concerns.
+
+### Dashboard Build Fix
+- Issue: Missing `UNHEALTHY` mapping in `StatusBadge` caused TypeScript Record completeness error.
+- Fix: Added mapping (variant: warning, label: UNHEALTHY, emoji: 🟠). Build verification still pending.
+
+### Next Actions
+1. Re-run dashboard build to confirm fix.
+2. Choose engine auto-stop approach and implement minimal event emission.
+3. Add regression test ensuring consumed route distance ≤ 12.982 km + ε.
+4. Extend dashboard to differentiate UNHEALTHY vs FAILED styling semantics.
+5. Document chosen engine-stop approach in this file & update TODO.md accordingly.
+
+### Risks / Watch Items
+- Auto-stop must allow future multi-loop or dwell behaviors (configurable post-completion policy).
+- Need to ensure dispatcher continues to handle potential shape ordering edge cases (currently assumed correct order from Strapi).
+
+### Assumptions
+- Speed telemetry instantaneous values may exceed average by a few percent—current variance acceptable.
+- Route geometry stable; no dynamic mid-route shape mutations expected.
 
 ### ✅ **COMPLETED: Production-Grade Next.js Dashboard**
 

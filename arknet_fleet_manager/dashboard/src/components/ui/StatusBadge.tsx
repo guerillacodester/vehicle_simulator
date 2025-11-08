@@ -28,6 +28,11 @@ const statusConfig: Record<ServiceState, { variant: 'default' | 'success' | 'war
     label: 'HEALTHY',
     emoji: '🟢',
   },
+  [ServiceState.UNHEALTHY]: {
+    variant: 'warning',
+    label: 'UNHEALTHY',
+    emoji: '🟠',
+  },
   [ServiceState.FAILED]: {
     variant: 'error',
     label: 'FAILED',
