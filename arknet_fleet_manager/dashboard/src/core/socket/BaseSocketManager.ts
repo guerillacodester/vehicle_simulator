@@ -49,12 +49,13 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
   protected eventBus = new SocketEventBus<unknown>();
   // No polling: remove custom heartbeat/backoff timers; rely on Socket.IO reconnection
   private readonly logger = createComponentLogger('SocketManager');
-  // Heartbeat configuration
+  // Heartbeat configuration (tuned for immediate detection)
   private heartbeatTimer?: ReturnType<typeof setInterval>;
-  private readonly heartbeatIntervalMs: number = 5000; // configurable cadence
+  private readonly heartbeatIntervalMs: number = 3000; // 3s cadence for faster detection
   private missedHeartbeats = 0;
-  private readonly maxMissedHeartbeats = 2; // after N misses trigger reconnect
+  private readonly maxMissedHeartbeats = 1; // trigger reconnect after just 1 miss (~3s response)
   private heartbeatAckTimeouts: Map<number, ReturnType<typeof setTimeout>> = new Map();
+  private onHeartbeatAckBound?: (payload: { ts: number }) => void;
   private boundOnlineHandler?: () => void;
   private boundVisibilityHandler?: () => void;
 
@@ -365,7 +366,9 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
       // Skip built-in socket.io events
       const builtInEvents = [
         'connect', 'disconnect', 'connect_error', 'reconnect_attempt',
-        'reconnect', 'reconnect_error', 'reconnect_failed'
+        'reconnect', 'reconnect_error', 'reconnect_failed',
+        // Also skip app-internal heartbeat traffic so UI doesn't re-render
+        'dashboard_heartbeat', 'dashboard_heartbeat_ack'
       ];
       if (!builtInEvents.includes(event)) {
         this.logger.debug('Forwarding event', { metadata: { event, payloadPreview: args[0] } });
@@ -397,7 +400,7 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
     // Immediately send first heartbeat for faster detection
     this.sendHeartbeat();
     // Listen for ack
-    this.socket.on('dashboard_heartbeat_ack', (payload: { ts: number }) => {
+    const ackHandler = (payload: { ts: number }) => {
       if (payload?.ts) {
         const timeoutHandle = this.heartbeatAckTimeouts.get(payload.ts);
         if (timeoutHandle) {
@@ -406,13 +409,23 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
         }
         this.missedHeartbeats = 0; // reset miss counter
       }
-    });
+    };
+    // ensure no duplicate handlers
+    if (this.onHeartbeatAckBound) {
+      this.socket.off('dashboard_heartbeat_ack', this.onHeartbeatAckBound);
+    }
+    this.onHeartbeatAckBound = ackHandler;
+    this.socket.on('dashboard_heartbeat_ack', this.onHeartbeatAckBound);
   }
 
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
+    }
+    if (this.socket && this.onHeartbeatAckBound) {
+      this.socket.off('dashboard_heartbeat_ack', this.onHeartbeatAckBound);
+      this.onHeartbeatAckBound = undefined;
     }
     // Clear pending ack timeouts
     for (const handle of this.heartbeatAckTimeouts.values()) {
@@ -445,19 +458,14 @@ export abstract class BaseSocketManager implements ISocketConnectionManager {
   private forceReconnect(): void {
     if (!this.socket) return;
     this.stopHeartbeat();
+    this.logger.warn('Forcing reconnect due to missed heartbeats');
     try {
       this.socket.disconnect();
-    } catch {}
+      this.socket.connect(); // Built-in reconnection will handle retry cadence
+    } catch (err) {
+      this.logger.error('Error during force reconnect', err as Error);
+    }
     this.updateConnectionState(SocketConnectionState.RECONNECTING);
     this.missedHeartbeats = 0;
-    // Immediate fresh connect attempt
-    this.connect().catch(() => {
-      // If connect fails, schedule a follow-up short retry without polling loop
-      setTimeout(() => {
-        if (this.connectionState !== SocketConnectionState.CONNECTED) {
-          this.connect().catch(() => {});
-        }
-      }, 750);
-    });
   }
 }

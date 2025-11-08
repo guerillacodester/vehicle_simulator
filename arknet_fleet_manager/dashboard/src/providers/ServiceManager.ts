@@ -64,6 +64,8 @@ class ServiceManager implements ServiceManagerInterface {
   private listeners: Array<(status: ServiceStatus) => void> = [];
   private serviceListeners: Record<string, Array<(status: ServiceStatus) => void>> = {};
   private readonly logger = createComponentLogger('ServiceManager');
+  // Cache last status per service to suppress duplicate events and avoid UI re-renders
+  private lastServiceStatuses: Record<string, ServiceStatus> = {};
 
   private async loadServices() {
     try {
@@ -94,8 +96,12 @@ class ServiceManager implements ServiceManagerInterface {
       url: this.LAUNCHER_API_BASE,
       options: {
         transports: ['websocket', 'polling'], // Allow polling fallback so Socket.IO handshake can succeed and then upgrade
-        timeout: 20000,
-        reconnection: false, // We will use custom heartbeat-based reconnect (no dual loops)
+        timeout: 5000, // Reduced to 5s for fast failure detection
+        reconnection: true, // Re-enable with tuned delays for immediate reconnect
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 200, // Start fast (200ms)
+        reconnectionDelayMax: 1500, // Cap at 1.5s
+        randomizationFactor: 0.2, // Small jitter
         autoConnect: false, // We'll connect manually after setup
         auth: { // Add authentication
           token: 'dashboard-client'
@@ -119,10 +125,25 @@ class ServiceManager implements ServiceManagerInterface {
   private setupServiceEventHandling(): void {
     // Subscribe to all service status updates
     this.socketManager.subscribeToServiceUpdates((status: ServiceStatus) => {
-  this.logger.debug('Socket service update', { metadata: { service: status.name, state: status.state } });
+      this.logger.debug('Socket service update', { metadata: { service: status.name, state: status.state } });
+      
+      // Suppress duplicate identical statuses to avoid unnecessary re-renders
+      const lastStatus = this.lastServiceStatuses[status.name];
+      if (lastStatus && 
+          lastStatus.state === status.state && 
+          lastStatus.port === status.port && 
+          lastStatus.pid === status.pid &&
+          lastStatus.message === status.message) {
+        this.logger.trace('Suppressed duplicate status event', { metadata: { service: status.name } });
+        return;
+      }
+      
+      // Update cache
+      this.lastServiceStatuses[status.name] = status;
+      
       // Notify general listeners
       this.listeners.forEach(cb => {
-  try { cb(status); } catch (err) { this.logger.error('General listener error', err as Error); }
+        try { cb(status); } catch (err) { this.logger.error('General listener error', err as Error); }
       });
 
       // Notify service-specific listeners

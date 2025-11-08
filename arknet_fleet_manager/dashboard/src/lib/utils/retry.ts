@@ -1,10 +1,15 @@
 /**
  * Retry utility for handling transient failures
  */
+// Import logger directly to avoid circular init with observability
+import { createLogger, ConsoleTransport, BufferTransport, LogLevel } from '@/lib/logger';
 
-import { createComponentLogger } from '@/lib/observability';
-
-const logger = createComponentLogger('RetryUtil');
+// Local lightweight logger to avoid importing observability (which depends on this file via re-exports in some bundlers)
+const retryLogger = createLogger('RetryUtil', {
+  minLevel: process.env.NODE_ENV === 'development' ? LogLevel.DEBUG : LogLevel.INFO,
+  transports: [new ConsoleTransport({ useColors: true, useEmoji: true }), new BufferTransport(500)],
+  enabled: true,
+});
 
 export interface RetryOptions {
   maxAttempts?: number;
@@ -69,14 +74,14 @@ export async function retry<T>(
 
   for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
     try {
-      logger.debug(`Attempting operation (attempt ${attempt}/${opts.maxAttempts})`);
+  retryLogger.debug(`Attempting operation (attempt ${attempt}/${opts.maxAttempts})`);
       return await operation();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
       // Check if we should retry this error
       if (!opts.shouldRetry(lastError)) {
-        logger.warn('Error is not retryable, throwing immediately', {
+        retryLogger.warn('Error is not retryable, throwing immediately', {
           metadata: { error: lastError.message }
         });
         throw lastError;
@@ -84,7 +89,7 @@ export async function retry<T>(
 
       // If this was the last attempt, throw the error
       if (attempt >= opts.maxAttempts) {
-        logger.error('Max retry attempts reached', lastError, {
+        retryLogger.error('Max retry attempts reached', lastError, {
           metadata: { attempts: attempt }
         });
         throw lastError;
@@ -92,7 +97,7 @@ export async function retry<T>(
 
       // Calculate delay and wait
       const delay = calculateDelay(attempt, opts);
-      logger.info(`Retry attempt ${attempt} failed, waiting ${delay}ms before retry`, {
+      retryLogger.info(`Retry attempt ${attempt} failed, waiting ${delay}ms before retry`, {
         metadata: {
           attempt,
           delay,

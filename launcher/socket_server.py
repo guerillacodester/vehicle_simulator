@@ -10,13 +10,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Create Socket.IO instance with CORS support
+# Tuned for immediate disconnect detection: 5s ping interval, 10s timeout
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins='*',
     logger=True,
     engineio_logger=True,
-    ping_timeout=60,
-    ping_interval=25
+    ping_timeout=10,  # Reduced to 10s for faster stale connection detection
+    ping_interval=5   # Ping every 5s to quickly spot dead connections
 )
 
 # Create ASGI app (not used directly, but kept for compatibility)
@@ -114,6 +115,18 @@ async def service_command(sid, data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Error handling service command: {e}")
         await sio.emit('error', {'message': str(e)}, room=sid)
+
+# Heartbeat handlers
+@sio.event
+async def dashboard_heartbeat(sid, data: Dict[str, Any]):
+    """Respond to dashboard heartbeat with an ack so the client can detect liveness without UI churn."""
+    try:
+        ts = None
+        if isinstance(data, dict):
+            ts = data.get('ts')
+        await sio.emit('dashboard_heartbeat_ack', {'ts': ts}, room=sid)
+    except Exception as e:
+        logger.error(f"Error handling dashboard_heartbeat: {e}")
 
 def setup_socketio(app: FastAPI):
     """Mount Socket.IO server to FastAPI application."""
