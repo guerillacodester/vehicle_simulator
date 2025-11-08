@@ -555,75 +555,71 @@ class StrapiStrategy(ApiStrategy):
                 
                 logging.info(f"[StrapiStrategy] Found route: {route_name} (code: {route_code})")
                 
-            # Step 2: Get default route_shape for this route using GTFS route-shapes table
-            async with self.session.get(f"{self.api_base_url}/api/route-shapes?filters[route_id][$eq]={route_code}&filters[is_default][$eq]=true", timeout=10) as shape_link_response:
+            # Step 2: Get ALL route-shapes for this route
+            async with self.session.get(f"{self.api_base_url}/api/route-shapes?filters[route_id][$eq]={route_code}", timeout=10) as shape_link_response:
                 if shape_link_response.status != 200:
                     logging.error(f"[StrapiStrategy] Failed to fetch route-shapes for route {route_code}: HTTP {shape_link_response.status}")
                     return None
-                    
+
                 shape_link_data = await shape_link_response.json()
                 route_shapes = shape_link_data.get('data', [])
-                
+
                 if not route_shapes:
-                    logging.error(f"[StrapiStrategy] No default route-shape found for route {route_code}")
+                    logging.error(f"[StrapiStrategy] No route-shapes found for route {route_code}")
                     return None
-                
-                shape_id = route_shapes[0].get('shape_id')
-                logging.info(f"[StrapiStrategy] Found default shape_id: {shape_id} for route {route_code}")
-                
-            # Step 3: Get actual GPS coordinates from shapes table ordered by sequence
-            async with self.session.get(f"{self.api_base_url}/api/shapes?filters[shape_id][$eq]={shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000", timeout=15) as shapes_response:
-                if shapes_response.status != 200:
-                    logging.error(f"[StrapiStrategy] Failed to fetch shapes for shape_id {shape_id}: HTTP {shapes_response.status}")
-                    return None
-                    
-                shapes_data = await shapes_response.json()
-                shape_points = shapes_data.get('data', [])
-                
-                if not shape_points:
-                    logging.error(f"[StrapiStrategy] No shape points found for shape_id {shape_id}")
-                    return None
-                
-                # Convert shape points to GeoJSON LineString coordinates
-                coordinates = []
-                for point in shape_points:
-                    lon = point.get('shape_pt_lon')
-                    lat = point.get('shape_pt_lat')
-                    if lon is not None and lat is not None:
-                        coordinates.append([lon, lat])  # GeoJSON format: [longitude, latitude]
-                
-                coordinate_count = len(coordinates)
-                
-                if coordinate_count > 0:
-                    logging.info(f"[StrapiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates from GTFS-compliant Strapi tables")
-                    
-                    # Log first and last coordinates as verification
-                    first_coord = coordinates[0]
-                    last_coord = coordinates[-1]
-                    logging.info(f"[StrapiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
-                    
-                    # Create proper GeoJSON geometry
-                    geometry = {
-                        "type": "LineString",
-                        "coordinates": coordinates
-                    }
-                else:
-                    logging.error(f"[StrapiStrategy] ❌ No valid coordinates found for route {route_code}")
-                    return None
-                
-            # Create RouteInfo with complete data from GTFS-compliant Strapi structure
+
+            # Step 3: For each shape, get all shape points and concatenate
+            all_coordinates = []
+            all_shape_ids = []
+            for shape in route_shapes:
+                shape_id = shape.get('shape_id')
+                all_shape_ids.append(shape_id)
+                async with self.session.get(f"{self.api_base_url}/api/shapes?filters[shape_id][$eq]={shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000", timeout=15) as shapes_response:
+                    if shapes_response.status != 200:
+                        logging.error(f"[StrapiStrategy] Failed to fetch shapes for shape_id {shape_id}: HTTP {shapes_response.status}")
+                        continue
+
+                    shapes_data = await shapes_response.json()
+                    shape_points = shapes_data.get('data', [])
+
+                    if not shape_points:
+                        logging.warning(f"[StrapiStrategy] No shape points found for shape_id {shape_id}")
+                        continue
+
+                    for point in shape_points:
+                        lon = point.get('shape_pt_lon')
+                        lat = point.get('shape_pt_lat')
+                        if lon is not None and lat is not None:
+                            all_coordinates.append([lon, lat])
+
+            coordinate_count = len(all_coordinates)
+
+            if coordinate_count > 0:
+                logging.info(f"[StrapiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates from ALL GTFS-compliant Strapi shapes")
+                first_coord = all_coordinates[0]
+                last_coord = all_coordinates[-1]
+                logging.info(f"[StrapiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}] (all shapes)")
+                geometry = {
+                    "type": "LineString",
+                    "coordinates": all_coordinates
+                }
+            else:
+                logging.error(f"[StrapiStrategy] ❌ No valid coordinates found for route {route_code} (all shapes)")
+                return None
+
+            # Create RouteInfo with complete data from ALL GTFS-compliant Strapi shapes
             route_info = RouteInfo(
-                route_id=route_code,              # Route code (1A, 1B, etc.)
-                route_name=route_name,            # Human-readable route name from Strapi
-                route_type='bus',                 # Bus route type
-                geometry=geometry,                # Complete GPS geometry from GTFS shapes
-                stops=None,                       # Stops not needed for basic vehicle movement
-                distance_km=None,                 # Distance not needed for basic vehicle movement
-                coordinate_count=coordinate_count, # Number of GPS coordinates
-                shape_id=shape_id                 # GTFS shape_id for reference
+                route_id=route_code,
+                route_name=route_name,
+                route_type='bus',
+                geometry=geometry,
+                stops=None,
+                distance_km=None,
+                coordinate_count=coordinate_count,
+                shape_id=','.join(all_shape_ids)  # List all shape_ids used
             )
-            
-            logging.info(f"[StrapiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates from GTFS structure")
+
+            logging.info(f"[StrapiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates from ALL GTFS shapes")
             return route_info
                     
         except Exception as e:
