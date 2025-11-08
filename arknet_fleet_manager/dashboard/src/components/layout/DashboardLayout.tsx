@@ -35,11 +35,10 @@ export function DashboardLayout({
   }, []);
 
   const navigationItems = [
-    { href: '/', label: 'Dashboard', icon: '🏠' },
-    { href: '/services', label: 'Services', icon: '⚙️' },
-    { href: '/fleet', label: 'Fleet', icon: '🚗' },
-    { href: '/analytics', label: 'Analytics', icon: '📊' },
-    { href: '/settings', label: 'Settings', icon: '🔧' },
+    { href: '/customer', label: 'Customer', icon: '🚌' },
+    { href: '/operator', label: 'Operator', icon: '🚗' },
+    { href: '/agency', label: 'Agency', icon: '🏢' },
+    { href: '/admin', label: 'Admin', icon: '⚙️' },
   ];
 
   const headerStyles: React.CSSProperties = {

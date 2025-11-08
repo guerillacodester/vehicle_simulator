@@ -26,6 +26,44 @@
 - [ ] Add regression test for route distance consumption ≤ 12.982 km + ε.
 - [ ] Add dashboard differentiation styling for UNHEALTHY vs FAILED.
 
+## 📡 Telemetry Integration (GPSCentCom)
+
+Priority: High — realtime vehicle telemetry is required for live map, analytics and persistence.
+
+Planned tasks (high level):
+- [ ] Define telemetry JSON schema, TypeScript interfaces and Pydantic models
+- [ ] Create Telemetry Gateway (FastAPI) with WebSocket broadcast + REST ingestion
+- [ ] Implement GPSCentCom connector (subscribe to gpscentcom_server feed, normalize messages)
+- [ ] Persistence: Postgres/PostGIS schema + batch writer
+- [ ] Dashboard client provider/hook (WebSocket with reconnection and SSE fallback)
+- [ ] Map layer + UI components for realtime vehicles
+- [ ] Tests, auth, metrics and rollout
+
+Acceptance criteria for MVP:
+- Realtime feed from `gpscentcom_server` is received by the connector and forwarded to the Telemetry Gateway.
+- Gateway broadcasts telemetry over WebSocket to connected dashboard clients with <200ms median latency (local test).
+- Recent telemetry is persisted to Postgres/PostGIS and retrievable via REST (latest position / history).
+
+See `CONTEXT.md` (Telemetry section) for full integration architecture and implementation notes.
+ 
+## 🔐 Production Readiness Checklist (work with what we have)
+
+These tasks are prioritized to make `gpscentcom_server` and the Telemetry Gateway production-ready while preserving the current in-memory default and making non-destructive, opt-in changes.
+
+- [ ] Enforce auth on REST and WebSocket endpoints (Authorization: Bearer <token>) — reject unauthorized requests early.
+- [ ] Add broadcast subscription endpoint (`/ws/telemetry` or SSE `/sse/telemetry`) to stream device updates to dashboard clients.
+- [ ] Implement sink/plugin API (register/deregister webhooks) and a webhook sink prototype with retry and DLQ — opt-in only, no default Postgres persistence.
+- [ ] Improve logging & metrics: structured JSON logs, add `/metrics` Prometheus endpoint, and extend `/health` with component-level checks.
+- [ ] Persistence plugin (optional): scaffold Postgres/PostGIS plugin and migrations; keep in-memory store as the default unless a sink/plugin is enabled.
+- [ ] Security hardening: TLS guidance, CORS tightening, rate-limiting middleware, input size limits, and dependency pinning.
+- [ ] Secrets & config: promote secure secret management (env + Vault) and validation for required settings.
+- [ ] Operationalization: container image, readiness/liveness probes, deployment manifests (k8s/docker-compose), and runbook.
+- [ ] Tests & CI: unit tests for parser/connector, integration tests with a mock gpscentcom server, and CI that runs lint/build/tests.
+- [ ] Docs & onboarding: update `CONTEXT.md`, README, and create a short runbook explaining how to enable sinks and configure auth.
+
+Notes:
+- All additions should be non-destructive and opt-in. The in-memory `Store` remains the default unless a customer enables a sink/plugin.
+- Start with auth enforcement + broadcast endpoint + basic metrics (high impact, low effort). The webhook sink prototype is the next priority.
 ## ✅ **COMPLETED: Production Dashboard Foundation**
 
 ### Component Architecture

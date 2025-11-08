@@ -5,40 +5,28 @@ import { HeroSection, FeatureGrid, FeatureCardData } from "@/components/landing"
 
 const features: FeatureCardData[] = [
   {
-    icon: '⚙️',
-    title: 'Service Manager',
-    description: 'Start, stop, and monitor all system services including Strapi, GPSCentCom, geospatial services, and the vehicle simulator.',
-    href: '/services',
+    icon: '🚌',
+    title: 'Customer Dashboard',
+    description: 'Track your bus, search routes, and view live maps as a commuter.',
+    href: '/customer',
   },
   {
-    icon: '🚐',
-    title: 'Fleet Monitor',
-    description: 'Real-time tracking and monitoring of all vehicles in the fleet with live GPS data and status updates.',
-    comingSoon: true,
+    icon: '�',
+    title: 'Operator Dashboard',
+    description: 'Manage fleet vehicles, monitor status, and assign routes as an operator.',
+    href: '/operator',
   },
   {
-    icon: '🗺️',
-    title: 'Route Management',
-    description: 'Configure routes, depots, and geofences. Manage operational zones and optimize logistics planning.',
-    comingSoon: true,
+    icon: '🏢',
+    title: 'Agency Dashboard',
+    description: 'View system-wide KPIs, analytics, and monitor operations as an agency.',
+    href: '/agency',
   },
   {
-    icon: '👥',
-    title: 'Commuter Service',
-    description: 'Manage passenger requests, bookings, and ride assignments. Monitor commuter service performance metrics.',
-    comingSoon: true,
-  },
-  {
-    icon: '📊',
-    title: 'Analytics',
-    description: 'Comprehensive analytics and reporting for fleet operations, service performance, and system health metrics.',
-    comingSoon: true,
-  },
-  {
-    icon: '⚡',
-    title: 'System Health',
-    description: 'Monitor system resources, API performance, database health, and overall platform status at a glance.',
-    comingSoon: true,
+    icon: '🛡️',
+    title: 'Admin Dashboard',
+    description: 'Access service management, system health, and platform controls as an admin.',
+    href: '/admin',
   },
 ];
 

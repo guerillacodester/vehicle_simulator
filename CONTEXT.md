@@ -398,9 +398,89 @@ error
 1. **Dashboard** (`/`)
    - Fleet status cards (total vehicles, active, idle, etc.)
    - KPI indicators (avg passengers, utilization %, etc.)
-   - Service health status
-   - Active alerts/warnings
-   - Quick action buttons (start all, stop all, etc.)
+
+---
+
+## 📡 Telemetry Gateway & gpscentcom_server Integration
+
+This section explains how the Telemetry Gateway will integrate with the existing `gpscentcom_server` to provide realtime telemetry to the Next.js dashboard and other clients.
+
+High-level responsibilities:
+- gpscentcom_server: existing telemetry server (source of raw telemetry). It publishes vehicle packets via WebSocket/TCP (configurable) to subscribers.
+- Connector (gpscentcom adapter): lightweight consumer that subscribes to `gpscentcom_server`, validates and normalizes raw messages into the canonical TelemetryPoint schema, and forwards them to the Telemetry Gateway ingestion endpoint or Redis stream.
+- Telemetry Gateway (FastAPI): central broker and ingestion service that:
+   - Exposes a secure WebSocket endpoint for dashboard and external clients: `/ws/telemetry`
+   - Exposes internal REST ingestion endpoint (protected) for connectors: `POST /internal/telemetry`
+   - Persists telemetry to Postgres/PostGIS via an async worker pipeline
+   - Provides REST endpoints for historical queries and latest position lookups
+   - Broadcasts validated telemetry to connected clients in near-real-time
+
+Data flow (sequence):
+1. `gpscentcom_server` emits raw telemetry packets (binary or JSON) on its feed.
+2. Connector subscribes, decodes packets, maps fields to TelemetryPoint, and forwards to the Telemetry Gateway (`POST /internal/telemetry` or publishes to Redis).
+3. Gateway validates payload with Pydantic, enqueues the record to an internal async queue or Redis stream, broadcasts the point to connected WebSocket clients, and returns 202 Accepted to the connector.
+4. Background ingestion worker flushes queued points in batches to Postgres/PostGIS and marks them complete. Errors are retried with backoff and poisoned messages are logged.
+
+TelemetryPoint canonical schema (summary):
+```json
+{
+   "vehicle_id": "string",
+   "timestamp": "2025-11-08T12:34:56.789Z",
+   "lat": 12.345678,
+   "lon": -98.765432,
+   "speed_m_s": 5.5,
+   "heading": 123.4,
+   "route_id": "optional",
+   "seq": 12345,
+   "meta": { }
+}
+```
+
+Gateway endpoints (MVP):
+- `POST /internal/telemetry` (connector → gateway) — accepts TelemetryPoint, returns 202
+- `GET /telemetry/latest/{vehicle_id}` — returns latest persisted position
+- `GET /telemetry/history?vehicle_id=&start=&end=&limit=` — historical points
+- `GET /health`, `GET /metrics` — health & Prometheus metrics
+- `WebSocket /ws/telemetry` — real-time broadcast; subscribe to channel or filter by vehicle(s)
+
+WebSocket contract (simple):
+- Client opens WS connection with auth token: `wss://gateway/ws/telemetry?token=...`
+- Server accepts and may send initial snapshot: `{ "type": "snapshot", "vehicles": { vehicle_id: TelemetryPoint } }`
+- Server sends incremental messages: `{ "type":"telemetry", "payload": TelemetryPoint }`
+- Clients can send control messages (subscribe/unsubscribe): `{ "type":"subscribe", "vehicle_ids": ["v1","v2"] }`
+
+Security and auth:
+- Connectors and internal ingestion endpoints must authenticate via API key or mTLS (avoid public ingestion endpoints without auth).
+- Client WebSocket connections use bearer tokens (JWT) issued per client with scopes (read-only or admin).
+- Gateway enforces CORS, rate-limits ingestion, and audits high-error rates.
+
+Persistence and schema notes:
+- Use Postgres + PostGIS. Table schema: `telemetry_points(id, vehicle_id, ts timestamptz, geom geography(Point,4326), speed numeric, heading numeric, raw jsonb)` with indexes on `(vehicle_id, ts DESC)` and spatial GIST on `geom`.
+- Store raw payload for forensics and replay.
+- Use batch inserts (e.g., 100–1000 rows) for throughput.
+
+Scaling & resilience:
+- For single-instance/dev: connector → gateway (in-process) → DB writer (async background) is fine.
+- For scale: use Redis/Kafka as ingestion buffer; connectors write to stream, multiple gateway or worker instances consume and write to DB; gateway instances subscribe to Redis pub/sub for broadcasting to sockets.
+
+How this integrates with existing `gpscentcom_server`:
+- `gpscentcom_server` remains the telemetry source and any device/driver will continue to send to it.
+- The Connector subscribes as a client of `gpscentcom_server` (using its documented protocol) — this is non-intrusive: it only reads messages and does not modify upstream server behavior.
+- The Dashboard then consumes telemetry exclusively from the Telemetry Gateway (not directly from gpscentcom_server). This decouples UI clients from the raw telemetry protocol and centralizes security, persistence, and scaling.
+
+Operational notes & runbook (quick):
+1. Start Postgres/PostGIS and apply migration for `telemetry_points`.
+2. Start Telemetry Gateway (FastAPI) with configured DB and Redis (optional).
+3. Start Connector configured to connect to `ws://localhost:5000` (gpscentcom_server).
+4. Start dashboard and point TelemetryProvider to `wss://gateway/ws/telemetry`.
+5. Verify live positions appear; check `GET /telemetry/latest/{vehicle_id}` for persisted points.
+
+Immediate next steps (in repo):
+- Add telemetry schema files: `gateway/schemas.py` and `arknet_fleet_manager/dashboard/src/features/telemetry/types.ts`.
+- Scaffold `gateway/main.py` with WS endpoints (MVP) and an internal ingestion route.
+- Add a small mock connector `gateway/connectors/mock_gpscentcom.py` for local dev testing.
+
+See the TODO list for tracked tasks and acceptance criteria.
 
 2. **Fleet Management** (`/fleet`)
    - Sortable/filterable vehicles table
@@ -893,3 +973,34 @@ To centralize the management of all services, the project includes a `ServiceMan
 - **Testability**: Test service management independently of data providers.
 - **Maintainability**: Simplifies the codebase by centralizing service management logic.
 - **Real-Time Updates**: Provides accurate and timely status updates for all services.
+
+---
+
+## Production Readiness & Roadmap (work with what we have)
+
+Current status note: the existing `gpscentcom_server` is a solid prototype suitable for local development and demonstration (device WebSocket ingest + in-memory `Store` + REST read APIs). It is NOT yet hardened for production. Below is a prioritized roadmap of production-grade tasks. The goal is to make non-destructive, opt-in changes so the existing in-memory store remains the default unless a customer enables a sink/plugin.
+
+High-priority (fast, high-impact)
+- Enforce authentication on REST and WebSocket endpoints (Authorization: Bearer <token>) and validate tokens early.
+- Add a broadcast subscription endpoint for dashboard clients (`/ws/telemetry` or SSE `/sse/telemetry`) and wire device ingest to publish updates.
+- Add basic observability: structured JSON logs and a Prometheus `/metrics` endpoint exposing message rates, active connections, and handler latencies.
+
+Medium-priority (reliability & integrations)
+- Implement a sink/plugin API with a webhook sink prototype (register/deregister sinks via `POST /sinks`) and a background delivery worker with retry/backoff and DLQ.
+- Scaffold an optional Postgres/PostGIS persistence plugin (opt-in) with migrations and a minimal schema for telemetry (vehicle_id, geom, speed, heading, timestamp, raw_payload).
+- Improve `/health` to return component-level statuses (store, sinks queue, worker health, uptime).
+
+Lower-priority (ops & security hardening)
+- Provide TLS/mTLS guidance and sample reverse-proxy configuration (nginx), tighten CORS, and add rate-limiting middleware.
+- Add secrets management guidance (env + Vault) and validate required configuration at startup.
+- Containerize the service, add readiness/liveness probes, and provide deployment manifests (k8s or docker-compose) and a short runbook.
+
+Testing & CI
+- Add unit tests for packet parsing, connector logic, and sink delivery worker; integration tests using a mock gpscentcom server; CI pipeline to run lint/build/tests on PRs.
+
+Operational notes — work with what we have
+- All new features should be opt-in. The in-memory `Store` remains default; sinks/plugins are explicitly enabled by customers.
+- Start with auth + broadcast WS + basic metrics. These provide immediate security and real-time UX improvements with minimal intrusion.
+- If diagnosing Strapi/Simulator interactions, temporarily set `spawn_console=false` in `config.ini` or enable capturing stdout/stderr so the launcher can log service boot output for debugging.
+
+If you'd like, I can start by implementing auth enforcement and the broadcast WebSocket endpoint, then add Prometheus metrics next. Tell me which pieces to implement first and I will open a small PR with focused commits.
