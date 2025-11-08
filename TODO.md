@@ -13,13 +13,15 @@
 **Execution Priority**:
 
 ## 🆕 Recent Updates (Nov 8, 2025)
-- Dispatcher now fetches ALL route shapes → Verified Route 1 length ≈ 12.982 km.
-- Distance/speed interval analysis complete (10.222 km in 424.141 s; avg ≈ 86.8 km/h vs 90 km/h reading).
-- Added missing `UNHEALTHY` mapping to `StatusBadge` to fix TypeScript build error.
-- Reverted temporary engine auto-stop code—awaiting decision on implementation approach.
-- Need to re-run dashboard build to confirm fix.
+
+Scaffolded user-tiered dashboards: Created distinct dashboards for Customer, Operator, Agency, and Admin, each with dedicated landing pages and navigation. Main landing page now features clear cards linking to each dashboard.
+Migrated service management to Admin dashboard and fixed build errors.
+Refactored navigation for user-tiered access and future extensibility.
+Ensured all changes are non-breaking and additive, preserving existing functionality.
+Established foundation for real-time telemetry, role-based navigation, and future MVP features.
 
 ### New Pending Tasks
+- [x] Scaffold user-tiered dashboards (Customer, Operator, Agency, Admin)
 - [ ] Re-run dashboard build and confirm StatusBadge enum completeness.
 - [ ] Decide engine auto-stop strategy (recommend Simulator-level watcher).
 - [ ] Implement chosen auto-stop with event emission (`vehicle:arrived-at-destination`).

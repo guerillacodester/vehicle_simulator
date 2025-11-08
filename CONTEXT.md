@@ -19,11 +19,12 @@ The project has successfully transitioned to a **production-grade Next.js dashbo
 2. **✅ Service Management**: Real-time service orchestration via WebSocket + REST API
 3. **✅ Professional UI**: Light/dark theme system with consistent design tokens
 4. **✅ Routing Structure**: Organized navigation with landing page and service management
-5. **✅ Route Geometry Validation**: Dispatcher now fetches and concatenates ALL route shapes (Route 1 length ≈ 12.982 km)
-6. **✅ Distance & Speed Analysis**: Interval A→C along-route distance 10.222 km in 424.141 s (avg ≈ 86.8 km/h) consistent with 90 km/h instantaneous reading
-7. **✅ StatusBadge Enum Coverage**: Added missing `UNHEALTHY` mapping to prevent TypeScript build failure
-8. **✅ Driver Code Integrity**: Reverted temporary auto-stop modification; awaiting chosen implementation strategy
-9. **⏳ Build Verification Pending**: Need to re-run dashboard build to confirm StatusBadge fix
+5. **✅ User-Tiered Dashboards**: Scaffolded distinct dashboards for Customer, Operator, Agency, and Admin, each with dedicated landing pages and navigation. Main landing page now features clear cards linking to each dashboard.
+6. **✅ Route Geometry Validation**: Dispatcher now fetches and concatenates ALL route shapes (Route 1 length ≈ 12.982 km)
+7. **✅ Distance & Speed Analysis**: Interval A→C along-route distance 10.222 km in 424.141 s (avg ≈ 86.8 km/h) consistent with 90 km/h instantaneous reading
+8. **✅ StatusBadge Enum Coverage**: Added missing `UNHEALTHY` mapping to prevent TypeScript build failure
+9. **✅ Driver Code Integrity**: Reverted temporary auto-stop modification; awaiting chosen implementation strategy
+10. **⏳ Build Verification Pending**: Need to re-run dashboard build to confirm StatusBadge fix
 
 ### Current Architecture
 ```
@@ -482,40 +483,40 @@ Immediate next steps (in repo):
 
 See the TODO list for tracked tasks and acceptance criteria.
 
-2. **Fleet Management** (`/fleet`)
+1. **Fleet Management** (`/fleet`)
    - Sortable/filterable vehicles table
    - Real-time status indicators
    - Inline controls (start, stop, enable boarding)
    - Vehicle detail modal (position, route, driver, passengers)
    - Map view with vehicle markers (bonus feature)
 
-3. **Vehicle Tracking** (`/fleet/tracking`)
+2. **Vehicle Tracking** (`/fleet/tracking`)
    - Mapbox GL map
    - Vehicle markers with real-time updates
    - Route polylines
    - Passenger pickup/dropoff points
    - Filter by route/status
 
-4. **Passenger Management** (`/passengers`)
+3. **Passenger Management** (`/passengers`)
    - Manifest table (passenger list for route)
    - Filters (status, time, route)
    - Distribution chart (passengers by hour)
    - Spawn control form
    - Bulk delete with confirmation
 
-5. **Routes & Depots** (`/routes`)
+4. **Routes & Depots** (`/routes`)
    - Routes list with stats
    - Depot list with catchment areas
    - Building/POI associations
    - Route editing (future: API support)
 
-6. **Analytics** (`/analytics`)
+5. **Analytics** (`/analytics`)
    - Daily summaries
    - Charts (passenger trends, vehicle utilization, etc.)
    - Report export (CSV, JSON)
    - KPI dashboards
 
-7. **Settings** (`/settings`)
+6. **Settings** (`/settings`)
    - System configuration (pickup radius, etc.)
    - Service restart controls
    - User preferences (dark mode, etc.)
