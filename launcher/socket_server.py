@@ -97,21 +97,29 @@ async def service_command(sid, data: Dict[str, Any]):
     try:
         service_name = data.get('service_name')
         command = data.get('command')
-        
         if not service_name or not command:
             await sio.emit('error', {'message': 'Invalid command data'}, room=sid)
             return
-        
-        # TODO: Integrate with service control logic
+
+        from launcher.service_manager import manager
         logger.info(f"Received {command} command for {service_name} from {sid}")
-        
+
+        # Actually start/stop the service
+        if command == "stop":
+            event = await manager.stop_service(service_name)
+            await sio.emit('service_status', event.dict(), room=sid)
+        elif command == "start":
+            event = await manager.start_service(service_name)
+            await sio.emit('service_status', event.dict(), room=sid)
+        else:
+            await sio.emit('error', {'message': f'Unknown command: {command}'}, room=sid)
+
         # Echo back acknowledgment
         await sio.emit('command_received', {
             'service_name': service_name,
             'command': command,
             'status': 'acknowledged'
         }, room=sid)
-    
     except Exception as e:
         logger.error(f"Error handling service command: {e}")
         await sio.emit('error', {'message': str(e)}, room=sid)

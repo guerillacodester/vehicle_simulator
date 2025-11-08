@@ -443,16 +443,22 @@ async def main_async(argv=None):
     gps_config = config_loader.get_gps_config()
     
     # Full initialization for display and depot modes
-    sim = CleanVehicleSimulator(
-        api_url=args.api_url, 
-        enable_boarding_after=args.enable_boarding_after,
-        gps_config=gps_config,
-        sim_time=sim_time,
-        enable_api=not args.no_api,
-        api_port=args.api_port
-    )
-    if not await sim.initialize():
-        print("Initialization failed. Exiting.")
+    try:
+        sim = CleanVehicleSimulator(
+            api_url=args.api_url, 
+            enable_boarding_after=args.enable_boarding_after,
+            gps_config=gps_config,
+            sim_time=sim_time,
+            enable_api=not args.no_api,
+            api_port=args.api_port
+        )
+        if not await sim.initialize():
+            print("[ERROR] Initialization failed: sim.initialize() returned False")
+            return 1
+    except Exception as init_error:
+        print(f"[ERROR] Initialization failed with exception: {type(init_error).__name__}: {init_error}")
+        import traceback
+        traceback.print_exc()
         return 1
 
     if args.mode == 'display':

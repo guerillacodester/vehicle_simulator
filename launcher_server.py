@@ -29,6 +29,7 @@ import uvicorn
 import signal
 from pathlib import Path
 import io
+import logging
 
 # Force UTF-8 encoding for stdout (Windows console emoji support)
 if sys.stdout.encoding != 'utf-8':
@@ -36,6 +37,18 @@ if sys.stdout.encoding != 'utf-8':
 
 # Add launcher package to path
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Configure logging to file
+log_dir = Path(__file__).parent / "logs"
+log_dir.mkdir(exist_ok=True)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_dir / "launcher.log"),
+        logging.StreamHandler()
+    ]
+)
 
 from launcher.service_manager import app, manager, ManagedService, configure_cors
 from launcher.config import ConfigurationManager
@@ -85,10 +98,10 @@ def register_services():
             npm_command = None
             as_module = "commuter_service"
         elif service_name == "vehicle_simulator":
-            script_path = root_path / "arknet_transit_simulator" / "main.py"
+            script_path = None
             is_npm = False
             npm_command = None
-            as_module = None
+            as_module = "arknet_transit_simulator"
         else:
             print(f"   ⚠️  Unknown service type: {service_name}")
             continue
@@ -109,6 +122,10 @@ def register_services():
             category=service_config.category,
             icon=service_config.icon
         )
+        
+        # Add extra args for vehicle simulator mode
+        if service_name == "vehicle_simulator":
+            service.extra_args = ["--mode", service_config.extra_config.get('mode', 'depot')]
         
         manager.register_service(service)
         print(f"   ✅ Registered: {service_name} (port {service_config.port})")

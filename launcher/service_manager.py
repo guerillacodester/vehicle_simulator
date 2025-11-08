@@ -121,27 +121,29 @@ class ServiceManager:
         Returns:
             ServiceEvent with the result
         """
+        import logging
+        start_logger = logging.getLogger(f"service.start")
+        start_logger.info(f"start_service called for: '{name}'")
+        start_logger.info(f"Available services: {list(self.services.keys())}")
+        
         if name not in self.services:
+            start_logger.error(f"Service '{name}' not found in manager")
             raise HTTPException(status_code=404, detail=f"Service '{name}' not found")
         
         service = self.services[name]
         
-        # Check dependencies first (temporarily disabled for testing)
-        # for dep_name in service.dependencies:
-        #     dep = self.services.get(dep_name)
-        #     if not dep or dep.state != ServiceState.HEALTHY:
-        #         event = ServiceEvent(
-        #             service_name=name,
-        #             timestamp=datetime.utcnow().isoformat(),
-        #             state=ServiceState.FAILED,
-        #             message=f"Dependency '{dep_name}' is not healthy",
-        #             port=service.port
-        #         )
-        #         await self._emit_event(event)
-        #         raise HTTPException(
-        #             status_code=412,
-        #             detail=f"Dependency '{dep_name}' must be healthy first"
-        #         )
+        # Dependencies are checked but not automatically started
+        # (User must start them manually or all at once)
+        import logging
+        dep_logger = logging.getLogger(f"service.{name}.dependencies")
+        
+        # Just warn if dependencies are not healthy
+        for dep_name in service.dependencies:
+            dep = self.services.get(dep_name)
+            if not dep:
+                dep_logger.warning(f"Dependency '{dep_name}' not found")
+            elif dep.state != ServiceState.HEALTHY:
+                dep_logger.warning(f"Dependency '{dep_name}' is {dep.state}, but starting {name} anyway")
         
         # Check if already running
         if service.is_running():
@@ -195,7 +197,9 @@ class ServiceManager:
             cwd = service.script_path
         elif service.as_module:
             cmd = [sys.executable, '-m', service.as_module] + (service.extra_args or [])
-            cwd = Path.cwd()
+            # For modules, use project root (parent of launcher directory)
+            from pathlib import Path as PathModule
+            cwd = PathModule(__file__).parent.parent
         else:
             cmd = [sys.executable, str(service.script_path)] + (service.extra_args or [])
             cwd = service.script_path.parent
@@ -207,43 +211,24 @@ class ServiceManager:
             env = os.environ.copy()
             env['PYTHONIOENCODING'] = 'utf-8'
             
-            # Platform-specific console spawning
+            import logging
+            startup_logger = logging.getLogger(f"service.{name}.startup")
+            startup_logger.info(f"Starting service {name} (spawn_console={service.spawn_console})")
+            startup_logger.info(f"Command: {' '.join(str(c) for c in cmd)}")
+            startup_logger.info(f"Working directory: {cwd}")
+            
             if service.spawn_console:
+                # Spawn visible console window
                 if sys.platform == 'win32':
-                    # Windows: Use 'start' command with new console
-                    # Create a batch file to run the command (avoids quoting hell)
-                    import tempfile
-                    batch_content = f'@echo off\ncd /d "{cwd}"\n'
-                    
-                    # Build the command with proper escaping
-                    cmd_parts = []
-                    for part in cmd:
-                        part_str = str(part)
-                        # Escape special characters and quote if contains spaces
-                        if ' ' in part_str or '&' in part_str or '|' in part_str:
-                            # Escape internal quotes
-                            part_str = part_str.replace('"', '""')
-                            cmd_parts.append(f'"{part_str}"')
-                        else:
-                            cmd_parts.append(part_str)
-                    
-                    batch_content += ' '.join(cmd_parts) + '\n'
-                    batch_content += 'pause\n'  # Keep window open on error
-                    
-                    # Write batch file
-                    batch_file = tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False)
-                    batch_file.write(batch_content)
-                    batch_file.close()
-                    
-                    # Start new console running the batch file
+                    # Windows: Use subprocess with visible window
                     service.process = subprocess.Popen(
-                        f'start "{service.name}" cmd.exe /c "{batch_file.name}"',
-                        shell=True,
-                        env=env
+                        cmd,
+                        cwd=cwd,
+                        env=env,
+                        creationflags=subprocess.CREATE_NEW_CONSOLE  # Create new visible console window
                     )
                 else:
                     # Linux: Try common terminal emulators
-                    # Priority: gnome-terminal, xterm, konsole, xfce4-terminal
                     terminal_cmds = [
                         ['gnome-terminal', '--', 'bash', '-c', ' '.join(cmd) + '; exec bash'],
                         ['xterm', '-hold', '-e'] + cmd,
@@ -265,26 +250,31 @@ class ServiceManager:
                             continue
                     
                     if not launched:
-                        raise RuntimeError("No suitable terminal emulator found. Install gnome-terminal, xterm, konsole, or xfce4-terminal.")
-            else:
-                # Normal background process (no console)
+                        startup_logger.warning("No terminal emulator found, falling back to background process")
+                        service.spawn_console = False  # Fallback to background
+            
+            # Background process with pipe capture
+            if not service.spawn_console:
                 service.process = subprocess.Popen(
                     cmd,
                     cwd=cwd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,  # Combine stderr into stdout
                     text=True,
                     bufsize=1,
                     universal_newlines=True,
                     encoding='utf-8',
-                    errors='replace',  # Replace unencodable characters instead of crashing
-                    env=env
+                    errors='replace',
+                    env=env,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0  # Hide console on Windows
                 )
+            
+            startup_logger.info(f"Process spawned with PID: {service.process.pid}")
             
             service.start_time = datetime.utcnow()
             service.state = ServiceState.RUNNING
             
-            # Start capturing output in background (only if not spawning console)
+            # Start capturing output in background (only for background processes, not console windows)
             if not service.spawn_console:
                 asyncio.create_task(self._capture_output(service))
             
@@ -372,7 +362,10 @@ class ServiceManager:
         
         service = self.services[name]
         
+        import logging
+        logger = logging.getLogger("service_manager.stop")
         if not service.is_running():
+            logger.info(f"Stop requested for {name}, but it is not running.")
             return ServiceEvent(
                 service_name=name,
                 timestamp=datetime.utcnow().isoformat(),
@@ -380,14 +373,20 @@ class ServiceManager:
                 message=f"{name} is not running",
                 port=service.port
             )
-        
-        # Terminate process
-        service.process.terminate()
+
+        logger.info(f"Attempting to terminate process for {name} (PID: {getattr(service.process, 'pid', None)})...")
         try:
+            service.process.terminate()
+            logger.info(f"Sent terminate signal to {name} (PID: {getattr(service.process, 'pid', None)}). Waiting up to 10s...")
             service.process.wait(timeout=10)
+            logger.info(f"Process for {name} terminated cleanly.")
         except subprocess.TimeoutExpired:
+            logger.warning(f"Process for {name} did not terminate in time. Sending kill signal...")
             service.process.kill()
-        
+            logger.info(f"Process for {name} killed.")
+        except Exception as e:
+            logger.error(f"Error terminating process for {name}: {e}")
+
         # Clear process reference
         service.process = None
         service.state = ServiceState.STOPPED
@@ -398,6 +397,7 @@ class ServiceManager:
             message=f"{name} stopped",
             port=service.port
         )
+        logger.info(f"Service {name} marked as stopped. Emitting event.")
         await self._emit_event(event)
         return event
     
@@ -490,35 +490,65 @@ class ServiceManager:
             return False
     
     async def _capture_output(self, service: ManagedService):
-        """Capture stdout/stderr from service process."""
-        async def read_stream(stream, buffer):
+        """Capture stdout/stderr from service process and log to file."""
+        import logging
+        logger = logging.getLogger(f"service.{service.name}.output")
+        
+        try:
+            # Read combined stdout/stderr stream
             loop = asyncio.get_event_loop()
             while service.is_running():
                 try:
-                    line = await loop.run_in_executor(None, stream.readline)
+                    line = await loop.run_in_executor(None, service.process.stdout.readline)
                     if line:
-                        buffer.append(f"{datetime.utcnow().isoformat()} | {line.strip()}")
+                        timestamp = datetime.utcnow().isoformat()
+                        service.stdout_buffer.append(f"{timestamp} | {line.strip()}")
+                        logger.info(f"{line.strip()}")
                     else:
                         break
-                except Exception:
+                except Exception as e:
+                    logger.error(f"Error reading process output: {e}")
                     break
-        
-        # Capture both stdout and stderr concurrently
-        await asyncio.gather(
-            read_stream(service.process.stdout, service.stdout_buffer),
-            read_stream(service.process.stderr, service.stderr_buffer),
-            return_exceptions=True
-        )
+        except Exception as e:
+            logger.error(f"Error in output capture: {e}")
     
     async def _monitor_health(self):
         """Background task that monitors service health."""
+        import logging
+        monitor_logger = logging.getLogger("service_monitor")
         while True:
             await asyncio.sleep(10)  # Check every 10 seconds
-            
+
             for service in self.services.values():
+                # Check if process has exited unexpectedly
+                if service.process is not None and not service.is_running():
+                    # Process exited - check exit code
+                    exit_code = service.process.returncode
+                    monitor_logger.error(f"Process for {service.name} exited with code {exit_code}")
+                    
+                    # Log captured output if available
+                    if service.stderr_buffer:
+                        monitor_logger.error(f"Last stderr from {service.name}:")
+                        for line in list(service.stderr_buffer)[-10:]:  # Last 10 lines
+                            monitor_logger.error(f"  {line}")
+                
+                # If process is not running, mark as stopped
+                if not service.is_running():
+                    if service.state != ServiceState.STOPPED:
+                        service.state = ServiceState.STOPPED
+                        event = ServiceEvent(
+                            service_name=service.name,
+                            timestamp=datetime.utcnow().isoformat(),
+                            state=ServiceState.STOPPED,
+                            message=f"{service.name} process not running, marked as stopped",
+                            port=service.port
+                        )
+                        await self._emit_event(event)
+                    continue
+
+                # Only mark healthy if process is running AND health endpoint responds
                 if service.state in [ServiceState.RUNNING, ServiceState.HEALTHY]:
                     healthy = await self._check_health(service)
-                    
                     if healthy and service.state != ServiceState.HEALTHY:
                         service.state = ServiceState.HEALTHY
                         event = ServiceEvent(
@@ -617,7 +647,11 @@ async def startup():
 @app.post("/services/{name}/start")
 async def start_service(name: str):
     """Start a service and its dependencies."""
+    import logging
+    rest_logger = logging.getLogger("launcher.rest_api")
+    rest_logger.info(f"REST API: start_service called with name='{name}'")
     event = await manager.start_service(name)
+    rest_logger.info(f"REST API: start_service returned event for '{event.service_name}': state={event.state}")
     return event
 
 
