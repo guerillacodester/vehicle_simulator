@@ -45,28 +45,25 @@ export function Card({
     ...(fixedHeight && { height: fixedHeight, display: 'flex', flexDirection: 'column' }),
   };
 
+  // Use CSS variables to avoid styled-jsx hydration issues with dynamic theme values
+  const cssVars = {
+    '--hover-shadow': '0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.12)',
+    '--hover-border': t.border.hover,
+    '--hover-bg': t.bg.elevated,
+    '--active-shadow': '0 4px 15px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.1)',
+  } as React.CSSProperties;
+
+  const combinedClassName = [className, hoverable ? 'hoverable-card' : '']
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div
-      style={baseStyles}
-      className={`${className} ${hoverable ? 'hoverable-card' : ''}`}
+      style={{ ...baseStyles, ...cssVars }}
+      className={combinedClassName}
       onClick={onClick}
     >
       {children}
-      <style jsx>{`
-        .hoverable-card {
-          transition: all ${theme.transitions.normal};
-        }
-        .hoverable-card:hover {
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.12) !important;
-          border-color: ${t.border.hover} !important;
-          transform: translateY(-4px) scale(1.02);
-          background-color: ${t.bg.elevated} !important;
-        }
-        .hoverable-card:active {
-          transform: translateY(-2px) scale(1.01);
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-      `}</style>
     </div>
   );
 }

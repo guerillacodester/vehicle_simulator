@@ -46,3 +46,42 @@ body {
   --background: #0f172a;
   --foreground: #f8fafc;
 }
+
+/* Card hover effects - global to avoid SSR hydration mismatches */
+.hoverable-card {
+  transition: all 0.2s ease-in-out;
+}
+
+.hoverable-card:hover {
+  box-shadow: var(--hover-shadow) !important;
+  border-color: var(--hover-border) !important;
+  transform: translateY(-4px) scale(1.02);
+  background-color: var(--hover-bg) !important;
+}
+
+.hoverable-card:active {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: var(--active-shadow);
+}
+
+
+/* Utility class to disable all interactive controls (cards, buttons, links) */
+body.ui-disabled {
+  --disabled-opacity: 0.65;
+}
+
+body.ui-disabled .hoverable-card,
+body.ui-disabled button,
+body.ui-disabled a,
+body.ui-disabled [role="button"] {
+  pointer-events: none !important;
+  opacity: var(--disabled-opacity) !important;
+  cursor: not-allowed !important;
+}
+
+/* Ensure hover transforms don't apply while disabled */
+body.ui-disabled .hoverable-card:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
