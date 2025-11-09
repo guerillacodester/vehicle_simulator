@@ -123,7 +123,19 @@ export default function CustomerDashboard() {
       {/* Live map */}
       <section className="py-8 px-6">
         <div className="max-w-6xl mx-auto bg-[#021028]/60 rounded-lg p-4">
-          <h3 className={`${rajdhani.className} text-2xl font-bold mb-4 text-amber-300 text-center`}>Live Map</h3>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <h3 className={`${rajdhani.className} text-2xl font-bold text-amber-300`}>Live Map</h3>
+            <Link 
+              href="/customer/map"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 rounded-lg transition-all duration-200 text-amber-300 hover:text-amber-200"
+              title="Expand to fullscreen map"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+              </svg>
+              <span className="text-sm font-medium">Fullscreen</span>
+            </Link>
+          </div>
           {/* Leaflet client-only map loaded dynamically */}
           <div className="rounded-xl overflow-hidden shadow-xl border border-white/10" style={{ height: '75vh' }}>
             {/* Client-only Leaflet map component (dynamic import) */}

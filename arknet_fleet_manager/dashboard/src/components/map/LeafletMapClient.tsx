@@ -101,26 +101,29 @@ export default function LeafletMapClient({ center, zoom, height = '60vh' }: Prop
   }, []);
 
   if (leafletLoading && !forceRender) {
-    console.log('[LeafletMapClient] Showing loading state');
     return (
-      <div style={{ width: '100%', height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)' }}>
-        <div>Loading map...</div>
+      <div style={{ width: '100%', height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1a1a' }}>
+        <div style={{ color: '#fff' }}>Loading map...</div>
       </div>
     );
   }
-
-  console.log('[LeafletMapClient] Rendering map container');
   
   return (
-    <div style={{ position: 'relative', width: '100%', height }}>
+    <div style={{ position: 'relative', width: '100%', height, background: '#1a1a1a' }}>
       {/* map container - ALWAYS render first, independent of any API calls */}
       <div 
-        ref={containerRef} 
+        ref={containerRef}
         style={{ 
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           width: '100%', 
-          height,
-          background: 'var(--background)',
-          minHeight: '400px'
+          height: '100%',
+          background: '#2a2a2a',
+          border: '3px solid lime',
+          zIndex: 0
         }} 
       />
 

@@ -23,10 +23,28 @@ export function useLeafletMap({
   const mapRef = useRef<LeafletMap | null>(null);
 
   const initializeMap = useCallback(() => {
+    console.log('[useLeafletMap] initializeMap called', {
+      hasLeaflet: !!getLeafletGlobal(),
+      hasContainer: !!containerRef.current,
+      hasExistingMap: !!mapRef.current
+    });
+    
     const L = getLeafletGlobal();
-    if (!L || !containerRef.current || mapRef.current) return;
+    if (!L) {
+      console.error('[useLeafletMap] Leaflet not loaded!');
+      return;
+    }
+    if (!containerRef.current) {
+      console.error('[useLeafletMap] Container ref not set!');
+      return;
+    }
+    if (mapRef.current) {
+      console.log('[useLeafletMap] Map already exists');
+      return;
+    }
 
     try {
+      console.log('[useLeafletMap] Creating Leaflet map...');
       const map = L.map(containerRef.current, {
         center,
         zoom,
@@ -55,16 +73,21 @@ export function useLeafletMap({
       }).addTo(map);
 
       mapRef.current = map;
+      console.log('[useLeafletMap] Map created successfully!', map);
       onMapReady?.(map);
     } catch (error) {
-      console.error('Failed to initialize map:', error);
+      console.error('[useLeafletMap] Failed to initialize map:', error);
     }
   }, [containerRef, center, zoom, onMapReady]);
 
   useEffect(() => {
-    initializeMap();
+    // Wait for next tick to ensure container ref is set
+    const timer = setTimeout(() => {
+      initializeMap();
+    }, 0);
 
     return () => {
+      clearTimeout(timer);
       if (mapRef.current) {
         try {
           mapRef.current.remove();

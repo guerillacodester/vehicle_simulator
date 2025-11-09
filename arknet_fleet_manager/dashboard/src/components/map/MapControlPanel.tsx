@@ -2,6 +2,36 @@
 import React, { useEffect, useRef, useState } from "react";
 import RouteSearch from "../transit/RouteSearch";
 
+// Simple error boundary for RouteSearch
+class RouteSearchErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('RouteSearch error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 12, color: '#ff6b6b', fontSize: 13 }}>
+          ⚠️ Route search unavailable. Check backend connection.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -145,7 +175,14 @@ export default function MapControlPanel({ open, onClose, showRoutePoints, setSho
           <div className="map-control-section">
             <h4>Search Routes</h4>
             <div className="map-control-search">
-              <RouteSearch onSelectRoute={(r) => onSelectRoute?.(r.id)} />
+              <div style={{ padding: 12, color: '#888', fontSize: 13 }}>
+                ⚠️ Route search temporarily disabled due to backend error.
+                <br />
+                <small>Fix the Strapi 500 error to enable search.</small>
+              </div>
+              {/* <RouteSearchErrorBoundary>
+                <RouteSearch onSelectRoute={(r) => onSelectRoute?.(r.id)} />
+              </RouteSearchErrorBoundary> */}
             </div>
           </div>
 

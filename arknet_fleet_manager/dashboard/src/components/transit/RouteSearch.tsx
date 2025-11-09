@@ -17,11 +17,18 @@ export default function RouteSearch({ onSelectRoute }: Props) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [results, setResults] = React.useState<SearchResult>({ routes: [], vehicles: [] });
+  const [initialized, setInitialized] = React.useState(false);
 
   // Simple search that queries all routes and filters by text match against
   // code, name, origin, destination. Vehicle lookup uses activeVehicles info
   // and requires subscribing to a route to get live positions.
   const doSearch = React.useCallback(async (q: string) => {
+    // Don't search on first mount with empty query
+    if (!initialized && !q.trim()) {
+      setInitialized(true);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {
@@ -57,8 +64,9 @@ export default function RouteSearch({ onSelectRoute }: Props) {
       setResults({ routes: [], vehicles: [] });
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
-  }, [provider]);
+  }, [provider, initialized]);
 
   React.useEffect(() => {
     const id = setTimeout(() => doSearch(query), 250);
