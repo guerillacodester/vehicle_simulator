@@ -64,9 +64,12 @@ export default function MapControlPanel({ open, onClose, showRoutePoints, setSho
     };
   }, [open, onClose]);
 
-  // Prevent body scroll when drawer is open
+  // Prevent body scroll only when drawer is open AND unpinned (modal behavior)
   useEffect(() => {
-    if (open) {
+    // Only block scroll in modal mode (unpinned)
+    const shouldBlockScroll = open && !isPinned;
+    
+    if (shouldBlockScroll) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -75,7 +78,7 @@ export default function MapControlPanel({ open, onClose, showRoutePoints, setSho
     return () => {
       document.body.style.overflow = '';
     };
-  }, [open]);
+  }, [open, isPinned]);
 
   return (
     <>
