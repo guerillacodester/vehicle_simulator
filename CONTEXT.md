@@ -26,6 +26,35 @@ The project has successfully transitioned to a **production-grade Next.js dashbo
 9. **✅ Driver Code Integrity**: Reverted temporary auto-stop modification; awaiting chosen implementation strategy
 10. **⏳ Build Verification Pending**: Need to re-run dashboard build to confirm StatusBadge fix
 
+---
+
+## 🧭 CUSTOMER PORTAL — Google Maps-style Transit Interface
+
+We are adding a user-facing Customer Portal (mobile-first) that mirrors the intuitive search and route guidance of Google Maps for transit. The goal is a fast, responsive interface that lets riders:
+
+- Browse all routes with concise summaries and live vehicle counts
+- Select a route and see every vehicle currently on it, with the map centered on the user's location
+- Plan a trip by entering origin + destination and receive the best route(s) with walking guidance
+- Get an intercept guide: walking directions to the nearest stop to board the selected route and live ETA to that intercept
+
+Key design & technical requirements:
+
+- Map: Leaflet (PMTiles basemap via existing `osm-viewer`) with route polylines and live vehicle markers
+- Real-time: WebSocket connection to `gpscentcom_server` (or Telemetry Gateway) for vehicle updates; subscribe per-route where possible
+- Routing & Geospatial: Geospatial Service (port 6000) for geocoding, reverse-geocoding, stop lookup, and along-route projections
+- Data Provider: a `TransitDataProvider` abstraction (TypeScript) to centralize REST + WS access, caching, and subscription management
+- Trip Planner: prefer direct routes first; support 0–1 transfers; ranking by total trip time (walk + wait + ride)
+- ETA: compute along-route distances using route geometry and estimate time using vehicle speed (conservative factor applied)
+
+Acceptance criteria (MVP):
+
+- Route Browser page: lists all routes, shows active vehicle count, route summary, and supports quick search
+- Route View: selectable route with map centered on user + live vehicle markers; bottom sheet lists nearest vehicles (3 before and 3 after user)
+- Trip Planner: given origin & destination, returns at least one sensible route (direct or single-transfer) with step-by-step walking+ride steps and an estimated time
+- Intercept Navigation: walking route to nearest stop with live ETA for the next bus at that stop
+
+See the `TODO.md` for prioritized implementation tasks. Implementation plan (step-by-step) below.
+
 ### Current Architecture
 ```
 arknet_fleet_manager/dashboard/
