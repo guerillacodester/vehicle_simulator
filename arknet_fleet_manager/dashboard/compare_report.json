@@ -1,0 +1,16 @@
+{
+  "strapi_points": 215,
+  "canonical_points": 414,
+  "strapi_length_km": 8.59863554976857,
+  "canonical_length_km": 13.382139239754673,
+  "missing_total_km": 4.703242826692911,
+  "canonical_minus_strapi_km": 4.783503689986103,
+  "unmatched_point_count": 199,
+  "unmatched_ranges": [
+    {
+      "start_idx": 215,
+      "end_idx": 413,
+      "missing_km": 4.703242826692911
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "route_id": "1",
+  "ordered_segments": [
+    {
+      "new_sequence": 1,
+      "route_shape_id": "1_17398c1d-45c9-4632-9608-eacf060fb836",
+      "shape_id": "17398c1d-45c9-4632-9608-eacf060fb836",
+      "reversed": false
+    },
+    {
+      "new_sequence": 2,
+      "route_shape_id": "1_f6d41b64-eadc-458b-8b89-74d9091f3951",
+      "shape_id": "f6d41b64-eadc-458b-8b89-74d9091f3951",
+      "reversed": false
+    },
+    {
+      "new_sequence": 3,
+      "route_shape_id": "1_40a03e66-ea73-4e27-9a14-682b67ea898a",
+      "shape_id": "40a03e66-ea73-4e27-9a14-682b67ea898a",
+      "reversed": false
+    },
+    {
+      "new_sequence": 4,
+      "route_shape_id": "1_1f2d4aa2-536f-4bf9-9d50-dbcbdbf75fa5",
+      "shape_id": "1f2d4aa2-536f-4bf9-9d50-dbcbdbf75fa5",
+      "reversed": false
+    },
+    {
+      "new_sequence": 5,
+      "route_shape_id": "1_531fa043-5314-468d-b272-ce7933a8655b",
+      "shape_id": "531fa043-5314-468d-b272-ce7933a8655b",
+      "reversed": false
+    },
+    {
+      "new_sequence": 6,
+      "route_shape_id": "1_46c6c8c6-7a97-465b-9d2e-d0a9c54405e3",
+      "shape_id": "46c6c8c6-7a97-465b-9d2e-d0a9c54405e3",
+      "reversed": true
+    },
+    {
+      "new_sequence": 7,
+      "route_shape_id": "1_22a88406-7151-4735-acc5-410f81b2185d",
+      "shape_id": "22a88406-7151-4735-acc5-410f81b2185d",
+      "reversed": false
+    },
+    {
+      "new_sequence": 8,
+      "route_shape_id": "1_46ea60e2-8d68-4d67-b01f-6f27041a09ea",
+      "shape_id": "46ea60e2-8d68-4d67-b01f-6f27041a09ea",
+      "reversed": false
+    },
+    {
+      "new_sequence": 9,
+      "route_shape_id": "1_13e2358a-d9b9-447f-9124-d120fd26291e",
+      "shape_id": "13e2358a-d9b9-447f-9124-d120fd26291e",
+      "reversed": false
+    },
+    {
+      "new_sequence": 10,
+      "route_shape_id": "1_d0d50de8-f0cc-432c-8940-b3f62439e998",
+      "shape_id": "d0d50de8-f0cc-432c-8940-b3f62439e998",
+      "reversed": false
+    },
+    {
+      "new_sequence": 11,
+      "route_shape_id": "1_db308c35-2d71-4214-9b64-1345a94d5bec",
+      "shape_id": "db308c35-2d71-4214-9b64-1345a94d5bec",
+      "reversed": false
+    },
+    {
+      "new_sequence": 12,
+      "route_shape_id": "1_451f2a8f-ea57-482c-a28f-cbad6a62c27b",
+      "shape_id": "451f2a8f-ea57-482c-a28f-cbad6a62c27b",
+      "reversed": false
+    },
+    {
+      "new_sequence": 13,
+      "route_shape_id": "1_4b137b3a-8fe4-4a33-8632-435489de4dc2",
+      "shape_id": "4b137b3a-8fe4-4a33-8632-435489de4dc2",
+      "reversed": false
+    },
+    {
+      "new_sequence": 14,
+      "route_shape_id": "1_d704e1ee-09b0-4523-ba06-915a6072087b",
+      "shape_id": "d704e1ee-09b0-4523-ba06-915a6072087b",
+      "reversed": false
+    },
+    {
+      "new_sequence": 15,
+      "route_shape_id": "1_52254e9e-6a30-42d6-bef2-08ed89890a73",
+      "shape_id": "52254e9e-6a30-42d6-bef2-08ed89890a73",
+      "reversed": false
+    },
+    {
+      "new_sequence": 16,
+      "route_shape_id": "1_ec50fd84-3ed5-4ed5-b879-194de84f7cee",
+      "shape_id": "ec50fd84-3ed5-4ed5-b879-194de84f7cee",
+      "reversed": false
+    },
+    {
+      "new_sequence": 17,
+      "route_shape_id": "1_c84accff-e615-4de4-998d-d8439cb9eb99",
+      "shape_id": "c84accff-e615-4de4-998d-d8439cb9eb99",
+      "reversed": false
+    },
+    {
+      "new_sequence": 18,
+      "route_shape_id": "1_385e13d1-8090-4e5d-a772-992e918ed580",
+      "shape_id": "385e13d1-8090-4e5d-a772-992e918ed580",
+      "reversed": false
+    },
+    {
+      "new_sequence": 19,
+      "route_shape_id": "1_96877132-4e8d-4073-aefb-c5fdbfbe8a2d",
+      "shape_id": "96877132-4e8d-4073-aefb-c5fdbfbe8a2d",
+      "reversed": false
+    },
+    {
+      "new_sequence": 20,
+      "route_shape_id": "1_5fb2fa61-e515-4f21-b276-aff823a718e5",
+      "shape_id": "5fb2fa61-e515-4f21-b276-aff823a718e5",
+      "reversed": false
+    },
+    {
+      "new_sequence": 21,
+      "route_shape_id": "1_e71b8367-e8c5-407c-b669-89e6343ad7ce",
+      "shape_id": "e71b8367-e8c5-407c-b669-89e6343ad7ce",
+      "reversed": false
+    },
+    {
+      "new_sequence": 22,
+      "route_shape_id": "1_2dc1caf7-88af-413a-805a-63dbc9bae828",
+      "shape_id": "2dc1caf7-88af-413a-805a-63dbc9bae828",
+      "reversed": false
+    },
+    {
+      "new_sequence": 23,
+      "route_shape_id": "1_2c591bcf-7917-43de-8b96-b8f2453b9019",
+      "shape_id": "2c591bcf-7917-43de-8b96-b8f2453b9019",
+      "reversed": false
+    },
+    {
+      "new_sequence": 24,
+      "route_shape_id": "1_d9a78f36-d6e0-4755-8213-e3d975da2b87",
+      "shape_id": "d9a78f36-d6e0-4755-8213-e3d975da2b87",
+      "reversed": false
+    },
+    {
+      "new_sequence": 25,
+      "route_shape_id": "1_1cdd78fd-2c83-4041-8bd8-75ffba9eea47",
+      "shape_id": "1cdd78fd-2c83-4041-8bd8-75ffba9eea47",
+      "reversed": false
+    },
+    {
+      "new_sequence": 26,
+      "route_shape_id": "1_5a90bf78-436c-4bbd-9532-bf38f13ea7fe",
+      "shape_id": "5a90bf78-436c-4bbd-9532-bf38f13ea7fe",
+      "reversed": false
+    },
+    {
+      "new_sequence": 27,
+      "route_shape_id": "1_b0d8c8fc-fa8a-4ae9-b08c-aa33d3d5932b",
+      "shape_id": "b0d8c8fc-fa8a-4ae9-b08c-aa33d3d5932b",
+      "reversed": false
+    }
+  ],
+  "metrics": {
+    "total_points": 415,
+    "route_length_km": 13.394235391741205,
+    "canonical_length_km": 13.382120776656597,
+    "delta_km": 0.01211461508460765,
+    "seams_above_threshold": 0,
+    "max_seam_km": 0.37151531442936436
+  }
+}

@@ -41,8 +41,9 @@ const axios_1 = __importDefault(require("axios"));
 const WS = __importStar(require("ws"));
 class TransitDataProvider {
     constructor(options = {}) {
-        this.baseUrl = options.baseUrl || 'http://localhost:4001';
-        this.wsUrl = options.wsUrl || 'ws://localhost:4001';
+        // Connect to Strapi API (default port 1337)
+        this.baseUrl = options.baseUrl || process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api';
+        this.wsUrl = options.wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:1337';
         this.cache = new Map();
     }
     async getAllRoutes() {
@@ -52,12 +53,54 @@ class TransitDataProvider {
         if (cached && now - cached.ts < 60000)
             return cached.data;
         const res = await axios_1.default.get(`${this.baseUrl}/routes`);
-        const data = res.data;
-        this.cache.set(key, { ts: now, data });
-        return data;
+        // Handle Strapi v5 response format from custom controller
+        let routes;
+        if (res.data.data && Array.isArray(res.data.data)) {
+            routes = res.data.data.map((item) => {
+                const attr = item.attributes || {};
+                return {
+                    id: String(item.id),
+                    code: attr.code || '',
+                    name: attr.name || '',
+                    origin: attr.origin || '',
+                    destination: attr.destination || '',
+                    activeVehicles: 0,
+                };
+            });
+        }
+        else if (Array.isArray(res.data)) {
+            routes = res.data;
+        }
+        else {
+            console.warn('Unexpected API response format:', res.data);
+            routes = [];
+        }
+        this.cache.set(key, { ts: now, data: routes });
+        return routes;
     }
     async getRouteDetails(routeId) {
         const res = await axios_1.default.get(`${this.baseUrl}/routes/${routeId}`);
+        // Handle custom controller response with GTFS data
+        if (res.data.data && res.data.data.attributes) {
+            const item = res.data.data;
+            const attr = item.attributes;
+            // Stops come from stop_times via trips (GTFS compliant)
+            const stops = (attr.stops || []).map((s) => ({
+                id: s.id || '',
+                name: s.name || '',
+                lat: s.lat || 0,
+                lon: s.lon || 0,
+            }));
+            return {
+                id: String(item.id),
+                code: attr.code || '',
+                name: attr.name || '',
+                origin: attr.origin || '',
+                destination: attr.destination || '',
+                stops: stops,
+                activeVehicles: 0,
+            };
+        }
         return res.data;
     }
     // Lightweight subscribe API: callback receives Vehicle[] updates for a route

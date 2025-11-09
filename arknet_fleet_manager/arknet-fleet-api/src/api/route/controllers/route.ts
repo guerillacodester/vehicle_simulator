@@ -123,5 +123,30 @@ export default factories.createCoreController('api::route.route', ({ strapi }) =
         }
       }
     };
+  },
+
+  // Test endpoint for fetchRouteGeometry service method
+  async testGeometry(ctx) {
+    const { routeName } = ctx.params;
+    
+    try {
+      const result = await strapi.service('api::route.route').fetchRouteGeometry(routeName);
+      
+      ctx.body = {
+        success: true,
+        routeName,
+        metrics: result.metrics,
+        coordinateCount: result.coords.length,
+        segmentCount: result.segments.length,
+        coordinates: result.coords,
+        message: `Route geometry assembled: ${result.coords.length} coords, ${result.metrics.estimatedLengthKm.toFixed(3)} km`,
+      };
+    } catch (error) {
+      ctx.status = 500;
+      ctx.body = {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 }));
