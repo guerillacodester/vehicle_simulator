@@ -8,7 +8,7 @@ export const theme = {
     light: {
       // Background layers
       bg: {
-        primary: '#ffffff',
+        primary: '#ffffff', // matches arknet-transit light background
         secondary: '#f8fafc',
         tertiary: '#f1f5f9',
         elevated: '#ffffff',
@@ -16,11 +16,12 @@ export const theme = {
       },
       // Text colors
       text: {
-        primary: '#0f172a',
+        primary: '#171717', // matches arknet-transit foreground
         secondary: '#475569',
         tertiary: '#64748b',
         inverse: '#ffffff',
         accent: '#1e40af',
+        neon: '#00ff88', // neon accent
       },
       // Border colors
       border: {
@@ -74,7 +75,7 @@ export const theme = {
     dark: {
       // Background layers
       bg: {
-        primary: '#0f172a',
+        primary: '#0a0a0a', // matches arknet-transit dark background
         secondary: '#1e293b',
         tertiary: '#334155',
         elevated: '#1e293b',
@@ -82,11 +83,12 @@ export const theme = {
       },
       // Text colors
       text: {
-        primary: '#f8fafc',
+        primary: '#ededed', // matches arknet-transit dark foreground
         secondary: '#cbd5e1',
         tertiary: '#64748b',
         inverse: '#0f172a',
         accent: '#60a5fa',
+        neon: '#00ff88', // neon accent
       },
       // Border colors
       border: {

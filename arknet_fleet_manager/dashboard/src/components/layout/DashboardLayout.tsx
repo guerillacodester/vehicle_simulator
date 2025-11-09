@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+﻿
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useTheme } from '@/contexts/ThemeContext';
-import { theme } from '@/lib/theme';
-import { Button } from '../ui';
+import Image from 'next/image';
+import { Bus, Building2, Shield, Smartphone } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -10,255 +11,156 @@ interface DashboardLayoutProps {
   currentPath?: string;
 }
 
-export function DashboardLayout({
-  children,
-  title = 'ArkNet Fleet Manager',
-  currentPath = '/'
-}: DashboardLayoutProps) {
-  const { mode, toggleTheme } = useTheme();
-  const t = theme.colors[mode];
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Check if we're on mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); // md breakpoint
-      if (window.innerWidth >= 768) {
-        setIsMobileMenuOpen(false); // Close mobile menu on desktop
-      }
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+export function DashboardLayout({ children, title = 'ArkNet Fleet Manager', currentPath = '/' }: DashboardLayoutProps) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const navigationItems = [
-    { href: '/customer', label: 'Customer', icon: '🚌' },
-    { href: '/operator', label: 'Operator', icon: '🚗' },
-    { href: '/agency', label: 'Agency', icon: '🏢' },
-    { href: '/admin', label: 'Admin', icon: '⚙️' },
+    { href: '/customer', label: 'Customer', icon: <Bus size={20} color="#00ff88" /> },
+    { href: '/operator', label: 'Operator', icon: <Smartphone size={20} color="#00ff88" /> },
+    { href: '/agency', label: 'Agency', icon: <Building2 size={20} color="#00ff88" /> },
+    { href: '/admin', label: 'Admin', icon: <Shield size={20} color="#00ff88" /> },
   ];
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
   const headerStyles: React.CSSProperties = {
-    backgroundColor: t.bg.elevated,
-    borderBottom: `1px solid ${t.border.default}`,
-    padding: `${theme.spacing.md} ${theme.responsive.spacing.container.sm}`,
-    boxShadow: theme.shadows.sm,
+    backgroundColor: '#0a0a0a',
+    borderBottom: '1px solid rgba(255, 199, 38, 0.2)',
+    padding: '16px 32px',
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     position: 'sticky',
     top: 0,
     zIndex: 50,
-  };
-
-  const headerContentStyles: React.CSSProperties = {
     display: 'flex',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    maxWidth: '1400px',
-    margin: '0 auto',
-    position: 'relative',
   };
-
   const titleStyles: React.CSSProperties = {
-    fontSize: isMobile ? '1.25rem' : '1.5rem',
-    fontWeight: '700',
-    color: t.text.primary,
+    fontSize: '2.5rem',
+    fontWeight: 900,
+    color: '#FFC726',
     margin: 0,
+    textShadow: '0 0 10px rgba(255, 199, 38, 0.5), 0 0 20px rgba(255, 199, 38, 0.3)',
+    letterSpacing: '0.1em',
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: 'Rajdhani, Arial, sans-serif',
+    animation: 'pulse 2.5s infinite',
   };
-
-  const navStyles: React.CSSProperties = {
-    display: isMobile ? 'none' : 'flex',
-    gap: theme.spacing.md,
-    alignItems: 'center',
-  };
-
-  const mobileNavStyles: React.CSSProperties = {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: t.bg.elevated,
-    borderBottom: `1px solid ${t.border.default}`,
-    boxShadow: theme.shadows.md,
-    display: isMobileMenuOpen ? 'flex' : 'none',
-    flexDirection: 'column',
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
-  };
-
-  const navLinkStyles = (isActive: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-    borderRadius: theme.borderRadius.md,
-    textDecoration: 'none',
-    color: isActive ? t.interactive.primary.default : t.text.secondary,
-    backgroundColor: isActive ? t.interactive.primary.default + '20' : 'transparent',
-    fontWeight: isActive ? '600' : '500',
-    fontSize: '0.875rem',
-    transition: `all ${theme.transitions.fast}`,
-    border: `1px solid ${isActive ? t.interactive.primary.default : 'transparent'}`,
-    width: isMobile ? '100%' : 'auto',
-    justifyContent: isMobile ? 'center' : 'flex-start',
-  });
-
-  const hamburgerButtonStyles: React.CSSProperties = {
-    display: isMobile ? 'flex' : 'none',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '40px',
-    height: '40px',
-    backgroundColor: 'transparent',
-    border: `1px solid ${t.border.default}`,
-    borderRadius: theme.borderRadius.md,
-    cursor: 'pointer',
-    padding: theme.spacing.sm,
-    gap: '3px',
-  };
-
-  const hamburgerLineStyles: React.CSSProperties = {
-    width: '20px',
-    height: '2px',
-    backgroundColor: t.text.primary,
-    transition: `all ${theme.transitions.fast}`,
-    transformOrigin: 'center',
-  };
-
-  const headerRightStyles: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  };
-
   const mainStyles: React.CSSProperties = {
-    backgroundColor: t.bg.primary,
+    backgroundColor: '#000000',
     minHeight: 'calc(100vh - 65px)',
-    padding: theme.responsive.spacing.container.sm,
-    transition: `background-color ${theme.transitions.normal}`,
+    padding: '32px',
+    transition: 'background-color 0.3s',
   };
-
   const containerStyles: React.CSSProperties = {
     maxWidth: '1400px',
     margin: '0 auto',
   };
 
-  // Close mobile menu when clicking outside or on navigation
-  const handleNavClick = () => {
-    if (isMobile) {
-      setIsMobileMenuOpen(false);
-    }
-  };
-
   return (
-    <div>
+    <motion.div initial={{ opacity: 0, y: -40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
       <header style={headerStyles}>
-        <div style={headerContentStyles}>
-          <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleNavClick}>
-            <h1 style={titleStyles}>{title}</h1>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <nav style={navStyles}>
-            {navigationItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={navLinkStyles(currentPath === item.href)}
-                onMouseEnter={(e) => {
-                  if (currentPath !== item.href) {
-                    e.currentTarget.style.backgroundColor = t.bg.tertiary;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentPath !== item.href) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          {/* Mobile Navigation */}
-          <nav style={mobileNavStyles}>
-            {navigationItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={navLinkStyles(currentPath === item.href)}
-                onClick={handleNavClick}
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          <div style={headerRightStyles}>
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-            >
-              {mode === 'dark' ? '☀️ Light' : '🌙 Dark'}
-            </Button>
-
-            {/* Hamburger Menu Button */}
-            <button
-              style={hamburgerButtonStyles}
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Toggle navigation menu"
-            >
-              <div
-                style={{
-                  ...hamburgerLineStyles,
-                  transform: isMobileMenuOpen ? 'rotate(45deg) translate(5px, 5px)' : 'none',
-                }}
-              />
-              <div
-                style={{
-                  ...hamburgerLineStyles,
-                  opacity: isMobileMenuOpen ? 0 : 1,
-                }}
-              />
-              <div
-                style={{
-                  ...hamburgerLineStyles,
-                  transform: isMobileMenuOpen ? 'rotate(-45deg) translate(7px, -6px)' : 'none',
-                }}
-              />
-            </button>
-          </div>
+        {/* Logo left */}
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+          <Image src="/arknet.png" alt="ArkNet Logo" width={48} height={48} style={{ borderRadius: 8, marginRight: 16 }} />
+        </Link>
+        {/* Neon-glow title center */}
+        <h1 style={titleStyles} className="neon-text">{title}</h1>
+        {/* Showcase product dropdown menu right */}
+        <div ref={dropdownRef} style={{ position: 'relative', marginLeft: 16 }}>
+          <button
+            type="button"
+            style={{ 
+              background: '#FFC726', 
+              color: '#000000', 
+              fontWeight: 700, 
+              boxShadow: '0 0 10px rgba(255, 199, 38, 0.5)', 
+              borderRadius: '0.375rem',
+              padding: '0.625rem 1.25rem',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              transition: 'all 0.2s'
+            }}
+            onClick={() => setDropdownOpen((open) => !open)}
+            aria-haspopup="true"
+            aria-controls="dashboard-select-menu"
+            aria-expanded={dropdownOpen}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#FFD54F';
+              e.currentTarget.style.boxShadow = '0 0 15px rgba(255, 199, 38, 0.7)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#FFC726';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(255, 199, 38, 0.5)';
+            }}
+          >
+            Select Dashboard
+          </button>
+          {dropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '110%',
+              right: 0,
+              minWidth: 220,
+              background: '#0a0a0a',
+              border: '1px solid rgba(255, 199, 38, 0.2)',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              borderRadius: '0.375rem',
+              zIndex: 100,
+              padding: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }} id="dashboard-select-menu" role="menu">
+              {navigationItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    borderRadius: '0.375rem',
+                    textDecoration: 'none',
+                    color: currentPath === item.href ? '#FFC726' : '#e5e5e5',
+                    background: currentPath === item.href ? 'rgba(255, 199, 38, 0.13)' : 'transparent',
+                    fontWeight: currentPath === item.href ? 700 : 500,
+                    fontSize: '1rem',
+                    transition: 'all 0.2s',
+                    border: `1px solid ${currentPath === item.href ? '#FFC726' : 'transparent'}`,
+                    boxShadow: currentPath === item.href ? '0 0 8px rgba(255, 199, 38, 0.5)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setDropdownOpen(false)}
+                  role="menuitem"
+                >
+                  <span style={{ marginRight: 8 }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </header>
-
       <main style={mainStyles}>
-        <div style={containerStyles}>
-          {children}
-        </div>
+        <div style={containerStyles}>{children}</div>
       </main>
-
-      {/* Mobile menu overlay */}
-      {isMobile && isMobileMenuOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 40,
-          }}
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
-    </div>
+    </motion.div>
   );
 }

@@ -1,6 +1,5 @@
 import React from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { theme } from '@/lib/theme';
+// use the arknet global theme colors directly to avoid ThemeProvider dependency
 
 interface HeroSectionProps {
   title: string;
@@ -8,26 +7,24 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ title, subtitle }: HeroSectionProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
-
+  // static styles aligned with arknet-transit theme
   const heroStyles = {
     textAlign: 'center' as const,
-    marginBottom: theme.spacing['2xl'],
-    padding: `0 ${theme.spacing.md}`,
+    marginBottom: '2.5rem',
+    padding: '0 1rem',
   };
 
   const titleStyles = {
     fontSize: 'clamp(2rem, 5vw, 3rem)', // Responsive font size
     fontWeight: '700',
-    color: t.text.primary,
-    marginBottom: theme.spacing.md,
+    color: '#ffffff',
+    marginBottom: '1rem',
     lineHeight: '1.2',
   };
 
   const subtitleStyles = {
     fontSize: 'clamp(1rem, 2.5vw, 1.25rem)', // Responsive font size
-    color: t.text.secondary,
+    color: '#cbd5e1',
     maxWidth: '700px',
     margin: '0 auto',
     lineHeight: '1.6',

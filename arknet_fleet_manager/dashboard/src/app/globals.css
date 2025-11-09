@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Root theme variables */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,6 +13,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Dark mode defaults */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,69 +21,55 @@
   }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
-  height: 100%;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Theme styles applied via data-theme attribute */
-[data-theme="light"] {
-  --background: #ffffff;
-  --foreground: #0f172a;
+/* ===== Brand Enhancements ===== */
+
+/* Neon glow headline */
+.neon-text {
+  text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88, 0 0 40px #00ff88;
+  animation: pulse 2.5s infinite;
 }
 
-[data-theme="dark"] {
-  --background: #0f172a;
-  --foreground: #f8fafc;
+/* Neon animation keyframes */
+@keyframes pulse {
+  0%, 100% {
+    text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88, 0 0 40px #00ff88;
+  }
+  50% {
+    text-shadow: 0 0 20px #00ffaa, 0 0 60px #00ffaa;
+  }
 }
 
-/* Card hover effects - global to avoid SSR hydration mismatches */
-.hoverable-card {
-  transition: all 0.2s ease-in-out;
+/* Button enhancements */
+button {
+  transition: all 0.25s ease-in-out;
+}
+button:hover {
+  transform: scale(1.05);
 }
 
-.hoverable-card:hover {
-  box-shadow: var(--hover-shadow) !important;
-  border-color: var(--hover-border) !important;
-  transform: translateY(-4px) scale(1.02);
-  background-color: var(--hover-bg) !important;
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }
 
-.hoverable-card:active {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: var(--active-shadow);
+/* Section spacing for clarity */
+section {
+  scroll-margin-top: 80px; /* prevents nav overlap */
 }
 
-
-/* Utility class to disable all interactive controls (cards, buttons, links) */
-body.ui-disabled {
-  --disabled-opacity: 0.65;
+/* Make inputs & textarea match dark theme */
+input,
+textarea {
+  outline: none;
 }
-
-body.ui-disabled .hoverable-card,
-body.ui-disabled button,
-body.ui-disabled a,
-body.ui-disabled [role="button"] {
-  pointer-events: none !important;
-  opacity: var(--disabled-opacity) !important;
-  cursor: not-allowed !important;
+input:focus,
+textarea:focus {
+  border-color: #00ff88;
+  box-shadow: 0 0 10px #00ff88;
 }
-
-/* Ensure hover transforms don't apply while disabled */
-body.ui-disabled .hoverable-card:hover {
-  transform: none !important;
-  box-shadow: none !important;
-}
-

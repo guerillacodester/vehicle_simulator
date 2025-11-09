@@ -1,7 +1,5 @@
 import React from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { theme } from '@/lib/theme';
-import { Button } from './ui';
+// Using arknet global theme colors directly to avoid ThemeProvider dependency
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -9,14 +7,12 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title = 'ArkNet Fleet Manager' }: DashboardLayoutProps) {
-  const { mode, toggleTheme } = useTheme();
-  const t = theme.colors[mode];
-
+  // static arknet-like theme values
   const headerStyles = {
-    backgroundColor: t.bg.elevated,
-    borderBottom: `1px solid ${t.border.default}`,
-    padding: `${theme.spacing.md} ${theme.spacing.xl}`,
-    boxShadow: theme.shadows.sm,
+    backgroundColor: '#00133f',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    padding: '1rem 1.5rem',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
     position: 'sticky' as const,
     top: 0,
     zIndex: 10,
@@ -33,15 +29,15 @@ export function DashboardLayout({ children, title = 'ArkNet Fleet Manager' }: Da
   const titleStyles = {
     fontSize: '1.5rem',
     fontWeight: '700',
-    color: t.text.primary,
+    color: '#ffffff',
     margin: 0,
   };
 
   const mainStyles = {
-    backgroundColor: t.bg.primary,
+    backgroundColor: '#000b2a',
     minHeight: 'calc(100vh - 65px)',
-    padding: theme.spacing.xl,
-    transition: `background-color ${theme.transitions.normal}`,
+    padding: '2rem',
+    transition: 'background-color 200ms ease',
   };
 
   const containerStyles = {
@@ -54,14 +50,7 @@ export function DashboardLayout({ children, title = 'ArkNet Fleet Manager' }: Da
       <header style={headerStyles}>
         <div style={headerContentStyles}>
           <h1 style={titleStyles}>{title}</h1>
-          <Button
-            variant="ghost"
-            size="md"
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-          >
-            {mode === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </Button>
+          <div />
         </div>
       </header>
       

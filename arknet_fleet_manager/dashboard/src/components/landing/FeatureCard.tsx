@@ -1,8 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import { useTheme } from '@/contexts/ThemeContext';
-import { theme } from '@/lib/theme';
+// Avoid ThemeProvider dependency; use static colors
 
 export interface FeatureCardData {
   icon: string;
@@ -18,24 +17,21 @@ interface FeatureCardProps {
 }
 
 export function FeatureCard({ feature, compact = true }: FeatureCardProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
-
   const cardIconStyles = {
     fontSize: compact ? '2.5rem' : '3rem',
-    marginBottom: compact ? theme.spacing.sm : theme.spacing.md,
+    marginBottom: compact ? '0.5rem' : '0.75rem',
   };
 
   const cardDescStyles = {
-    color: t.text.secondary,
+    color: '#cbd5e1',
     lineHeight: '1.5',
     fontSize: compact ? '0.875rem' : '1rem',
   };
 
   const comingSoonStyles = {
-    marginTop: compact ? theme.spacing.sm : theme.spacing.md,
+    marginTop: compact ? '0.5rem' : '0.75rem',
     fontSize: '0.875rem',
-    color: t.text.tertiary,
+    color: '#94a3b8',
     fontStyle: 'italic' as const,
   };
 

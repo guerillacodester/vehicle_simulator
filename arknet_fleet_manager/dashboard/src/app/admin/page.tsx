@@ -1,305 +1,199 @@
-// Placeholder for Admin Panel Page
-  "use client";
+"use client";
 
-  import { useEffect, useState } from "react";
-  import ServiceManager, { ServiceStatus, ServiceState, ConnectionStatus, ConnectionState } from "@/providers/ServiceManager";
-  import { DashboardLayout } from "@/components/layout/DashboardLayout";
-  import { ServiceCard } from "@/components/features/ServiceCard";
-  import { Button } from "@/components/ui";
-  import { useTheme } from "@/contexts/ThemeContext";
-  import { theme } from "@/lib/theme";
+import Image from "next/image";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Rajdhani, Inter } from "next/font/google";
+import { Settings, Users, Database, Activity } from "lucide-react";
 
-  export default function AdminDashboard() {
-    const [statuses, setStatuses] = useState<ServiceStatus[]>([]);
-    const [loadingService, setLoadingService] = useState<string | null>(null);
-    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
-      state: ConnectionState.CONNECTING,
-      message: 'Connecting to launcher...'
-    });
-    const { mode } = useTheme();
-    const t = theme.colors[mode];
+const rajdhani = Rajdhani({ subsets: ["latin"], weight: ["500", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500"] });
 
-    const fetchStatuses = async () => {
-      const result = await ServiceManager.getAllServiceStatuses();
-      if (result.success && result.statuses) {
-        setStatuses(result.statuses);
-      }
-    };
+export default function AdminDashboard() {
+  return (
+    <main className="min-h-screen text-white bg-gradient-to-b from-[#000b2a] via-black to-[#00133f]">
+      {/* Fixed Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1 }}
+        className="fixed top-0 w-full z-50 py-4 px-8 bg-[#001a4d]/40 backdrop-blur-md shadow-md flex items-center justify-between"
+      >
+        <Link href="/" className="flex items-center mr-4 md:mr-10">
+          <Image
+            src="/arknetlogo.png"
+            alt="Arknet Logo"
+            width={80}
+            height={80}
+            className="rounded-md drop-shadow-[0_0_18px_rgba(255,199,38,0.7)]"
+          />
+        </Link>
+        <h1 className={`${rajdhani.className} text-3xl md:text-5xl font-extrabold text-white tracking-widest text-center flex-1 [text-shadow:_0_0_12px_rgba(255,199,38,0.75),_0_0_28px_rgba(0,38,127,0.55)]`}>
+          Admin Portal
+        </h1>
+        <nav className="flex gap-6 text-lg font-semibold">
+          <Link href="/services" className="hover:text-amber-400 transition font-bold">Services</Link>
+          <Link href="/" className="hover:text-amber-400 transition">Home</Link>
+          <button className="hover:text-amber-400 transition">Logout</button>
+        </nav>
+      </motion.div>
 
-    const handleReloadServices = async () => {
-      setLoadingService('reloading');
-      await ServiceManager.reloadServices();
-      await fetchStatuses();
-      setLoadingService(null);
-    };
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 px-6 text-center">
+        <div className="max-w-4xl mx-auto">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className={`${rajdhani.className} text-4xl md:text-6xl font-bold mb-6 text-amber-400`}
+          >
+            System Administration
+          </motion.h2>
+          <p className={`${inter.className} text-lg md:text-xl text-gray-200 leading-relaxed mb-8`}>
+            Manage system configuration, services, users, and monitor overall platform health.
+          </p>
+        </div>
+      </section>
 
-    useEffect(() => {
-      const fetchData = async () => {
-        // Initial load only - fetch statuses once on component mount
-        await fetchStatuses();
-      };
-      fetchData();
+      {/* Quick Stats */}
+      <section className="py-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <h3 className={`${rajdhani.className} text-3xl md:text-4xl font-bold mb-8 text-amber-300 text-center`}>
+            System Overview
+          </h3>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="p-6 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+            >
+              <Activity className="w-12 h-12 text-amber-400 mb-4 mx-auto drop-shadow-[0_0_10px_rgba(255,199,38,0.5)]" />
+              <h4 className={`${rajdhani.className} text-xl font-bold mb-2 text-amber-300 text-center`}>
+                System Status
+              </h4>
+              <p className={`${inter.className} text-gray-300 text-center text-3xl font-bold`}>
+                Online
+              </p>
+              <p className={`${inter.className} text-gray-400 text-center text-sm`}>all services operational</p>
+            </motion.div>
 
-      // Subscribe to real-time service status updates
-      const onServiceEvent = (status: ServiceStatus) => {
-        setStatuses(prev => {
-          // Update the matching service, or add if not present
-          const found = prev.find(s => s.name === status.name);
-          if (found) {
-            return prev.map(s => s.name === status.name ? { ...s, ...status } : s);
-          } else {
-            return [...prev, status];
-          }
-        });
-      };
-      ServiceManager.onEvent(onServiceEvent);
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="p-6 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+            >
+              <Users className="w-12 h-12 text-amber-400 mb-4 mx-auto drop-shadow-[0_0_10px_rgba(255,199,38,0.5)]" />
+              <h4 className={`${rajdhani.className} text-xl font-bold mb-2 text-amber-300 text-center`}>
+                Active Users
+              </h4>
+              <p className={`${inter.className} text-gray-300 text-center text-3xl font-bold`}>
+                248
+              </p>
+              <p className={`${inter.className} text-gray-400 text-center text-sm`}>across all tiers</p>
+            </motion.div>
 
-      return () => {
-        ServiceManager.offEvent(onServiceEvent);
-      };
-    }, []); // Empty dependency array - only run once on mount
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="p-6 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+            >
+              <Database className="w-12 h-12 text-amber-400 mb-4 mx-auto drop-shadow-[0_0_10px_rgba(255,199,38,0.5)]" />
+              <h4 className={`${rajdhani.className} text-xl font-bold mb-2 text-amber-300 text-center`}>
+                Database Health
+              </h4>
+              <p className={`${inter.className} text-gray-300 text-center text-3xl font-bold`}>
+                98%
+              </p>
+              <p className={`${inter.className} text-gray-400 text-center text-sm`}>uptime this month</p>
+            </motion.div>
 
-    // Subscribe to connection status events
-    useEffect(() => {
-      const onConnectionEvent = (status: ConnectionStatus) => {
-        setConnectionStatus(status);
-      };
-      ServiceManager.onConnectionEvent(onConnectionEvent);
-      return () => {
-        ServiceManager.offConnectionEvent(onConnectionEvent);
-      };
-    }, []);
-
-    const handleStart = async (serviceName: string) => {
-      setLoadingService(serviceName);
-      // Immediately set status to starting
-      setStatuses(prev => prev.map(s =>
-        s.name === serviceName ? { ...s, state: ServiceState.STARTING, message: 'Starting service...' } : s
-      ));
-      try {
-        const result = await ServiceManager.startService(serviceName);
-        if (!result.success) {
-          // Update status on failure
-          setStatuses(prev => prev.map(s =>
-            s.name === serviceName ? { ...s, state: ServiceState.FAILED, message: result.message } : s
-          ));
-        }
-        // Success updates come via WebSocket
-      } finally {
-        setLoadingService(null);
-      }
-    };
-
-    const handleStop = async (serviceName: string) => {
-      setLoadingService(serviceName);
-      // Immediately set status to stopping
-      setStatuses(prev => prev.map(s =>
-        s.name === serviceName ? { ...s, message: 'Stopping service...' } : s
-      ));
-      try {
-        await ServiceManager.stopService(serviceName);
-        // Status updates come via WebSocket
-      } finally {
-        setLoadingService(null);
-      }
-    };
-
-    const handleReloadConfig = async () => {
-      setLoadingService('config');
-      try {
-        const result = await ServiceManager.reloadConfig();
-        if (result.success) {
-          // Refresh statuses after config reload
-          await fetchStatuses();
-        } else {
-          console.error('Failed to reload config:', result.message);
-          // Could add a toast notification here
-        }
-      } finally {
-        setLoadingService(null);
-      }
-    };
-
-    const gridStyles = {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-      gap: theme.spacing.sm,
-      marginTop: theme.spacing.lg,
-      alignItems: 'stretch',
-    };
-
-    const controlsStyles = {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: theme.spacing.xl,
-      flexWrap: 'wrap' as const,
-      gap: theme.spacing.md,
-      padding: theme.spacing.lg,
-      backgroundColor: t.bg.elevated,
-      borderRadius: theme.borderRadius.lg,
-      border: `1px solid ${t.border.default}`,
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)',
-    };
-
-    const titleStyles = {
-      fontSize: '1.5rem',
-      fontWeight: '700',
-      color: t.text.primary,
-      margin: 0,
-      background: `linear-gradient(135deg, ${t.interactive.primary.default}, ${t.interactive.accent.default})`,
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-      backgroundClip: 'text',
-    };
-
-    const controlsContainerStyles = {
-      display: 'flex',
-      flexDirection: 'column' as const,
-      gap: theme.spacing.md,
-      width: '100%',
-    };
-
-    const controlsRowStyles = {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      flexWrap: 'wrap' as const,
-      gap: theme.spacing.md,
-    };
-
-    const autoRefreshStyles = {
-      display: 'flex',
-      alignItems: 'center',
-      gap: theme.spacing.md,
-    };
-
-    return (
-      <DashboardLayout currentPath="/admin">
-        <div style={controlsStyles}>
-          <div style={controlsContainerStyles}>
-            <div style={controlsRowStyles}>
-              <h2 style={titleStyles}>Services</h2>
-              <div style={autoRefreshStyles}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: theme.spacing.sm, 
-                  marginBottom: theme.spacing.xs,
-                  padding: theme.spacing.sm,
-                  backgroundColor: 
-                    connectionStatus.state === ConnectionState.CONNECTED ? 'rgba(16, 185, 129, 0.1)' :
-                    connectionStatus.state === ConnectionState.CONNECTING ? 'rgba(245, 158, 11, 0.1)' :
-                    connectionStatus.state === ConnectionState.DISCONNECTED ? 'rgba(239, 68, 68, 0.1)' :
-                    'rgba(239, 68, 68, 0.1)',
-                  borderRadius: theme.borderRadius.md,
-                  border: `1px solid ${
-                    connectionStatus.state === ConnectionState.CONNECTED ? 'rgba(16, 185, 129, 0.3)' :
-                    connectionStatus.state === ConnectionState.CONNECTING ? 'rgba(245, 158, 11, 0.3)' :
-                    connectionStatus.state === ConnectionState.DISCONNECTED ? 'rgba(239, 68, 68, 0.3)' :
-                    'rgba(239, 68, 68, 0.3)'
-                  }`
-                }}>
-                  <div style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: 
-                      connectionStatus.state === ConnectionState.CONNECTED ? '#10b981' :
-                      connectionStatus.state === ConnectionState.CONNECTING ? '#f59e0b' :
-                      connectionStatus.state === ConnectionState.DISCONNECTED ? '#ef4444' :
-                      '#ef4444',
-                    animation: connectionStatus.state === ConnectionState.CONNECTING ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
-                  }} />
-                  <span style={{ 
-                    fontSize: '0.875rem', 
-                    fontWeight: '500',
-                    color: 
-                      connectionStatus.state === ConnectionState.CONNECTED ? '#10b981' :
-                      connectionStatus.state === ConnectionState.CONNECTING ? '#f59e0b' :
-                      connectionStatus.state === ConnectionState.DISCONNECTED ? '#ef4444' :
-                      '#ef4444'
-                  }}>
-                    {connectionStatus.message}
-                  </span>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={fetchStatuses}
-                  disabled={loadingService !== null || connectionStatus.state !== ConnectionState.CONNECTED}
-                >
-                  🔄 Refresh
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleReloadServices}
-                  disabled={loadingService === 'reloading' || connectionStatus.state !== ConnectionState.CONNECTED}
-                >
-                  {loadingService === 'reloading' ? '⏳' : '🔃'} Reload Services
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleReloadConfig}
-                  disabled={loadingService !== null}
-                >
-                  ⚙️ Reload Config
-                </Button>
-              </div>
-            </div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="p-6 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+            >
+              <Settings className="w-12 h-12 text-amber-400 mb-4 mx-auto drop-shadow-[0_0_10px_rgba(255,199,38,0.5)]" />
+              <h4 className={`${rajdhani.className} text-xl font-bold mb-2 text-amber-300 text-center`}>
+                Services Running
+              </h4>
+              <p className={`${inter.className} text-gray-300 text-center text-3xl font-bold`}>
+                12/12
+              </p>
+              <p className={`${inter.className} text-gray-400 text-center text-sm`}>all operational</p>
+            </motion.div>
           </div>
         </div>
-        {statuses.length === 0 && loadingService === null && (
-          <div style={{
-            textAlign: 'center',
-            backgroundColor: t.bg.elevated,
-            border: `2px dashed ${t.border.default}`,
-            borderRadius: theme.borderRadius.lg,
-            padding: theme.spacing.xl,
-          }}>
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: theme.spacing.md,
-              color: t.text.secondary,
-            }}>
-              <div style={{ fontSize: '3rem', opacity: 0.5 }}>⚙️</div>
-              <div>
-                <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: '600',
-                  color: t.text.primary,
-                  margin: 0,
-                  marginBottom: theme.spacing.sm
-                }}>
-                  No Services Found
-                </h3>
-                <p style={{
-                  fontSize: '0.875rem',
-                  margin: 0,
-                  color: t.text.tertiary
-                }}>
-                  Make sure the launcher is running on port 7000 to see available services.
+      </section>
+
+      {/* Admin Tools */}
+      <section className="py-20 px-6 bg-gradient-to-b from-[#02081a] via-black to-[#02081a] border-t border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <h3 className={`${rajdhani.className} text-3xl md:text-4xl font-bold mb-8 text-amber-300 text-center`}>
+            Administration Tools
+          </h3>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            <Link href="/services">
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="p-8 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+              >
+                <h4 className={`${rajdhani.className} text-2xl font-bold mb-4 text-amber-300`}>
+                  Service Manager
+                </h4>
+                <p className={`${inter.className} text-gray-300 mb-4`}>
+                  Start, stop, and monitor all system services in real-time.
                 </p>
-              </div>
-            </div>
+                <button className="px-6 py-3 bg-amber-400 text-black font-bold rounded-lg hover:bg-amber-300 transition">
+                  Manage Services
+                </button>
+              </motion.div>
+            </Link>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="p-8 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+            >
+              <h4 className={`${rajdhani.className} text-2xl font-bold mb-4 text-amber-300`}>
+                User Management
+              </h4>
+              <p className={`${inter.className} text-gray-300 mb-4`}>
+                Create, modify, and manage user accounts across all tiers.
+              </p>
+              <button className="px-6 py-3 bg-amber-400 text-black font-bold rounded-lg hover:bg-amber-300 transition">
+                Manage Users
+              </button>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="p-8 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+            >
+              <h4 className={`${rajdhani.className} text-2xl font-bold mb-4 text-amber-300`}>
+                System Configuration
+              </h4>
+              <p className={`${inter.className} text-gray-300 mb-4`}>
+                Configure system settings, environment variables, and integrations.
+              </p>
+              <button className="px-6 py-3 bg-amber-400 text-black font-bold rounded-lg hover:bg-amber-300 transition">
+                Configure System
+              </button>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="p-8 bg-[#0b1224]/80 rounded-lg shadow-lg transition hover:shadow-amber-400/30 hover:shadow-xl cursor-pointer"
+            >
+              <h4 className={`${rajdhani.className} text-2xl font-bold mb-4 text-amber-300`}>
+                Logs & Monitoring
+              </h4>
+              <p className={`${inter.className} text-gray-300 mb-4`}>
+                View system logs, error reports, and performance metrics.
+              </p>
+              <button className="px-6 py-3 bg-amber-400 text-black font-bold rounded-lg hover:bg-amber-300 transition">
+                View Logs
+              </button>
+            </motion.div>
           </div>
-        )}
-        <div style={gridStyles}>
-          {statuses.map((service) => (
-            <ServiceCard
-              key={service.name}
-              service={service}
-              onStart={handleStart}
-              onStop={handleStop}
-              disabled={loadingService === service.name}
-              isDisconnected={connectionStatus.state !== ConnectionState.CONNECTED}
-            />
-          ))}
         </div>
-      </DashboardLayout>
-    );
+      </section>
+    </main>
+  );
 }

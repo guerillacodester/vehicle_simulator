@@ -1,6 +1,4 @@
 import React from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { theme } from '@/lib/theme';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'neutral';
 type BadgeSize = 'sm' | 'md' | 'lg';
@@ -18,48 +16,51 @@ export function Badge({
   size = 'md',
   className = '',
 }: BadgeProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
-
   const sizeStyles = {
     sm: {
-      padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+      padding: '0.25rem 0.5rem',
       fontSize: '0.75rem',
     },
     md: {
-      padding: `${theme.spacing.xs} ${theme.spacing.md}`,
+      padding: '0.25rem 0.75rem',
       fontSize: '0.875rem',
     },
     lg: {
-      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+      padding: '0.5rem 0.75rem',
       fontSize: '1rem',
     },
   };
 
   const variantStyles = {
     default: {
-      backgroundColor: t.bg.tertiary,
-      color: t.text.primary,
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      color: 'rgba(255, 255, 255, 0.9)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
     },
     success: {
-      backgroundColor: mode === 'dark' ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
-      color: mode === 'dark' ? '#86efac' : '#166534',
+      backgroundColor: 'rgba(34, 197, 94, 0.2)',
+      color: '#86efac',
+      border: '1px solid rgba(34, 197, 94, 0.3)',
     },
     warning: {
-      backgroundColor: mode === 'dark' ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7',
-      color: mode === 'dark' ? '#fcd34d' : '#92400e',
+      backgroundColor: 'rgba(251, 191, 36, 0.2)',
+      color: '#fcd34d',
+      border: '1px solid rgba(251, 191, 36, 0.3)',
     },
     error: {
-      backgroundColor: mode === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
-      color: mode === 'dark' ? '#fca5a5' : '#991b1b',
+      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+      color: '#fca5a5',
+      border: '1px solid rgba(239, 68, 68, 0.3)',
     },
     info: {
-      backgroundColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
-      color: mode === 'dark' ? '#93c5fd' : '#1e40af',
+      backgroundColor: 'rgba(59, 130, 246, 0.2)',
+      color: '#93c5fd',
+      border: '1px solid rgba(59, 130, 246, 0.3)',
     },
     neutral: {
-      backgroundColor: mode === 'dark' ? 'rgba(156, 163, 175, 0.2)' : '#f3f4f6',
-      color: t.text.secondary,
+      backgroundColor: 'rgba(156, 163, 175, 0.2)',
+      color: 'rgba(255, 255, 255, 0.6)',
+      border: '1px solid rgba(156, 163, 175, 0.3)',
     },
   };
 
@@ -68,8 +69,8 @@ export function Badge({
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: '500',
-    borderRadius: theme.borderRadius.full,
-    transition: `all ${theme.transitions.fast}`,
+    borderRadius: '9999px',
+    transition: 'all 0.2s',
     ...sizeStyles[size],
     ...variantStyles[variant],
   };

@@ -1,6 +1,5 @@
 import React from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { theme } from '@/lib/theme';
+// Static arknet-like Card implementation; avoid ThemeProvider dependency
 
 interface CardProps {
   children: React.ReactNode;
@@ -17,31 +16,21 @@ export function Card({
   hoverable = false,
   onClick,
 }: CardProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
+  const paddingMap = { sm: '0.75rem', md: '1rem', lg: '1.25rem' };
 
-  const paddingMap = {
-    sm: theme.spacing.md,
-    md: theme.spacing.lg,
-    lg: theme.spacing.xl,
-  };
-
-  const styles = {
-    backgroundColor: t.bg.secondary,
-    border: `1px solid ${t.border.default}`,
-    borderRadius: theme.borderRadius.lg,
+  const styles: React.CSSProperties = {
+    backgroundColor: '#07102a',
+    border: '1px solid rgba(255,255,255,0.04)',
+    borderRadius: '0.75rem',
     padding: paddingMap[padding],
-    boxShadow: theme.shadows.sm,
-    transition: `all ${theme.transitions.normal}`,
+    boxShadow: '0 4px 8px rgba(0,0,0,0.25)',
+    transition: 'all 160ms ease',
     cursor: onClick ? 'pointer' : 'default',
-    ...(hoverable && {
-      ':hover': {
-        boxShadow: theme.shadows.md,
-        borderColor: t.border.hover,
-        transform: 'translateY(-2px)',
-      },
-    }),
   };
+
+  if (hoverable) {
+    // subtle inline hover via onMouseEnter/onMouseLeave where used; keep static here
+  }
 
   return (
     <div style={styles} className={className} onClick={onClick}>
@@ -56,14 +45,7 @@ interface CardHeaderProps {
 }
 
 export function CardHeader({ children, className = '' }: CardHeaderProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
-
-  const styles = {
-    marginBottom: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    borderBottom: `1px solid ${t.border.subtle}`,
-  };
+  const styles = { marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.03)' };
 
   return (
     <div style={styles} className={className}>
@@ -79,15 +61,7 @@ interface CardTitleProps {
 }
 
 export function CardTitle({ children, className = '', style }: CardTitleProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
-
-  const baseStyles = {
-    fontSize: '1.25rem',
-    fontWeight: '600',
-    color: t.text.primary,
-    margin: 0,
-  };
+  const baseStyles = { fontSize: '1.25rem', fontWeight: 600, color: '#ffffff', margin: 0 };
 
   const combinedStyles = { ...baseStyles, ...style };
 
@@ -104,12 +78,7 @@ interface CardContentProps {
 }
 
 export function CardContent({ children, className = '' }: CardContentProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
-
-  const styles = {
-    color: t.text.secondary,
-  };
+  const styles = { color: '#cbd5e1' };
 
   return (
     <div style={styles} className={className}>

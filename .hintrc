@@ -17,6 +17,13 @@
       }
     ],
     "meta-charset-utf-8": "off",
-    "no-inline-styles": "off"
+    "no-inline-styles": "off",
+    "axe/aria": [
+      "default",
+      {
+        "aria-valid-attr-value": "off",
+        "aria-required-children": "off"
+      }
+    ]
   }
 }

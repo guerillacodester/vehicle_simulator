@@ -4,9 +4,6 @@ import { useEffect, useState } from "react";
 import ServiceManager, { ServiceStatus, ServiceState, ConnectionStatus, ConnectionState } from "@/providers/ServiceManager";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ServiceCard } from "@/components/features/ServiceCard";
-import { Button } from "@/components/ui";
-import { useTheme } from "@/contexts/ThemeContext";
-import { theme } from "@/lib/theme";
 
 export default function ServicesPage() {
   const [statuses, setStatuses] = useState<ServiceStatus[]>([]);
@@ -15,8 +12,6 @@ export default function ServicesPage() {
     state: ConnectionState.CONNECTING,
     message: 'Connecting to launcher...'
   });
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
 
   const fetchStatuses = async () => {
     const result = await ServiceManager.getAllServiceStatuses();
@@ -129,8 +124,8 @@ export default function ServicesPage() {
   const gridStyles = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.lg,
+    gap: '1rem',
+    marginTop: '2rem',
     alignItems: 'stretch',
   };
 
@@ -138,22 +133,22 @@ export default function ServicesPage() {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: '2rem',
     flexWrap: 'wrap' as const,
-    gap: theme.spacing.md,
-    padding: theme.spacing.lg,
-    backgroundColor: t.bg.elevated,
-    borderRadius: theme.borderRadius.lg,
-    border: `1px solid ${t.border.default}`,
+    gap: '1rem',
+    padding: '1.5rem',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: '12px',
+    border: '1px solid rgba(255, 199, 38, 0.2)',
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)',
   };
 
   const titleStyles = {
     fontSize: '1.5rem',
     fontWeight: '700',
-    color: t.text.primary,
+    color: '#FFC726',
     margin: 0,
-    background: `linear-gradient(135deg, ${t.interactive.primary.default}, ${t.interactive.accent.default})`,
+    background: 'linear-gradient(135deg, #FFC726, #FFD54F)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
@@ -162,7 +157,7 @@ export default function ServicesPage() {
   const controlsContainerStyles = {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: theme.spacing.md,
+    gap: '1rem',
     width: '100%',
   };
 
@@ -171,13 +166,13 @@ export default function ServicesPage() {
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap' as const,
-    gap: theme.spacing.md,
+    gap: '1rem',
   };
 
   const autoRefreshStyles = {
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: '1rem',
   };
 
   return (
@@ -191,15 +186,15 @@ export default function ServicesPage() {
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: theme.spacing.sm, 
-                marginBottom: theme.spacing.xs,
-                padding: theme.spacing.sm,
+                gap: '0.5rem', 
+                marginBottom: '0.25rem',
+                padding: '0.5rem',
                 backgroundColor: 
                   connectionStatus.state === ConnectionState.CONNECTED ? 'rgba(16, 185, 129, 0.1)' :
                   connectionStatus.state === ConnectionState.CONNECTING ? 'rgba(245, 158, 11, 0.1)' :
                   connectionStatus.state === ConnectionState.DISCONNECTED ? 'rgba(239, 68, 68, 0.1)' :
                   'rgba(239, 68, 68, 0.1)',
-                borderRadius: theme.borderRadius.md,
+                borderRadius: '8px',
                 border: `1px solid ${
                   connectionStatus.state === ConnectionState.CONNECTED ? 'rgba(16, 185, 129, 0.3)' :
                   connectionStatus.state === ConnectionState.CONNECTING ? 'rgba(245, 158, 11, 0.3)' :
@@ -231,32 +226,86 @@ export default function ServicesPage() {
                 </span>
               </div>
               
-              <Button
-                variant="secondary"
-                size="sm"
+              <button
                 onClick={fetchStatuses}
                 disabled={loadingService !== null || connectionStatus.state !== ConnectionState.CONNECTED}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'rgba(255, 199, 38, 0.1)',
+                  border: '1px solid rgba(255, 199, 38, 0.3)',
+                  borderRadius: '8px',
+                  color: '#FFC726',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: loadingService !== null || connectionStatus.state !== ConnectionState.CONNECTED ? 'not-allowed' : 'pointer',
+                  opacity: loadingService !== null || connectionStatus.state !== ConnectionState.CONNECTED ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (loadingService === null && connectionStatus.state === ConnectionState.CONNECTED) {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 199, 38, 0.2)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 199, 38, 0.1)';
+                }}
               >
                 🔄 Refresh
-              </Button>
+              </button>
               
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={handleReloadServices}
                 disabled={loadingService === 'reloading' || connectionStatus.state !== ConnectionState.CONNECTED}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: loadingService === 'reloading' || connectionStatus.state !== ConnectionState.CONNECTED ? 'not-allowed' : 'pointer',
+                  opacity: loadingService === 'reloading' || connectionStatus.state !== ConnectionState.CONNECTED ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (loadingService !== 'reloading' && connectionStatus.state === ConnectionState.CONNECTED) {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                }}
               >
                 {loadingService === 'reloading' ? '⏳' : '🔃'} Reload Services
-              </Button>
+              </button>
               
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={handleReloadConfig}
                 disabled={loadingService !== null}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: loadingService !== null ? 'not-allowed' : 'pointer',
+                  opacity: loadingService !== null ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (loadingService === null) {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                }}
               >
                 ⚙️ Reload Config
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -265,33 +314,33 @@ export default function ServicesPage() {
       {statuses.length === 0 && loadingService === null && (
         <div style={{
           textAlign: 'center',
-          backgroundColor: t.bg.elevated,
-          border: `2px dashed ${t.border.default}`,
-          borderRadius: theme.borderRadius.lg,
-          padding: theme.spacing.xl,
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          border: '2px dashed rgba(255, 199, 38, 0.2)',
+          borderRadius: '12px',
+          padding: '2rem',
         }}>
           <div style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: theme.spacing.md,
-            color: t.text.secondary,
+            gap: '1rem',
+            color: 'rgba(255, 255, 255, 0.6)',
           }}>
             <div style={{ fontSize: '3rem', opacity: 0.5 }}>⚙️</div>
             <div>
               <h3 style={{
                 fontSize: '1.25rem',
                 fontWeight: '600',
-                color: t.text.primary,
+                color: '#FFC726',
                 margin: 0,
-                marginBottom: theme.spacing.sm
+                marginBottom: '0.5rem'
               }}>
                 No Services Found
               </h3>
               <p style={{
                 fontSize: '0.875rem',
                 margin: 0,
-                color: t.text.tertiary
+                color: 'rgba(255, 255, 255, 0.4)'
               }}>
                 Make sure the launcher is running on port 7000 to see available services.
               </p>

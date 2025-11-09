@@ -1,37 +1,31 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import "./globals.css";
-import "@/styles/theme.css";
+import { Orbitron, Inter } from "next/font/google";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const orbitron = Orbitron({
   subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-orbitron",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
 });
 
-export const metadata: Metadata = {
-  title: "ArkNet Fleet Manager",
-  description: "Service orchestration dashboard for ArkNet logistics system",
+export const metadata = {
+  title: "Arknet Transit",
+  description: "Building the Backbone of Cashless Transit",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+      <body className={`${orbitron.variable} ${inter.variable} bg-black text-white`}>
+        {children}
       </body>
     </html>
   );

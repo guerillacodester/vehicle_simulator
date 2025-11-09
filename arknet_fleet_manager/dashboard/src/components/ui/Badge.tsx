@@ -1,6 +1,5 @@
 import React from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { theme } from '@/lib/theme';
+// Badge uses static arknet-like colors to avoid ThemeProvider dependency
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'neutral';
 type BadgeSize = 'sm' | 'md' | 'lg';
@@ -18,58 +17,28 @@ export function Badge({
   size = 'md',
   className = '',
 }: BadgeProps) {
-  const { mode } = useTheme();
-  const t = theme.colors[mode];
-
   const sizeStyles = {
-    sm: {
-      padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-      fontSize: '0.75rem',
-    },
-    md: {
-      padding: `${theme.spacing.xs} ${theme.spacing.md}`,
-      fontSize: '0.875rem',
-    },
-    lg: {
-      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-      fontSize: '1rem',
-    },
+    sm: { padding: '0.125rem 0.5rem', fontSize: '0.75rem' },
+    md: { padding: '0.25rem 0.75rem', fontSize: '0.875rem' },
+    lg: { padding: '0.5rem 0.75rem', fontSize: '1rem' },
   };
 
-  const variantStyles = {
-    default: {
-      backgroundColor: t.bg.tertiary,
-      color: t.text.primary,
-    },
-    success: {
-      backgroundColor: mode === 'dark' ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
-      color: mode === 'dark' ? '#86efac' : '#166534',
-    },
-    warning: {
-      backgroundColor: mode === 'dark' ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7',
-      color: mode === 'dark' ? '#fcd34d' : '#92400e',
-    },
-    error: {
-      backgroundColor: mode === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
-      color: mode === 'dark' ? '#fca5a5' : '#991b1b',
-    },
-    info: {
-      backgroundColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
-      color: mode === 'dark' ? '#93c5fd' : '#1e40af',
-    },
-    neutral: {
-      backgroundColor: mode === 'dark' ? 'rgba(156, 163, 175, 0.2)' : '#f3f4f6',
-      color: t.text.secondary,
-    },
+  const variantStyles: Record<string, React.CSSProperties> = {
+    default: { backgroundColor: 'rgba(255,255,255,0.03)', color: '#ffffff' },
+    success: { backgroundColor: 'rgba(34,197,94,0.12)', color: '#86efac' },
+    warning: { backgroundColor: 'rgba(252,211,77,0.12)', color: '#f59e0b' },
+    error: { backgroundColor: 'rgba(239,68,68,0.12)', color: '#f87171' },
+    info: { backgroundColor: 'rgba(59,130,246,0.12)', color: '#93c5fd' },
+    neutral: { backgroundColor: 'rgba(156,163,175,0.08)', color: '#cbd5e1' },
   };
 
-  const styles = {
+  const styles: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontWeight: '500',
-    borderRadius: theme.borderRadius.full,
-    transition: `all ${theme.transitions.fast}`,
+    fontWeight: 500,
+    borderRadius: '9999px',
+    transition: 'all 120ms ease',
     ...sizeStyles[size],
     ...variantStyles[variant],
   };
