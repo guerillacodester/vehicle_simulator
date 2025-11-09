@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpscentcom_server"
+version = "0.2.0"
+description = "GPS CentCom server with realtime brokered websocket updates"
+authors = [ { name = "Auto-migrator" } ]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi==0.111.0",
+    "uvicorn[standard]==0.30.0",
+    "redis>=4.2",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0"
+]
+
+[project.scripts]
+gpscentcom_server = "gpscentcom_server.server_main:main"
