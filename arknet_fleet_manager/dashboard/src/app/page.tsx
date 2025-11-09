@@ -145,60 +145,56 @@ export default function Home() {
         </nav>
       </motion.div>
 
-      {/* Hero Section */}
-      <section className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden pt-20">
+      {/* Hero Section with Cards */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 py-32 overflow-hidden">
         <Image
           src="/zrvan.jpg"
           alt="ZR Van"
           fill
           priority
-          className="object-cover opacity-30"
+          className="object-cover opacity-20"
         />
 
-        <div className="relative z-10 max-w-5xl w-full">
+        <div className="relative z-10 max-w-7xl w-full">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`${rajdhani.className} text-4xl md:text-6xl font-bold mb-6 text-amber-400`}
+            className={`${rajdhani.className} text-5xl md:text-7xl font-bold mb-4 text-amber-400 drop-shadow-[0_0_30px_rgba(255,199,38,0.6)]`}
           >
             Choose Your Portal
           </motion.h2>
 
-          <p className={`${inter.className} text-lg md:text-xl text-gray-200 mb-12`}>
+          <p className={`${inter.className} text-xl md:text-2xl text-gray-100 mb-12 drop-shadow-lg`}>
             Select your role to access the appropriate dashboard
           </p>
-        </div>
-      </section>
 
-      {/* 4-Tier Selector Cards */}
-      <section className="py-20 px-6 bg-gradient-to-b from-[#02081a] via-black to-[#02081a] border-t border-white/5">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-8">
+          {/* 4-Tier Selector Cards - Glassmorphism */}
+          <div className="grid md:grid-cols-2 gap-6 lg:gap-8 mt-12">
             {userTiers.map((tier, index) => (
               <Link key={index} href={tier.href}>
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02, y: -5 }}
-                  className="relative p-8 bg-[#0b1224]/80 rounded-xl shadow-2xl transition hover:shadow-amber-400/20 hover:shadow-2xl cursor-pointer overflow-hidden group"
+                  transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+                  whileHover={{ scale: 1.03, y: -8 }}
+                  className="relative p-6 lg:p-8 bg-gradient-to-br from-[#0b1224]/80 via-[#1a1410]/70 to-[#0b1224]/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-amber-400/20 transition hover:shadow-amber-400/40 hover:shadow-2xl hover:border-amber-400/60 cursor-pointer overflow-hidden group"
                 >
                   {/* Gradient overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-0 group-hover:opacity-15 transition-opacity duration-300`}></div>
 
                   <div className="relative z-10">
-                    <tier.icon className="w-16 h-16 text-amber-400 mb-4 drop-shadow-[0_0_20px_rgba(255,199,38,0.6)]" />
+                    <tier.icon className="w-12 h-12 lg:w-14 lg:h-14 text-amber-400 mb-3 drop-shadow-[0_0_20px_rgba(255,199,38,0.7)]" />
                     
-                    <h3 className={`${rajdhani.className} text-3xl font-bold mb-3 text-amber-300`}>
+                    <h3 className={`${rajdhani.className} text-2xl lg:text-3xl font-bold mb-2 text-amber-300 drop-shadow-lg`}>
                       {tier.title}
                     </h3>
                     
-                    <p className={`${inter.className} text-gray-300 mb-6`}>
+                    <p className={`${inter.className} text-gray-100 mb-4 text-sm lg:text-base`}>
                       {tier.description}
                     </p>
 
-                    <ul className={`${inter.className} space-y-2 text-gray-400`}>
+                    <ul className={`${inter.className} space-y-1.5 text-gray-200 text-sm`}>
                       {tier.features.map((feature, i) => (
                         <li key={i} className="flex items-center">
                           <span className="text-amber-400 mr-2">✓</span>
@@ -207,7 +203,7 @@ export default function Home() {
                       ))}
                     </ul>
 
-                    <div className="mt-6 inline-block px-6 py-3 bg-amber-400 text-black font-bold rounded-lg group-hover:bg-amber-300 transition">
+                    <div className="mt-5 inline-block px-5 py-2.5 bg-amber-400 text-black font-bold rounded-lg group-hover:bg-amber-300 transition shadow-lg">
                       Access Portal →
                     </div>
                   </div>
