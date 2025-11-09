@@ -1,0 +1,22 @@
+{
+  "name": "clients-transit",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start:mock": "node mock-server/index.js",
+    "dev:mock": "node mock-server/index.js",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.2",
+    "@types/node": "^20.3.1",
+    "@types/ws": "^8.5.6"
+  }
+}

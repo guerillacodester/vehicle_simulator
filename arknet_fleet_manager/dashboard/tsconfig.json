@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@transit/*": ["../../clients/transit/src/*"]
     }
   },
   "include": [
