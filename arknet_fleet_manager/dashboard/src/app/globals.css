@@ -74,18 +74,61 @@ textarea:focus {
   box-shadow: 0 0 10px #00ff88;
 }
 
-/* Leaflet control z-index should sit below the fixed header (header uses z-50) */
-.leaflet-control-container,
+/* Leaflet control z-index management for proper stacking */
+.leaflet-control-container {
+  z-index: 1000 !important;
+}
+
 .leaflet-top,
-.leaflet-bottom,
+.leaflet-bottom {
+  z-index: 1000 !important;
+}
+
+/* Remove default margins from Leaflet controls */
+.leaflet-top {
+  top: 0 !important;
+}
+
+.leaflet-right {
+  right: 0 !important;
+}
+
+.leaflet-bottom {
+  bottom: 0 !important;
+}
+
+.leaflet-left {
+  left: 0 !important;
+}
+
 .leaflet-control {
-  z-index: 1 !important;
+  z-index: 1000 !important;
+  margin: 0 !important;
+}
+
+/* Ensure scale control stays visible and on top */
+.leaflet-control-scale {
+  z-index: 1000 !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  margin: 0 !important;
 }
 
 /* Make leaflet containers pick up rounded corners when wrapped */
 .leaflet-container {
   border-radius: 0.5rem;
   background-clip: padding-box;
+  background: #f5f5f5 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .leaflet-container {
+    background: #1a1a1a !important;
+  }
 }
 
 /* Ensure the app header always renders above map controls (avoid stacking-context surprises) */
@@ -110,27 +153,354 @@ textarea:focus {
   opacity: 1 !important;
 }
 
-/* Map control panel & hamburger styles */
-.map-control-panel {
-  transform: translateX(-8px);
-  opacity: 0;
-  transition: transform 220ms ease, opacity 220ms ease;
-}
-.map-control-panel.open {
-  transform: translateX(0);
-  opacity: 1;
-}
+/* ===== MAP HAMBURGER MENU - Production Pattern ===== */
 
-.map-control-hamburger {
-  width: 44px;
-  height: 44px;
+/* Hamburger button - absolute position within map container */
+.map-hamburger {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1001;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: none;
   border-radius: 8px;
-  display: inline-flex;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  cursor: pointer;
+  display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
 }
 
-/* Make sure the panel scrolls independently of the page */
+@media (prefers-color-scheme: dark) {
+  .map-hamburger {
+    background: rgba(26, 26, 26, 0.75);
+  }
+}
+
+.map-hamburger:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transform: scale(1.05);
+}
+
+.map-hamburger:active {
+  transform: scale(0.95);
+}
+
+/* Hamburger icon lines */
+.map-hamburger-icon {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.map-hamburger-icon span {
+  width: 20px;
+  height: 2px;
+  background: #333;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-hamburger-icon span {
+    background: #f3f4f6;
+  }
+}
+
+/* Animate hamburger to X when open */
+.map-hamburger.open .map-hamburger-icon span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.map-hamburger.open .map-hamburger-icon span:nth-child(2) {
+  opacity: 0;
+}
+
+.map-hamburger.open .map-hamburger-icon span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* Overlay - dims background when panel is open (but NOT when pinned) */
+.map-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.4);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none; /* Don't block map interaction */
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.map-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto; /* Enable click to close when overlay is visible */
+}
+
+/* Side panel - slides in from left */
 .map-control-panel {
-  -webkit-overflow-scrolling: touch;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 360px;
+  max-width: 85vw;
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 2px 0 16px rgba(0,0,0,0.25);
+  z-index: 1002;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-control-panel {
+    background: rgba(26, 26, 26, 0.85);
+  }
+}
+
+.map-control-panel.open {
+  transform: translateX(0);
+}
+
+/* Pinned state - panel doesn't block map interaction */
+.map-control-panel.pinned {
+  pointer-events: auto; /* Panel is interactive */
+}
+
+/* Panel header */
+.map-control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+  background: rgba(249, 250, 251, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-control-header {
+    border-bottom: 1px solid rgba(75, 85, 99, 0.5);
+    background: rgba(31, 41, 55, 0.5);
+  }
+}
+
+.map-control-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.map-control-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.map-control-pin,
+.map-control-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #374151;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.map-control-pin:hover,
+.map-control-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.map-control-pin:active,
+.map-control-close:active {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-control-pin,
+  .map-control-close {
+    color: #e5e7eb;
+  }
+  
+  .map-control-pin:hover,
+  .map-control-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .map-control-pin:active,
+  .map-control-close:active {
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+.map-control-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-control-header h3 {
+    color: #f3f4f6;
+  }
+}
+
+/* Panel body - scrollable content */
+.map-control-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+/* Control sections */
+.map-control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.map-control-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.map-control-row span {
+  font-size: 14px;
+  color: #374151;
+}
+
+.map-control-section {
+  margin-bottom: 24px;
+}
+
+.map-control-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.map-control-search {
+  margin-top: 8px;
+}
+
+.map-control-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* Route list items */
+.route-item {
+  list-style: none;
+  margin-bottom: 4px;
+}
+
+.route-item-btn {
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.route-item-btn:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.route-item-btn strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.route-item-btn .muted {
+  display: block;
+  margin-top: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .route-item-btn:hover {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  
+  .route-item-btn strong {
+    color: #f3f4f6;
+  }
+  
+  .muted {
+    color: #9ca3af;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .map-control-panel {
+    max-width: 90vw;
+  }
+  
+  .map-hamburger {
+    top: 12px;
+    left: 12px;
+  }
 }

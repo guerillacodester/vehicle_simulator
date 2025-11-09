@@ -1,23 +1,49 @@
-# clients/transit
+# Transit Client Package
 
-TransitDataProvider — lightweight TypeScript package that provides REST + WebSocket adapters for route metadata and live vehicle positions.
+## Overview
 
-Quick start (requires Node 18+ and npm):
+TransitDataProvider — lightweight TypeScript package that connects the **Next.js dashboard** to the **Strapi backend API**. Provides REST + WebSocket adapters for route metadata and live vehicle positions.
 
-1. Install deps
+## Production Architecture
+
+```
+Next.js Dashboard (Port 3000) → Strapi API (Port 1337) → PostgreSQL/PostGIS
+```
+
+**This package connects to your real Strapi backend**, not a mock server.
+
+## Quick Start
+
+### 1. Start Strapi Backend
+
+```powershell
+cd arknet_fleet_manager/arknet-fleet-api
+npm run develop
+# Strapi runs on http://localhost:1337
+```
+
+### 2. Configure Environment Variables
+
+In `arknet_fleet_manager/dashboard/.env.local`:
+```env
+NEXT_PUBLIC_STRAPI_URL=http://localhost:1337/api
+NEXT_PUBLIC_WS_URL=ws://localhost:1337
+```
+
+### 3. Build Transit Client
 
 ```powershell
 cd clients/transit
 npm ci
-```
-
-2. Build
-
-```powershell
 npx tsc --noEmit
 ```
 
-3. Start mock server (for frontend dev)
+### 4. Start Dashboard
+
+```powershell
+cd arknet_fleet_manager/dashboard
+npm run dev
+# Dashboard connects to Strapi automatically
 
 ```powershell
 npm run start:mock

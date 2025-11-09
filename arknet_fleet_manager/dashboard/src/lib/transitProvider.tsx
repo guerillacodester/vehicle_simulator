@@ -2,9 +2,10 @@ import React from 'react';
 import { TransitDataProvider } from '@transit/TransitDataProvider';
 
 // Create a singleton provider for easy reuse in the dashboard
+// Connects to Strapi backend API
 const provider = new TransitDataProvider({
-  baseUrl: process.env.NEXT_PUBLIC_TRANSIT_BASE_URL || 'http://localhost:4001',
-  wsUrl: process.env.NEXT_PUBLIC_TRANSIT_WS_URL || 'ws://localhost:4001'
+  baseUrl: process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api',
+  wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:1337'
 });
 
 export function getTransitProvider() {
