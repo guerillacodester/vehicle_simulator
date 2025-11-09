@@ -1,8 +1,11 @@
 "use client";
 
+import React from 'react';
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import dynamic from 'next/dynamic';
+const LeafletMapClient = dynamic(() => import('../../components/map/LeafletMapClient'), { ssr: false });
 import { Rajdhani, Inter } from "next/font/google";
 import { MapPin, CreditCard, Clock, Star } from "lucide-react";
 
@@ -17,7 +20,7 @@ export default function CustomerDashboard() {
         initial={{ opacity: 0, y: -40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1 }}
-        className="fixed top-0 w-full z-50 py-4 px-8 bg-[#001a4d]/40 backdrop-blur-md shadow-md flex items-center justify-between"
+        className="app-header fixed top-0 w-full py-4 px-8 bg-[#001a4d]/40 backdrop-blur-md shadow-md flex items-center justify-between"
       >
         <Link href="/" className="flex items-center mr-4 md:mr-10">
           <Image
@@ -38,7 +41,7 @@ export default function CustomerDashboard() {
       </motion.div>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-6 text-center">
+      <section className="relative pt-32 pb-12 px-6 text-center">
         <div className="max-w-4xl mx-auto">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -55,7 +58,7 @@ export default function CustomerDashboard() {
       </section>
 
       {/* Quick Actions */}
-      <section className="py-20 px-6">
+      <section className="py-8 px-6">
         <div className="max-w-6xl mx-auto">
           <h3 className={`${rajdhani.className} text-3xl md:text-4xl font-bold mb-8 text-amber-300 text-center`}>
             Quick Actions
@@ -113,6 +116,18 @@ export default function CustomerDashboard() {
                 Leave feedback
               </p>
             </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Live map */}
+      <section className="py-8 px-6">
+        <div className="max-w-6xl mx-auto bg-[#021028]/60 rounded-lg p-4">
+          <h3 className={`${rajdhani.className} text-2xl font-bold mb-4 text-amber-300 text-center`}>Live Map</h3>
+          {/* Leaflet client-only map loaded dynamically */}
+          <div className="rounded-xl overflow-hidden shadow-xl border border-white/10" style={{ height: '75vh' }}>
+            {/* Client-only Leaflet map component (dynamic import) */}
+            <LeafletMapClient height="75vh" />
           </div>
         </div>
       </section>

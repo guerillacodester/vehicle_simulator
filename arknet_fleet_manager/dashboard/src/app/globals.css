@@ -73,3 +73,64 @@ textarea:focus {
   border-color: #00ff88;
   box-shadow: 0 0 10px #00ff88;
 }
+
+/* Leaflet control z-index should sit below the fixed header (header uses z-50) */
+.leaflet-control-container,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control {
+  z-index: 1 !important;
+}
+
+/* Make leaflet containers pick up rounded corners when wrapped */
+.leaflet-container {
+  border-radius: 0.5rem;
+  background-clip: padding-box;
+}
+
+/* Ensure the app header always renders above map controls (avoid stacking-context surprises) */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483647; /* very large to beat other stacking contexts */
+  transform: translateZ(0); /* promote to its own layer */
+}
+
+/* Force Leaflet scale control to always be visible */
+.leaflet-control-scale {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.leaflet-control-scale-line {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Map control panel & hamburger styles */
+.map-control-panel {
+  transform: translateX(-8px);
+  opacity: 0;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+.map-control-panel.open {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.map-control-hamburger {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Make sure the panel scrolls independently of the page */
+.map-control-panel {
+  -webkit-overflow-scrolling: touch;
+}
