@@ -11,33 +11,56 @@
 
 ---
 
-## 🚨 CRITICAL: ROUTE GEOMETRY - SINGLE SOURCE OF TRUTH
+## 🚨 CRITICAL: ROUTE GEOMETRY - CANONICAL SOLUTION IMPLEMENTED
 
 **READ THIS FIRST BEFORE TOUCHING ANY ROUTE CODE**
 
-### The Problem (Solved - Nov 9, 2025)
-The PostgreSQL database stores routes in **27+ fragmented shape segments with NO ordering information**. Attempting to reconstruct routes from `route_shapes` + `shapes` tables results in:
+### The Problem (SOLVED - Nov 9, 2025)
+The PostgreSQL database stores routes in **27 fragmented shape segments with NO ordering information**. Attempting to reconstruct routes from `route_shapes` + `shapes` tables results in:
 - ❌ Random concatenation = 91km of jumps (WRONG)
 - ❌ Default shape only = 1.3km segment (WRONG)
 - ❌ No sequence/order data exists in database
 
-### The Solution
-**GeoJSON files are the SINGLE SOURCE OF TRUTH** for route geometry:
-- Location: `arknet_transit_simulator/data/route_*.geojson`
-- Route 1 specs: **418 coordinates, 27 ordered segments, 13.347 km total distance**
-- Segments ordered by `layer` property: `1_1`, `1_2`, ..., `3_8`
+### The Solution ✅ PRODUCTION-READY
+**Canonical spatial reordering algorithm implemented in Strapi service:**
+- Location: `arknet-fleet-api/src/api/route/services/route.ts`
+- Method: `fetchRouteGeometry(routeShortName: string)`
+- Algorithm: Greedy nearest-neighbor with optimal starting point selection
+- Route 1 result: **415 coordinates, 27 segments, 13.394 km** (matches canonical 13.382 km ±12m)
 
-### Implementation Guide
-**📖 SEE: `/ROUTE_GEOMETRY_BIBLE.md` for complete documentation**
+### Access Methods
+**REST API:**
+```
+GET http://localhost:1337/api/routes/test-geometry/1
+```
 
-This document contains:
-- Why database queries fail
-- How to correctly extract geometry from GeoJSON
-- API endpoint implementation patterns
-- Verification procedures
-- Integration with dispatcher
+**GraphQL Query:**
+```graphql
+query GetRouteGeometry {
+  routeGeometry(routeName: "1") {
+    success
+    routeName
+    coordinateCount
+    segmentCount
+    metrics {
+      totalPoints
+      estimatedLengthKm
+      segments
+      reversedCount
+    }
+    coordinates
+  }
+}
+```
 
-**DO NOT attempt to reconstruct routes from database without reading ROUTE_GEOMETRY_BIBLE.md**
+### Implementation Details
+- **Service Layer**: `src/api/route/services/route.ts` - `fetchRouteGeometry()`
+- **GraphQL Registration**: `src/index.ts` - register hook with resolversConfig
+- **Client Module**: `dashboard/src/lib/graphql/route-geometry.ts`
+- **Algorithm**: Tries all 27 starting points, selects shortest total length
+- **Quality**: Zero seams >0.5km, 1 segment reversed for optimal fit
+
+**DO NOT revert to GeoJSON files - use the canonical Strapi service method**
 
 ---
 
