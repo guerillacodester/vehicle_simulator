@@ -1,3 +1,20 @@
+/**
+ * 🚨 CRITICAL WARNING - READ BEFORE EDITING 🚨
+ * ============================================
+ * The database route_shapes + shapes tables are FRAGMENTED!
+ * - Route 1 has 27 separate shape segments with NO ORDERING
+ * - Concatenating all shapes gives 91km of random jumps (WRONG)
+ * - Default shape is only 1.3km (one segment, WRONG)
+ * 
+ * THE SINGLE SOURCE OF TRUTH:
+ * - GeoJSON files: arknet_transit_simulator/data/route_*.geojson
+ * - Route 1: 418 coordinates, 27 ordered segments, 13.347 km
+ * 
+ * 📖 READ: /ROUTE_GEOMETRY_BIBLE.md
+ * 
+ * TODO: Proxy to GeoJSON files, NOT database fragments
+ */
+
 import { factories } from '@strapi/strapi';
 
 export default factories.createCoreController('api::route.route', ({ strapi }) => ({
