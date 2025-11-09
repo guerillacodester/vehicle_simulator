@@ -2,12 +2,44 @@
 
 **Project**: ArkNet Fleet Manager & Vehicle Simulator
 **Repository**: vehicle_simulator
-**Branch**: branch-0.0.3.3
-**Date**: November 8, 2025
-**Status**: 🚀 Production-Grade Dashboard Implementation (Dashboard build fix pending)
-**Current Phase**: Component Architecture, Service Management & Simulator Route Validation
+**Branch**: branch-0.0.3.4
+**Date**: November 9, 2025
+**Status**: 🚀 Production-Grade Dashboard Implementation + Route Geometry Documentation
+**Current Phase**: Component Architecture, Service Management & Route Geometry Single Source of Truth
 
-> **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.---
+> **📌 PRODUCTION-READY HANDOFF DOCUMENT**: This CONTEXT.md + TODO.md enable a fresh agent to rebuild and continue to production-grade MVP with zero external context. Every architectural decision, every component relationship, every critical issue, and every next step is documented here.
+
+---
+
+## 🚨 CRITICAL: ROUTE GEOMETRY - SINGLE SOURCE OF TRUTH
+
+**READ THIS FIRST BEFORE TOUCHING ANY ROUTE CODE**
+
+### The Problem (Solved - Nov 9, 2025)
+The PostgreSQL database stores routes in **27+ fragmented shape segments with NO ordering information**. Attempting to reconstruct routes from `route_shapes` + `shapes` tables results in:
+- ❌ Random concatenation = 91km of jumps (WRONG)
+- ❌ Default shape only = 1.3km segment (WRONG)
+- ❌ No sequence/order data exists in database
+
+### The Solution
+**GeoJSON files are the SINGLE SOURCE OF TRUTH** for route geometry:
+- Location: `arknet_transit_simulator/data/route_*.geojson`
+- Route 1 specs: **418 coordinates, 27 ordered segments, 13.347 km total distance**
+- Segments ordered by `layer` property: `1_1`, `1_2`, ..., `3_8`
+
+### Implementation Guide
+**📖 SEE: `/ROUTE_GEOMETRY_BIBLE.md` for complete documentation**
+
+This document contains:
+- Why database queries fail
+- How to correctly extract geometry from GeoJSON
+- API endpoint implementation patterns
+- Verification procedures
+- Integration with dispatcher
+
+**DO NOT attempt to reconstruct routes from database without reading ROUTE_GEOMETRY_BIBLE.md**
+
+---
 
 ## 🚀 **CURRENT STATUS: Production-Grade Next.js Dashboard**
 
@@ -20,11 +52,12 @@ The project has successfully transitioned to a **production-grade Next.js dashbo
 3. **✅ Professional UI**: Light/dark theme system with consistent design tokens
 4. **✅ Routing Structure**: Organized navigation with landing page and service management
 5. **✅ User-Tiered Dashboards**: Scaffolded distinct dashboards for Customer, Operator, Agency, and Admin, each with dedicated landing pages and navigation. Main landing page now features clear cards linking to each dashboard.
-6. **✅ Route Geometry Validation**: Dispatcher now fetches and concatenates ALL route shapes (Route 1 length ≈ 12.982 km)
+6. **✅ Route Geometry Documentation**: ROUTE_GEOMETRY_BIBLE.md created - GeoJSON files are single source of truth (Route 1: 418 points, 13.347 km)
 7. **✅ Distance & Speed Analysis**: Interval A→C along-route distance 10.222 km in 424.141 s (avg ≈ 86.8 km/h) consistent with 90 km/h instantaneous reading
 8. **✅ StatusBadge Enum Coverage**: Added missing `UNHEALTHY` mapping to prevent TypeScript build failure
 9. **✅ Driver Code Integrity**: Reverted temporary auto-stop modification; awaiting chosen implementation strategy
-10. **⏳ Build Verification Pending**: Need to re-run dashboard build to confirm StatusBadge fix
+10. **🔄 GraphQL Migration**: Switching from REST to GraphQL for Strapi access in Next.js dashboard (see STRAPI_GRAPHQL_INTEGRATION.md)
+11. **⏳ Build Verification Pending**: Need to re-run dashboard build to confirm StatusBadge fix
 
 ---
 
@@ -42,7 +75,8 @@ Key design & technical requirements:
 - Map: Leaflet (PMTiles basemap via existing `osm-viewer`) with route polylines and live vehicle markers
 - Real-time: WebSocket connection to `gpscentcom_server` (or Telemetry Gateway) for vehicle updates; subscribe per-route where possible
 - Routing & Geospatial: Geospatial Service (port 6000) for geocoding, reverse-geocoding, stop lookup, and along-route projections
-- Data Provider: a `TransitDataProvider` abstraction (TypeScript) to centralize REST + WS access, caching, and subscription management
+- Data Provider: a `TransitDataProvider` abstraction (TypeScript) using **GraphQL** (Apollo Client) for Strapi data + REST for geospatial service
+- API Architecture: **GraphQL** for Strapi CMS queries (routes, depots, vehicles), REST for geospatial operations
 - Trip Planner: prefer direct routes first; support 0–1 transfers; ranking by total trip time (walk + wait + ride)
 - ETA: compute along-route distances using route geometry and estimate time using vehicle speed (conservative factor applied)
 
