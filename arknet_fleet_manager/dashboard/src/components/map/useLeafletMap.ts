@@ -81,10 +81,10 @@ export function useLeafletMap({
   }, [containerRef, center, zoom, onMapReady]);
 
   useEffect(() => {
-    // Wait for next tick to ensure container ref is set
+    // Wait for container ref to be set and Leaflet to be ready
     const timer = setTimeout(() => {
       initializeMap();
-    }, 0);
+    }, 100); // Increase delay to ensure Leaflet is loaded
 
     return () => {
       clearTimeout(timer);
