@@ -12,7 +12,14 @@
 
 **Execution Priority**:
 
-## 🆕 Recent Updates (Nov 8, 2025)
+## 🆕 Recent Updates (Nov 9, 2025)
+
+**CRITICAL ROUTE GEOMETRY DOCUMENTATION ADDED**: 
+- 🚨 Created `ROUTE_GEOMETRY_BIBLE.md` - THE DEFINITIVE GUIDE for route geometry
+- Database route_shapes + shapes tables are FRAGMENTED (27 segments, NO ordering)
+- GeoJSON files in `arknet_transit_simulator/data/` are the SINGLE SOURCE OF TRUTH
+- Route 1: 418 coordinates, 27 segments, 13.347 km total distance
+- **READ ROUTE_GEOMETRY_BIBLE.md BEFORE TOUCHING ANY ROUTE CODE**
 
 Scaffolded user-tiered dashboards: Created distinct dashboards for Customer, Operator, Agency, and Admin, each with dedicated landing pages and navigation. Main landing page now features clear cards linking to each dashboard.
 Migrated service management to Admin dashboard and fixed build errors.
@@ -22,10 +29,13 @@ Established foundation for real-time telemetry, role-based navigation, and futur
 
 ### New Pending Tasks
 - [x] Scaffold user-tiered dashboards (Customer, Operator, Agency, Admin)
+- [x] **DOCUMENT ROUTE GEOMETRY PROPERLY** - See ROUTE_GEOMETRY_BIBLE.md
+- [ ] Create API endpoint to serve GeoJSON route geometry directly (as single source of truth)
+- [ ] Update dispatcher to use GeoJSON-based route endpoint
 - [ ] Re-run dashboard build and confirm StatusBadge enum completeness.
 - [ ] Decide engine auto-stop strategy (recommend Simulator-level watcher).
 - [ ] Implement chosen auto-stop with event emission (`vehicle:arrived-at-destination`).
-- [ ] Add regression test for route distance consumption ≤ 12.982 km + ε.
+- [ ] Add regression test for route distance = 13.347 km ± 0.5 km (Route 1).
 - [ ] Add dashboard differentiation styling for UNHEALTHY vs FAILED.
 
 ## 📡 Telemetry Integration (GPSCentCom)
