@@ -184,6 +184,21 @@ export default {
       }
     }
     
+      // Redis client initialization
+      const Redis = require('ioredis');
+      const redis = new Redis();
+    
+      // Simple Redis connectivity test
+      redis.set('strapi_test_key', 'hello_redis').then(() => {
+        redis.get('strapi_test_key').then((result) => {
+          console.log(`[Redis Test] GET strapi_test_key:`, result); // Should log 'hello_redis'
+        }).catch((err) => {
+          console.error('[Redis Test] Error getting key:', err);
+        });
+      }).catch((err) => {
+        console.error('[Redis Test] Error setting key:', err);
+      });
+    
     // Initialize Socket.IO server for real-time commuter-vehicle coordination
     console.log('[Bootstrap] Initializing Socket.IO server...');
     const io = initializeSocketIO(strapi);

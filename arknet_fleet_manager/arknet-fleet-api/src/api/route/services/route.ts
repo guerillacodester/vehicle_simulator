@@ -1,4 +1,8 @@
 ﻿import { factories } from '@strapi/strapi';
+import Redis from 'ioredis';
+
+// Initialize Redis client (default: localhost:6379)
+const redis = new Redis();
 
 function haversine(a: [number, number], b: [number, number]): number {
   const R = 6371.0;
@@ -15,6 +19,19 @@ function haversine(a: [number, number], b: [number, number]): number {
 }
 
 export default factories.createCoreService('api::route.route', ({ strapi }) => ({
+  /**
+   * Test Redis connectivity by setting and getting a value.
+   * Returns true if successful, false otherwise.
+   */
+  async testRedisConnection() {
+    try {
+      await redis.set('strapi:redis:test', 'connected');
+      const value = await redis.get('strapi:redis:test');
+      return value === 'connected';
+    } catch (err) {
+      return false;
+    }
+  },
   async fetchRouteGeometry(routeShortName: string) {
     const routeShapes = await strapi.entityService.findMany('api::route-shape.route-shape', {
       filters: { route_id: { $eq: routeShortName } },
