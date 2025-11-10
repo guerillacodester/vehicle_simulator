@@ -95,8 +95,7 @@ class ConfigurationManager:
         services = {}
         
         # Known service sections (could be made dynamic in the future)
-        # Add 'redis' to allow the launcher to register and present Redis as a managed service
-        service_names = ['strapi', 'gpscentcom', 'geospatial', 'vehicle_simulator', 'commuter_service', 'redis']
+        service_names = ['strapi', 'gpscentcom', 'geospatial', 'vehicle_simulator', 'commuter_service']
         
         for service_name in service_names:
             if service_name in self.config:

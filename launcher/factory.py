@@ -58,17 +58,5 @@ class ServiceFactory:
             definition.extra_args = ["--mode", service_config.extra_config.get('mode', 'depot')]
         elif service_config.name == 'commuter_service':
             definition.as_module = "commuter_service"
-        elif service_config.name == 'redis':
-            # Redis is typically a native executable; allow providing exe_path or fall back to 'redis-server'
-            exe_path = service_config.extra_config.get('exe_path')
-            exe_cmd = service_config.extra_config.get('exe_cmd')
-            if exe_path:
-                definition.script_path = Path(exe_path)
-            elif exe_cmd:
-                # Put the command in extra_args so the orchestrator will launch it via ConsoleLauncher
-                definition.extra_args = [exe_cmd]
-            else:
-                # Default: rely on redis-server being on PATH
-                definition.extra_args = ['redis-server']
         
         return definition
