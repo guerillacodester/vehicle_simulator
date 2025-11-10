@@ -37,6 +37,10 @@ if sys.stdout.encoding != 'utf-8':
 
 # Add launcher package to path
 sys.path.insert(0, str(Path(__file__).parent))
+# Also add arknet-transit-launcher package to path for optional OS adapters and scaffolding
+arknet_launcher_path = Path(__file__).parent / "arknet-transit-launcher"
+if arknet_launcher_path.exists():
+    sys.path.insert(0, str(arknet_launcher_path))
 
 # Configure logging to file
 log_dir = Path(__file__).parent / "logs"
@@ -50,9 +54,14 @@ logging.basicConfig(
     ]
 )
 
-from launcher.service_manager import app, manager, ManagedService, configure_cors
-from launcher.config import ConfigurationManager
-from launcher.socket_server import sio, socket_app
+try:
+    # Prefer new package shim if present (allows gradual migration)
+    from arknet_transit_launcher.launcher_shim import app, manager, ManagedService, configure_cors, ConfigurationManager, sio, socket_app
+except Exception:
+    # Fallback to legacy launcher package
+    from launcher.service_manager import app, manager, ManagedService, configure_cors
+    from launcher.config import ConfigurationManager
+    from launcher.socket_server import sio, socket_app
 import socketio
 
 

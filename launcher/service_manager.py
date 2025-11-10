@@ -196,6 +196,96 @@ class ServiceManager:
             await asyncio.sleep(0.5)  # Brief pause for UI update
         
         # Build command
+        # Respect auto_start configuration: prefer OS-native system service when configured
+        auto_start_mode = (service.extra_config.get('auto_start') or service.extra_config.get('autoStart') or 'process').lower() if service.extra_config else 'process'
+        if auto_start_mode == 'system_service':
+            import logging
+            # Ensure startup_logger exists before use
+            startup_logger = logging.getLogger(f"service.{name}.startup")
+            try:
+                startup_logger.info(f"auto_start=system_service requested for {name}; probing for system service...")
+                adapter = None
+                if sys.platform.startswith('linux'):
+                    try:
+                        from arknet_transit_launcher.os_adapters import systemd as _systemd
+                        adapter = _systemd
+                        adapter_type = 'systemd'
+                    except Exception:
+                        adapter = None
+                        adapter_type = None
+                elif sys.platform.startswith('win'):
+                    try:
+                        from arknet_transit_launcher.os_adapters import windows_service as _win
+                        adapter = _win
+                        adapter_type = 'windows'
+                    except Exception:
+                        adapter = None
+                        adapter_type = None
+
+                if adapter:
+                    detect_result = adapter.detect(service.name, service.extra_config)
+                    if detect_result.get('exists'):
+                        unit_or_name = detect_result.get('unit_name') or detect_result.get('service_name') or service.name
+                        # Determine user scope for systemd adapters
+                        scope = service.extra_config.get('autostart_scope', detect_result.get('scope') or 'system')
+                        user_flag = True if str(scope).lower() == 'user' else False
+                        startup_logger.info(f"Found system service '{unit_or_name}', attempting OS-managed start (scope={scope})")
+                        try:
+                            if adapter_type == 'systemd':
+                                # systemd.start(unit_name, user: bool=False)
+                                start_res = adapter.start(unit_or_name, user=user_flag)
+                            else:
+                                # windows adapter: start(name)
+                                start_res = adapter.start(unit_or_name)
+                        except TypeError:
+                            # Fallback if adapter has a different signature
+                            try:
+                                start_res = adapter.start(unit_or_name)
+                            except Exception as e:
+                                start_res = {"ok": False, "error": str(e)}
+
+                        if start_res.get('ok'):
+                            # Emit an event indicating OS-managed start
+                            service.state = ServiceState.STARTING
+                            event = ServiceEvent(
+                                service_name=name,
+                                timestamp=datetime.utcnow().isoformat(),
+                                state=ServiceState.STARTING,
+                                message=f"Requested OS service start for {unit_or_name}",
+                                port=service.port
+                            )
+                            await self._emit_event(event)
+                            # Give OS a moment and check active state
+                            await asyncio.sleep(1)
+                            is_act = False
+                            try:
+                                if adapter_type == 'systemd' and hasattr(adapter, 'is_active'):
+                                    is_act = adapter.is_active(unit_or_name, user=user_flag)
+                                elif adapter_type == 'windows' and hasattr(adapter, 'is_active'):
+                                    is_act = adapter.is_active(unit_or_name)
+                                else:
+                                    is_act = False
+                            except Exception:
+                                is_act = False
+
+                            if is_act:
+                                service.state = ServiceState.RUNNING
+                                event = ServiceEvent(
+                                    service_name=name,
+                                    timestamp=datetime.utcnow().isoformat(),
+                                    state=ServiceState.RUNNING,
+                                    message=f"{name} is running as system service ({unit_or_name})",
+                                    port=service.port
+                                )
+                                await self._emit_event(event)
+                                return event
+                            else:
+                                startup_logger.warning(f"OS service {unit_or_name} did not report active after start; falling back to process start")
+                        else:
+                            startup_logger.warning(f"OS service start failed for {unit_or_name}: {start_res}")
+            except Exception as e:
+                startup_logger.warning(f"Error while attempting OS-native start for {name}: {e}")
+
         if service.raw_command:
             # Raw command provided (useful for executables like redis-server)
             cmd = list(service.raw_command) + (service.extra_args or [])
