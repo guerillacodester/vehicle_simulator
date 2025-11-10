@@ -33,6 +33,19 @@ export default factories.createCoreService('api::route.route', ({ strapi }) => (
     }
   },
   async fetchRouteGeometry(routeShortName: string) {
+    // Check Redis cache first
+    const cacheKey = `route:geometry:${routeShortName}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        console.log(`[Redis Cache] HIT for route geometry: ${routeShortName}`);
+        return JSON.parse(cached);
+      }
+      console.log(`[Redis Cache] MISS for route geometry: ${routeShortName}`);
+    } catch (err) {
+      console.error(`[Redis Cache] Error reading cache for ${routeShortName}:`, err);
+    }
+
     const routeShapes = await strapi.entityService.findMany('api::route-shape.route-shape', {
       filters: { route_id: { $eq: routeShortName } },
       limit: 200,
@@ -135,6 +148,16 @@ export default factories.createCoreService('api::route.route', ({ strapi }) => (
       reversedCount: bestOrdering!.filter((s: any) => s.reversed).length,
     };
 
-    return { coords: finalCoords, segments: bestOrdering, metrics, raw: { routeShapes, shapePoints } };
+    const result = { coords: finalCoords, segments: bestOrdering, metrics, raw: { routeShapes, shapePoints } };
+
+    // Cache the result in Redis (TTL: 1 hour = 3600 seconds)
+    try {
+      await redis.set(cacheKey, JSON.stringify(result), 'EX', 3600);
+      console.log(`[Redis Cache] STORED route geometry: ${routeShortName} (TTL: 1 hour)`);
+    } catch (err) {
+      console.error(`[Redis Cache] Error storing cache for ${routeShortName}:`, err);
+    }
+
+    return result;
   },
 }));

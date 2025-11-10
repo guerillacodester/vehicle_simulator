@@ -190,12 +190,12 @@ export default {
     
       // Simple Redis connectivity test
       redis.set('strapi_test_key', 'hello_redis').then(() => {
-        redis.get('strapi_test_key').then((result) => {
+        redis.get('strapi_test_key').then((result: string | null) => {
           console.log(`[Redis Test] GET strapi_test_key:`, result); // Should log 'hello_redis'
-        }).catch((err) => {
+        }).catch((err: Error) => {
           console.error('[Redis Test] Error getting key:', err);
         });
-      }).catch((err) => {
+      }).catch((err: Error) => {
         console.error('[Redis Test] Error setting key:', err);
       });
     

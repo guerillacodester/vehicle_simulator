@@ -113,13 +113,61 @@ class ServiceManager implements ServiceManagerInterface {
     // Set up service status event handling
     this.setupServiceEventHandling();
 
-    // Connect to the launcher
-    this.socketManager.connect().catch(err => {
-      this.logger.error('Failed initial socket connect', err as Error);
-    });
+    // Don't attempt an immediate Socket.IO connect blindly. If the launcher
+    // isn't running (common during development when optional services like
+    // the vehicle_simulator are not configured), calling connect() will
+    // produce noisy errors. Do a lightweight health check first and only
+    // connect when the launcher responds. If it's not available, schedule
+    // periodic health probes.
+    this.checkLauncherAndConnect();
 
     // Load available services from the API
     this.loadServices();
+  }
+
+  /**
+   * Periodically probe launcher health and connect the socket manager when
+   * the launcher becomes available. This avoids noisy initial connect
+   * failures when the launcher is intentionally not running.
+   */
+  private async checkLauncherAndConnect(): Promise<void> {
+    const probe = async (): Promise<boolean> => {
+      try {
+        const res = await fetch(`${this.LAUNCHER_API_BASE}/health`, { method: 'GET' });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    // Try immediately
+    if (await probe()) {
+      try {
+        await this.socketManager.connect();
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        const errorStack = err instanceof Error && err.stack ? String(err.stack) : undefined;
+        this.logger.error('Failed initial socket connect', undefined, { metadata: { errorMessage, errorStack } });
+      }
+      return;
+    }
+
+    // Otherwise, retry with backoff but keep it simple for dev: retry every 5s
+    const retryIntervalMs = 5000;
+    const retryHandle = setInterval(async () => {
+      if (await probe()) {
+        clearInterval(retryHandle);
+        try {
+          await this.socketManager.connect();
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          const errorStack = err instanceof Error && err.stack ? String(err.stack) : undefined;
+          this.logger.error('Failed socket connect after launcher became available', undefined, { metadata: { errorMessage, errorStack } });
+        }
+      } else {
+        this.logger.debug('Launcher health probe failed - will retry', { metadata: { url: this.LAUNCHER_API_BASE } });
+      }
+    }, retryIntervalMs);
   }
 
   private setupServiceEventHandling(): void {

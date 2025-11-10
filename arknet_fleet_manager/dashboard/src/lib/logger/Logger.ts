@@ -195,7 +195,24 @@ export class Logger {
       try {
         transport.log(entry);
       } catch (error) {
-        console.error('Transport error:', error);
+        // Defensive logging: transports must not be allowed to crash the
+        // application. Some environments' console methods can throw when
+        // passed exotic objects; wrap console calls in try/catch and
+        // fall back to a minimal string-based message.
+        try {
+          // Prefer structured console.error when available
+          console.error('Transport error:', error);
+        } catch {
+          try {
+            // Fallback: stringified form
+            const eStr = (() => {
+              try { return typeof error === 'string' ? error : JSON.stringify(error); } catch { return String(error); }
+            })();
+            console.log(`Transport error: ${eStr}`);
+          } catch {
+            // Last resort: swallow — cannot allow logging to break app flow
+          }
+        }
       }
     }
   }

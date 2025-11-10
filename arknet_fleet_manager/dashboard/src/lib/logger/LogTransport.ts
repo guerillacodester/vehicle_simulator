@@ -40,14 +40,41 @@ export class ConsoleTransport implements ILogTransport {
       }
     }
     
-    if (this.useColors) {
-      consoleMethod.apply(console, [
-        `%c${args[0]}`,
-        this.getStyle(level),
-        ...args.slice(1)
-      ]);
-    } else {
-      consoleMethod.apply(console, args);
+    // Prepare a safe, stringified version of the args to avoid passing
+    // exotic objects to the console (some engines/devtools will throw).
+    const stringifySafe = (v: unknown) => {
+      try {
+        return typeof v === 'string' ? v : JSON.stringify(v);
+      } catch {
+        try { return String(v); } catch { return '[unserializable]'; }
+      }
+    };
+
+    const safeArgs = args.map(a => stringifySafe(a));
+
+    try {
+      if (this.useColors) {
+        // Use stringified args for the styled call to guarantee safety
+        consoleMethod.apply(console, [
+          `%c${safeArgs[0]}`,
+          this.getStyle(level),
+          ...safeArgs.slice(1)
+        ]);
+      } else {
+        (consoleMethod as (...args: unknown[]) => void).apply(console, safeArgs as unknown[]);
+      }
+    } catch {
+      // Defensive fallback: console can throw in some environments when given
+      // exotic objects (circular refs, proprietary Error types). Fall back to
+      // a simple, guaranteed-safe string output to avoid bubbling exceptions
+      // from logging into application code.
+      try {
+  const safeArgs2 = [safeArgs[0], ...safeArgs.slice(1)];
+  (consoleMethod as (...args: unknown[]) => void).apply(console, safeArgs2 as unknown[]);
+        } catch {
+          // Last resort: call console.log with a minimal message
+          try { console.log(`${args[0]} - (logging fallback)`); } catch { /* swallow */ }
+        }
     }
   }
 
