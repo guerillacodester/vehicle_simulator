@@ -97,6 +97,21 @@ def register_services():
             is_npm = False
             npm_command = None
             as_module = "commuter_service"
+        elif service_name == "redis":
+            # Redis service - prefer a provided exe_path or fall back to redis-server on PATH
+            exe_path = service_config.extra_config.get('exe_path')
+            exe_cmd = service_config.extra_config.get('exe_cmd')
+            if exe_path:
+                script_path = Path(exe_path)
+                is_npm = False
+                npm_command = None
+                as_module = None
+            else:
+                # Use raw command (no script_path) - will be translated by the manager
+                script_path = None
+                is_npm = False
+                npm_command = None
+                as_module = None
         elif service_name == "vehicle_simulator":
             script_path = None
             is_npm = False
@@ -117,6 +132,7 @@ def register_services():
             as_module=as_module,
             dependencies=service_config.dependencies,
             spawn_console=service_config.spawn_console,
+            extra_config=service_config.extra_config,
             display_name=service_config.display_name,
             description=service_config.description,
             category=service_config.category,
@@ -126,6 +142,20 @@ def register_services():
         # Add extra args for vehicle simulator mode
         if service_name == "vehicle_simulator":
             service.extra_args = ["--mode", service_config.extra_config.get('mode', 'depot')]
+        # Redis: allow exe_path or exe_cmd via extra_config, else rely on redis-server on PATH
+        if service_name == "redis":
+            exe_path = service_config.extra_config.get('exe_path')
+            exe_cmd = service_config.extra_config.get('exe_cmd')
+            if exe_path:
+                service.script_path = Path(exe_path)
+            elif exe_cmd:
+                service.raw_command = [exe_cmd]
+            else:
+                service.raw_command = ['redis-server']
+            # If port configured, add as argument
+            if service.port:
+                # For redis-server, the port is passed as an argument
+                service.extra_args = [str(service.port)]
         
         manager.register_service(service)
         print(f"   ✅ Registered: {service_name} (port {service_config.port})")

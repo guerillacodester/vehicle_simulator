@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, Optional, List
 from collections import deque
 from dataclasses import dataclass, field
+from typing import Dict
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,6 +55,9 @@ class ManagedService:
     is_npm: bool = False
     npm_command: Optional[str] = None
     extra_args: Optional[List[str]] = None
+    extra_config: Dict[str, str] = field(default_factory=dict)
+    # Raw command for non-Python executables (e.g. ['redis-server', '--port', '6379'])
+    raw_command: Optional[List[str]] = None
     dependencies: List[str] = field(default_factory=list)
     spawn_console: bool = False  # Whether to spawn in separate console window
     # How long to wait (seconds) before performing health check after start
@@ -192,7 +196,11 @@ class ServiceManager:
             await asyncio.sleep(0.5)  # Brief pause for UI update
         
         # Build command
-        if service.is_npm:
+        if service.raw_command:
+            # Raw command provided (useful for executables like redis-server)
+            cmd = list(service.raw_command) + (service.extra_args or [])
+            cwd = service.script_path.parent if service.script_path else Path.cwd()
+        elif service.is_npm:
             # On Windows, npm is typically npm.cmd
             npm_cmd = 'npm.cmd' if sys.platform == 'win32' else 'npm'
             cmd = [npm_cmd, 'run', service.npm_command] if service.npm_command else [npm_cmd, 'start']
@@ -203,8 +211,14 @@ class ServiceManager:
             from pathlib import Path as PathModule
             cwd = PathModule(__file__).parent.parent
         else:
-            cmd = [sys.executable, str(service.script_path)] + (service.extra_args or [])
-            cwd = service.script_path.parent
+            # If script_path points to a native executable (.exe/.bat/.cmd) run it directly
+            if service.script_path and service.script_path.suffix.lower() in ['.exe', '.bat', '.cmd']:
+                cmd = [str(service.script_path)] + (service.extra_args or [])
+                cwd = service.script_path.parent
+            else:
+                # Default: execute as Python script
+                cmd = [sys.executable, str(service.script_path)] + (service.extra_args or [])
+                cwd = service.script_path.parent
         
         # Start subprocess
         try:
@@ -460,8 +474,8 @@ class ServiceManager:
             raise HTTPException(status_code=404, detail=f"Service '{name}' not found")
         
         service = self.services[name]
-        
-        return {
+
+        status = {
             "name": service.name,
             "state": service.state.value,
             "port": service.port,
@@ -477,6 +491,29 @@ class ServiceManager:
             "category": service.category,
             "icon": service.icon
         }
+
+        # If this is the redis managed service, add detection info (non-blocking)
+        if service.name == 'redis':
+            try:
+                import asyncio
+                from launcher.health import redis_probe
+
+                host = service.extra_args[0] if service.extra_args and len(service.extra_args) >= 1 and service.extra_args[0].isdigit() is False and ':' in service.extra_args[0] else None
+                # Prefer configured port, fall back to 6379
+                port = service.port or 6379
+
+                # We will run the blocking probe in a thread to avoid blocking the event loop
+                loop = asyncio.get_event_loop()
+                probe_result = await loop.run_in_executor(None, redis_probe, '127.0.0.1' if not host else host.split(':')[0], port)
+
+                status["detection"] = probe_result
+                status["installed"] = probe_result.get("on_path", False) or bool(probe_result.get("system_service"))
+                status["listening"] = probe_result.get("listening", False)
+            except Exception as e:
+                # Best-effort: don't fail the status endpoint
+                status["detection_error"] = str(e)
+
+        return status
     
     async def get_all_services(self) -> List[dict]:
         """Get status of all services."""
@@ -484,15 +521,30 @@ class ServiceManager:
     
     async def _check_health(self, service: ManagedService) -> bool:
         """Check if service is healthy via HTTP health endpoint."""
-        if not service.health_url:
-            return True
-        
-        try:
-            response = await self.http_client.get(service.health_url)
-            # Accept 200 OK or 204 No Content as healthy
-            return response.status_code in [200, 204]
-        except Exception:
-            return False
+        # If the service exposes an HTTP health_url, use it
+        if service.health_url:
+            try:
+                response = await self.http_client.get(service.health_url)
+                # Accept 200 OK or 204 No Content as healthy
+                return response.status_code in [200, 204]
+            except Exception:
+                return False
+
+        # Special-case Redis: perform a TCP probe to the configured port
+        if service.name == 'redis':
+            try:
+                import asyncio
+                from launcher.health import redis_probe
+
+                port = service.port or 6379
+                loop = asyncio.get_event_loop()
+                probe_result = await loop.run_in_executor(None, redis_probe, '127.0.0.1', port)
+                return probe_result.get('listening', False)
+            except Exception:
+                return False
+
+        # Default: no health URL, assume service is running if process exists
+        return True
     
     async def _capture_output(self, service: ManagedService):
         """Capture stdout/stderr from service process and log to file."""
@@ -647,6 +699,24 @@ def configure_cors(cors_origins: list):
 async def startup():
     """Initialize service manager on startup."""
     manager.start_monitoring()
+    # Auto-start services if the launcher set a list on app.state
+    try:
+        import asyncio
+        auto_start = getattr(app.state, 'auto_start_services', []) or []
+        if auto_start:
+            # Start each service asynchronously without blocking startup
+            for svc in auto_start:
+                asyncio.create_task(_start_service_safely(svc))
+    except Exception:
+        pass
+
+
+async def _start_service_safely(name: str):
+    """Helper to start a service and swallow errors to avoid crashing startup."""
+    try:
+        await manager.start_service(name)
+    except Exception:
+        return
 
 
 @app.post("/services/{name}/start")
@@ -732,6 +802,7 @@ async def reload_config():
                 name=service_config.name,
                 port=service_config.port,
                 health_url=service_config.health_url,
+                extra_config=service_config.extra_config,
                 dependencies=service_config.dependencies,
                 spawn_console=service_config.spawn_console,
                 startup_wait=service_config.startup_wait,
@@ -755,6 +826,20 @@ async def reload_config():
                 managed_service.extra_args = ["--mode", service_config.extra_config.get('mode', 'depot')]
             elif service_name == 'commuter_service':
                 managed_service.as_module = "commuter_service"
+            elif service_name == 'redis':
+                # Allow exe_path or exe_cmd via extra_config. If exe_cmd present, treat as raw command.
+                exe_path = service_config.extra_config.get('exe_path')
+                exe_cmd = service_config.extra_config.get('exe_cmd')
+                if exe_path:
+                    managed_service.script_path = Path(exe_path)
+                elif exe_cmd:
+                    managed_service.raw_command = [exe_cmd]
+                else:
+                    # Default to relying on redis-server on PATH
+                    managed_service.raw_command = ['redis-server']
+                # If port configured, pass it as an extra arg
+                if service_config.port:
+                    managed_service.extra_args = [str(service_config.port)]
             
             manager.register_service(managed_service)
             print(f"   ✅ Registered: {service_config.display_name} ({service_name})")

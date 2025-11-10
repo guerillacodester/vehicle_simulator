@@ -184,20 +184,50 @@ export default {
       }
     }
     
-      // Redis client initialization
-      const Redis = require('ioredis');
-      const redis = new Redis();
-    
-      // Simple Redis connectivity test
-      redis.set('strapi_test_key', 'hello_redis').then(() => {
-        redis.get('strapi_test_key').then((result: string | null) => {
-          console.log(`[Redis Test] GET strapi_test_key:`, result); // Should log 'hello_redis'
-        }).catch((err: Error) => {
-          console.error('[Redis Test] Error getting key:', err);
+      // Redis client initialization (optional)
+      // If Redis is not required in your dev environment, starting it is
+      // optional. We create the client with safe defaults and attach an
+      // 'error' handler to avoid unhandled exceptions when Redis is down.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const Redis = require('ioredis');
+        const redis = new Redis({
+          host: process.env.REDIS_HOST ?? '127.0.0.1',
+          port: Number(process.env.REDIS_PORT ?? 6379),
+          maxRetriesPerRequest: null,
+          retryStrategy(times: number) {
+            return Math.min(1000 + times * 200, 30000);
+          },
+          reconnectOnError(err: Error) {
+            const msg = String(err?.message ?? '');
+            return msg.includes('ECONNREFUSED') || msg.includes('ETIMEDOUT') || msg.includes('EHOSTUNREACH');
+          }
         });
-      }).catch((err: Error) => {
-        console.error('[Redis Test] Error setting key:', err);
-      });
+
+        let _lastRedisErrorLog = 0;
+        const REDIS_ERROR_COOLDOWN_MS = Number(process.env.REDIS_ERROR_COOLDOWN_MS ?? 60000);
+        redis.on('error', (err: Error) => {
+          const now = Date.now();
+          if (now - _lastRedisErrorLog > REDIS_ERROR_COOLDOWN_MS) {
+            _lastRedisErrorLog = now;
+            console.warn('[ioredis] connection error:', err && err.message ? err.message : String(err));
+          }
+        });
+
+        redis.on('ready', () => console.info('[ioredis] ready'));
+
+        // Simple Redis connectivity test (non-fatal)
+        redis.set('strapi_test_key', 'hello_redis').then(() => {
+          return redis.get('strapi_test_key');
+        }).then((result: string | null) => {
+          if (result) console.log(`[Redis Test] GET strapi_test_key:`, result);
+        }).catch((err: Error) => {
+          // Already handled by error handler; suppress detailed noisy stack here
+          console.debug('[Redis Test] Redis not available or error during test');
+        });
+      } catch (err) {
+        console.debug('[Bootstrap] ioredis not available or failed to initialize');
+      }
     
     // Initialize Socket.IO server for real-time commuter-vehicle coordination
     console.log('[Bootstrap] Initializing Socket.IO server...');

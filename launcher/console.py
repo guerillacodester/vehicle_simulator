@@ -78,7 +78,18 @@ class ConsoleLauncher:
         return cmd, Path.cwd()
     
     def _build_script_command(self, script_path: Path, extra_args: Optional[List[str]]):
-        """Build Python script command."""
+        """Build command for a script or native executable.
+
+        If `script_path` points to a native executable (for example a .exe on Windows)
+        run it directly. Otherwise fall back to running with the Python interpreter.
+        """
+        # Detect common native executable suffixes
+        exe_suffixes = ['.exe', '.bat', '.cmd']
+        if script_path.suffix.lower() in exe_suffixes:
+            cmd = [str(script_path)] + (extra_args or [])
+            return cmd, script_path.parent
+
+        # Default: treat as Python script
         cmd = [sys.executable, str(script_path)] + (extra_args or [])
         return cmd, script_path.parent
     

@@ -2,7 +2,47 @@
 import Redis from 'ioredis';
 
 // Initialize Redis client (default: localhost:6379)
-const redis = new Redis();
+// Make connection resilient and avoid unhandled error events when Redis
+// is not started. Use a rate-limited error logger to avoid spamming logs.
+const redisHost = process.env.REDIS_HOST ?? '127.0.0.1';
+const redisPort = Number(process.env.REDIS_PORT ?? 6379);
+
+const redis = new Redis({
+  host: redisHost,
+  port: redisPort,
+  // Don't fail commands during reconnect windows
+  maxRetriesPerRequest: null,
+  // Control retry delays (ms)
+  retryStrategy(times: number) {
+    // linear backoff with cap
+    const delay = Math.min(1000 + times * 200, 30000);
+    return delay;
+  },
+  // Optionally attempt reconnect on certain errors
+  reconnectOnError(err: Error) {
+    const msg = String(err?.message ?? '');
+    // only reconnect for transient network errors, not for auth/parse errors
+    if (msg.includes('ECONNREFUSED') || msg.includes('ETIMEDOUT') || msg.includes('EHOSTUNREACH')) {
+      return true;
+    }
+    return false;
+  }
+});
+
+// Rate-limited redis error logging to prevent log spam when Redis is down
+let _lastRedisErrorLog = 0;
+const REDIS_ERROR_COOLDOWN_MS = Number(process.env.REDIS_ERROR_COOLDOWN_MS ?? 60000);
+redis.on('error', (err) => {
+  const now = Date.now();
+  if (now - _lastRedisErrorLog > REDIS_ERROR_COOLDOWN_MS) {
+    _lastRedisErrorLog = now;
+    // Log minimal info to avoid complex objects causing further issues
+    console.warn('[ioredis] connection error:', err && err.message ? err.message : String(err));
+  }
+});
+redis.on('connect', () => console.debug('[ioredis] connecting...'));
+redis.on('ready', () => console.info('[ioredis] ready'));
+redis.on('end', () => console.warn('[ioredis] connection closed'));
 
 function haversine(a: [number, number], b: [number, number]): number {
   const R = 6371.0;
