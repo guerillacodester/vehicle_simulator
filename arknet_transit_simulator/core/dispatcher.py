@@ -174,23 +174,23 @@ class FastApiStrategy(ApiStrategy):
         return True
     
     async def test_connection(self) -> bool:
-        """Test API connection - CRITICAL: NO fallback allowed."""
+        """Test API connection to Strapi Fleet Manager - CRITICAL: NO fallback allowed."""
         if not self.session:
             return False
         
         try:
-            # Test basic connectivity to Fleet Manager API
-            async with self.session.get(f"{self.api_base_url}/health", timeout=5) as response:
-                if response.status == 200:
-                    logging.info(f"FastAPI connection successful")
+            # Test basic connectivity to Strapi (health endpoint returns 204 No Content)
+            async with self.session.get(f"{self.api_base_url}/_health", timeout=5) as response:
+                if response.status in [200, 204]:
+                    logging.info(f"Strapi Fleet Manager connection successful")
                     self.api_connected = True
                     return True
                 else:
-                    logging.error(f"FastAPI returned status {response.status}")
+                    logging.error(f"Strapi returned status {response.status}")
                     return False
                     
         except Exception as e:
-            logging.error(f"FastAPI connection failed: {str(e)}")
+            logging.error(f"Strapi connection failed: {str(e)}")
             return False
     
     async def get_vehicle_assignments(self) -> List[VehicleAssignment]:
@@ -298,63 +298,59 @@ class FastApiStrategy(ApiStrategy):
             return []
 
     async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
-        """Get route information and geometry directly by route number from Fleet Manager PUBLIC API."""
+        """Get route information and geometry from Strapi Fleet Manager API using the getGeometry endpoint."""
         if not self.api_connected or not self.session:
             logging.error(f"[FastApiStrategy] Cannot fetch route info - Fleet Manager API not connected")
             return None
         
         try:
-            # Step 1: Get route details by route code from Fleet Manager PUBLIC API
-            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}", timeout=10) as route_response:
-                if route_response.status != 200:
-                    logging.error(f"[FastApiStrategy] Route {route_code} not found in Fleet Manager: HTTP {route_response.status}")
-                    return None
-                    
-                route_data = await route_response.json()
-                route_name = route_data.get('long_name', f'Route {route_code}')
-                
-                logging.info(f"[FastApiStrategy] Found route: {route_name} (code: {route_code})")
-                
-            # Step 2: Get route geometry by route code from Fleet Manager PUBLIC API
-            geometry = None
-            coordinate_count = 0
-            
-            async with self.session.get(f"{self.api_base_url}/api/v1/routes/public/{route_code}/geometry", timeout=10) as geo_response:
+            # Get route geometry using the new Strapi REST endpoint: GET /api/routes/:routeName/geometry
+            # This endpoint returns: { routeName, coordinateCount, segmentCount, distanceKm, coordinates, geometry, metrics }
+            async with self.session.get(f"{self.api_base_url}/api/routes/{route_code}/geometry", timeout=10) as geo_response:
                 if geo_response.status != 200:
                     logging.error(f"[FastApiStrategy] Failed to fetch geometry for route {route_code}: HTTP {geo_response.status}")
                     return None
                     
                 route_geometry_data = await geo_response.json()
-                geometry = route_geometry_data.get('geometry')
                 
-                if geometry and geometry.get('coordinates'):
-                    coordinate_count = len(geometry['coordinates'])
-                    logging.info(f"[FastApiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates from Fleet Manager API")
+                # Extract data from Strapi response
+                route_name = route_geometry_data.get('routeName', f'Route {route_code}')
+                coordinates = route_geometry_data.get('coordinates', [])
+                coordinate_count = route_geometry_data.get('coordinateCount', 0)
+                distance_km = route_geometry_data.get('distanceKm', 0.0)
+                
+                # Build GeoJSON geometry object from coordinates array
+                geometry = {
+                    'type': 'LineString',
+                    'coordinates': coordinates
+                } if coordinates else None
+                
+                if geometry and coordinates:
+                    logging.info(f"[FastApiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates from Strapi")
+                    logging.info(f"[FastApiStrategy] ✅ Route distance: {distance_km:.3f} km")
                     
                     # Log first and last coordinates as verification
-                    coords = geometry['coordinates']
-                    if coords:
-                        first_coord = coords[0]
-                        last_coord = coords[-1]
+                    if coordinates:
+                        first_coord = coordinates[0]
+                        last_coord = coordinates[-1]
                         logging.info(f"[FastApiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
                 else:
-                    logging.error(f"[FastApiStrategy] ❌ Route {route_code} geometry is null from Fleet Manager API")
-                    logging.error(f"[FastApiStrategy] ❌ Fleet Manager route geometry endpoint is broken - API should return GPS coordinates from route_shapes→shapes join")
+                    logging.error(f"[FastApiStrategy] ❌ Route {route_code} has no coordinates from Strapi")
                     return None
                 
-            # Create RouteInfo with complete data from Fleet Manager API
+            # Create RouteInfo with complete data from Strapi API
             route_info = RouteInfo(
-                route_id=route_code,              # Route code (1A, 1B, etc.)
-                route_name=route_name,            # Human-readable route name from Fleet Manager
+                route_id=route_code,              # Route code (1, 1A, 1B, etc.)
+                route_name=route_name,            # Human-readable route name
                 route_type='bus',                 # Bus route type
-                geometry=geometry,                # Complete GPS geometry from Fleet Manager API
+                geometry=geometry,                # Complete GPS geometry from Strapi
                 stops=None,                       # Stops not needed for basic vehicle movement
-                distance_km=None,                 # Distance not needed for basic vehicle movement
+                distance_km=distance_km,          # Distance calculated by Strapi using haversine
                 coordinate_count=coordinate_count, # Number of GPS coordinates
                 shape_id=None                     # Shape ID not needed when we have direct geometry
             )
             
-            logging.info(f"[FastApiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates")
+            logging.info(f"[FastApiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates ({distance_km:.3f} km)")
             return route_info
                     
         except Exception as e:

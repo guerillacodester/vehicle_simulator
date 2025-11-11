@@ -1,0 +1,20 @@
+type RouteMetrics {
+  totalPoints: Int!
+  estimatedLengthKm: Float!
+  segments: Int!
+  reversedCount: Int!
+}
+
+type RouteGeometryResponse {
+  success: Boolean!
+  routeName: String!
+  metrics: RouteMetrics
+  coordinateCount: Int!
+  segmentCount: Int!
+  coordinates: [JSON]
+  distanceKm: Float!
+}
+
+type Query {
+  routeGeometry(routeName: String!): RouteGeometryResponse
+}

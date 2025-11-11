@@ -47,8 +47,8 @@ export default {
     },
     {
       method: 'GET',
-      path: '/routes/test-geometry/:routeName',
-      handler: 'route.testGeometry',
+      path: '/routes/:routeName/geometry',
+      handler: 'route.getGeometry',
       config: {
         auth: false,
         policies: [],

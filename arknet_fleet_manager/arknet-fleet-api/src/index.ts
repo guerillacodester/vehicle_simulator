@@ -80,7 +80,13 @@ export default {
    * This gives you an opportunity to extend code.
    */
   register({ strapi }: { strapi: Core.Strapi }) {
-    // Register GraphQL custom query for route geometry
+    // Register GraphQL extensions from modular folder structure
+    const path = require('path');
+    const fs = require('fs');
+    
+    // Resolve path - check if running from dist or src
+    const resolverPath = path.join(__dirname, '../../src/extensions/graphql/routeGeometry/resolvers/routeGeometry.js');
+    const routeGeometryResolver = require(resolverPath);
     const extensionService = strapi.plugin('graphql').service('extension');
 
     extensionService.use(({ nexus }: any) => ({
@@ -90,61 +96,8 @@ export default {
           policies: [],
         },
       },
-      resolvers: {
-        Query: {
-          routeGeometry: async (_root: any, args: any) => {
-            const { routeName } = args;
-            const result = await strapi
-              .service('api::route.route')
-              .fetchRouteGeometry(routeName);
-
-            return {
-              success: true,
-              routeName,
-              metrics: result.metrics,
-              coordinateCount: result.coords.length,
-              segmentCount: result.segments.length,
-              coordinates: result.coords,
-            };
-          },
-        },
-      },
       types: [
-        nexus.extendType({
-          type: 'Query',
-          definition(t: any) {
-            t.field('routeGeometry', {
-              type: 'RouteGeometryResponse',
-              args: {
-                routeName: nexus.nonNull(nexus.stringArg()),
-              },
-            });
-          },
-        }),
-        
-        nexus.objectType({
-          name: 'RouteGeometryResponse',
-          definition(t: any) {
-            t.nonNull.boolean('success');
-            t.nonNull.string('routeName');
-            t.field('metrics', { type: 'RouteMetrics' });
-            t.nonNull.int('coordinateCount');
-            t.nonNull.int('segmentCount');
-            t.list.field('coordinates', {
-              type: 'JSON',
-            });
-          },
-        }),
-        
-        nexus.objectType({
-          name: 'RouteMetrics',
-          definition(t: any) {
-            t.nonNull.int('totalPoints');
-            t.nonNull.float('estimatedLengthKm');
-            t.nonNull.int('segments');
-            t.nonNull.int('reversedCount');
-          },
-        }),
+        ...routeGeometryResolver({ nexus, strapi }),
       ],
     }));
   },

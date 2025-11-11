@@ -8,7 +8,7 @@
  * 
  * THE SINGLE SOURCE OF TRUTH:
  * - GeoJSON files: arknet_transit_simulator/data/route_*.geojson
- * - Route 1: 418 coordinates, 27 ordered segments, 13.347 km
+ * - Route 1: 415 coordinates, 27 ordered segments, 13.347 km
  * 
  * 📖 READ: /ROUTE_GEOMETRY_BIBLE.md
  * 
@@ -118,15 +118,29 @@ export default factories.createCoreController('api::route.route', ({ strapi }) =
           stops: stops,
           geometry: shapePoints.length > 0 ? {
             type: 'LineString',
-            coordinates: shapePoints
+            coordinates: shapePoints,
+            distanceKm: shapePoints.length > 1 ? shapePoints.reduce((acc, curr, idx, arr) => {
+              if (idx === 0) return 0;
+              const [lon1, lat1] = arr[idx - 1];
+              const [lon2, lat2] = curr;
+              const R = 6371.0;
+              const toRad = (v: number) => (v * Math.PI) / 180.0;
+              const dLat = toRad(lat2 - lat1);
+              const dLon = toRad(lon2 - lon1);
+              const lat1r = toRad(lat1);
+              const lat2r = toRad(lat2);
+              const s = Math.sin(dLat / 2) ** 2 + Math.cos(lat1r) * Math.cos(lat2r) * Math.sin(dLon / 2) ** 2;
+              const c = 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+              return acc + R * c;
+            }, 0) : 0
           } : null
         }
       }
     };
   },
 
-  // Test endpoint for fetchRouteGeometry service method
-  async testGeometry(ctx) {
+  // Get route geometry with distance calculation
+  async getGeometry(ctx) {
     const { routeName } = ctx.params;
     
     try {
@@ -139,7 +153,7 @@ export default factories.createCoreController('api::route.route', ({ strapi }) =
         coordinateCount: result.coords.length,
         segmentCount: result.segments.length,
         coordinates: result.coords,
-        message: `Route geometry assembled: ${result.coords.length} coords, ${result.metrics.estimatedLengthKm.toFixed(3)} km`,
+        distanceKm: Number(result.metrics.estimatedLengthKm),
       };
     } catch (error) {
       ctx.status = 500;
