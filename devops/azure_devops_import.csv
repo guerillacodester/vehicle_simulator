@@ -1,0 +1,118 @@
+Work Item Type,Title 1,Title 2,Title 3,Title 4
+Epic,ArkNet Transit Launcher - Production Infrastructure,,,
+Feature,,OS Adapters & Service Control,,
+User Story,,,Implement systemd adapter (detect/start/stop/enable/disable),
+Task,,,,Add unit tests for systemd adapter (specific to Linux)
+User Story,,,Implement Windows service adapter (sc/PowerShell),
+Task,,,,Add unit tests for Windows adapter (specific to Windows)
+User Story,,,Add per-user autostart API,
+Task,,,,Design API & permission checks for per-user autostart
+Feature,,ServiceManager Integration,,
+User Story,,,Wire adapters into ServiceManager,
+Task,,,,Add unit tests for ServiceManager adapter wiring
+Feature,,Redis Resilience & Health,,
+User Story,,,Implement redis_probe and detection,
+Task,,,,Expose Redis detection in /services status
+User Story,,,Optimize Redis client initialization for resilience,
+Feature,,Desktop UI (Electron) & Packaging,,
+User Story,,,Create Electron scaffold and main process,
+Task,,,,Integrate Electron with RPC/REST to launcher
+Feature,,OS Logging Adapters,,
+User Story,,,Implement journald logging adapter,
+User Story,,,Implement Windows Event Log adapter,
+Task,,,,Document logging adapter behavior and permissions
+Feature,,Tests,,
+User Story,,,Create pytest tests for adapters and wiring (integration),
+Feature,,Documentation,,
+User Story,,,Update README with config.ini examples for auto_start,
+Feature,,Dashboard Resilience,,
+User Story,,,Add health-probe-before-connect to dashboard,
+User Story,,,Remove stale .next artifacts,
+User Story,,,Defensive logging in Strapi and launcher,
+Task,,,,Add defensive logging in Strapi and launcher
+Feature,,Caching & Performance,,
+User Story,,,Implement route geometry cache in Strapi,
+Task,,,,Optimize route geometry cache implementation
+Epic,Vehicle Simulator Services - Core Backend,,,
+Feature,,Vehicle Simulator Service,,
+User Story,,,Register vehicle_simulator as managed service,
+Task,,,,Configure health endpoint for vehicle_simulator
+Feature,,Commuter Service,,
+User Story,,,Implement commuter seed data and API,
+Feature,,Geospatial Service,,
+User Story,,,Create geofence PostGIS views,
+Feature,,GPSCentCom Server,,
+User Story,,,Implement packet codecs for GPS protocols,
+Task,,,,Add systemd service unit for gpscentcom
+Epic,Route Geometry & GeoJSON Integration,,,
+Feature,,Route Geometry API,,
+User Story,,,Create API endpoint to serve GeoJSON route geometry directly,
+Task,,,,Update dispatcher to use GeoJSON-based route endpoint
+Task,,,,Add regression test for route distance = 13.347 km ± 0.5 km (Route 1)
+Feature,,Engine & Vehicle Behavior,,
+User Story,,,Decide engine auto-stop strategy (recommend Simulator-level watcher),
+Task,,,,Implement chosen auto-stop with event emission (vehicle:arrived-at-destination)
+Epic,Telemetry Integration - Real-time Vehicle Data,,,
+Feature,,Telemetry Schema & Models,,
+User Story,,,Define telemetry JSON schema TypeScript interfaces and Pydantic models,
+Feature,,Telemetry Gateway,,
+User Story,,,Create Telemetry Gateway (FastAPI) with WebSocket broadcast + REST ingestion,
+Task,,,,Implement GPSCentCom connector (subscribe to gpscentcom_server feed normalize messages)
+Task,,,,Add Postgres/PostGIS schema for telemetry persistence
+Task,,,,Add broadcast subscription endpoint (/ws/telemetry or SSE /sse/telemetry)
+Epic,Production-Grade Dashboard - Customer Portal,,,
+Feature,,UI/UX Enhancements,,
+User Story,,,Add responsive design for mobile-friendly layouts,
+Task,,,,Implement skeleton loaders and progress indicators
+Task,,,,Add ARIA labels and keyboard navigation for accessibility
+Task,,,,Re-run dashboard build and confirm StatusBadge enum completeness
+Task,,,,Add dashboard differentiation styling for UNHEALTHY vs FAILED
+User Story,,,Implement error handling with user-friendly error messages and recovery,
+Feature,,Dashboard Feature Expansion,,
+User Story,,,Fleet Monitor - Real-time vehicle tracking dashboard,
+User Story,,,Route Management - Route configuration and depot management,
+User Story,,,Analytics Dashboard - Performance metrics and reporting,
+User Story,,,System Health - Platform monitoring and diagnostics,
+Feature,,Advanced Dashboard Components,,
+User Story,,,Data Tables - Sortable and filterable tables for large datasets,
+User Story,,,Charts & Graphs - Performance visualization components,
+User Story,,,Maps Integration - Geospatial visualization for routes,
+User Story,,,Modal System - Reusable modal dialogs and forms,
+Feature,,Backend Integration,,
+User Story,,,GraphQL Provider - Strapi integration for data management,
+User Story,,,Authentication - User management and security,
+User Story,,,API Caching - Performance optimization for data fetching,
+Feature,,Real-time Vehicle Tracking,,
+User Story,,,Map layer + UI components for realtime vehicles,
+User Story,,,Dashboard client provider/hook (WebSocket with reconnection and SSE fallback),
+Feature,,Customer Portal - Transit Interface,,
+User Story,,,Route Browser page (lists all routes with active vehicle count),
+User Story,,,Route View (selectable route with map centered on user + live vehicle markers),
+User Story,,,Trip Planner (given origin & destination returns sensible route),
+User Story,,,Intercept Navigation (walking route to nearest stop with live ETA),
+Epic,Production Readiness & Security,,,
+Feature,,Authentication & Authorization,,
+User Story,,,Enforce auth on REST and WebSocket endpoints (Authorization: Bearer token),
+User Story,,,Security hardening (TLS guidance CORS tightening rate-limiting),
+User Story,,,Secrets & config - promote secure secret management (env + Vault),
+Task,,,,Implement validation for required settings
+Feature,,Logging Metrics & Monitoring,,
+User Story,,,Implement structured JSON logs,
+User Story,,,Add /metrics Prometheus endpoint,
+User Story,,,Extend /health with component-level checks,
+Feature,,Persistence & Webhook Integration,,
+User Story,,,Implement sink/plugin API (register/deregister webhooks),
+User Story,,,Webhook sink prototype with retry and DLQ,
+User Story,,,Persistence plugin (optional Postgres/PostGIS),
+Feature,,Operationalization,,
+User Story,,,Container image readiness/liveness probes,
+User Story,,,Deployment manifests (k8s/docker-compose),
+User Story,,,Create runbook for operations,
+Feature,,Tests & CI,,
+User Story,,,Unit tests for parser/connector,
+User Story,,,Integration tests with mock gpscentcom server,
+User Story,,,CI that runs lint/build/tests,
+Feature,,Documentation & Onboarding,,
+User Story,,,Update CONTEXT.md with production readiness details,
+User Story,,,Update README with deployment and configuration instructions,
+User Story,,,Create runbook explaining how to enable sinks and configure auth,
