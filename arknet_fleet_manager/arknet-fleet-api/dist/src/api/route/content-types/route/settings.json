@@ -1,7 +1,0 @@
-{
-    "settings": {
-        "mainField": "short_name",
-        "defaultSortBy": "short_name",
-        "defaultSortOrder": "ASC"
-    }
-}
