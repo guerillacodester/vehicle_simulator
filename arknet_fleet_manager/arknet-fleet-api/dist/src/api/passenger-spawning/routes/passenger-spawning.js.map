@@ -1,1 +1,0 @@
-{"version":3,"file":"passenger-spawning.js","sourceRoot":"","sources":["../../../../../src/api/passenger-spawning/routes/passenger-spawning.ts"],"names":[],"mappings":";AAAA;;GAEG;;AAEH,kBAAe;IACb,MAAM,EAAE;QACN;YACE,MAAM,EAAE,MAAM;YACd,IAAI,EAAE,8BAA8B;YACpC,OAAO,EAAE,6BAA6B;YACtC,MAAM,EAAE;gBACN,QAAQ,EAAE,EAAE;gBACZ,WAAW,EAAE,EAAE;aAChB;SACF;KACF;CACF,CAAC"}
