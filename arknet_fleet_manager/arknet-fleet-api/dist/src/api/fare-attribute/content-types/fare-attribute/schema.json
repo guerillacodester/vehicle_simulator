@@ -1,0 +1,98 @@
+{
+    "kind": "collectionType",
+    "collectionName": "fare_attributes",
+    "info": {
+        "singularName": "fare-attribute",
+        "pluralName": "fare-attributes",
+        "displayName": "Fare Attribute",
+        "description": "Fare pricing information (GTFS fare_attributes.txt)"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "pluginOptions": {
+        "i18n": {
+            "localized": true
+        }
+    },
+    "attributes": {
+        "fare_id": {
+            "type": "string",
+            "required": true,
+            "unique": true,
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        },
+        "price": {
+            "type": "decimal",
+            "required": true,
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        },
+        "currency_type": {
+            "type": "string",
+            "required": true,
+            "default": "BBD",
+            "maxLength": 3,
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        },
+        "payment_method": {
+            "type": "integer",
+            "required": true,
+            "min": 0,
+            "max": 1,
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        },
+        "transfers": {
+            "type": "integer",
+            "min": 0,
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        },
+        "agency": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::agency.agency"
+        },
+        "transfer_duration": {
+            "type": "integer",
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        },
+        "fare_rules": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::fare-rule.fare-rule",
+            "mappedBy": "fare_attribute"
+        },
+        "is_active": {
+            "type": "boolean",
+            "default": true,
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        }
+    }
+}

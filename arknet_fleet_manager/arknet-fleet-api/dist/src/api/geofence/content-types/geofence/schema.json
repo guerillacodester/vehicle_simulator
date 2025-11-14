@@ -1,0 +1,60 @@
+{
+    "kind": "collectionType",
+    "collectionName": "geofences",
+    "info": {
+        "singularName": "geofence",
+        "pluralName": "geofences",
+        "displayName": "Geofence",
+        "description": "Location-based geofences metadata (PostGIS-adherent)"
+    },
+    "options": {
+        "draftAndPublish": false
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "geofence_id": {
+            "type": "uid",
+            "required": true
+        },
+        "name": {
+            "type": "string",
+            "required": true
+        },
+        "type": {
+            "type": "enumeration",
+            "enum": [
+                "depot",
+                "boarding_zone",
+                "service_area",
+                "restricted",
+                "proximity",
+                "custom"
+            ],
+            "required": true,
+            "default": "custom"
+        },
+        "enabled": {
+            "type": "boolean",
+            "required": true,
+            "default": true
+        },
+        "valid_from": {
+            "type": "datetime",
+            "required": false
+        },
+        "valid_to": {
+            "type": "datetime",
+            "required": false
+        },
+        "metadata": {
+            "type": "json",
+            "required": false
+        },
+        "geofence_geometries": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::geofence-geometry.geofence-geometry",
+            "mappedBy": "geofence"
+        }
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "collectionName": "access_tiers",
+    "info": { "singularName": "access-tier", "pluralName": "access-tiers", "displayName": "Access Tier" },
+    "attributes": {
+        "name": { "type": "string", "required": true },
+        "code": { "type": "string", "required": true, "unique": true },
+        "description": { "type": "text" },
+        "scopes": { "type": "json" }
+    }
+}

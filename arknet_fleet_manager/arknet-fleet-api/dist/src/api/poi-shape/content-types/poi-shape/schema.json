@@ -1,0 +1,49 @@
+{
+    "kind": "collectionType",
+    "collectionName": "poi_shapes",
+    "info": {
+        "singularName": "poi-shape",
+        "pluralName": "poi-shapes",
+        "displayName": "POI Shape",
+        "description": "Geometric shape points for POI polygons/multipolygons"
+    },
+    "options": {
+        "draftAndPublish": false,
+        "comment": "Stores individual coordinate points for POI geometries"
+    },
+    "pluginOptions": {
+        "content-manager": {
+            "visible": false
+        }
+    },
+    "attributes": {
+        "shape_pt_lat": {
+            "type": "float",
+            "required": true
+        },
+        "shape_pt_lon": {
+            "type": "float",
+            "required": true
+        },
+        "shape_pt_sequence": {
+            "type": "integer",
+            "required": true
+        },
+        "ring_index": {
+            "type": "integer",
+            "default": 0,
+            "required": false
+        },
+        "polygon_index": {
+            "type": "integer",
+            "default": 0,
+            "required": false
+        },
+        "poi": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::poi.poi",
+            "inversedBy": "poi_shapes"
+        }
+    }
+}

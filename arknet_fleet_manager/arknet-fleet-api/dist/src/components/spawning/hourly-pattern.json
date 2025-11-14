@@ -1,0 +1,28 @@
+{
+    "collectionName": "components_spawning_hourly_patterns",
+    "info": {
+        "displayName": "Hourly Spawn Rate",
+        "description": "Base spawn rate for a specific hour (1.0 = normal, 2.5 = peak rush hour)"
+    },
+    "options": {},
+    "attributes": {
+        "hour": {
+            "type": "integer",
+            "required": true,
+            "min": 0,
+            "max": 23
+        },
+        "spawn_rate": {
+            "type": "decimal",
+            "required": true,
+            "default": 1.0,
+            "min": 0,
+            "max": 5
+        },
+        "label": {
+            "type": "string",
+            "maxLength": 50,
+            "default": ""
+        }
+    }
+}

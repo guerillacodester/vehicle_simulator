@@ -1,0 +1,77 @@
+{
+    "kind": "collectionType",
+    "collectionName": "gps_devices",
+    "info": {
+        "singularName": "gps-device",
+        "pluralName": "gps-devices",
+        "displayName": "GPS Device",
+        "description": "GPS tracking devices for vehicles"
+    },
+    "options": {
+        "draftAndPublish": false
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "device_id": {
+            "type": "uid",
+            "required": true,
+            "targetField": "device_serial"
+        },
+        "device_serial": {
+            "type": "string",
+            "required": true,
+            "unique": true
+        },
+        "device_type": {
+            "type": "string",
+            "required": false
+        },
+        "manufacturer": {
+            "type": "string",
+            "required": false
+        },
+        "model": {
+            "type": "string",
+            "required": false
+        },
+        "firmware_version": {
+            "type": "string",
+            "required": false
+        },
+        "is_active": {
+            "type": "boolean",
+            "required": true,
+            "default": true
+        },
+        "last_seen": {
+            "type": "datetime",
+            "required": false
+        },
+        "battery_level": {
+            "type": "integer",
+            "required": false,
+            "min": 0,
+            "max": 100
+        },
+        "signal_strength": {
+            "type": "integer",
+            "required": false,
+            "min": 0,
+            "max": 100
+        },
+        "installation_date": {
+            "type": "datetime",
+            "required": false
+        },
+        "notes": {
+            "type": "text",
+            "required": false
+        },
+        "assigned_vehicle": {
+            "type": "relation",
+            "relation": "oneToOne",
+            "target": "api::vehicle.vehicle",
+            "inversedBy": "gps_device"
+        }
+    }
+}

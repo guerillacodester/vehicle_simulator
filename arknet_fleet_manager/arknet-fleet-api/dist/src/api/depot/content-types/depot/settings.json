@@ -1,0 +1,7 @@
+{
+    "settings": {
+        "mainField": "name",
+        "defaultSortBy": "name",
+        "defaultSortOrder": "ASC"
+    }
+}

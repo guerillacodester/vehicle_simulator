@@ -1,0 +1,128 @@
+{
+    "kind": "collectionType",
+    "collectionName": "routes",
+    "info": {
+        "singularName": "route",
+        "pluralName": "routes",
+        "displayName": "Route",
+        "description": "Transit routes in the fleet management system"
+    },
+    "options": {
+        "draftAndPublish": false
+    },
+    "pluginOptions": {
+        "content-manager": {
+            "visible": true,
+            "displayedAttribute": "short_name"
+        }
+    },
+    "attributes": {
+        "short_name": {
+            "type": "string",
+            "required": true
+        },
+        "long_name": {
+            "type": "string",
+            "required": false
+        },
+        "parishes": {
+            "type": "text",
+            "required": false
+        },
+        "description": {
+            "type": "text",
+            "required": false
+        },
+        "color": {
+            "type": "string",
+            "required": false,
+            "maxLength": 7
+        },
+        "route_type": {
+            "type": "integer",
+            "required": false
+        },
+        "is_active": {
+            "type": "boolean",
+            "required": true,
+            "default": true
+        },
+        "activity_level": {
+            "type": "decimal",
+            "required": false,
+            "default": 1,
+            "min": 0.5,
+            "max": 2
+        },
+        "valid_from": {
+            "type": "date",
+            "required": false
+        },
+        "valid_to": {
+            "type": "date",
+            "required": false
+        },
+        "country": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::country.country",
+            "inversedBy": "routes"
+        },
+        "vehicles": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::vehicle.vehicle",
+            "mappedBy": "preferred_route"
+        },
+        "trips": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::trip.trip",
+            "mappedBy": "route"
+        },
+        "blocks": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::block.block",
+            "mappedBy": "route"
+        },
+        "agencies": {
+            "type": "relation",
+            "relation": "manyToMany",
+            "target": "api::agency.agency",
+            "inversedBy": "routes"
+        },
+        "geojson_data": {
+            "type": "json",
+            "required": false,
+            "pluginOptions": {
+                "i18n": {
+                    "localized": false
+                }
+            }
+        },
+        "view_map_url": {
+            "type": "text",
+            "required": false,
+            "pluginOptions": {
+                "content-manager": {
+                    "visible": true,
+                    "editable": false
+                }
+            }
+        },
+        "spawn_config": {
+            "type": "relation",
+            "relation": "oneToOne",
+            "target": "api::spawn-config.spawn-config",
+            "mappedBy": "route"
+        },
+        "associated_depots": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::route-depot.route-depot",
+            "mappedBy": "route",
+            "mainField": "display_name"
+        }
+    }
+}

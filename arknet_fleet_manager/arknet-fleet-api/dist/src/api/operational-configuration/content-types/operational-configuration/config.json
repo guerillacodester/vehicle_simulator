@@ -1,0 +1,221 @@
+{
+    "settings": {
+        "searchable": true,
+        "filterable": true,
+        "bulkable": true,
+        "pageSize": 25,
+        "mainField": "display_name",
+        "defaultSortBy": "section",
+        "defaultSortOrder": "ASC"
+    },
+    "metadatas": {
+        "id": {
+            "edit": {},
+            "list": {
+                "label": "ID",
+                "searchable": true,
+                "sortable": true
+            }
+        },
+        "section": {
+            "edit": {
+                "label": "Section",
+                "description": "Configuration section (e.g., conductor.proximity)",
+                "placeholder": "",
+                "visible": true,
+                "editable": true
+            },
+            "list": {
+                "label": "Section",
+                "searchable": true,
+                "sortable": true
+            }
+        },
+        "parameter": {
+            "edit": {
+                "label": "Parameter",
+                "description": "Parameter name within the section",
+                "placeholder": "",
+                "visible": true,
+                "editable": true
+            },
+            "list": {
+                "label": "Parameter",
+                "searchable": true,
+                "sortable": true
+            }
+        },
+        "value": {
+            "edit": {
+                "label": "Value",
+                "description": "Current parameter value",
+                "placeholder": "",
+                "visible": true,
+                "editable": true,
+                "mainField": "value"
+            },
+            "list": {
+                "label": "Value",
+                "searchable": false,
+                "sortable": false
+            }
+        },
+        "value_type": {
+            "edit": {
+                "label": "Value Type",
+                "description": "Data type of the value",
+                "placeholder": "",
+                "visible": true,
+                "editable": true
+            },
+            "list": {
+                "label": "Type",
+                "searchable": true,
+                "sortable": true
+            }
+        },
+        "default_value": {
+            "edit": {
+                "label": "Default Value",
+                "description": "Default value if not set",
+                "placeholder": "",
+                "visible": true,
+                "editable": true,
+                "mainField": "default_value"
+            },
+            "list": {
+                "label": "Default",
+                "searchable": false,
+                "sortable": false
+            }
+        },
+        "constraints": {
+            "edit": {
+                "label": "Constraints",
+                "description": "Validation constraints (min, max, etc.)",
+                "placeholder": "",
+                "visible": true,
+                "editable": true,
+                "mainField": "constraints"
+            },
+            "list": {
+                "label": "Constraints",
+                "searchable": false,
+                "sortable": false
+            }
+        },
+        "description": {
+            "edit": {
+                "label": "Description",
+                "description": "Human-readable description",
+                "placeholder": "",
+                "visible": true,
+                "editable": true
+            },
+            "list": {
+                "label": "Description",
+                "searchable": true,
+                "sortable": false
+            }
+        },
+        "display_name": {
+            "edit": {
+                "label": "Display Name",
+                "description": "UI-friendly display name",
+                "placeholder": "",
+                "visible": true,
+                "editable": true
+            },
+            "list": {
+                "label": "Display Name",
+                "searchable": true,
+                "sortable": true
+            }
+        },
+        "ui_group": {
+            "edit": {
+                "label": "UI Group",
+                "description": "Grouping for UI organization",
+                "placeholder": "",
+                "visible": true,
+                "editable": true
+            },
+            "list": {
+                "label": "UI Group",
+                "searchable": true,
+                "sortable": true
+            }
+        },
+        "requires_restart": {
+            "edit": {
+                "label": "Requires Restart",
+                "description": "Whether changing this requires system restart",
+                "placeholder": "",
+                "visible": true,
+                "editable": true
+            },
+            "list": {
+                "label": "Restart Required",
+                "searchable": false,
+                "sortable": true
+            }
+        }
+    },
+    "layouts": {
+        "list": ["id", "section", "parameter", "display_name", "value", "value_type"],
+        "edit": [
+            [
+                {
+                    "name": "section",
+                    "size": 6
+                },
+                {
+                    "name": "parameter",
+                    "size": 6
+                }
+            ],
+            [
+                {
+                    "name": "display_name",
+                    "size": 12
+                }
+            ],
+            [
+                {
+                    "name": "value",
+                    "size": 6
+                },
+                {
+                    "name": "value_type",
+                    "size": 6
+                }
+            ],
+            [
+                {
+                    "name": "default_value",
+                    "size": 6
+                },
+                {
+                    "name": "requires_restart",
+                    "size": 6
+                }
+            ],
+            [
+                {
+                    "name": "description",
+                    "size": 12
+                }
+            ],
+            [
+                {
+                    "name": "constraints",
+                    "size": 6
+                },
+                {
+                    "name": "ui_group",
+                    "size": 6
+                }
+            ]
+        ]
+    }
+}

@@ -1,0 +1,101 @@
+{
+    "kind": "collectionType",
+    "collectionName": "highways",
+    "info": {
+        "singularName": "highway",
+        "pluralName": "highways",
+        "displayName": "Highway",
+        "description": "Roads and highways for reverse geocoding and location naming"
+    },
+    "options": {
+        "draftAndPublish": false,
+        "comment": "Streets, roads, and highways with PostGIS LineString geometry"
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "highway_id": {
+            "type": "uid",
+            "required": true,
+            "targetField": "name"
+        },
+        "name": {
+            "type": "string",
+            "required": true,
+            "maxLength": 255
+        },
+        "highway_type": {
+            "type": "enumeration",
+            "enum": [
+                "motorway",
+                "trunk",
+                "primary",
+                "secondary",
+                "tertiary",
+                "residential",
+                "service",
+                "unclassified",
+                "track",
+                "path",
+                "footway",
+                "cycleway",
+                "steps",
+                "pedestrian",
+                "living_street",
+                "other"
+            ],
+            "default": "other"
+        },
+        "ref": {
+            "type": "string",
+            "maxLength": 50
+        },
+        "osm_id": {
+            "type": "string",
+            "unique": false
+        },
+        "full_id": {
+            "type": "string",
+            "unique": false
+        },
+        "surface": {
+            "type": "string"
+        },
+        "lanes": {
+            "type": "integer",
+            "min": 1
+        },
+        "maxspeed": {
+            "type": "string"
+        },
+        "oneway": {
+            "type": "boolean",
+            "default": false
+        },
+        "description": {
+            "type": "text"
+        },
+        "is_active": {
+            "type": "boolean",
+            "default": true,
+            "required": true
+        },
+        "country": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::country.country",
+            "inversedBy": "highways"
+        },
+        "region": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::region.region",
+            "inversedBy": "highways"
+        },
+        "highway_shapes": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::highway-shape.highway-shape",
+            "mappedBy": "highway"
+        }
+    }
+}

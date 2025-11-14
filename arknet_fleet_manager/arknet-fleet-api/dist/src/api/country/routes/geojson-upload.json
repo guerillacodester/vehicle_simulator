@@ -1,0 +1,12 @@
+{
+    "routes": [
+        {
+            "method": "POST",
+            "path": "/countries/:countryId/upload-geojson",
+            "handler": "geojson-upload.uploadGeoJSON",
+            "config": {
+                "policies": []
+            }
+        }
+    ]
+}

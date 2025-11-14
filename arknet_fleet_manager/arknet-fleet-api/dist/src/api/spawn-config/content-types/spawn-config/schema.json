@@ -1,0 +1,40 @@
+{
+    "kind": "collectionType",
+    "collectionName": "spawn_configs",
+    "info": {
+        "singularName": "spawn-config",
+        "pluralName": "spawn-configs",
+        "displayName": "Spawn Configuration (Production)",
+        "description": "Optimized spawn configuration with JSON storage for production performance"
+    },
+    "options": {
+        "draftAndPublish": false,
+        "comment": "Production-optimized: Single JSON field for all parameters"
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "name": {
+            "type": "string",
+            "required": true,
+            "maxLength": 255
+        },
+        "description": {
+            "type": "text"
+        },
+        "config": {
+            "type": "json",
+            "required": true,
+            "description": "Complete spawn configuration including distribution params, hourly rates, day multipliers, and feature weights"
+        },
+        "is_active": {
+            "type": "boolean",
+            "default": true,
+            "required": true
+        },
+        "route": {
+            "type": "relation",
+            "relation": "oneToOne",
+            "target": "api::route.route"
+        }
+    }
+}

@@ -1,0 +1,49 @@
+{
+    "kind": "collectionType",
+    "collectionName": "frequencies",
+    "info": {
+        "singularName": "frequency",
+        "pluralName": "frequencies",
+        "displayName": "Frequency",
+        "description": "Headway-based service schedules (GTFS frequencies.txt)"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "pluginOptions": {
+        "i18n": {
+            "localized": false
+        }
+    },
+    "attributes": {
+        "trip": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::trip.trip",
+            "inversedBy": "frequencies"
+        },
+        "start_time": {
+            "type": "time",
+            "required": true
+        },
+        "end_time": {
+            "type": "time",
+            "required": true
+        },
+        "headway_secs": {
+            "type": "integer",
+            "required": true,
+            "min": 1
+        },
+        "exact_times": {
+            "type": "integer",
+            "default": 0,
+            "min": 0,
+            "max": 1
+        },
+        "is_active": {
+            "type": "boolean",
+            "default": true
+        }
+    }
+}

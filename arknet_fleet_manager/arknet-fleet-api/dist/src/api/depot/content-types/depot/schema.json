@@ -1,0 +1,88 @@
+{
+    "kind": "collectionType",
+    "collectionName": "depots",
+    "info": {
+        "singularName": "depot",
+        "pluralName": "depots",
+        "displayName": "Depot",
+        "description": "Vehicle depots for fleet management"
+    },
+    "options": {
+        "draftAndPublish": false
+    },
+    "pluginOptions": {
+        "content-manager": {
+            "visible": true,
+            "displayedAttribute": "name"
+        }
+    },
+    "attributes": {
+        "depot_id": {
+            "type": "uid",
+            "required": true,
+            "targetField": "name"
+        },
+        "name": {
+            "type": "string",
+            "required": true
+        },
+        "address": {
+            "type": "text",
+            "required": false
+        },
+        "latitude": {
+            "type": "float",
+            "required": true,
+            "min": 13,
+            "max": 13.35
+        },
+        "longitude": {
+            "type": "float",
+            "required": true,
+            "min": -59.65,
+            "max": -59.4
+        },
+        "capacity": {
+            "type": "integer",
+            "required": false,
+            "default": 50
+        },
+        "is_active": {
+            "type": "boolean",
+            "required": true,
+            "default": true
+        },
+        "activity_level": {
+            "type": "decimal",
+            "required": false,
+            "default": 1,
+            "min": 0.5,
+            "max": 2
+        },
+        "country": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::country.country",
+            "inversedBy": "depots"
+        },
+        "vehicles": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::vehicle.vehicle",
+            "mappedBy": "home_depot"
+        },
+        "drivers": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::driver.driver",
+            "mappedBy": "home_depot"
+        },
+        "associated_routes": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::route-depot.route-depot",
+            "mappedBy": "depot",
+            "mainField": "route_short_name"
+        }
+    }
+}

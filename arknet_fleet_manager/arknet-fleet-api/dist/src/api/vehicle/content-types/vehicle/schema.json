@@ -1,0 +1,105 @@
+{
+    "kind": "collectionType",
+    "collectionName": "vehicles",
+    "info": {
+        "singularName": "vehicle",
+        "pluralName": "vehicles",
+        "displayName": "Vehicle",
+        "description": "Vehicles in the fleet management system"
+    },
+    "options": {
+        "draftAndPublish": false
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "vehicle_id": {
+            "type": "uid",
+            "required": true,
+            "targetField": "reg_code"
+        },
+        "reg_code": {
+            "type": "string",
+            "required": true,
+            "unique": true
+        },
+        "vehicle_status": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::vehicle-status.vehicle-status",
+            "inversedBy": "vehicles"
+        },
+        "capacity": {
+            "type": "integer",
+            "required": false,
+            "default": 11
+        },
+        "profile_id": {
+            "type": "string",
+            "required": false
+        },
+        "notes": {
+            "type": "text",
+            "required": false
+        },
+        "max_speed_kmh": {
+            "type": "decimal",
+            "required": true,
+            "default": 25
+        },
+        "acceleration_mps2": {
+            "type": "decimal",
+            "required": true,
+            "default": 1.2
+        },
+        "braking_mps2": {
+            "type": "decimal",
+            "required": true,
+            "default": 1.8
+        },
+        "eco_mode": {
+            "type": "boolean",
+            "required": true,
+            "default": false
+        },
+        "performance_profile": {
+            "type": "enumeration",
+            "enum": [
+                "standard",
+                "eco",
+                "performance",
+                "express"
+            ],
+            "required": false
+        },
+        "country": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::country.country",
+            "inversedBy": "vehicles"
+        },
+        "home_depot": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::depot.depot",
+            "inversedBy": "vehicles"
+        },
+        "preferred_route": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::route.route",
+            "inversedBy": "vehicles"
+        },
+        "assigned_driver": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::driver.driver",
+            "inversedBy": "assigned_vehicles"
+        },
+        "gps_device": {
+            "type": "relation",
+            "relation": "oneToOne",
+            "target": "api::gps-device.gps-device",
+            "inversedBy": "assigned_vehicle"
+        }
+    }
+}

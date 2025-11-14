@@ -1,0 +1,58 @@
+{
+    "kind": "collectionType",
+    "collectionName": "operational_configurations",
+    "info": {
+        "singularName": "operational-configuration",
+        "pluralName": "operational-configurations",
+        "displayName": "Operational Configuration",
+        "description": "Runtime-configurable operational parameters"
+    },
+    "options": {
+        "draftAndPublish": false
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "section": {
+            "type": "string",
+            "required": true
+        },
+        "parameter": {
+            "type": "string",
+            "required": true
+        },
+        "value": {
+            "type": "text",
+            "required": true
+        },
+        "value_type": {
+            "type": "enumeration",
+            "enum": [
+                "number",
+                "string",
+                "boolean",
+                "object"
+            ],
+            "required": true
+        },
+        "default_value": {
+            "type": "text",
+            "required": true
+        },
+        "constraints": {
+            "type": "json"
+        },
+        "description": {
+            "type": "text"
+        },
+        "display_name": {
+            "type": "string"
+        },
+        "ui_group": {
+            "type": "string"
+        },
+        "requires_restart": {
+            "type": "boolean",
+            "default": false
+        }
+    }
+}

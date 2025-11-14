@@ -1,0 +1,37 @@
+{
+    "kind": "collectionType",
+    "collectionName": "admin_levels",
+    "info": {
+        "singularName": "admin-level",
+        "pluralName": "admin-levels",
+        "displayName": "Admin Level",
+        "description": "Administrative hierarchy levels"
+    },
+    "options": {
+        "draftAndPublish": false
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "level": {
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "min": 1,
+            "max": 20
+        },
+        "name": {
+            "type": "string",
+            "required": true,
+            "maxLength": 255
+        },
+        "description": {
+            "type": "text"
+        },
+        "regions": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::region.region",
+            "mappedBy": "admin_level"
+        }
+    }
+}

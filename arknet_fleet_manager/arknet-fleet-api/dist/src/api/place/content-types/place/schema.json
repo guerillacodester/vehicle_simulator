@@ -1,0 +1,119 @@
+{
+    "kind": "collectionType",
+    "collectionName": "places",
+    "info": {
+        "singularName": "place",
+        "pluralName": "places",
+        "displayName": "Place / Population Zone",
+        "description": "Named places and population zones for demographic-based passenger spawning (cities, towns, villages, neighborhoods)"
+    },
+    "options": {
+        "draftAndPublish": false,
+        "comment": "Geographic areas with population data for spawning calculations"
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "name": {
+            "type": "string",
+            "required": true,
+            "maxLength": 255
+        },
+        "place_type": {
+            "type": "enumeration",
+            "enum": [
+                "city",
+                "town",
+                "village",
+                "neighborhood",
+                "suburb",
+                "hamlet",
+                "quarter",
+                "district",
+                "locality",
+                "settlement",
+                "residential_area",
+                "commercial_district",
+                "industrial_zone",
+                "other"
+            ],
+            "required": true,
+            "default": "other"
+        },
+        "description": {
+            "type": "text"
+        },
+        "geometry_geojson": {
+            "type": "json"
+        },
+        "center_latitude": {
+            "type": "decimal",
+            "min": -90,
+            "max": 90
+        },
+        "center_longitude": {
+            "type": "decimal",
+            "min": -180,
+            "max": 180
+        },
+        "area_sq_km": {
+            "type": "decimal",
+            "min": 0
+        },
+        "population": {
+            "type": "integer",
+            "min": 0
+        },
+        "population_density": {
+            "type": "decimal",
+            "min": 0
+        },
+        "spawn_weight": {
+            "type": "decimal",
+            "default": 1,
+            "min": 0,
+            "max": 10
+        },
+        "peak_hour_multiplier": {
+            "type": "decimal",
+            "default": 1,
+            "min": 0,
+            "max": 5
+        },
+        "off_peak_multiplier": {
+            "type": "decimal",
+            "default": 1,
+            "min": 0,
+            "max": 5
+        },
+        "osm_id": {
+            "type": "string",
+            "unique": false
+        },
+        "osm_place_rank": {
+            "type": "integer",
+            "min": 1,
+            "max": 30
+        },
+        "tags": {
+            "type": "json",
+            "default": []
+        },
+        "is_active": {
+            "type": "boolean",
+            "default": true,
+            "required": true
+        },
+        "country": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::country.country",
+            "inversedBy": "places"
+        },
+        "region": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::region.region",
+            "inversedBy": "places"
+        }
+    }
+}

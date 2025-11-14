@@ -1,0 +1,47 @@
+{
+    "kind": "collectionType",
+    "collectionName": "fare_rules",
+    "info": {
+        "singularName": "fare-rule",
+        "pluralName": "fare-rules",
+        "displayName": "Fare Rule",
+        "description": "Fare rules for routes and zones (GTFS fare_rules.txt)"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "pluginOptions": {
+        "i18n": {
+            "localized": false
+        }
+    },
+    "attributes": {
+        "fare_attribute": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::fare-attribute.fare-attribute",
+            "inversedBy": "fare_rules"
+        },
+        "route": {
+            "type": "relation",
+            "relation": "manyToOne",
+            "target": "api::route.route"
+        },
+        "origin_id": {
+            "type": "string",
+            "required": false
+        },
+        "destination_id": {
+            "type": "string",
+            "required": false
+        },
+        "contains_id": {
+            "type": "string",
+            "required": false
+        },
+        "is_active": {
+            "type": "boolean",
+            "default": true
+        }
+    }
+}

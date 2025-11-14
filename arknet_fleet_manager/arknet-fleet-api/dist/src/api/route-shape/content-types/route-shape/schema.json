@@ -1,0 +1,41 @@
+{
+    "kind": "collectionType",
+    "collectionName": "route_shapes",
+    "info": {
+        "singularName": "route-shape",
+        "pluralName": "route-shapes",
+        "displayName": "Route Shape",
+        "description": "Links routes to their geometric shapes with variants"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "pluginOptions": {
+        "content-manager": {
+            "visible": false
+        }
+    },
+    "attributes": {
+        "route_shape_id": {
+            "type": "uid",
+            "required": true
+        },
+        "route_id": {
+            "type": "string",
+            "required": true
+        },
+        "shape_id": {
+            "type": "string",
+            "required": true
+        },
+        "variant_code": {
+            "type": "string",
+            "required": false
+        },
+        "is_default": {
+            "type": "boolean",
+            "default": false,
+            "required": false
+        }
+    }
+}
