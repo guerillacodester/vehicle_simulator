@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Strapi Connection Test</title>
+</head>
+<body>
+    <h1>Strapi Connection Diagnostic</h1>
+    <button onclick="testConnection()">Test Connection</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function testConnection() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing connection to Strapi...\n';
+            
+            try {
+                // Test 1: Can we reach Strapi at all?
+                output.textContent += '\n1. Testing http://localhost:1337 ...\n';
+                const healthCheck = await fetch('http://localhost:1337/_health', { method: 'HEAD' });
+                output.textContent += `   Status: ${healthCheck.status} ${healthCheck.statusText}\n`;
+                
+                // Test 2: Can we access the API?
+                output.textContent += '\n2. Testing http://localhost:1337/api/routes ...\n';
+                const routesResponse = await fetch('http://localhost:1337/api/routes');
+                output.textContent += `   Status: ${routesResponse.status} ${routesResponse.statusText}\n`;
+                
+                if (routesResponse.ok) {
+                    const data = await routesResponse.json();
+                    output.textContent += `   Response: ${JSON.stringify(data, null, 2)}\n`;
+                } else {
+                    const text = await routesResponse.text();
+                    output.textContent += `   Error: ${text}\n`;
+                }
+                
+                output.textContent += '\n✅ Connection successful!';
+            } catch (error) {
+                output.textContent += `\n❌ Connection failed: ${error.message}\n`;
+                output.textContent += '\nPossible causes:\n';
+                output.textContent += '- Strapi is not running\n';
+                output.textContent += '- Strapi is running on a different port\n';
+                output.textContent += '- CORS is blocking the request\n';
+                output.textContent += '- Firewall is blocking the connection\n';
+            }
+        }
+    </script>
+</body>
+</html>

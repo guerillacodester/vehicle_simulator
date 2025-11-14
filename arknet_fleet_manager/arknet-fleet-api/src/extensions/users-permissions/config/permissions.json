@@ -1,0 +1,56 @@
+{
+  "active-passenger": {
+    "controllers": {
+      "active-passenger": {
+        "find": {
+          "enabled": true,
+          "policy": ""
+        },
+        "findOne": {
+          "enabled": true,
+          "policy": ""
+        },
+        "create": {
+          "enabled": true,
+          "policy": ""
+        },
+        "update": {
+          "enabled": true,
+          "policy": ""
+        },
+        "delete": {
+          "enabled": true,
+          "policy": ""
+        },
+        "markBoarded": {
+          "enabled": true,
+          "policy": ""
+        },
+        "markAlighted": {
+          "enabled": true,
+          "policy": ""
+        },
+        "findNearLocation": {
+          "enabled": true,
+          "policy": ""
+        },
+        "findByRoute": {
+          "enabled": true,
+          "policy": ""
+        },
+        "findByStatus": {
+          "enabled": true,
+          "policy": ""
+        },
+        "deleteExpired": {
+          "enabled": true,
+          "policy": ""
+        },
+        "getCount": {
+          "enabled": true,
+          "policy": ""
+        }
+      }
+    }
+  }
+}

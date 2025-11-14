@@ -1,0 +1,29 @@
+{
+  "extends": [
+    "development"
+  ],
+  "hints": {
+    "axe/text-alternatives": [
+      "default",
+      {
+        "document-title": "off"
+      }
+    ],
+    "meta-viewport": "off",
+    "axe/language": [
+      "default",
+      {
+        "html-has-lang": "off"
+      }
+    ],
+    "meta-charset-utf-8": "off",
+    "no-inline-styles": "off",
+    "axe/aria": [
+      "default",
+      {
+        "aria-valid-attr-value": "off",
+        "aria-required-children": "off"
+      }
+    ]
+  }
+}

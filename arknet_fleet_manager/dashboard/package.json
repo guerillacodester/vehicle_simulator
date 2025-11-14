@@ -1,0 +1,42 @@
+{
+  "name": "dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env TURBOPACK=0 next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "codegen": "graphql-codegen --config codegen.ts",
+    "codegen:watch": "graphql-codegen --config codegen.ts --watch"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.3",
+    "@urql/exchange-graphcache": "^7.2.1",
+    "@vehicle-simulator/transit": "file:../../clients/transit",
+    "graphql": "^16.9.0",
+    "next": "16.0.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "socket.io-client": "^4.8.1",
+    "urql": "^4.1.0"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^5.0.3",
+    "@graphql-codegen/typescript": "^4.1.2",
+    "@graphql-codegen/typescript-operations": "^4.4.0",
+    "@graphql-codegen/typescript-urql": "^4.0.0",
+    "@graphql-typed-document-node/core": "^3.2.0",
+    "@tailwindcss/postcss": "^4",
+    "@tanstack/react-query-devtools": "^5.90.2",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "cross-env": "^10.1.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

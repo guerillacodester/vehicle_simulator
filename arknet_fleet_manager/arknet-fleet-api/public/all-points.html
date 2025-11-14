@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Route Points Viewer</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .header {
+            background: #dc3545;
+            color: white;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        
+        #map {
+            height: 600px;
+            width: 100%;
+            border: 3px solid #dc3545;
+            border-radius: 5px;
+        }
+        
+        .points-info {
+            background: #e2e3e5;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔴 ALL ROUTE POINTS VIEWER - DOTS ONLY!</h1>
+    </div>
+    
+    <div class="info">
+        <strong>Route:</strong> <span id="route-info">Loading...</span><br>
+        <strong>Mission:</strong> Show EVERY coordinate point as dots!
+    </div>
+    
+    <div id="status-messages"></div>
+    
+    <div id="map"></div>
+    
+    <div id="points-summary" class="points-info"></div>
+    
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <script>
+        console.log('=== ALL ROUTE POINTS VIEWER ===');
+        
+        let map;
+        let allPoints = [];
+        
+        function addStatusMessage(message, type = 'info') {
+            const statusDiv = document.getElementById('status-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status ${type}`;
+            messageDiv.textContent = message;
+            statusDiv.appendChild(messageDiv);
+        }
+        
+        function initializeMap() {
+            console.log('Initializing map...');
+            if (typeof L === 'undefined') {
+                addStatusMessage('❌ Leaflet failed to load', 'error');
+                return false;
+            }
+            
+            map = L.map('map').setView([51.505, -0.09], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            addStatusMessage('✅ Map initialized', 'success');
+            return true;
+        }
+        
+        async function fetchAllShapePoints(routeId) {
+            addStatusMessage('🔍 Step 1: Getting route data...', 'warning');
+            
+            // Get route data
+            const routeResponse = await fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`);
+            const routeData = await routeResponse.json();
+            
+            if (!routeData.data || routeData.data.length === 0) {
+                throw new Error(`Route "${routeId}" not found`);
+            }
+            
+            const route = routeData.data[0];
+            const routeUuid = route.route_id;
+            
+            document.getElementById('route-info').innerHTML = `
+                <strong>${route.short_name}</strong> - ${route.long_name || 'No description'}
+            `;
+            
+            addStatusMessage(`✅ Found route: ${route.short_name}`, 'success');
+            
+            // Get route-shapes to find all shape_ids
+            addStatusMessage('🔍 Step 2: Getting shape references...', 'warning');
+            const shapesResponse = await fetch(`http://localhost:1337/api/route-shapes?filters[route_id][$eq]=${routeUuid}`);
+            const shapesData = await shapesResponse.json();
+            
+            if (!shapesData.data || shapesData.data.length === 0) {
+                throw new Error('No shape references found');
+            }
+            
+            const shapeIds = [...new Set(shapesData.data.map(s => s.shape_id))];
+            addStatusMessage(`✅ Found ${shapeIds.length} unique shapes`, 'success');
+            
+            // Get ALL coordinate points from ALL shapes
+            addStatusMessage('🔍 Step 3: Fetching ALL coordinate points...', 'warning');
+            
+            const allCoordinates = [];
+            
+            for (let i = 0; i < shapeIds.length; i++) {
+                const shapeId = shapeIds[i];
+                console.log(`Fetching ALL points for shape ${i + 1}/${shapeIds.length}: ${shapeId}`);
+                
+                // Get ALL points for this shape (no limit)
+                const coordResponse = await fetch(`http://localhost:1337/api/shapes?filters[shape_id][$eq]=${shapeId}&sort=shape_pt_sequence:asc&pagination[pageSize]=1000`);
+                const coordData = await coordResponse.json();
+                
+                if (coordData.data && coordData.data.length > 0) {
+                    allCoordinates.push(...coordData.data);
+                    console.log(`✅ Shape ${shapeId}: ${coordData.data.length} points`);
+                    addStatusMessage(`✅ Shape ${i + 1}: ${coordData.data.length} points`, 'success');
+                } else {
+                    console.warn(`⚠️ Shape ${shapeId}: No points found`);
+                    addStatusMessage(`⚠️ Shape ${i + 1}: No points`, 'warning');
+                }
+            }
+            
+            if (allCoordinates.length === 0) {
+                throw new Error('No coordinate points found in any shapes');
+            }
+            
+            // Sort all points by sequence
+            allCoordinates.sort((a, b) => {
+                if (a.shape_id !== b.shape_id) {
+                    return a.shape_id.localeCompare(b.shape_id);
+                }
+                return (a.shape_pt_sequence || 0) - (b.shape_pt_sequence || 0);
+            });
+            
+            addStatusMessage(`🎉 TOTAL POINTS FOUND: ${allCoordinates.length}`, 'success');
+            
+            return allCoordinates;
+        }
+        
+        function renderAllPointsOnMap(coordinates) {
+            addStatusMessage('🔴 Step 4: Rendering ALL points as dots...', 'warning');
+            console.log(`Rendering ${coordinates.length} points as dots`);
+            
+            if (coordinates.length === 0) {
+                throw new Error('No coordinates to render');
+            }
+            
+            const validCoords = [];
+            let invalidCount = 0;
+            
+            // Add a dot for each coordinate point
+            coordinates.forEach((coord, index) => {
+                const lat = parseFloat(coord.shape_pt_lat);
+                const lon = parseFloat(coord.shape_pt_lon);
+                
+                if (isNaN(lat) || isNaN(lon)) {
+                    invalidCount++;
+                    console.warn(`Invalid coordinates at index ${index}:`, coord);
+                    return;
+                }
+                
+                validCoords.push([lat, lon]);
+                
+                // Different colors for different shapes
+                const colors = ['#ff0000', '#00ff00', '#0000ff', '#ff00ff', '#00ffff'];
+                const colorIndex = coord.shape_id ? coord.shape_id.charCodeAt(0) % colors.length : 0;
+                const dotColor = colors[colorIndex];
+                
+                // Create a dot for each point
+                L.circleMarker([lat, lon], {
+                    radius: 4,
+                    fillColor: dotColor,
+                    color: '#ffffff',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map).bindPopup(`
+                    <strong>Point ${index + 1}</strong><br>
+                    Lat: ${lat}<br>
+                    Lon: ${lon}<br>
+                    Shape: ${coord.shape_id}<br>
+                    Sequence: ${coord.shape_pt_sequence || 'N/A'}<br>
+                    Distance: ${coord.shape_dist_traveled || 'N/A'}
+                `);
+            });
+            
+            if (validCoords.length === 0) {
+                throw new Error('No valid coordinates found');
+            }
+            
+            // Center map on all points
+            const bounds = L.latLngBounds(validCoords);
+            map.fitBounds(bounds, { padding: [30, 30] });
+            
+            addStatusMessage(`🎉 SUCCESS! ${validCoords.length} dots rendered on map!`, 'success');
+            
+            if (invalidCount > 0) {
+                addStatusMessage(`⚠️ Skipped ${invalidCount} invalid coordinates`, 'warning');
+            }
+            
+            // Show summary
+            document.getElementById('points-summary').innerHTML = `
+                <h3>🔴 ALL POINTS SUMMARY</h3>
+                <ul>
+                    <li><strong>Total Points Found:</strong> ${coordinates.length}</li>
+                    <li><strong>Valid Points Rendered:</strong> ${validCoords.length}</li>
+                    <li><strong>Invalid Points Skipped:</strong> ${invalidCount}</li>
+                    <li><strong>Different Colors:</strong> Each shape gets a different color</li>
+                </ul>
+                <p><strong>Click any dot</strong> to see its details!</p>
+            `;
+        }
+        
+        // Main execution
+        async function main() {
+            try {
+                if (!initializeMap()) {
+                    return;
+                }
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const routeId = urlParams.get('route_id') || '1A';
+                
+                const coordinates = await fetchAllShapePoints(routeId);
+                renderAllPointsOnMap(coordinates);
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                addStatusMessage(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        window.addEventListener('load', main);
+    </script>
+</body>
+</html>

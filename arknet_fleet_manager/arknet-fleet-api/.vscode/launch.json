@@ -1,0 +1,57 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Strapi (Develop)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "develop"],
+      "cwd": "${workspaceFolder}/arknet_fleet_manager/arknet-fleet-api",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "sourceMaps": true,
+      "smartStep": true,
+      "restart": true,
+      "timeout": 60000
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Strapi (Start)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "${workspaceFolder}/arknet_fleet_manager/arknet-fleet-api",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "sourceMaps": true,
+      "smartStep": true
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Strapi",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "sourceMaps": true
+    }
+  ]
+}

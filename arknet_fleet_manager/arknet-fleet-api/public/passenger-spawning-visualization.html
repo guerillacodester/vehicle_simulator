@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Passenger Spawning Visualization</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 300;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .controls-panel {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .time-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .time-slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .time-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        
+        .time-display {
+            font-weight: 600;
+            color: #333;
+            min-width: 80px;
+            text-align: center;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .route-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            position: relative;
+        }
+        
+        .route-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .route-dropdown-btn {
+            padding: 8px 16px;
+            border: 2px solid #28a745;
+            background: white;
+            color: #28a745;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .route-dropdown-btn:hover {
+            background: #28a745;
+            color: white;
+        }
+        
+        .route-dropdown-content {
+            display: none;
+            position: absolute;
+            background: white;
+            min-width: 200px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            z-index: 1000;
+            top: 100%;
+            left: 0;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .route-dropdown.active .route-dropdown-content {
+            display: block;
+        }
+        
+        .route-item {
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .route-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .route-item:last-child {
+            border-bottom: none;
+        }
+        
+        .route-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        
+        .route-info {
+            flex: 1;
+        }
+        
+        .route-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .route-details {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .filter-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .playback-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .play-btn {
+            padding: 10px 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s ease;
+        }
+        
+        .play-btn:hover {
+            background: #218838;
+        }
+        
+        .play-btn.playing {
+            background: #dc3545;
+        }
+        
+        .stats-panel {
+            background: white;
+            padding: 10px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .stats-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stats-value {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        #map {
+            height: calc(100vh - 180px);
+            width: 100%;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        .loading-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .popup-custom {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .popup-custom .location-type {
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+        
+        .popup-custom .location-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .popup-custom .spawn-info {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        /* Custom icon styles */
+        .custom-depot-cluster {
+            background: none !important;
+            border: none !important;
+        }
+        
+        .depot-cluster {
+            background: rgba(255, 107, 107, 0.9);
+            border: 2px solid white;
+            border-radius: 8px;
+            padding: 4px 8px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            min-width: 50px;
+        }
+        
+        .depot-cluster i {
+            font-size: 16px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .depot-badge {
+            background: white;
+            color: #ff6b6b;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 2px 0;
+        }
+        
+        .depot-routes {
+            font-size: 9px;
+            opacity: 0.9;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 50px;
+        }
+        
+        .custom-passenger-icon {
+            background: none !important;
+            border: none !important;
+        }
+        
+        .custom-passenger-icon i {
+            color: #4ecdc4;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .custom-poi-icon {
+            background: none !important;
+            border: none !important;
+        }
+        
+        .custom-poi-icon i {
+            color: #45b7d1;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .controls-panel {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            
+            .time-control {
+                min-width: auto;
+            }
+            
+            .filter-controls, .playback-controls {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚌 Live Passenger Database Visualization</h1>
+        <div class="subtitle">Real-time monitoring of active passengers from database (auto-refresh every 5s)</div>
+    </div>
+    
+    <div class="controls-panel">
+        <div class="time-control">
+            <label>Time of Day:</label>
+            <input type="range" class="time-slider" id="timeSlider" min="0" max="23" value="8" step="1">
+            <div class="time-display" id="timeDisplay">08:00</div>
+        </div>
+        
+        <div class="filter-controls">
+            <label>Show:</label>
+            <button class="filter-btn active" data-filter="depot">Depots</button>
+            <button class="filter-btn active" data-filter="route">Routes</button>
+            <button class="filter-btn active" data-filter="poi">POIs</button>
+        </div>
+        
+        <div class="route-controls">
+            <div class="route-dropdown" id="routeDropdown">
+                <button class="route-dropdown-btn" id="routeDropdownBtn">
+                    🚌 Routes <span id="routeListCount">0</span> ▼
+                </button>
+                <div class="route-dropdown-content" id="routeDropdownContent">
+                    <!-- Route items will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="playback-controls">
+            <button class="play-btn" id="playBtn">▶ Play</button>
+            <label>
+                Speed:
+                <select id="speedSelect">
+                    <option value="500">0.5x</option>
+                    <option value="1000" selected>1x</option>
+                    <option value="2000">2x</option>
+                    <option value="5000">5x</option>
+                </select>
+            </label>
+        </div>
+    </div>
+    
+    <div class="stats-panel">
+        <div class="stats-item">
+            <span class="legend-dot" style="background: #ff6b6b;"></span>
+            <span>Depot Spawns: <span class="stats-value" id="depotCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span class="legend-dot" style="background: #4ecdc4;"></span>
+            <span>Route Spawns: <span class="stats-value" id="routeCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span class="legend-dot" style="background: #45b7d1;"></span>
+            <span>POI Spawns: <span class="stats-value" id="poiCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span>Total Active: <span class="stats-value" id="totalCount">0</span></span>
+        </div>
+        <div class="stats-item">
+            <span>Peak Hour: <span class="stats-value" id="peakHour">--</span></span>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div>Loading passenger spawning data...</div>
+    </div>
+    
+    <!-- Leaflet JS -->
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    
+    <script>
+        // Configuration
+        const CONFIG = {
+            API_BASE: 'http://localhost:1337/api',
+            SPAWNING_API_BASE: 'http://localhost:1337/api',  // Use Strapi's passenger-spawning API directly
+            BARBADOS_BOUNDS: [[13.0396, -59.6489], [13.3356, -59.4206]],
+            BARBADOS_CENTER: [13.1879, -59.5348],
+            SPAWN_SIMULATION_SAMPLES: 100, // Number of spawn samples per hour per location
+            COLORS: {
+                depot: '#ff6b6b',
+                route: '#4ecdc4', 
+                poi: '#45b7d1'
+            }
+        };
+
+        // Icon definitions using Font Awesome
+        const ICONS = {
+            depot: (passengerCount, routes) => L.divIcon({
+                html: `
+                    <div class="depot-cluster">
+                        <i class="fas fa-warehouse"></i>
+                        <div class="depot-badge">${passengerCount}</div>
+                        <div class="depot-routes">${routes.join(', ')}</div>
+                    </div>
+                `,
+                iconSize: [60, 40],
+                iconAnchor: [30, 20],
+                className: 'custom-depot-cluster'
+            }),
+            passenger: L.divIcon({
+                html: '<i class="fas fa-user"></i>',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+                className: 'custom-passenger-icon'
+            }),
+            poi: (poiType) => {
+                const iconMap = {
+                    'restaurant': 'fa-utensils',
+                    'food': 'fa-utensils',
+                    'shop': 'fa-store',
+                    'retail': 'fa-store',
+                    'school': 'fa-graduation-cap',
+                    'education': 'fa-graduation-cap',
+                    'hospital': 'fa-hospital',
+                    'health': 'fa-hospital',
+                    'bank': 'fa-university',
+                    'finance': 'fa-university',
+                    'hotel': 'fa-bed',
+                    'accommodation': 'fa-bed',
+                    'gas_station': 'fa-gas-pump',
+                    'fuel': 'fa-gas-pump',
+                    'church': 'fa-church',
+                    'worship': 'fa-church'
+                };
+                
+                const iconClass = iconMap[poiType] || 'fa-map-marker-alt';
+                
+                return L.divIcon({
+                    html: `<i class="fas ${iconClass}"></i>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10],
+                    className: 'custom-poi-icon'
+                });
+            }
+        };
+        
+        // Global state
+        let map;
+        let passengerLayers = {
+            depot: L.layerGroup(),
+            route: L.layerGroup(), 
+            poi: L.layerGroup()
+        };
+        let routeLayers = {}; // Store route polylines by route ID
+        let selectedRoutes = new Set(); // Track which routes are selected
+        let baseData = {
+            depots: [],
+            routes: [],
+            pois: []
+        };
+        let isPlaying = false;
+        let playInterval = null;
+        let currentHour = 8;
+        let activeFilters = new Set(['depot', 'route', 'poi']);
+        let autoRefreshInterval = null;
+        
+        // Initialize the application
+        async function init() {
+            try {
+                initializeMap();
+                await loadBaseData();
+                setupEventListeners();
+                // Show live passengers from database
+                await showLivePassengers();
+                startAutoRefresh();
+                hideLoading();
+                updateDisplay();
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                document.getElementById('loading').innerHTML = 
+                    '<div style="color: red;">❌ Failed to load data. Please check API connection.</div>';
+            }
+        }
+        
+        // Initialize the Leaflet map
+        function initializeMap() {
+            map = L.map('map').setView(CONFIG.BARBADOS_CENTER, 11);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+            
+            // Add layer groups to map
+            Object.values(passengerLayers).forEach(layer => {
+                layer.addTo(map);
+            });
+            
+            // Fit map to Barbados bounds
+            map.fitBounds(CONFIG.BARBADOS_BOUNDS, { padding: [20, 20] });
+        }
+        
+        // Load base geographic data from API
+        async function loadBaseData() {
+            console.log('Loading base geographic data...');
+            
+            // Load depots
+            const depotResponse = await fetch(`${CONFIG.API_BASE}/depots?filters[is_active][$eq]=true&pagination[pageSize]=100`);
+            const depotData = await depotResponse.json();
+            baseData.depots = depotData.data.filter(depot => depot.latitude && depot.longitude);
+            
+            // Load routes  
+            const routeResponse = await fetch(`${CONFIG.API_BASE}/routes?filters[is_active][$eq]=true&pagination[pageSize]=100`);
+            const routeData = await routeResponse.json();
+            baseData.routes = routeData.data;
+            
+            // Load POIs
+            const poiResponse = await fetch(`${CONFIG.API_BASE}/pois?pagination[pageSize]=100`);
+            const poiData = await poiResponse.json();
+            baseData.pois = poiData.data.filter(poi => poi.latitude && poi.longitude);
+            
+            console.log(`Loaded: ${baseData.depots.length} depots, ${baseData.routes.length} routes, ${baseData.pois.length} POIs`);
+            console.log('🏢 Depot data:', baseData.depots);
+            
+            // Display POIs with proper icons
+            displayPOIs();
+            
+            // Load route geometries and populate dropdown
+            await loadRouteGeometries();
+            populateRouteDropdown();
+        }
+        
+        // Display POIs with proper category-specific icons
+        function displayPOIs() {
+            console.log('📍 Displaying POIs with category icons...');
+            
+            // Clear existing POI layer
+            passengerLayers.poi.clearLayers();
+            
+            // Display subset of POIs to avoid overcrowding
+            const displayPOIs = baseData.pois.slice(0, 100); // Show first 100 POIs
+            
+            for (const poi of displayPOIs) {
+                const poiType = (poi.poi_type || poi.category || 'unknown').toLowerCase();
+                const poiIcon = ICONS.poi(poiType);
+                
+                const marker = L.marker([poi.latitude, poi.longitude], { icon: poiIcon });
+                
+                marker.bindPopup(`
+                    <div class="popup-custom">
+                        <div class="location-type">POI - ${(poiType).toUpperCase()}</div>
+                        <div class="location-name">${poi.name || 'Unnamed POI'}</div>
+                        <div class="spawn-info">
+                            Category: ${poi.poi_type || poi.category || 'Unknown'}<br>
+                            Address: ${poi.address || 'No address'}<br>
+                            Coordinates: (${poi.latitude.toFixed(4)}, ${poi.longitude.toFixed(4)})<br>
+                            Importance: ${poi.importance || 'N/A'}
+                        </div>
+                    </div>
+                `);
+                
+                // Add tooltip for quick identification
+                marker.bindTooltip(`${poi.name || 'POI'} (${poiType})`, {
+                    permanent: false,
+                    direction: 'top',
+                    offset: [0, -10]
+                });
+                
+                passengerLayers.poi.addLayer(marker);
+            }
+            
+            console.log(`✅ Displayed ${displayPOIs.length} POIs with category icons`);
+        }
+        
+        // Load route geometries from API
+        async function loadRouteGeometries() {
+            console.log('Loading route geometries...');
+            
+            for (let route of baseData.routes) {
+                try {
+                    // Get ALL route shapes for this route (not just default)
+                    const shapeResponse = await fetch(
+                        `${CONFIG.API_BASE}/route-shapes?filters[route_id][$eq]=${route.short_name}`
+                    );
+                    const shapeData = await shapeResponse.json();
+                    
+                    if (shapeData.data && shapeData.data.length > 0) {
+                        console.log(`Loading ${shapeData.data.length} shape segments for route ${route.short_name}`);
+                        
+                        // Create separate polylines for each shape segment (connect the dots properly!)
+                        const routePolylines = [];
+                        let totalPoints = 0;
+                        
+                        // Process each shape segment to create individual polylines
+                        for (let i = 0; i < shapeData.data.length; i++) {
+                            const shapeRecord = shapeData.data[i];
+                            
+                            // Get the actual coordinates from shapes table
+                            const coordResponse = await fetch(
+                                `${CONFIG.API_BASE}/shapes?filters[shape_id][$eq]=${shapeRecord.shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000`
+                            );
+                            const coordData = await coordResponse.json();
+                            
+                            if (coordData.data && coordData.data.length > 0) {
+                                console.log(`  Shape ${i+1}/${shapeData.data.length} - ${shapeRecord.shape_id.substring(0,8)}...: ${coordData.data.length} points`);
+                                
+                                // Convert shape points to coordinates (properly sequenced)
+                                const shapeCoords = coordData.data
+                                    .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence)
+                                    .map(point => [point.shape_pt_lat, point.shape_pt_lon]);
+                                
+                                // Create polyline for THIS shape segment only
+                                const segmentPolyline = L.polyline(shapeCoords, {
+                                    color: getRouteColor(route.short_name),
+                                    weight: 3,
+                                    opacity: 0.8
+                                });
+                                
+                                // Add popup for this segment
+                                segmentPolyline.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">ROUTE SEGMENT</div>
+                                        <div class="location-name">${route.short_name} - Segment ${i+1}</div>
+                                        <div class="spawn-info">
+                                            Points in segment: ${coordData.data.length}<br>
+                                            Shape ID: ${shapeRecord.shape_id.substring(0,12)}...<br>
+                                            Default: ${shapeRecord.is_default ? 'Yes' : 'No'}<br>
+                                            Sequence: ${Math.min(...coordData.data.map(p => p.shape_pt_sequence))} - ${Math.max(...coordData.data.map(p => p.shape_pt_sequence))}
+                                        </div>
+                                    </div>
+                                `);
+                                
+                                routePolylines.push(segmentPolyline);
+                                totalPoints += coordData.data.length;
+                            }
+                        }
+                        
+                        // Create layer group with all segment polylines
+                        const routeGroup = L.layerGroup(routePolylines);
+                        
+                        // Collect ALL coordinates for passenger spawning system
+                        let allSpawnCoordinates = [];
+                        for (let i = 0; i < shapeData.data.length; i++) {
+                            const shapeRecord = shapeData.data[i];
+                            
+                            // Re-fetch coordinates for spawning (we need them in different format)
+                            const coordResponse = await fetch(
+                                `${CONFIG.API_BASE}/shapes?filters[shape_id][$eq]=${shapeRecord.shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000`
+                            );
+                            const coordData = await coordResponse.json();
+                            
+                            if (coordData.data && coordData.data.length > 0) {
+                                // Store coordinates in [lon, lat] format for spawning system
+                                const shapeSpawnCoords = coordData.data
+                                    .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence)
+                                    .map(point => [point.shape_pt_lon, point.shape_pt_lat]);
+                                
+                                allSpawnCoordinates = allSpawnCoordinates.concat(shapeSpawnCoords);
+                            }
+                        }
+                        
+                        // Store the route layer and metadata
+                        routeLayers[route.short_name] = routeGroup;
+                        route.totalPoints = totalPoints;
+                        route.geometry_coordinates = allSpawnCoordinates; // Store for passenger spawning!
+                        
+                        console.log(`✅ Loaded route ${route.short_name} with ${totalPoints} individual points across ${shapeData.data.length} shape segments`);
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Failed to load geometry for route ${route.short_name}:`, error);
+                }
+            }
+        }
+        
+        // Generate realistic destination for route passenger
+        function generateRouteDestination(request, startLat, startLon) {
+            // Generate destination based on zone type and typical travel patterns
+            const zoneType = request.zone_type || 'residential';
+            let latOffset, lonOffset;
+            
+            if (zoneType.includes('residential')) {
+                // Residential -> likely going to work/commercial areas (longer distance)
+                latOffset = Math.random() * 0.02 - 0.01; // ~1-2km range
+                lonOffset = Math.random() * 0.02 - 0.01;
+            } else if (zoneType.includes('commercial')) {
+                // Commercial -> shorter trips, local movement
+                latOffset = Math.random() * 0.01 - 0.005; // ~0.5-1km range
+                lonOffset = Math.random() * 0.01 - 0.005;
+            } else {
+                // Default medium range
+                latOffset = Math.random() * 0.015 - 0.0075; // ~0.75-1.5km range
+                lonOffset = Math.random() * 0.015 - 0.0075;
+            }
+            
+            return {
+                lat: startLat + latOffset,
+                lon: startLon + lonOffset
+            };
+        }
+
+        // Get color for route based on route ID
+        function getRouteColor(routeId) {
+            const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22'];
+            let hash = 0;
+            for (let i = 0; i < routeId.length; i++) {
+                hash = routeId.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return colors[Math.abs(hash) % colors.length];
+        }
+        
+        // Populate the route dropdown
+        function populateRouteDropdown() {
+            const dropdown = document.getElementById('routeDropdownContent');
+            const routeCountSpan = document.querySelector('#routeDropdown .route-dropdown-btn span');
+            
+            dropdown.innerHTML = '';
+            
+            if (baseData.routes.length === 0) {
+                dropdown.innerHTML = '<div class="route-item">No routes available</div>';
+                routeCountSpan.textContent = '0';
+                return;
+            }
+            
+            routeCountSpan.textContent = baseData.routes.length;
+            
+            baseData.routes.forEach(route => {
+                const routeItem = document.createElement('div');
+                routeItem.className = 'route-item';
+                routeItem.innerHTML = `
+                    <input type="checkbox" class="route-checkbox" data-route-id="${route.short_name}" 
+                           id="route-${route.short_name}">
+                    <div class="route-info">
+                        <div class="route-name">${route.short_name}</div>
+                        <div class="route-details">
+                            ${route.long_name || 'No description'} 
+                            ${route.route_length_km ? `• ${route.route_length_km.toFixed(1)}km` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Add click handler
+                const checkbox = routeItem.querySelector('.route-checkbox');
+                checkbox.addEventListener('change', (e) => {
+                    toggleRouteDisplay(route.short_name, e.target.checked);
+                });
+                
+                // Make the whole item clickable
+                routeItem.addEventListener('click', (e) => {
+                    if (e.target.type !== 'checkbox') {
+                        checkbox.checked = !checkbox.checked;
+                        toggleRouteDisplay(route.short_name, checkbox.checked);
+                    }
+                });
+                
+                dropdown.appendChild(routeItem);
+            });
+        }
+        
+        // Toggle route display on map
+        function toggleRouteDisplay(routeId, show) {
+            const polyline = routeLayers[routeId];
+            
+            if (!polyline) return;
+            
+            if (show) {
+                selectedRoutes.add(routeId);
+                map.addLayer(polyline);
+            } else {
+                selectedRoutes.delete(routeId);
+                map.removeLayer(polyline);
+            }
+        }
+        
+        // Generate realistic spawning data using PRODUCTION Poisson GeoJSON spawning system
+        async function generateSpawningData(hour) {
+            console.log(`🚀 Generating spawning data for hour ${hour} using PRODUCTION system...`);
+            console.log(`🏢 Available depots: ${baseData.depots ? baseData.depots.length : 'undefined'}`);
+            
+            // Clear existing layers
+            Object.values(passengerLayers).forEach(layer => layer.clearLayers());
+            
+            let counts = { depot: 0, route: 0, poi: 0 };
+            
+            try {
+                // Call the ACTUAL production spawning API via our new server
+                const spawnResponse = await fetch(`${CONFIG.SPAWNING_API_BASE}/passenger-spawning/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        hour: hour,
+                        time_window_minutes: 5,
+                        country_code: 'barbados'
+                    })
+                });
+                
+                if (spawnResponse.ok) {
+                    const spawnData = await spawnResponse.json();
+                    console.log(`✅ Production spawner returned ${spawnData.spawn_requests?.length || 0} spawn requests`);
+                    
+                    // Process production spawn requests with proper icons and details
+                    if (spawnData.spawn_requests) {
+                        for (const request of spawnData.spawn_requests) {
+                            const lat = request.latitude;
+                            const lon = request.longitude;
+                            const spawnType = request.spawn_type || 'route'; // depot, route, poi
+                            
+                            let marker;
+                            
+                            if (spawnType === 'poi') {
+                                // Use POI-specific icons
+                                const poiIcon = ICONS.poi(request.zone_type || 'default');
+                                marker = L.marker([lat, lon], { icon: poiIcon });
+                                
+                                marker.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">POI - ${(request.zone_type || 'unknown').toUpperCase()}</div>
+                                        <div class="location-name">${request.location_name || 'Unknown POI'}</div>
+                                        <div class="spawn-info">
+                                            Category: ${request.zone_type || 'unknown'}<br>
+                                            Activity Level: ${request.zone_population || 'N/A'}<br>
+                                            Spawn Rate: ${(request.spawn_rate || 0).toFixed(3)}/hour<br>
+                                            Time: ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}
+                                        </div>
+                                    </div>
+                                `);
+                                
+                            } else if (spawnType === 'route') {
+                                // Route passengers with start/destination info
+                                marker = L.marker([lat, lon], { icon: ICONS.passenger });
+                                
+                                // Generate realistic destination for route passenger
+                                const destination = generateRouteDestination(request, lat, lon);
+                                
+                                marker.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">ROUTE PASSENGER</div>
+                                        <div class="location-name">Commuter ${request.passenger_id || Math.random().toString(36).substr(2, 8)}</div>
+                                        <div class="spawn-info">
+                                            <strong>🚏 Start:</strong> (${lat.toFixed(4)}, ${lon.toFixed(4)})<br>
+                                            <strong>🎯 Destination:</strong> (${destination.lat.toFixed(4)}, ${destination.lon.toFixed(4)})<br>
+                                            <strong>📍 Zone:</strong> ${request.zone_type || 'residential'}<br>
+                                            <strong>⏰ Spawn:</strong> ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                                            <strong>📊 Rate:</strong> ${(request.spawn_rate || 0).toFixed(3)}/hour
+                                        </div>
+                                    </div>
+                                `);
+                                
+                                // Add hover tooltip for quick start/stop info
+                                marker.bindTooltip(`
+                                    Start: (${lat.toFixed(3)}, ${lon.toFixed(3)})<br>
+                                    Stop: (${destination.lat.toFixed(3)}, ${destination.lon.toFixed(3)})
+                                `, {
+                                    permanent: false,
+                                    direction: 'top',
+                                    offset: [0, -10]
+                                });
+                                
+                            } else {
+                                // Other spawn types (use appropriate icons)
+                                let icon;
+                                if (spawnType === 'depot') {
+                                    icon = ICONS.depot(1, ['Unknown']);
+                                } else {
+                                    icon = ICONS.passenger; // Default to passenger icon
+                                }
+                                marker = L.marker([lat, lon], { icon: icon });
+                                
+                                marker.bindPopup(`
+                                    <div class="popup-custom">
+                                        <div class="location-type">${spawnType.toUpperCase()}</div>
+                                        <div class="location-name">${request.location_name || 'Unknown Location'}</div>
+                                        <div class="spawn-info">
+                                            Type: ${request.zone_type || spawnType}<br>
+                                            Population: ${request.zone_population || 'N/A'}<br>
+                                            Poisson Rate: ${(request.spawn_rate || 0).toFixed(3)}/hour<br>
+                                            Time: ${hour}:${String(request.minute || Math.floor(Math.random() * 60)).padStart(2, '0')}
+                                        </div>
+                                    </div>
+                                `);
+                            }
+                            
+                            passengerLayers[spawnType].addLayer(marker);
+                            counts[spawnType]++;
+                        }
+                    }
+                } else {
+                    const errorMsg = `❌ Production spawning API failed with status: ${spawnResponse.status}`;
+                    console.error(errorMsg);
+                    throw new Error(`Production API unavailable: ${spawnResponse.status} ${spawnResponse.statusText}`);
+                }
+                
+            } catch (error) {
+                console.error('❌ Production spawning system failure:', error);
+                // Display error to user instead of hiding it with fake data
+                alert(`� PRODUCTION API FAILURE\n\nThe passenger spawning system is not working:\n${error.message}\n\nPlease check:\n• Strapi server is running\n• API permissions are enabled\n• Python dependencies are installed\n• Database is accessible`);
+                throw error; // Re-throw to stop execution
+            }
+            
+            // Update statistics display (including peak hour indicator)
+            updateStats(counts, hour);
+        }
+        
+        // Fallback depot spawning when reservoir API unavailable
+        async function fallbackDepotSpawning(hour, counts) {
+            console.log(`🔄 Fallback depot spawning for ${baseData.depots.length} depots`);
+            for (const depot of baseData.depots) {
+                console.log(`🏢 Processing depot: ${depot.name} at (${depot.latitude}, ${depot.longitude})`);
+                const spawnRate = calculateDepotSpawnRate(depot, hour);
+                const spawnCount = Math.max(1, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.5)); // Force minimum of 1
+                console.log(`   Spawn rate: ${spawnRate}, spawn count: ${spawnCount}`);
+                
+                if (spawnCount > 0) {
+                    // Create clustered depot marker (fallback version)
+                    const marker = L.marker(
+                        [depot.latitude, depot.longitude], 
+                        { icon: ICONS.depot(spawnCount, ['1A']) }
+                    );
+                    
+                    marker.bindPopup(`
+                        <div class="popup-custom">
+                            <div class="location-type">DEPOT CLUSTER (FALLBACK)</div>
+                            <div class="location-name">${depot.name}</div>
+                            <div class="spawn-info">
+                                <strong>Passengers: ${spawnCount}</strong><br>
+                                <strong>Routes: 1A</strong><br>
+                                <strong>Time: ${hour}:00</strong><br>
+                                <strong>Spawn Rate: ${spawnRate.toFixed(2)}/hour</strong><br>
+                                <em>Note: Using fallback simulation</em>
+                            </div>
+                        </div>
+                    `);
+                    
+                    console.log(`   ✅ Created depot marker for ${depot.name}, adding to layer`);
+                    passengerLayers.depot.addLayer(marker);
+                    counts.depot += spawnCount;
+                    console.log(`   ✅ Depot layer now has ${passengerLayers.depot.getLayers().length} markers`);
+                }
+            }
+        }
+        
+        // Fallback spawning simulation when production API is unavailable
+        async function fallbackSpawningSimulation(hour, counts) {
+            console.log('🔄 Using fallback spawning simulation...');
+            
+            // Call ACTUAL DEPOT RESERVOIR for depot spawning (with clustering)
+            try {
+                const depotResponse = await fetch('/api/depot-reservoir/spawn-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hour: hour,
+                        time_window_minutes: 5,
+                        depot_ids: baseData.depots.map(d => d.id)
+                    })
+                });
+                
+                if (depotResponse.ok) {
+                    const depotData = await depotResponse.json();
+                    console.log(`✅ Depot reservoir returned ${depotData.spawned_commuters?.length || 0} commuters`);
+                    
+                    if (depotData.spawned_commuters) {
+                        // Group commuters by depot for clustering
+                        const depotGroups = {};
+                        
+                        for (const commuter of depotData.spawned_commuters) {
+                            const depotId = commuter.depot_id;
+                            if (!depotGroups[depotId]) {
+                                depotGroups[depotId] = {
+                                    depot_name: commuter.depot_name,
+                                    location: commuter.current_location,
+                                    commuters: [],
+                                    routes: new Set()
+                                };
+                            }
+                            depotGroups[depotId].commuters.push(commuter);
+                            depotGroups[depotId].routes.add(commuter.route_id);
+                        }
+                        
+                        // Create clustered depot markers
+                        for (const [depotId, group] of Object.entries(depotGroups)) {
+                            const passengerCount = group.commuters.length;
+                            const routes = Array.from(group.routes);
+                            
+                            const marker = L.marker(
+                                [group.location.lat, group.location.lon], 
+                                { icon: ICONS.depot(passengerCount, routes) }
+                            );
+                            
+                            // Create detailed popup with all passengers
+                            const passengerList = group.commuters.map(c => 
+                                `• ${c.commuter_id} → (${c.destination.lat.toFixed(4)}, ${c.destination.lon.toFixed(4)}) [P${c.priority}]`
+                            ).join('<br>');
+                            
+                            marker.bindPopup(`
+                                <div class="popup-custom">
+                                    <div class="location-type">DEPOT CLUSTER</div>
+                                    <div class="location-name">${group.depot_name}</div>
+                                    <div class="spawn-info">
+                                        <strong>Passengers: ${passengerCount}</strong><br>
+                                        <strong>Routes: ${routes.join(', ')}</strong><br>
+                                        <strong>Time: ${hour}:00</strong><br><br>
+                                        <div style="max-height: 150px; overflow-y: auto; font-size: 11px;">
+                                        ${passengerList}
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                            
+                            passengerLayers.depot.addLayer(marker);
+                            counts.depot += passengerCount;
+                        }
+                    }
+                } else {
+                    const errorMsg = `❌ Depot reservoir API failed with status: ${depotResponse.status}`;
+                    console.error(errorMsg);
+                    throw new Error(`Depot reservoir API failed: ${depotResponse.status} ${depotResponse.statusText}`);
+                }
+            } catch (error) {
+                console.error('❌ Depot reservoir system failure:', error);
+                throw new Error(`Depot reservoir failed: ${error.message}`);
+            }
+            
+            // Simulate route spawning using route coordinates
+            for (const route of baseData.routes) {
+                if (route.geometry_coordinates && route.geometry_coordinates.length > 0) {
+                    const spawnRate = calculateRouteSpawnRate(route, hour);
+                    const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.3)); // Reduce for fallback
+                    
+                    for (let i = 0; i < spawnCount; i++) {
+                        const randomCoord = route.geometry_coordinates[
+                            Math.floor(Math.random() * route.geometry_coordinates.length)
+                        ];
+                        
+                        if (randomCoord && randomCoord.length >= 2) {
+                            const lat = randomCoord[1] + (Math.random() - 0.5) * 0.0005;
+                            const lon = randomCoord[0] + (Math.random() - 0.5) * 0.0005;
+                            
+                            const marker = L.marker([lat, lon], {
+                                icon: ICONS.passenger
+                            });
+                            
+                            marker.bindPopup(`
+                                <div class="popup-custom">
+                                    <div class="location-type">ROUTE (FALLBACK)</div>
+                                    <div class="location-name">Route ${route.short_name}</div>
+                                    <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                                    Route: ${route.long_name}<br>
+                                    Spawn Rate: ${spawnRate.toFixed(2)}/hour</div>
+                                </div>
+                            `);
+                            
+                            passengerLayers.route.addLayer(marker);
+                            counts.route++;
+                        }
+                    }
+                }
+            }
+            
+            // Simulate POI spawning
+            for (const poi of baseData.pois.slice(0, 50)) { // Limit for performance
+                const spawnRate = calculatePOISpawnRate(poi, hour);
+                const spawnCount = Math.max(0, Math.round(spawnRate * CONFIG.SPAWN_SIMULATION_SAMPLES * 0.1)); // Scale down POI spawning
+                
+                for (let i = 0; i < spawnCount; i++) {
+                    const lat = poi.latitude + (Math.random() - 0.5) * 0.0003;
+                    const lon = poi.longitude + (Math.random() - 0.5) * 0.0003;
+                    
+                    const marker = L.marker([lat, lon], {
+                        icon: ICONS.poi(poi.poi_type || 'default')
+                    });
+                    
+                    marker.bindPopup(`
+                        <div class="popup-custom">
+                            <div class="location-type">POI</div>
+                            <div class="location-name">${poi.name || 'Unnamed POI'}</div>
+                            <div class="spawn-info">Spawned at ${hour}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}<br>
+                            Type: ${poi.poi_type || 'Unknown'}<br>
+                            Spawn Rate: ${spawnRate.toFixed(2)}/hour</div>
+                        </div>
+                    `);
+                    
+                    passengerLayers.poi.addLayer(marker);
+                    counts.poi++;
+                }
+            }
+            
+            // Update statistics
+            updateStats(counts, hour);
+        }
+        
+        // Query real passengers from database (LIVE MODE)
+        async function showLivePassengers() {
+            console.log('🔴 LIVE MODE: Querying real passengers from database...');
+            
+            // Clear existing layers
+            Object.values(passengerLayers).forEach(layer => layer.clearLayers());
+            
+            let counts = { depot: 0, route: 0, poi: 0 };
+            
+            try {
+                const response = await fetch(`${CONFIG.API_BASE}/active-passengers`);
+                
+                if (!response.ok) {
+                    console.error('Failed to fetch passengers:', response.statusText);
+                    return;
+                }
+                
+                const result = await response.json();
+                const passengers = result.data || [];
+                
+                console.log(`✅ Retrieved ${passengers.length} active passengers from database`);
+                
+                for (const passenger of passengers) {
+                    const attrs = passenger.attributes;
+                    const lat = attrs.lat;
+                    const lon = attrs.lon;
+                    
+                    // Determine passenger type by depot_id presence
+                    const isDepotSpawn = attrs.depot_id != null;
+                    const passengerType = isDepotSpawn ? 'depot' : 'route';
+                    
+                    // Icon based on status
+                    let icon;
+                    if (attrs.status === 'WAITING') {
+                        icon = L.divIcon({
+                            html: '<i class="fas fa-user"></i>',
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8],
+                            className: 'custom-passenger-icon'
+                        });
+                    } else if (attrs.status === 'ONBOARD') {
+                        icon = L.divIcon({
+                            html: '<i class="fas fa-bus"></i>',
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8],
+                            className: 'custom-passenger-icon'
+                        });
+                    } else {
+                        icon = L.divIcon({
+                            html: '<i class="fas fa-check-circle"></i>',
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8],
+                            className: 'custom-passenger-icon'
+                        });
+                    }
+                    
+                    const marker = L.marker([lat, lon], { icon: icon });
+                    
+                    // Create popup with real passenger data
+                    const spawnedAt = new Date(attrs.spawned_at);
+                    const expiresAt = new Date(attrs.expires_at);
+                    
+                    marker.bindPopup(`
+                        <div class="popup-custom">
+                            <div class="location-type">${passengerType.toUpperCase()} PASSENGER - ${attrs.status}</div>
+                            <div class="location-name">${attrs.passenger_id}</div>
+                            <div class="spawn-info">
+                                <strong>📍 Current:</strong> (${lat.toFixed(4)}, ${lon.toFixed(4)})<br>
+                                <strong>🎯 Destination:</strong> (${attrs.destination_lat?.toFixed(4)}, ${attrs.destination_lon?.toFixed(4)})<br>
+                                <strong>🚌 Route:</strong> ${attrs.route_id}<br>
+                                ${attrs.depot_id ? `<strong>🏢 Depot:</strong> ${attrs.depot_id}<br>` : ''}
+                                <strong>➡️ Direction:</strong> ${attrs.direction}<br>
+                                <strong>⭐ Priority:</strong> ${attrs.priority}<br>
+                                <strong>⏰ Spawned:</strong> ${spawnedAt.toLocaleTimeString()}<br>
+                                <strong>⏳ Expires:</strong> ${expiresAt.toLocaleTimeString()}<br>
+                                ${attrs.boarded_at ? `<strong>✅ Boarded:</strong> ${new Date(attrs.boarded_at).toLocaleTimeString()}<br>` : ''}
+                            </div>
+                        </div>
+                    `);
+                    
+                    // Add to appropriate layer
+                    passengerLayers[passengerType].addLayer(marker);
+                    counts[passengerType]++;
+                }
+                
+                // Update statistics
+                updateStats(counts, null); // No hour in live mode
+                
+            } catch (error) {
+                console.error('Error fetching live passengers:', error);
+            }
+        }
+        
+        // Calculate depot spawn rate based on time and capacity
+        function calculateDepotSpawnRate(depot, hour) {
+            // Base rate influenced by capacity (fallback to 50 if capacity is missing)
+            const capacity = depot.capacity || 50;
+            let baseRate = Math.sqrt(capacity) * 0.5;
+            
+            // Time multipliers (rush hours have higher spawning)
+            const timeMultipliers = {
+                6: 1.2, 7: 1.8, 8: 2.5, 9: 1.5,  // Morning rush
+                12: 1.3, 13: 1.1,                   // Lunch
+                17: 2.2, 18: 2.0, 19: 1.4,         // Evening rush
+                20: 0.8, 21: 0.6, 22: 0.4, 23: 0.2 // Night
+            };
+            
+            const timeMultiplier = timeMultipliers[hour] || 0.7;
+            return baseRate * timeMultiplier;
+        }
+        
+        // Calculate route spawn rate based on time and route characteristics
+        function calculateRouteSpawnRate(route, hour) {
+            // Base rate influenced by route length
+            let baseRate = Math.min(route.coordinate_count || 50, 100) * 0.02;
+            
+            // Time multipliers
+            const timeMultipliers = {
+                7: 1.5, 8: 2.0, 9: 1.2,       // Morning commute
+                17: 1.8, 18: 1.6, 19: 1.0,    // Evening commute
+                12: 0.8, 13: 0.9              // Lunch time
+            };
+            
+            const timeMultiplier = timeMultipliers[hour] || 0.5;
+            return baseRate * timeMultiplier;
+        }
+        
+        // Calculate POI spawn rate based on POI type and time
+        function calculatePOISpawnRate(poi, hour) {
+            // Base rate by POI type
+            const typeMultipliers = {
+                'bus_station': 3.0,
+                'hospital': 1.5,
+                'school': 2.0,
+                'shop': 1.2,
+                'restaurant': 1.0
+            };
+            
+            let baseRate = typeMultipliers[poi.poi_type] || 0.8;
+            
+            // Time multipliers
+            const timeMultipliers = {
+                8: 1.8, 9: 1.2,               // Morning activity
+                12: 1.5, 13: 1.3,             // Lunch rush
+                17: 1.4, 18: 1.2, 19: 1.0,    // Evening activity
+                20: 0.8, 21: 0.6              // Night reduction
+            };
+            
+            const timeMultiplier = timeMultipliers[hour] || 0.5;
+            return baseRate * timeMultiplier;
+        }
+        
+        // Update statistics display
+        function updateStats(counts, hour) {
+            document.getElementById('depotCount').textContent = counts.depot || 0;
+            document.getElementById('routeCount').textContent = counts.route || 0;
+            document.getElementById('poiCount').textContent = counts.poi || 0;
+            document.getElementById('totalCount').textContent = (counts.depot || 0) + (counts.route || 0) + (counts.poi || 0);
+            
+            // Show current live time
+            const now = new Date();
+            document.getElementById('peakHour').textContent = `LIVE: ${now.toLocaleTimeString()}`;
+            document.getElementById('peakHour').style.color = '#3498db';
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Time slider (disabled in live mode but kept for UI consistency)
+            const timeSlider = document.getElementById('timeSlider');
+            const timeDisplay = document.getElementById('timeDisplay');
+            
+            timeSlider.addEventListener('input', (e) => {
+                currentHour = parseInt(e.target.value);
+                timeDisplay.textContent = `${String(currentHour).padStart(2, '0')}:00`;
+                // No action in live mode - just update display
+            });
+            
+            // Filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                const filter = btn.dataset.filter;
+                if (filter) { // Only for filter buttons
+                    btn.addEventListener('click', (e) => {
+                        if (activeFilters.has(filter)) {
+                            activeFilters.delete(filter);
+                            e.target.classList.remove('active');
+                        } else {
+                            activeFilters.add(filter);
+                            e.target.classList.add('active');
+                        }
+                        
+                        updateDisplay();
+                    });
+                }
+            });
+            
+            // Play/pause button
+            const playBtn = document.getElementById('playBtn');
+            playBtn.addEventListener('click', () => {
+                if (isPlaying) {
+                    stopPlayback();
+                } else {
+                    startPlayback();
+                }
+            });
+            
+            // Speed control
+            document.getElementById('speedSelect').addEventListener('change', () => {
+                if (isPlaying) {
+                    stopPlayback();
+                    startPlayback();
+                }
+            });
+            
+            // Route dropdown toggle
+            const routeDropdownBtn = document.getElementById('routeDropdownBtn');
+            const routeDropdown = document.getElementById('routeDropdown');
+            
+            routeDropdownBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                routeDropdown.classList.toggle('active');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!routeDropdown.contains(e.target)) {
+                    routeDropdown.classList.remove('active');
+                }
+            });
+            
+            // Prevent dropdown from closing when clicking inside
+            document.getElementById('routeDropdownContent').addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+        
+        // Start automatic playback
+        function startPlayback() {
+            isPlaying = true;
+            const playBtn = document.getElementById('playBtn');
+            playBtn.textContent = '⏸ Pause';
+            playBtn.classList.add('playing');
+            
+            const speed = parseInt(document.getElementById('speedSelect').value);
+            
+            playInterval = setInterval(async () => {
+                currentHour = (currentHour + 1) % 24;
+                document.getElementById('timeSlider').value = currentHour;
+                document.getElementById('timeDisplay').textContent = `${String(currentHour).padStart(2, '0')}:00`;
+                
+                await generateSpawningData(currentHour);
+                updateDisplay();
+            }, speed);
+        }
+        
+        // Stop automatic playback
+        function stopPlayback() {
+            isPlaying = false;
+            const playBtn = document.getElementById('playBtn');
+            playBtn.textContent = '▶ Play';
+            playBtn.classList.remove('playing');
+            
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
+        }
+        
+        // Start auto-refresh for live mode (every 5 seconds)
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            
+            autoRefreshInterval = setInterval(async () => {
+                console.log('🔄 Auto-refreshing live passengers...');
+                await showLivePassengers();
+            }, 5000); // Refresh every 5 seconds
+            
+            console.log('✅ Auto-refresh started (5s interval)');
+        }
+        
+        // Stop auto-refresh
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                console.log('⏸ Auto-refresh stopped');
+            }
+        }
+        
+        // Update display based on active filters
+        function updateDisplay() {
+            Object.keys(passengerLayers).forEach(type => {
+                if (activeFilters.has(type)) {
+                    map.addLayer(passengerLayers[type]);
+                } else {
+                    map.removeLayer(passengerLayers[type]);
+                }
+            });
+        }
+        
+        // Hide loading screen
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

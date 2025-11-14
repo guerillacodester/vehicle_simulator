@@ -1,0 +1,49 @@
+.geojson-import-button {
+  padding: 12px;
+  background-color: #f6f6f9;
+  border-radius: 4px;
+}
+
+.geojson-import-button__label {
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.geojson-import-button__file-label {
+  cursor: pointer;
+}
+
+.geojson-import-button__file-label--disabled {
+  cursor: not-allowed;
+}
+
+.geojson-import-button__button {
+  width: 100%;
+  padding: 8px 16px;
+  background-color: #4945ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.geojson-import-button__button:disabled {
+  background-color: #dcdce4;
+  cursor: not-allowed;
+}
+
+.geojson-import-button__message {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.geojson-import-button__message--success {
+  color: #2f6846;
+}
+
+.geojson-import-button__message--error {
+  color: #d02b20;
+}

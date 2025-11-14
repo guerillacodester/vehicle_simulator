@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALL DOTS - Route Coordinate Viewer</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        #info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        #map {
+            height: 700px;
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .loading {
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .success {
+            color: #006600;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #cc0000;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔴 ALL COORDINATE DOTS - Route 1A</h1>
+    
+    <div id="info">
+        <div class="loading">Loading all coordinate points...</div>
+    </div>
+    
+    <div id="map"></div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        console.log('=== ALL DOTS VIEWER ===');
+        
+        // Configuration
+        const API_BASE = 'http://localhost:1337/api';
+        const routeId = '1A';
+        
+        // Initialize map
+        const map = L.map('map').setView([0, 0], 2);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 18
+        }).addTo(map);
+        
+        let totalDotsShown = 0;
+        let allBounds = [];
+        
+        async function loadAllDots() {
+            try {
+                updateInfo('🔍 Fetching route shapes...');
+                
+                // Get route-shapes for this route
+                const routeShapesResponse = await fetch(`${API_BASE}/route-shapes?filters[route_id][$eq]=${routeId}`);
+                
+                if (!routeShapesResponse.ok) {
+                    throw new Error(`Failed to fetch route shapes: ${routeShapesResponse.status}`);
+                }
+                
+                const routeShapesData = await routeShapesResponse.json();
+                console.log('Found route shapes:', routeShapesData.data.length);
+                
+                if (!routeShapesData.data || routeShapesData.data.length === 0) {
+                    throw new Error('No route shapes found');
+                }
+                
+                updateInfo(`🔍 Found ${routeShapesData.data.length} shapes. Loading coordinate points...`);
+                
+                // Process each route-shape
+                for (let i = 0; i < routeShapesData.data.length; i++) {
+                    const routeShape = routeShapesData.data[i];
+                    const shapeId = routeShape.shape_id;
+                    
+                    console.log(`Loading shape ${i + 1}/${routeShapesData.data.length}: ${shapeId}`);
+                    updateInfo(`🔍 Loading shape ${i + 1}/${routeShapesData.data.length}: ${shapeId}`);
+                    
+                    // Get ALL shape points for this shape, ordered by sequence
+                    const shapePointsResponse = await fetch(`${API_BASE}/shapes?filters[shape_id][$eq]=${shapeId}&sort=shape_pt_sequence:asc&pagination[limit]=1000`);
+                    
+                    if (!shapePointsResponse.ok) {
+                        console.error('Failed to fetch shape points for:', shapeId);
+                        continue;
+                    }
+                    
+                    const shapePointsData = await shapePointsResponse.json();
+                    const points = shapePointsData.data;
+                    
+                    console.log(`Shape ${shapeId} has ${points.length} points`);
+                    
+                    if (points && points.length > 0) {
+                        // Create a RED DOT for EVERY SINGLE COORDINATE
+                        const shapeColor = i === 0 ? 'red' : `hsl(${i * 60}, 70%, 50%)`;
+                        
+                        for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
+                            const point = points[pointIndex];
+                            const lat = point.shape_pt_lat;
+                            const lon = point.shape_pt_lon;
+                            
+                            // Create red circle marker (dot) exactly like the working version
+                            const dot = L.circleMarker([lat, lon], {
+                                color: shapeColor,
+                                fillColor: shapeColor,
+                                fillOpacity: 0.8,
+                                radius: 3,
+                                weight: 3,
+                                opacity: 1.0,
+                                stroke: true,
+                                fill: true
+                            }).addTo(map);
+                            
+                            // Add popup with coordinate info
+                            dot.bindPopup(`
+                                <strong>Point ${point.shape_pt_sequence}/${points.length}</strong><br>
+                                <strong>Lat:</strong> ${lat.toFixed(8)}<br>
+                                <strong>Lon:</strong> ${lon.toFixed(8)}<br>
+                                <strong>Shape:</strong> ${shapeId}<br>
+                                <strong>Shape ${i + 1}/${routeShapesData.data.length}</strong>
+                            `);
+                            
+                            // Track bounds
+                            allBounds.push([lat, lon]);
+                            totalDotsShown++;
+                        }
+                        
+                        updateInfo(`✅ Shape ${i + 1}: Added ${points.length} dots. Total: ${totalDotsShown}`);
+                    }
+                }
+                
+                // Fit map to show all dots
+                if (allBounds.length > 0) {
+                    const bounds = L.latLngBounds(allBounds);
+                    map.fitBounds(bounds, { padding: [20, 20] });
+                }
+                
+                updateInfo(`🎉 SUCCESS: Showing ALL ${totalDotsShown} coordinate dots! Expected: 387 (88+60+52+96+25+66)`);
+                
+                if (totalDotsShown !== 387) {
+                    updateInfo(`⚠️ WARNING: Expected 387 dots but showing ${totalDotsShown}. Check database!`);
+                }
+                
+            } catch (error) {
+                console.error('Error loading dots:', error);
+                updateInfo(`❌ ERROR: ${error.message}`);
+            }
+        }
+        
+        function updateInfo(message) {
+            const infoDiv = document.getElementById('info');
+            
+            if (message.includes('SUCCESS') || message.includes('✅')) {
+                infoDiv.innerHTML = `<div class="success">${message}</div>`;
+            } else if (message.includes('ERROR') || message.includes('❌')) {
+                infoDiv.innerHTML = `<div class="error">${message}</div>`;
+            } else {
+                infoDiv.innerHTML = `<div class="loading">${message}</div>`;
+            }
+        }
+        
+        // Start loading when page loads
+        window.addEventListener('load', () => {
+            console.log('Starting to load ALL DOTS...');
+            loadAllDots();
+        });
+    </script>
+</body>
+</html>

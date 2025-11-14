@@ -1,0 +1,85 @@
+{
+  "kind": "collectionType",
+  "collectionName": "services",
+  "info": {
+    "singularName": "service",
+    "pluralName": "services",
+    "displayName": "Service",
+    "description": "Service schedules and calendars"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "service_id": {
+      "type": "uid",
+      "required": true,
+      "targetField": "service_name"
+    },
+    "service_name": {
+      "type": "string",
+      "required": false
+    },
+    "monday": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "tuesday": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "wednesday": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "thursday": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "friday": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "saturday": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "sunday": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "start_date": {
+      "type": "date",
+      "required": true
+    },
+    "end_date": {
+      "type": "date",
+      "required": true
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "trips": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::trip.trip",
+      "mappedBy": "service"
+    },
+    "calendar_dates": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::calendar-date.calendar-date",
+      "mappedBy": "service"
+    }
+  }
+}

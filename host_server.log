@@ -1,0 +1,37 @@
+2025-11-06 14:50:32,199 - services.host_server.main - INFO - ============================================================
+2025-11-06 14:50:32,199 - services.host_server.main - INFO - ArkNet Host Server Starting
+2025-11-06 14:50:32,199 - services.host_server.main - INFO - ============================================================
+2025-11-06 14:50:32,199 - services.host_server.main - INFO - Host: 0.0.0.0:6000
+2025-11-06 14:50:32,199 - services.host_server.main - INFO - Project Root: E:\projects\github\vehicle_simulator
+2025-11-06 14:50:32,199 - services.host_server.main - INFO - Simulator API Port: 5001
+2025-11-06 14:50:32,199 - services.host_server.main - INFO - ============================================================
+2025-11-06 14:51:01,384 - services.host_server.base_service_manager - INFO - Starting geospatial...
+2025-11-06 14:51:02,893 - httpx - INFO - HTTP Request: GET http://localhost:6001/health "HTTP/1.1 200 OK"
+2025-11-06 14:51:02,893 - services.host_server.service_managers - INFO - Geospatial Service API is responding
+2025-11-06 14:51:02,894 - services.host_server.base_service_manager - INFO - ✅ geospatial started (PID: 9416)
+2025-11-06 14:52:49,376 - services.host_server.base_service_manager - INFO - Starting gpscentcom...
+2025-11-06 14:52:50,378 - httpx - INFO - HTTP Request: GET http://localhost:5000/health "HTTP/1.1 200 OK"
+2025-11-06 14:52:50,379 - services.host_server.service_managers - INFO - GPSCentCom API is responding
+2025-11-06 14:52:50,379 - services.host_server.base_service_manager - INFO - ✅ gpscentcom started (PID: 9140)
+2025-11-06 14:53:04,219 - services.host_server.base_service_manager - INFO - Starting commuter_service...
+2025-11-06 14:53:05,690 - httpx - INFO - HTTP Request: GET http://localhost:4000/health "HTTP/1.1 200 OK"
+2025-11-06 14:53:05,690 - services.host_server.service_managers - INFO - Commuter Service API is responding
+2025-11-06 14:53:05,690 - services.host_server.base_service_manager - INFO - ✅ commuter_service started (PID: 22880)
+2025-11-06 14:53:15,452 - services.host_server.base_service_manager - INFO - Starting simulator...
+2025-11-06 14:53:18,855 - httpx - INFO - HTTP Request: GET http://localhost:5001/health "HTTP/1.1 200 OK"
+2025-11-06 14:53:18,856 - services.host_server.service_managers - INFO - Simulator API is responding
+2025-11-06 14:53:18,856 - services.host_server.base_service_manager - INFO - ✅ simulator started (PID: 16792)
+2025-11-06 15:34:46,584 - services.host_server.main - INFO - ============================================================
+2025-11-06 15:34:46,585 - services.host_server.main - INFO - ArkNet Host Server Starting
+2025-11-06 15:34:46,585 - services.host_server.main - INFO - ============================================================
+2025-11-06 15:34:46,585 - services.host_server.main - INFO - Host: 0.0.0.0:6000
+2025-11-06 15:34:46,585 - services.host_server.main - INFO - Project Root: E:\projects\github\vehicle_simulator
+2025-11-06 15:34:46,585 - services.host_server.main - INFO - Simulator API Port: 5001
+2025-11-06 15:34:46,585 - services.host_server.main - INFO - ============================================================
+2025-11-06 15:35:00,107 - services.host_server.main - INFO - ============================================================
+2025-11-06 15:35:00,108 - services.host_server.main - INFO - ArkNet Host Server Starting
+2025-11-06 15:35:00,108 - services.host_server.main - INFO - ============================================================
+2025-11-06 15:35:00,109 - services.host_server.main - INFO - Host: 0.0.0.0:6000
+2025-11-06 15:35:00,110 - services.host_server.main - INFO - Project Root: E:\projects\github\vehicle_simulator
+2025-11-06 15:35:00,111 - services.host_server.main - INFO - Simulator API Port: 5001
+2025-11-06 15:35:00,112 - services.host_server.main - INFO - ============================================================

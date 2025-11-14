@@ -1,0 +1,51 @@
+{
+  "kind": "collectionType",
+  "collectionName": "geofence_geometries",
+  "info": {
+    "singularName": "geofence-geometry",
+    "pluralName": "geofence-geometries",
+    "displayName": "Geofence Geometry",
+    "description": "Junction table linking geofences to geometries"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "geofence": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::geofence.geofence",
+      "inversedBy": "geofence_geometries"
+    },
+    "geometry_id": {
+      "type": "string",
+      "required": true
+    },
+    "geometry_type": {
+      "type": "enumeration",
+      "enum": [
+        "circle",
+        "polygon",
+        "linestring"
+      ],
+      "required": true,
+      "default": "polygon"
+    },
+    "is_primary": {
+      "type": "boolean",
+      "default": true,
+      "required": false
+    },
+    "buffer_meters": {
+      "type": "float",
+      "required": false,
+      "min": 0,
+      "max": 10000
+    }
+  }
+}

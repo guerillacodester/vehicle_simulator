@@ -1,0 +1,24 @@
+# Geospatial Service Dependencies - MVP (Python 3.13 compatible)
+
+# FastAPI framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+
+# Database
+asyncpg>=0.30.0          # Async PostgreSQL driver
+
+# Utilities
+python-dotenv>=1.0.0     # Environment variables
+
+# Optional (Phase 2 - Redis caching)
+# redis==5.0.1
+# aioredis==2.0.1
+
+# Optional (Advanced geospatial - not needed for MVP)
+# psycopg2-binary==2.9.9   # PostgreSQL driver (sync fallback)
+# shapely==2.0.2           # Geometry operations
+# geoalchemy2==0.14.2      # PostGIS integration
+# pyproj==3.6.1            # Coordinate transformations (requires PROJ)
+

@@ -1,0 +1,85 @@
+{
+  "kind": "collectionType",
+  "collectionName": "stops",
+  "info": {
+    "singularName": "stop",
+    "pluralName": "stops",
+    "displayName": "Stop",
+    "description": "Transit stops and stations"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "stop_id": {
+      "type": "uid",
+      "required": true,
+      "targetField": "name"
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "code": {
+      "type": "string",
+      "required": false,
+      "unique": true
+    },
+    "description": {
+      "type": "text",
+      "required": false
+    },
+    "location": {
+      "type": "json",
+      "required": false
+    },
+    "latitude": {
+      "type": "decimal",
+      "required": false
+    },
+    "longitude": {
+      "type": "decimal",
+      "required": false
+    },
+    "zone_id": {
+      "type": "string",
+      "required": false
+    },
+    "stop_url": {
+      "type": "string",
+      "required": false
+    },
+    "location_type": {
+      "type": "enumeration",
+      "enum": ["stop", "station", "entrance", "generic_node", "boarding_area"],
+      "default": "stop",
+      "required": false
+    },
+    "parent_station": {
+      "type": "string",
+      "required": false
+    },
+    "wheelchair_boarding": {
+      "type": "enumeration",
+      "enum": ["unknown", "accessible", "not_accessible"],
+      "default": "unknown",
+      "required": false
+    },
+    "platform_code": {
+      "type": "string",
+      "required": false
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "stop_times": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::stop-time.stop-time",
+      "mappedBy": "stop"
+    }
+  }
+}

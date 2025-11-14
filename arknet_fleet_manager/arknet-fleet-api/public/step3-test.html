@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Map Viewer - Simple</title>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .header {
+            background: #4945ff;
+            color: white;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .map-placeholder {
+            height: 400px;
+            background: #e9ecef;
+            border: 2px dashed #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #6c757d;
+            border-radius: 5px;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Route Map Viewer - Step 3 Test</h1>
+    </div>
+    
+    <div class="info">
+        <strong>Route ID:</strong> <span id="route-id">Loading...</span>
+    </div>
+    
+    <div class="map-placeholder" id="map-area">
+        Map will load here (Step 5)
+    </div>
+    
+    <div class="status" id="status">
+        Initializing...
+    </div>
+    
+    <div id="route-details"></div>
+    
+    <script>
+        console.log('=== SIMPLE ROUTE MAP TEST ===');
+        
+        try {
+            // Get route_id from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const routeId = urlParams.get('route_id');
+            console.log('Route ID from URL:', routeId);
+            
+            // Update display
+            const routeIdElement = document.getElementById('route-id');
+            const statusElement = document.getElementById('status');
+            
+            if (routeId) {
+                routeIdElement.textContent = routeId;
+                routeIdElement.style.fontWeight = 'bold';
+                routeIdElement.style.color = '#28a745';
+                
+                // Test Step 3: API Data Fetching
+                statusElement.textContent = `Looking up route: ${routeId}`;
+                statusElement.className = 'status warning';
+                
+                console.log('Fetching route data...');
+                fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`)
+                    .then(response => {
+                        console.log('Route API response status:', response.status);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Route API response data:', data);
+                        
+                        if (data.data && data.data.length > 0) {
+                            const route = data.data[0];
+                            statusElement.textContent = `✅ Found route "${route.short_name}" - Step 3 Complete!`;
+                            statusElement.className = 'status success';
+                            
+                            // Display route details
+                            document.getElementById('route-details').innerHTML = `
+                                <div class="info">
+                                    <h3>Route Details (Step 3 Data):</h3>
+                                    <ul>
+                                        <li><strong>Short Name:</strong> ${route.short_name}</li>
+                                        <li><strong>Long Name:</strong> ${route.long_name || 'None'}</li>
+                                        <li><strong>Route ID:</strong> ${route.route_id}</li>
+                                        <li><strong>Active:</strong> ${route.is_active ? 'Yes' : 'No'}</li>
+                                        <li><strong>Valid From:</strong> ${route.valid_from || 'Not specified'}</li>
+                                        <li><strong>Color:</strong> ${route.color || 'Not specified'}</li>
+                                    </ul>
+                                    <p><strong>Next:</strong> Ready for Step 4 - Shape Geometry Fetching</p>
+                                </div>
+                            `;
+                            
+                        } else {
+                            statusElement.textContent = `❌ Route "${routeId}" not found`;
+                            statusElement.className = 'status error';
+                            
+                            // Show available routes
+                            showAvailableRoutes();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Route lookup error:', error);
+                        statusElement.textContent = `❌ Error: ${error.message}`;
+                        statusElement.className = 'status error';
+                    });
+                    
+            } else {
+                routeIdElement.textContent = 'Not specified';
+                routeIdElement.style.color = '#dc3545';
+                statusElement.textContent = 'No route specified - add ?route_id=YOUR_ROUTE to URL';
+                statusElement.className = 'status warning';
+                
+                // Show available routes
+                showAvailableRoutes();
+            }
+            
+            function showAvailableRoutes() {
+                console.log('Fetching available routes...');
+                fetch('http://localhost:1337/api/routes')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.data && data.data.length > 0) {
+                            document.getElementById('route-details').innerHTML = `
+                                <div class="info">
+                                    <h3>Available Routes:</h3>
+                                    ${data.data.map(route => `
+                                        <div style="margin: 10px 0; padding: 10px; background: white; border-radius: 3px;">
+                                            <strong>${route.short_name}</strong> - ${route.long_name || 'No description'}
+                                            <br>
+                                            <a href="?route_id=${route.short_name}" style="color: #007bff; text-decoration: none;">
+                                                → Test this route: ?route_id=${route.short_name}
+                                            </a>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Could not fetch available routes:', error);
+                    });
+            }
+            
+        } catch (error) {
+            console.error('❌ SCRIPT ERROR:', error);
+            document.getElementById('status').textContent = `❌ JavaScript Error: ${error.message}`;
+            document.getElementById('status').className = 'status error';
+        }
+    </script>
+</body>
+</html>

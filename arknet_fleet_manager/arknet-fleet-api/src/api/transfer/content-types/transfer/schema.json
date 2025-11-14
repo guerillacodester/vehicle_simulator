@@ -1,0 +1,44 @@
+{
+  "kind": "collectionType",
+  "collectionName": "transfers",
+  "info": {
+    "singularName": "transfer",
+    "pluralName": "transfers",
+    "displayName": "Transfer",
+    "description": "Transfer rules between stops (GTFS transfers.txt)"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": false
+    }
+  },
+  "attributes": {
+    "from_stop": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::stop.stop"
+    },
+    "to_stop": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::stop.stop"
+    },
+    "transfer_type": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "max": 3
+    },
+    "min_transfer_time": {
+      "type": "integer",
+      "required": false
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

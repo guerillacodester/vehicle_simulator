@@ -1,5 +1,12 @@
 {
     "python.analysis.extraPaths": [
-        "./common"
-    ]
+        "./common",
+        "./vehicle_depot/vehicle",
+        "./world/vehicle",
+        "./commuter_modeler/plugins"
+    ],
+    "mssql.intelliSense.enableErrorChecking": false,
+    "files.associations": {
+        "**/commuter_service/**/*.sql": "postgres"
+    }
 }

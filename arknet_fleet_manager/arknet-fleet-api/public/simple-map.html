@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Route Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100vw; }
+        .info { position: absolute; top: 10px; left: 10px; background: white; padding: 10px; border-radius: 5px; z-index: 1000; }
+    </style>
+</head>
+<body>
+    <div class="info" id="info">Loading...</div>
+    <div id="map"></div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([51.505, -0.09], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        // Get route from URL
+        const routeId = new URLSearchParams(window.location.search).get('route_id') || '1A';
+        document.getElementById('info').textContent = `Loading route ${routeId}...`;
+        
+        // Fetch and show route points
+        async function showRoute() {
+            try {
+                // Get route
+                const routeResp = await fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`);
+                const routeData = await routeResp.json();
+                const route = routeData.data[0];
+                
+                // Get shapes
+                const shapesResp = await fetch(`http://localhost:1337/api/route-shapes?filters[route_id][$eq]=${route.route_id}`);
+                const shapesData = await shapesResp.json();
+                const shapeIds = [...new Set(shapesData.data.map(s => s.shape_id))];
+                
+                // Get all coordinates - fetch each shape separately to avoid pagination limits
+                const allCoords = [];
+                let totalFetched = 0;
+                
+                for (let i = 0; i < shapeIds.length; i++) {
+                    const shapeId = shapeIds[i];
+                    console.log(`Fetching shape ${i + 1}/${shapeIds.length}: ${shapeId}`);
+                    
+                    const coordResp = await fetch(`http://localhost:1337/api/shapes?filters[shape_id][$eq]=${shapeId}&sort=shape_pt_sequence:asc&pagination[pageSize]=1000`);
+                    const coordData = await coordResp.json();
+                    
+                    if (coordData.data && coordData.data.length > 0) {
+                        allCoords.push(...coordData.data);
+                        totalFetched += coordData.data.length;
+                        console.log(`Shape ${i + 1}: ${coordData.data.length} points (total: ${totalFetched})`);
+                    }
+                }
+                
+                console.log(`Total coordinates fetched: ${allCoords.length}`);
+                
+                // Show dots - process all coordinates
+                const validCoords = [];
+                let dotsAdded = 0;
+                
+                console.log(`Processing ${allCoords.length} coordinates...`);
+                
+                allCoords.forEach((coord, i) => {
+                    const lat = parseFloat(coord.shape_pt_lat);
+                    const lon = parseFloat(coord.shape_pt_lon);
+                    
+                    if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+                        validCoords.push([lat, lon]);
+                        
+                        // Different colors for different shapes
+                        const colors = ['#ff0000', '#00ff00', '#0000ff', '#ff00ff', '#00ffff'];
+                        const shapeIndex = coord.shape_id ? coord.shape_id.charCodeAt(0) % colors.length : 0;
+                        const dotColor = colors[shapeIndex];
+                        
+                        L.circleMarker([lat, lon], {
+                            radius: 3,
+                            fillColor: dotColor,
+                            color: '#ffffff',
+                            weight: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map).bindPopup(`
+                            Point ${i + 1}<br>
+                            Lat: ${lat}<br>
+                            Lon: ${lon}<br>
+                            Shape: ${coord.shape_id?.substring(0, 8)}<br>
+                            Seq: ${coord.shape_pt_sequence}
+                        `);
+                        
+                        dotsAdded++;
+                    }
+                });
+                
+                console.log(`Added ${dotsAdded} dots to map`);
+                
+                // Center map
+                if (validCoords.length > 0) {
+                    console.log(`Centering map on ${validCoords.length} points`);
+                    map.fitBounds(L.latLngBounds(validCoords), { padding: [30, 30] });
+                    document.getElementById('info').innerHTML = `
+                        <strong>Route ${routeId}</strong><br>
+                        ${validCoords.length} points shown<br>
+                        ${shapeIds.length} different shapes<br>
+                        <small>Different colors = different shapes</small>
+                    `;
+                } else {
+                    document.getElementById('info').textContent = `No valid points found for route ${routeId}`;
+                }
+                
+            } catch (error) {
+                document.getElementById('info').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        showRoute();
+    </script>
+</body>
+</html>

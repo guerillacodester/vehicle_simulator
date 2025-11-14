@@ -1,0 +1,259 @@
+"""
+Spawner Coordinator - Orchestrates multiple spawners with individual enable/disable control.
+
+Responsibilities:
+1. Manages collection of spawner instances (RouteSpawner, DepotSpawner, etc.)
+2. Respects enable/disable flags for each spawner type
+3. Runs enabled spawners concurrently using asyncio.gather
+4. Provides unified logging and error handling
+5. Tracks aggregate statistics across all spawners
+
+Does NOT:
+- Create spawner instances (that's the entrypoint's job)
+- Manage reservoirs (spawners own their reservoirs)
+- Handle persistence (that's the reservoir's job)
+"""
+
+import asyncio
+import logging
+from typing import List, Dict, Any
+from datetime import datetime
+
+from commuter_service.domain.services.spawning import SpawnerInterface
+
+
+class SpawnerCoordinator:
+    """
+    Orchestrates multiple spawners with individual enable/disable control.
+    
+    Example usage:
+        coordinator = SpawnerCoordinator(
+            spawners=[route_spawner, depot_spawner],
+            config={'enable_routespawner': True, 'enable_depotspawner': False}
+        )
+        await coordinator.start()
+    """
+    
+    def __init__(self, spawners: List[SpawnerInterface], config: Dict[str, Any]):
+        """
+        Initialize coordinator with spawners and configuration.
+        
+        Args:
+            spawners: List of spawner instances (RouteSpawner, DepotSpawner, etc.)
+            config: Configuration dict with enable flags:
+                - enable_routespawner: bool (default True)
+                - enable_depotspawner: bool (default True)
+                - spawn_interval_seconds: int (default 60)
+                - continuous_mode: bool (default False - run once then exit)
+        """
+        self.spawners = spawners
+        self.config = config
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self._running = False
+    
+    async def start(self, current_time: datetime = None, time_window_minutes: int = 60):
+        """
+        Start spawning process - runs each spawner as independent async task.
+        
+        Args:
+            current_time: Simulation time (default: datetime.utcnow())
+            time_window_minutes: Time window for spawning (default: 60)
+        """
+        if current_time is None:
+            current_time = datetime.utcnow()
+        
+        # Filter enabled spawners
+        enabled_spawners = self._get_enabled_spawners()
+        
+        if not enabled_spawners:
+            self.logger.warning("⚠️  No spawners enabled! Check configuration.")
+            return
+        
+        # Check if continuous mode
+        continuous_mode = self.config.get('continuous_mode', False)
+        spawn_interval = self.config.get('spawn_interval_seconds', 60)
+        
+        if continuous_mode:
+            self.logger.info(f"🔄 Starting asynchronous spawning (each spawner runs independently)...")
+            await self._run_async_spawners(enabled_spawners, time_window_minutes, spawn_interval)
+        else:
+            self.logger.info(f"▶️  Running single spawn cycle...")
+            await self._run_single_cycle(enabled_spawners, current_time, time_window_minutes)
+    
+    def _get_enabled_spawners(self) -> List[SpawnerInterface]:
+        """Filter spawners based on enable flags in config"""
+        enabled = []
+        
+        for spawner in self.spawners:
+            spawner_name = spawner.__class__.__name__
+            enable_key = f'enable_{spawner_name.lower()}'
+            is_enabled = self.config.get(enable_key, True)  # Default: enabled
+            
+            if is_enabled:
+                enabled.append(spawner)
+                self.logger.info(f"✅ {spawner_name} ENABLED")
+            else:
+                self.logger.info(f"⏭️  {spawner_name} DISABLED (skipping)")
+        
+        return enabled
+    
+    async def _run_single_cycle(
+        self, 
+        enabled_spawners: List[SpawnerInterface],
+        current_time: datetime,
+        time_window_minutes: int
+    ):
+        """Run a single spawn cycle for all enabled spawners"""
+        self.logger.info(
+            f"🚀 Starting spawn cycle for {len(enabled_spawners)} spawner(s) "
+            f"at {current_time.strftime('%H:%M:%S')}"
+        )
+        
+        try:
+            # Run all enabled spawners concurrently
+            tasks = [
+                spawner.spawn_and_store(
+                    current_time=current_time,
+                    time_window_minutes=time_window_minutes
+                )
+                for spawner in enabled_spawners
+            ]
+            
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Log results
+            total_spawned = 0
+            errors = 0
+            
+            for i, result in enumerate(results):
+                spawner_name = enabled_spawners[i].__class__.__name__
+                
+                if isinstance(result, Exception):
+                    self.logger.error(f"❌ {spawner_name} failed: {result}")
+                    errors += 1
+                else:
+                    self.logger.info(f"✅ {spawner_name} spawned {result} passengers")
+                    total_spawned += result
+            
+            self.logger.info(
+                f"📊 Spawn cycle complete: {total_spawned} total passengers, {errors} errors"
+            )
+            
+            # Print aggregate stats
+            await self._log_aggregate_stats()
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error in spawn cycle: {e}", exc_info=True)
+    
+    async def _run_async_spawners(
+        self,
+        enabled_spawners: List[SpawnerInterface],
+        time_window_minutes: int,
+        interval_seconds: int
+    ):
+        """
+        Run each spawner as independent async task using pure event-driven Poisson spawning.
+        No sleep loops - spawners calculate next spawn time using exponential distribution.
+        """
+        self._running = True
+        
+        self.logger.info(f"🎲 Starting {len(enabled_spawners)} independent spawner tasks...")
+        
+        try:
+            # Create independent async task for each spawner
+            tasks = [
+                asyncio.create_task(self._run_spawner_loop(spawner, time_window_minutes))
+                for spawner in enabled_spawners
+            ]
+            
+            # Wait for all spawners (they run indefinitely until cancelled)
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
+        except KeyboardInterrupt:
+            self.logger.info("⏹️  Received shutdown signal")
+            self._running = False
+        except Exception as e:
+            self.logger.error(f"❌ Error in async spawners: {e}", exc_info=True)
+            self._running = False
+    
+    async def _run_spawner_loop(self, spawner: SpawnerInterface, time_window_minutes: int):
+        """
+        Independent spawner loop using exponential inter-arrival times.
+        Each spawner calculates when next spawn should occur based on Poisson rate.
+        """
+        import numpy as np
+        spawner_name = spawner.__class__.__name__
+        
+        try:
+            while self._running:
+                current_time = datetime.utcnow()
+                
+                # Spawn passengers (count determined by Poisson distribution)
+                result = await spawner.spawn_and_store(current_time, time_window_minutes)
+                
+                # Calculate next spawn time using exponential distribution
+                # For Poisson process with rate λ, inter-arrival time ~ Exponential(λ)
+                # Mean time between events = 1/λ hours
+                
+                # Get lambda from spawner's last calculation
+                # This is a simplified approach - ideally spawner exposes its lambda
+                # For now, use a base rate and add randomness
+                mean_interval_minutes = 5.0  # Average 5 minutes between spawn checks
+                next_spawn_delay = np.random.exponential(mean_interval_minutes)
+                
+                # Wait until next spawn time
+                await asyncio.sleep(next_spawn_delay * 60)  # Convert minutes to seconds
+                
+        except asyncio.CancelledError:
+            self.logger.info(f"⏹️  {spawner_name} stopped")
+        except Exception as e:
+            self.logger.error(f"❌ Error in {spawner_name}: {e}", exc_info=True)
+    
+    async def _run_continuous(
+        self,
+        enabled_spawners: List[SpawnerInterface],
+        time_window_minutes: int,
+        interval_seconds: int
+    ):
+        """Run spawning continuously with interval"""
+        self._running = True
+        
+        try:
+            while self._running:
+                current_time = datetime.utcnow()
+                await self._run_single_cycle(enabled_spawners, current_time, time_window_minutes)
+                
+                self.logger.info(f"⏱️  Sleeping for {interval_seconds} seconds...")
+                await asyncio.sleep(interval_seconds)
+                
+        except KeyboardInterrupt:
+            self.logger.info("⏹️  Received shutdown signal")
+            self._running = False
+        except Exception as e:
+            self.logger.error(f"❌ Error in continuous loop: {e}", exc_info=True)
+            self._running = False
+    
+    async def _log_aggregate_stats(self):
+        """Log aggregate statistics across all spawners"""
+        total_spawned = 0
+        total_errors = 0
+        
+        for spawner in self.spawners:
+            stats = spawner.get_stats()
+            total_spawned += stats.get('total_spawned', 0)
+            total_errors += stats.get('total_errors', 0)
+        
+        success_rate = (
+            total_spawned / (total_spawned + total_errors) * 100
+            if (total_spawned + total_errors) > 0 else 0.0
+        )
+        
+        self.logger.info(
+            f"📈 Aggregate Stats: {total_spawned} spawned, "
+            f"{total_errors} errors, {success_rate:.1f}% success rate"
+        )
+    
+    def stop(self):
+        """Stop continuous spawning"""
+        self.logger.info("🛑 Stopping spawner coordinator...")
+        self._running = False

@@ -1,0 +1,60 @@
+{
+  "kind": "collectionType",
+  "collectionName": "blocks",
+  "info": {
+    "singularName": "block",
+    "pluralName": "blocks",
+    "displayName": "Block",
+    "description": "Service blocks for vehicle scheduling"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "block_id": {
+      "type": "uid",
+      "required": true,
+      "targetField": "block_name"
+    },
+    "block_name": {
+      "type": "string",
+      "required": false
+    },
+    "start_time": {
+      "type": "time",
+      "required": false
+    },
+    "end_time": {
+      "type": "time",
+      "required": false
+    },
+    "total_distance_km": {
+      "type": "decimal",
+      "required": false
+    },
+    "total_revenue_km": {
+      "type": "decimal",
+      "required": false
+    },
+    "total_duration_minutes": {
+      "type": "integer",
+      "required": false
+    },
+    "break_duration_minutes": {
+      "type": "integer",
+      "required": false
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "route": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::route.route",
+      "inversedBy": "blocks"
+    }
+  }
+}

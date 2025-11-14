@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 5: Complete Route Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .header {
+            background: #4945ff;
+            color: white;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        
+        #map {
+            height: 500px;
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .progress {
+            background: #e9ecef;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .progress-bar {
+            background: #28a745;
+            height: 20px;
+            border-radius: 10px;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ Step 5: Complete Route Map Rendering</h1>
+    </div>
+    
+    <div class="info">
+        <strong>Route:</strong> <span id="route-info">Loading...</span><br>
+        <strong>Progress:</strong> Step 3 ✅ → Step 4 ✅ → Step 5 🧪
+    </div>
+    
+    <div class="progress">
+        <div class="progress-bar" id="progress" style="width: 0%">Starting...</div>
+    </div>
+    
+    <div id="status-messages"></div>
+    
+    <div id="map"></div>
+    
+    <div id="route-details"></div>
+    
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <script>
+        console.log('=== STEP 5: COMPLETE ROUTE MAP RENDERING ===');
+        
+        let map;
+        let routeData = null;
+        let shapeData = [];
+        
+        function updateProgress(percentage, message) {
+            const progressBar = document.getElementById('progress');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = message;
+        }
+        
+        function addStatusMessage(message, type = 'info') {
+            const statusDiv = document.getElementById('status-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status ${type}`;
+            messageDiv.textContent = message;
+            statusDiv.appendChild(messageDiv);
+        }
+        
+        function initializeMap() {
+            console.log('Initializing Leaflet map...');
+            if (typeof L === 'undefined') {
+                addStatusMessage('❌ Leaflet library failed to load', 'error');
+                return false;
+            }
+            
+            map = L.map('map').setView([51.505, -0.09], 13); // Default London view
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            addStatusMessage('✅ Map initialized successfully', 'success');
+            return true;
+        }
+        
+        async function fetchRouteData(routeId) {
+            updateProgress(20, 'Step 3: Fetching route data...');
+            console.log('Fetching route data for:', routeId);
+            
+            const response = await fetch(`http://localhost:1337/api/routes?filters[short_name][$eq]=${routeId}`);
+            const data = await response.json();
+            
+            if (!data.data || data.data.length === 0) {
+                throw new Error(`Route "${routeId}" not found`);
+            }
+            
+            routeData = data.data[0];
+            addStatusMessage(`✅ Step 3: Found route "${routeData.short_name}"`, 'success');
+            
+            document.getElementById('route-info').innerHTML = `
+                <strong>${routeData.short_name}</strong> - ${routeData.long_name || 'No description'}
+            `;
+            
+            return routeData;
+        }
+        
+        async function fetchRouteShapes(routeUuid) {
+            updateProgress(40, 'Step 4: Fetching route shapes...');
+            console.log('Fetching route shapes for UUID:', routeUuid);
+            
+            const response = await fetch(`http://localhost:1337/api/route-shapes?filters[route_id][$eq]=${routeUuid}`);
+            const data = await response.json();
+            
+            console.log('Route shapes response:', data);
+            
+            if (!data.data || data.data.length === 0) {
+                throw new Error('No route shapes found');
+            }
+            
+            addStatusMessage(`✅ Step 4: Found ${data.data.length} route shapes`, 'success');
+            return data.data;
+        }
+        
+        async function fetchShapeCoordinates(shapeIds) {
+            updateProgress(60, 'Step 5: Fetching shape coordinates...');
+            console.log('Fetching coordinates for shape IDs:', shapeIds);
+            
+            const allCoordinates = [];
+            
+            for (let i = 0; i < shapeIds.length; i++) {
+                const shapeId = shapeIds[i];
+                console.log(`Fetching coordinates for shape ${i + 1}/${shapeIds.length}:`, shapeId);
+                
+                try {
+                    const response = await fetch(`http://localhost:1337/api/shapes?filters[shape_id][$eq]=${shapeId}&sort=shape_pt_sequence:asc`);
+                    const data = await response.json();
+                    
+                    if (data.data && data.data.length > 0) {
+                        allCoordinates.push(...data.data);
+                        console.log(`Found ${data.data.length} coordinates for shape ${shapeId}`);
+                    } else {
+                        console.warn(`No coordinates found for shape ${shapeId}`);
+                    }
+                } catch (error) {
+                    console.error(`Error fetching coordinates for shape ${shapeId}:`, error);
+                }
+            }
+            
+            if (allCoordinates.length === 0) {
+                throw new Error('No coordinate data found in shapes table');
+            }
+            
+            // Sort by sequence to ensure proper line drawing
+            allCoordinates.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence);
+            
+            addStatusMessage(`✅ Found ${allCoordinates.length} coordinate points`, 'success');
+            return allCoordinates;
+        }
+        
+        function renderRouteOnMap(coordinates) {
+            updateProgress(80, 'Step 5: Rendering route on map...');
+            console.log('Rendering route with coordinates:', coordinates.length);
+            
+            if (coordinates.length === 0) {
+                throw new Error('No coordinates to render');
+            }
+            
+            // Convert coordinates to Leaflet format
+            const latlngs = coordinates.map(coord => [
+                parseFloat(coord.shape_pt_lat),
+                parseFloat(coord.shape_pt_lon)
+            ]);
+            
+            console.log('First few coordinates:', latlngs.slice(0, 3));
+            console.log('All coordinates:', latlngs);
+            
+            // Calculate center point manually for better control
+            let minLat = Math.min(...latlngs.map(coord => coord[0]));
+            let maxLat = Math.max(...latlngs.map(coord => coord[0]));
+            let minLon = Math.min(...latlngs.map(coord => coord[1]));
+            let maxLon = Math.max(...latlngs.map(coord => coord[1]));
+            
+            const centerLat = (minLat + maxLat) / 2;
+            const centerLon = (minLon + maxLon) / 2;
+            
+            console.log('Route bounds:', { minLat, maxLat, minLon, maxLon });
+            console.log('Center point:', { centerLat, centerLon });
+            
+            // Set map view to center with appropriate zoom
+            map.setView([centerLat, centerLon], 14);
+            
+            // Add individual markers for each coordinate point
+            coordinates.forEach((coord, index) => {
+                const lat = parseFloat(coord.shape_pt_lat);
+                const lon = parseFloat(coord.shape_pt_lon);
+                
+                // Create different icons for different point types
+                let markerColor = '#3388ff';
+                let markerSize = 8;
+                let popupText = `Point ${index + 1}`;
+                
+                if (index === 0) {
+                    markerColor = '#28a745'; // Green for start
+                    markerSize = 12;
+                    popupText = `🚌 Start - Point ${coord.shape_pt_sequence || index + 1}`;
+                } else if (index === coordinates.length - 1) {
+                    markerColor = '#dc3545'; // Red for end
+                    markerSize = 12;
+                    popupText = `🏁 End - Point ${coord.shape_pt_sequence || index + 1}`;
+                } else {
+                    popupText = `📍 Point ${coord.shape_pt_sequence || index + 1}`;
+                }
+                
+                // Create custom circle marker
+                L.circleMarker([lat, lon], {
+                    radius: markerSize,
+                    fillColor: markerColor,
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map).bindPopup(`
+                    <strong>${popupText}</strong><br>
+                    Lat: ${lat}<br>
+                    Lon: ${lon}<br>
+                    Sequence: ${coord.shape_pt_sequence || 'N/A'}<br>
+                    Distance: ${coord.shape_dist_traveled || 'N/A'}
+                `);
+            });
+            
+            // NO LINES! Just dots/points only
+            
+            // Fine-tune the zoom to show all points with padding
+            const bounds = L.latLngBounds(latlngs);
+            map.fitBounds(bounds, { padding: [50, 50] });
+            
+            // Force a better zoom level for the island
+            setTimeout(() => {
+                map.setZoom(Math.max(map.getZoom(), 12));
+            }, 100);
+            
+            updateProgress(100, '✅ Complete! Route rendered successfully');
+            addStatusMessage('🎉 Step 5 Complete: Route points rendered on map!', 'success');
+            
+            // Display summary
+            document.getElementById('route-details').innerHTML = `
+                <div class="info success">
+                    <h3>🎉 All Steps Complete!</h3>
+                    <ul>
+                        <li>✅ Step 3: Route data fetched</li>
+                        <li>✅ Step 4: Shape references found</li>
+                        <li>✅ Step 5: Coordinates fetched and rendered</li>
+                    </ul>
+                    <p><strong>Route Summary:</strong></p>
+                    <ul>
+                        <li><strong>Route:</strong> ${routeData.short_name} - ${routeData.long_name}</li>
+                        <li><strong>Total Points:</strong> ${coordinates.length}</li>
+                        <li><strong>Bounds:</strong> Map automatically fitted to route</li>
+                    </ul>
+                    <p><strong>Next:</strong> Ready to integrate into Strapi admin interface! 🚀</p>
+                </div>
+            `;
+        }
+        
+        // Main execution
+        async function main() {
+            try {
+                // Initialize map first
+                if (!initializeMap()) {
+                    return;
+                }
+                
+                // Get route ID from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const routeId = urlParams.get('route_id');
+                
+                if (!routeId) {
+                    throw new Error('No route_id specified in URL');
+                }
+                
+                // Step 3: Fetch route data
+                await fetchRouteData(routeId);
+                
+                // Step 4: Fetch route shapes
+                const routeShapes = await fetchRouteShapes(routeData.route_id);
+                
+                // Extract unique shape_ids (there might be multiple variants)
+                const shapeIds = [...new Set(routeShapes.map(shape => shape.shape_id))];
+                console.log('Unique shape IDs:', shapeIds);
+                
+                // Step 5: Fetch actual coordinates
+                const coordinates = await fetchShapeCoordinates(shapeIds);
+                
+                // Render on map
+                renderRouteOnMap(coordinates);
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                addStatusMessage(`❌ Error: ${error.message}`, 'error');
+                updateProgress(0, `❌ Failed: ${error.message}`);
+            }
+        }
+        
+        // Start the process
+        window.addEventListener('load', main);
+    </script>
+</body>
+</html>

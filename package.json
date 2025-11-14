@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.553.0",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "markdownlint-cli": "^0.45.0",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3"
+  }
+}

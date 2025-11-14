@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Test</title>
+</head>
+<body>
+    <h1>JavaScript Test Page</h1>
+    <p>Current URL: <span id="url-display">Loading...</span></p>
+    <p>Route ID: <span id="route-display">Loading...</span></p>
+    
+    <script>
+        // Immediate execution test
+        alert('JavaScript is working!');
+        
+        console.log('=== TEST SCRIPT RUNNING ===');
+        
+        // Test basic functionality
+        try {
+            document.getElementById('url-display').textContent = window.location.href;
+            console.log('URL updated successfully');
+        } catch (error) {
+            console.error('Error updating URL:', error);
+        }
+        
+        // Get route_id parameter
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const routeId = urlParams.get('route_id');
+            
+            console.log('Route ID found:', routeId);
+            document.getElementById('route-display').textContent = routeId || 'Not found';
+            console.log('Route ID updated successfully');
+        } catch (error) {
+            console.error('Error getting route ID:', error);
+        }
+        
+        console.log('=== TEST COMPLETE ===');
+    </script>
+</body>
+</html>

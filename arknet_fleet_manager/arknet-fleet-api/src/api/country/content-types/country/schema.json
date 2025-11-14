@@ -1,0 +1,184 @@
+{
+  "kind": "collectionType",
+  "collectionName": "countries",
+  "info": {
+    "singularName": "country",
+    "pluralName": "countries",
+    "displayName": "Country",
+    "description": "Countries in the fleet management system with geographic data import"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "country_id": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 3,
+      "required": true,
+      "unique": true
+    },
+    "currency": {
+      "type": "string",
+      "maxLength": 3,
+      "required": false
+    },
+    "timezone": {
+      "type": "string",
+      "required": false
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "routes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::route.route",
+      "mappedBy": "country"
+    },
+    "vehicles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vehicle.vehicle",
+      "mappedBy": "country"
+    },
+    "drivers": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::driver.driver",
+      "mappedBy": "country"
+    },
+    "depots": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::depot.depot",
+      "mappedBy": "country"
+    },
+    "pois": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::poi.poi",
+      "mappedBy": "country"
+    },
+    "landuse_zones": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::landuse-zone.landuse-zone",
+      "mappedBy": "country"
+    },
+    "regions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::region.region",
+      "mappedBy": "country"
+    },
+    "places": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::place.place",
+      "mappedBy": "country"
+    },
+    "highways": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::highway.highway",
+      "mappedBy": "country"
+    },
+    "buildings": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::building.building",
+      "mappedBy": "country"
+    },
+    "geodata_import_status": {
+      "type": "json",
+      "default": {
+        "highway": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "amenity": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "landuse": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "building": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        },
+        "admin": {
+          "status": "not_imported",
+          "lastImportDate": null,
+          "featureCount": 0,
+          "lastJobId": null
+        }
+      }
+    },
+    "geodata_last_import": {
+      "type": "datetime"
+    },
+    "import_highway": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🛣️ Import Highways",
+        "onClick": "handleImportHighway"
+      }
+    },
+    "import_amenity": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🏪 Import Amenities",
+        "onClick": "handleImportAmenity"
+      }
+    },
+    "import_landuse": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🌳 Import Land Use",
+        "onClick": "handleImportLanduse"
+      }
+    },
+    "import_building": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🏢 Import Buildings",
+        "onClick": "handleImportBuilding"
+      }
+    },
+    "import_admin": {
+      "type": "customField",
+      "customField": "plugin::action-buttons.action-button",
+      "options": {
+        "buttonLabel": "🗺️ Import Admin Boundaries",
+        "onClick": "handleImportAdmin"
+      }
+    }
+  }
+}

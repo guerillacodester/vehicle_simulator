@@ -6,3 +6,11 @@ websockets
 requests
 pydantic
 shapely>=2.0.0
+
+# ORM + DB support
+SQLAlchemy>=2.0
+GeoAlchemy2>=0.14.0        # PostGIS support for SQLAlchemy
+psycopg2-binary>=2.9       # PostgreSQL driver (C-based, stable)
+
+# Optional, recommended for migrations
+alembic>=1.13
