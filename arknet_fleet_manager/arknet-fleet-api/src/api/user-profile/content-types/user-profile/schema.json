@@ -1,0 +1,9 @@
+{
+  "collectionName": "user_profiles",
+  "info": { "singularName": "user-profile", "pluralName": "user-profiles", "displayName": "User Profile" },
+  "attributes": {
+    "user": { "type": "relation", "relation": "oneToOne", "target": "plugin::users-permissions.user" },
+    "access_tier": { "type": "relation", "relation": "manyToOne", "target": "api::access-tier.access-tier" },
+    "org_id": { "type": "string" }
+  }
+}
