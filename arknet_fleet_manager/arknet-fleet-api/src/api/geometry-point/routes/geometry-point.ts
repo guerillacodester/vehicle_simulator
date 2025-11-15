@@ -5,9 +5,8 @@ export default {
       path: '/geometry-points',
       handler: 'geometry-point.find',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {
@@ -15,9 +14,8 @@ export default {
       path: '/geometry-points/:id',
       handler: 'geometry-point.findOne',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {

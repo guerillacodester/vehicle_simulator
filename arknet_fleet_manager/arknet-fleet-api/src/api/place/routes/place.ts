@@ -5,9 +5,8 @@ export default {
       path: '/places',
       handler: 'place.find',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {
@@ -15,9 +14,8 @@ export default {
       path: '/places/:id',
       handler: 'place.findOne',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {

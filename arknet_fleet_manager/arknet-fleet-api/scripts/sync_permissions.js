@@ -62,13 +62,13 @@ function extractHandlersAndTiers(fileContent) {
     tiers.push({ tier: m[1], index: m.index });
   }
 
-  // For each handler, try to find nearest minTier before it
+  // For each handler, try to find nearest minTier after it (within 500 chars window)
   for (const h of handlers) {
     let nearest = undefined;
     let bestDist = Infinity;
     for (const t of tiers) {
-      const dist = h.index - t.index;
-      if (dist >= 0 && dist < bestDist) {
+      const dist = t.index - h.index;
+      if (dist >= 0 && dist < 500 && dist < bestDist) {
         bestDist = dist;
         nearest = t.tier;
       }

@@ -5,9 +5,8 @@ export default {
       path: '/vehicles',
       handler: 'vehicle.find',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {
@@ -15,9 +14,8 @@ export default {
       path: '/vehicles/:id',
       handler: 'vehicle.findOne',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {

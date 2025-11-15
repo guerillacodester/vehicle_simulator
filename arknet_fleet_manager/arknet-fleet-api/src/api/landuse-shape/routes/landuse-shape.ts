@@ -5,9 +5,8 @@ export default {
       path: '/landuse-shapes',
       handler: 'landuse-shape.find',
       config: {
-        policies: [{ name: 'global::check-access-tier', config: {} }],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {
@@ -15,9 +14,8 @@ export default {
       path: '/landuse-shapes/:id',
       handler: 'landuse-shape.findOne',
       config: {
-        policies: [{ name: 'global::check-access-tier', config: {} }],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {

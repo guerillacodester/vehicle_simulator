@@ -5,9 +5,8 @@ export default {
       path: '/landuse-zones',
       handler: 'landuse-zone.find',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {
@@ -15,9 +14,8 @@ export default {
       path: '/landuse-zones/:id',
       handler: 'landuse-zone.findOne',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {

@@ -5,13 +5,13 @@ export default {
       method: 'GET',
       path: '/geofence-geometries',
       handler: 'geofence-geometry.find',
-      config: { policies: [{ name: 'global::check-access-tier', config: {} }], middlewares: [], auth: { scope: ['admin'] } },
+      config: { policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }], middlewares: [] },
     },
     {
       method: 'GET',
       path: '/geofence-geometries/:id',
       handler: 'geofence-geometry.findOne',
-      config: { policies: [{ name: 'global::check-access-tier', config: {} }], middlewares: [], auth: { scope: ['admin'] } },
+      config: { policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }], middlewares: [] },
     },
     {
       method: 'POST',
