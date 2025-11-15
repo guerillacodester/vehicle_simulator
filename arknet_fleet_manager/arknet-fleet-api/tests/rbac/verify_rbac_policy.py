@@ -23,10 +23,11 @@ USERS = [
 ]
 
 def login(user):
+    """Login the user and return the JWT token."""
     res = requests.post(f'{BASE_URL}/api/auth/local', json={
         'identifier': user['username'],
         'password': user['password']
-    })
+    }, timeout=10)
     res.raise_for_status()
     token = res.json()['jwt']
     decoded = jwt.decode(token, options={"verify_signature": False})
@@ -35,9 +36,10 @@ def login(user):
     return token
 
 def test_route(token, route, should_allow):
+    """Test access to a route with the given token."""
     url = f'{BASE_URL}{route}'
     headers = {'Authorization': f'Bearer {token}'}
-    res = requests.get(url, headers=headers)
+    res = requests.get(url, headers=headers, timeout=10)
     if should_allow:
         assert res.status_code == 200, f"Expected 200 for {route}, got {res.status_code}"
         print(f"Access OK: {route}")
@@ -46,6 +48,7 @@ def test_route(token, route, should_allow):
         print(f"Access forbidden as expected: {route}")
 
 def main():
+    """Main function to run the RBAC verification tests."""
     for user in USERS:
         print(f"\nTesting {user['username']}...")
         token = login(user)
