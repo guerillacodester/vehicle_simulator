@@ -1,8 +1,10 @@
-module.exports = ({ nexus, strapi }) => [
+import type { Core } from '@strapi/strapi';
+
+export default ({ nexus, strapi }: { nexus: any; strapi: Core.Strapi }) => [
   // Define RouteMetrics type
   nexus.objectType({
     name: 'RouteMetrics',
-    definition(t) {
+    definition(t: any) {
       t.nonNull.int('totalPoints');
       t.nonNull.float('estimatedLengthKm');
       t.nonNull.int('segments');
@@ -13,7 +15,7 @@ module.exports = ({ nexus, strapi }) => [
   // Define RouteGeometryResponse type
   nexus.objectType({
     name: 'RouteGeometryResponse',
-    definition(t) {
+    definition(t: any) {
       t.nonNull.boolean('success');
       t.nonNull.string('routeName');
       t.field('metrics', { type: 'RouteMetrics' });
@@ -27,13 +29,13 @@ module.exports = ({ nexus, strapi }) => [
   // Extend Query type with routeGeometry field
   nexus.extendType({
     type: 'Query',
-    definition(t) {
+    definition(t: any) {
       t.field('routeGeometry', {
         type: 'RouteGeometryResponse',
         args: {
           routeName: nexus.nonNull(nexus.stringArg()),
         },
-        async resolve(_root, args) {
+        async resolve(_root: any, args: any) {
           const { routeName } = args;
           const result = await strapi
             .service('api::route.route')

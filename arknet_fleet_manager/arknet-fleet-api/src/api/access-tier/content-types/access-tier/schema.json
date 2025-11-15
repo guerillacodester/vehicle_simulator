@@ -1,10 +1,37 @@
 {
+  "kind": "collectionType",
   "collectionName": "access_tiers",
-  "info": { "singularName": "access-tier", "pluralName": "access-tiers", "displayName": "Access Tier" },
+  "info": {
+    "singularName": "access-tier",
+    "pluralName": "access-tiers",
+    "displayName": "Access Tier",
+    "description": "Access tier definitions for RBAC"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
   "attributes": {
-    "name": { "type": "string", "required": true },
-    "code": { "type": "string", "required": true, "unique": true },
-    "description": { "type": "text" },
-    "scopes": { "type": "json" }
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "scopes": {
+      "type": "json"
+    },
+    "user_profiles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::user-profile.user-profile",
+      "mappedBy": "access_tier"
+    }
   }
 }

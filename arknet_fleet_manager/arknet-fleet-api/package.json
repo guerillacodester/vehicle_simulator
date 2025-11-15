@@ -15,11 +15,11 @@
     "upgrade:dry": "npx @strapi/upgrade latest --dry"
   },
   "dependencies": {
-    "@strapi/plugin-cloud": "5.23.5",
+    "@strapi/plugin-cloud": "^5.30.1",
     "@strapi/plugin-graphql": "^5.30.1",
-    "@strapi/plugin-users-permissions": "5.23.5",
-    "@strapi/provider-upload-cloudinary": "^5.29.0",
-    "@strapi/strapi": "5.23.5",
+    "@strapi/plugin-users-permissions": "^5.30.1",
+    "@strapi/provider-upload-cloudinary": "^5.30.1",
+    "@strapi/strapi": "^5.30.1",
     "@types/socket.io": "^3.0.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
@@ -38,6 +38,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/uuid": "^10.0.0",
+    "patch-package": "^8.0.1",
     "typescript": "^5"
   },
   "engines": {

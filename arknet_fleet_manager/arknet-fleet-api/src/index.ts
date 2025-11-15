@@ -1,5 +1,7 @@
 import type { Core } from '@strapi/strapi';
 import { initializeSocketIO, shutdownSocketIO } from './socketio/server';
+import routeGeometryResolver from './extensions/graphql/routeGeometry/resolvers/routeGeometry';
+import usersPermissionsExtension from './extensions/graphql/users-permissions/extension';
 
 /**
  * Set public and authenticated permissions for APIs that need to be accessible
@@ -192,12 +194,6 @@ export default {
    */
   register({ strapi }: { strapi: Core.Strapi }) {
     // Register GraphQL extensions from modular folder structure
-    const path = require('path');
-    const fs = require('fs');
-    
-    // Resolve path - check if running from dist or src
-    const resolverPath = path.join(__dirname, '../../src/extensions/graphql/routeGeometry/resolvers/routeGeometry.js');
-    const routeGeometryResolver = require(resolverPath);
     const extensionService = strapi.plugin('graphql').service('extension');
 
     extensionService.use(({ nexus }: any) => ({
@@ -209,6 +205,7 @@ export default {
       },
       types: [
         ...routeGeometryResolver({ nexus, strapi }),
+        ...usersPermissionsExtension({ nexus, strapi }).types,
       ],
     }));
   },

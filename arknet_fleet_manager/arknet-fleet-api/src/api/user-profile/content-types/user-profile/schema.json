@@ -1,9 +1,30 @@
 {
+  "kind": "collectionType",
   "collectionName": "user_profiles",
-  "info": { "singularName": "user-profile", "pluralName": "user-profiles", "displayName": "User Profile" },
+  "info": {
+    "singularName": "user-profile",
+    "pluralName": "user-profiles",
+    "displayName": "User Profile",
+    "description": "User profile with access tier assignment"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
   "attributes": {
-    "user": { "type": "relation", "relation": "oneToOne", "target": "plugin::users-permissions.user" },
-    "access_tier": { "type": "relation", "relation": "manyToOne", "target": "api::access-tier.access-tier" },
-    "org_id": { "type": "string" }
+    "user": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "access_tier": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::access-tier.access-tier",
+      "inversedBy": "user_profiles"
+    },
+    "org_id": {
+      "type": "string"
+    }
   }
 }
