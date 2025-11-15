@@ -177,7 +177,7 @@
 "4400","Task",,,,"Integration tests for each tier",,"New",
 "4401","Task",,,,"Audit logging for role changes",,"New",
 "4416","User Story",,,"Add policies and JWT claim for RBAC enforcement",,"Guerilla Codester <guerillacodester@gmail.com>","Active",
-"4417","Task",,,,"Create Strapi policy to check AccessTier","Guerilla Codester <guerillacodester@gmail.com>","Active",
+"4417","Task",,,,"Create Strapi policy to check AccessTier","Guerilla Codester <guerillacodester@gmail.com>","Closed",
 "4418","Task",,,,"Extend JWT payload to include AccessTier",,"New",
 "4419","Task",,,,"Test policy enforcement for all tiers",,"New",
 "4420","Task",,,,"Document RBAC policy and JWT changes",,"New",

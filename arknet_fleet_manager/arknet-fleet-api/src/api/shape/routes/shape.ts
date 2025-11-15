@@ -5,7 +5,7 @@ export default {
       path: '/shapes',
       handler: 'shape.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/shapes/:id',
       handler: 'shape.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -23,7 +23,7 @@ export default {
       path: '/shapes',
       handler: 'shape.create',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -32,7 +32,7 @@ export default {
       path: '/shapes/:id',
       handler: 'shape.update',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -41,7 +41,7 @@ export default {
       path: '/shapes/:id',
       handler: 'shape.delete',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'manager' } }],
         middlewares: [],
       },
     },

@@ -5,7 +5,7 @@ export default {
       path: '/region-shapes',
       handler: 'region-shape.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/region-shapes/:id',
       handler: 'region-shape.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -23,7 +23,7 @@ export default {
       path: '/region-shapes',
       handler: 'region-shape.create',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -32,7 +32,7 @@ export default {
       path: '/region-shapes/:id',
       handler: 'region-shape.update',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -41,7 +41,7 @@ export default {
       path: '/region-shapes/:id',
       handler: 'region-shape.delete',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },

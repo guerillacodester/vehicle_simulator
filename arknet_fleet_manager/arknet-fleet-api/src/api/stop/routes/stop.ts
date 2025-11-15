@@ -5,8 +5,9 @@ export default {
       path: '/stops',
       handler: 'stop.find',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -14,8 +15,9 @@ export default {
       path: '/stops/:id',
       handler: 'stop.findOne',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -23,8 +25,9 @@ export default {
       path: '/stops',
       handler: 'stop.create',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -32,8 +35,9 @@ export default {
       path: '/stops/:id',
       handler: 'stop.update',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -41,8 +45,9 @@ export default {
       path: '/stops/:id',
       handler: 'stop.delete',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
   ],

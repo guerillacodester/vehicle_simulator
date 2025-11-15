@@ -5,8 +5,9 @@ export default {
       path: '/spawn-configs',
       handler: 'spawn-config.find',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {

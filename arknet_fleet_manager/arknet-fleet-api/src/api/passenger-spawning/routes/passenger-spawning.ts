@@ -9,7 +9,7 @@ export default {
       path: '/passenger-spawning/generate',
       handler: 'passenger-spawning.generate',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },

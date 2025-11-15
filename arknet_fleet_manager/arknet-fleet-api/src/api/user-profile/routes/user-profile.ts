@@ -2,8 +2,8 @@ export default {
   routes: [
     {
       method: 'GET',
-      path: '/access-tiers',
-      handler: 'access-tier.find',
+      path: '/user-profiles',
+      handler: 'user-profile.find',
       config: {
         policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
@@ -11,8 +11,8 @@ export default {
     },
     {
       method: 'GET',
-      path: '/access-tiers/:id',
-      handler: 'access-tier.findOne',
+      path: '/user-profiles/:id',
+      handler: 'user-profile.findOne',
       config: {
         policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
@@ -20,8 +20,8 @@ export default {
     },
     {
       method: 'POST',
-      path: '/access-tiers',
-      handler: 'access-tier.create',
+      path: '/user-profiles',
+      handler: 'user-profile.create',
       config: {
         policies: [{ name: 'global::check-access-tier', config: { minTier: 'superadmin' } }],
         middlewares: [],
@@ -29,8 +29,8 @@ export default {
     },
     {
       method: 'PUT',
-      path: '/access-tiers/:id',
-      handler: 'access-tier.update',
+      path: '/user-profiles/:id',
+      handler: 'user-profile.update',
       config: {
         policies: [{ name: 'global::check-access-tier', config: { minTier: 'superadmin' } }],
         middlewares: [],
@@ -38,8 +38,8 @@ export default {
     },
     {
       method: 'DELETE',
-      path: '/access-tiers/:id',
-      handler: 'access-tier.delete',
+      path: '/user-profiles/:id',
+      handler: 'user-profile.delete',
       config: {
         policies: [{ name: 'global::check-access-tier', config: { minTier: 'superadmin' } }],
         middlewares: [],

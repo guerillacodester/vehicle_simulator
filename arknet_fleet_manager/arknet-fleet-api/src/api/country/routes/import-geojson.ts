@@ -9,7 +9,7 @@ export default {
       path: '/countries/:id/import-geojson',
       handler: 'import-geojson.importFromFile',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -18,7 +18,7 @@ export default {
       path: '/countries/:id/import-geojson-direct',
       handler: 'import-geojson.importDirect',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },

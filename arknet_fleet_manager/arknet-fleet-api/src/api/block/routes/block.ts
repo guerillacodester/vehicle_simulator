@@ -5,8 +5,9 @@ export default {
       path: '/blocks',
       handler: 'block.find',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {

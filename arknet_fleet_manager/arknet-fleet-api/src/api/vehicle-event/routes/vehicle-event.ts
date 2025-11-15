@@ -17,8 +17,9 @@ export default {
       path: '/vehicle-events/position',
       handler: 'vehicle-event.updatePosition',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 
@@ -28,8 +29,9 @@ export default {
       path: '/vehicle-events/door',
       handler: 'vehicle-event.doorEvent',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 

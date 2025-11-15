@@ -23,4 +23,8 @@ export default {
       },
     },
   ],
+  config: {
+    policies: [{ name: 'global::check-access-tier', config: {} }],
+    auth: { scope: ['admin'] },
+  }
 };

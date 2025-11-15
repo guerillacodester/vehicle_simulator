@@ -5,8 +5,9 @@ export default {
       path: '/landuse-shapes',
       handler: 'landuse-shape.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: {} }],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -14,8 +15,9 @@ export default {
       path: '/landuse-shapes/:id',
       handler: 'landuse-shape.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: {} }],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -23,8 +25,9 @@ export default {
       path: '/landuse-shapes',
       handler: 'landuse-shape.create',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: {} }],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -32,8 +35,9 @@ export default {
       path: '/landuse-shapes/:id',
       handler: 'landuse-shape.update',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: {} }],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -41,8 +45,9 @@ export default {
       path: '/landuse-shapes/:id',
       handler: 'landuse-shape.delete',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: {} }],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
   ],
