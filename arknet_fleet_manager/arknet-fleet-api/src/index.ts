@@ -196,6 +196,15 @@ export default {
   register({ strapi }: { strapi: Core.Strapi }) {
     // Register GraphQL extensions from modular folder structure
     const extensionService = strapi.plugin('graphql').service('extension');
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Load SDL schema - try dist first, fall back to src
+    let schemaPath = path.join(__dirname, './extensions/graphql/autostart/schema/autostart.graphql');
+    if (!fs.existsSync(schemaPath)) {
+      schemaPath = path.join(__dirname, '../../src/extensions/graphql/autostart/schema/autostart.graphql');
+    }
+    const autostartSDL = fs.readFileSync(schemaPath, 'utf8');
 
     extensionService.use(({ nexus }: any) => ({
       resolversConfig: {
@@ -203,7 +212,7 @@ export default {
           auth: false,
           policies: [],
         },
-        'Query.autostartSettings': {
+        'Query.myAutostartSettings': {
           auth: false,  // Disable auth checks, handle manually in resolver
           policies: [],
         },
@@ -218,9 +227,10 @@ export default {
       },
       types: [
         ...routeGeometryResolver({ nexus, strapi }),
-        ...autostartResolver({ nexus, strapi }),
         ...usersPermissionsExtension({ nexus, strapi }).types,
       ],
+      typeDefs: autostartSDL,
+      resolvers: autostartResolver({ strapi }),
     }));
   },
 
