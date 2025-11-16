@@ -1,0 +1,20 @@
+mutation Login {
+  login(input: { identifier: "test@example.com", password: "password123" }) {
+    jwt
+    user {
+      id
+      username
+      email
+      tier
+    }
+  }
+}
+
+query Me {
+  me {
+    id
+    username
+    email
+    tier
+  }
+}

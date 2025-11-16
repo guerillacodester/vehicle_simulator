@@ -17,8 +17,9 @@ export default {
       path: '/vehicle-events/position',
       handler: 'vehicle-event.updatePosition',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 
@@ -28,8 +29,9 @@ export default {
       path: '/vehicle-events/door',
       handler: 'vehicle-event.doorEvent',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 
@@ -39,7 +41,7 @@ export default {
       path: '/vehicle-events/rfid-tap',
       handler: 'vehicle-event.rfidTap',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -50,7 +52,7 @@ export default {
       path: '/vehicle-events/passenger-count',
       handler: 'vehicle-event.updatePassengerCount',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -61,7 +63,7 @@ export default {
       path: '/vehicle-events/driver-confirm-boarding',
       handler: 'vehicle-event.driverConfirmBoarding',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -72,7 +74,7 @@ export default {
       path: '/vehicle-events/driver-confirm-alighting',
       handler: 'vehicle-event.driverConfirmAlighting',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -83,7 +85,7 @@ export default {
       path: '/vehicle-events/arrive-stop',
       handler: 'vehicle-event.arriveAtStop',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -94,7 +96,7 @@ export default {
       path: '/vehicle-events/depart-stop',
       handler: 'vehicle-event.departFromStop',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },

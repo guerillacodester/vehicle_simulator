@@ -5,7 +5,7 @@ export default {
       path: '/poi-shapes',
       handler: 'poi-shape.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/poi-shapes/:id',
       handler: 'poi-shape.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -23,7 +23,7 @@ export default {
       path: '/poi-shapes',
       handler: 'poi-shape.create',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -32,7 +32,7 @@ export default {
       path: '/poi-shapes/:id',
       handler: 'poi-shape.update',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -41,7 +41,7 @@ export default {
       path: '/poi-shapes/:id',
       handler: 'poi-shape.delete',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'manager' } }],
         middlewares: [],
       },
     },

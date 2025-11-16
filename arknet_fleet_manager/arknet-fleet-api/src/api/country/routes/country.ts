@@ -5,7 +5,7 @@ export default {
       path: '/countries',
       handler: 'country.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/countries/:id',
       handler: 'country.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -23,7 +23,7 @@ export default {
       path: '/countries',
       handler: 'country.create',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -32,7 +32,7 @@ export default {
       path: '/countries/:id',
       handler: 'country.update',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -41,7 +41,7 @@ export default {
       path: '/countries/:id',
       handler: 'country.delete',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },

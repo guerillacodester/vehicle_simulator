@@ -5,7 +5,7 @@ export default {
       path: '/places',
       handler: 'place.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/places/:id',
       handler: 'place.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -23,8 +23,9 @@ export default {
       path: '/places',
       handler: 'place.create',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -32,8 +33,9 @@ export default {
       path: '/places/:id',
       handler: 'place.update',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -41,8 +43,9 @@ export default {
       path: '/places/:id',
       handler: 'place.delete',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
   ],

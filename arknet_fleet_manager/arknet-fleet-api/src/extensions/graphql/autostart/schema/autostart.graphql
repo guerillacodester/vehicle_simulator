@@ -1,0 +1,40 @@
+type AutostartSetting {
+  id: ID!
+  serviceId: String!
+  serviceName: String!
+  enabled: Boolean!
+  schedule: String
+  createdAt: DateTime
+  updatedAt: DateTime
+}
+
+type AutostartSettingsResponse {
+  success: Boolean!
+  settings: [AutostartSetting!]!
+}
+
+type SetAutostartSettingResponse {
+  success: Boolean!
+  setting: AutostartSetting
+  error: String
+}
+
+type RemoveAutostartSettingResponse {
+  success: Boolean!
+  message: String!
+}
+
+extend type Query {
+  myAutostartSettings: AutostartSettingsResponse!
+}
+
+extend type Mutation {
+  setAutostartSetting(
+    serviceId: String!
+    serviceName: String!
+    enabled: Boolean!
+    schedule: String
+  ): SetAutostartSettingResponse!
+  
+  removeAutostartSetting(id: Int!): RemoveAutostartSettingResponse!
+}

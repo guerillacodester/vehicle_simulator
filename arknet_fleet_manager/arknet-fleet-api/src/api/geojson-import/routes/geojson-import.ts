@@ -18,8 +18,9 @@ export default {
       path: '/import-geojson/highway',
       handler: 'geojson-import.importHighway',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 
@@ -29,8 +30,9 @@ export default {
       path: '/import-geojson/amenity',
       handler: 'geojson-import.importAmenity',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 
@@ -40,8 +42,9 @@ export default {
       path: '/import-geojson/landuse',
       handler: 'geojson-import.importLanduse',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 
@@ -51,8 +54,9 @@ export default {
       path: '/import-geojson/building',
       handler: 'geojson-import.importBuilding',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
 
@@ -62,8 +66,8 @@ export default {
       path: '/import-geojson/admin',
       handler: 'geojson-import.importAdmin',
       config: {
-        auth: false,
-        policies: [],
+        auth: { scope: ['admin'] },
+        policies: ['global::check-access-tier'],
         middlewares: [],
       },
     },
@@ -74,8 +78,9 @@ export default {
       path: '/import-geojson/health',
       handler: 'geojson-import.health',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
   ],

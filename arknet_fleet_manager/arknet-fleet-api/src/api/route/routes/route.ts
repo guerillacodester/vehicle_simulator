@@ -5,7 +5,7 @@ export default {
       path: '/routes',
       handler: 'route.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/routes/:id',
       handler: 'route.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -23,7 +23,7 @@ export default {
       path: '/routes',
       handler: 'route.create',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -32,7 +32,7 @@ export default {
       path: '/routes/:id',
       handler: 'route.update',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -41,7 +41,7 @@ export default {
       path: '/routes/:id',
       handler: 'route.delete',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },
@@ -50,8 +50,8 @@ export default {
       path: '/routes/:routeName/geometry',
       handler: 'route.getGeometry',
       config: {
-        auth: false,
-        policies: [],
+        auth: { scope: ['admin'] },
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
         middlewares: [],
       },
     },

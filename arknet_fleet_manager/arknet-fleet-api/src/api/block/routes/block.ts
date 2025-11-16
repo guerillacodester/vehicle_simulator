@@ -5,7 +5,7 @@ export default {
       path: '/blocks',
       handler: 'block.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/blocks/:id',
       handler: 'block.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },

@@ -5,7 +5,7 @@ export default {
       path: '/geofences',
       handler: 'geofence.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/geofences/:id',
       handler: 'geofence.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -46,4 +46,8 @@ export default {
       },
     },
   ],
+  config: {
+    policies: ['global::check-access-tier'],
+    auth: { scope: ['admin'] },
+  }
 };

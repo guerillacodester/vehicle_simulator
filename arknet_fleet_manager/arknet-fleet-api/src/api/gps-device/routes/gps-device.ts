@@ -5,8 +5,9 @@ export default {
       path: '/gps-devices',
       handler: 'gps-device.find',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -14,8 +15,9 @@ export default {
       path: '/gps-devices/:id',
       handler: 'gps-device.findOne',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -23,8 +25,9 @@ export default {
       path: '/gps-devices',
       handler: 'gps-device.create',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -32,8 +35,9 @@ export default {
       path: '/gps-devices/:id',
       handler: 'gps-device.update',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -41,8 +45,9 @@ export default {
       path: '/gps-devices/:id',
       handler: 'gps-device.delete',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
   ],

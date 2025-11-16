@@ -11,7 +11,7 @@ export default {
       path: '/active-passengers',
       handler: 'active-passenger.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -20,7 +20,7 @@ export default {
       path: '/active-passengers/:id',
       handler: 'active-passenger.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -29,7 +29,7 @@ export default {
       path: '/active-passengers',
       handler: 'active-passenger.create',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -38,7 +38,7 @@ export default {
       path: '/active-passengers/:id',
       handler: 'active-passenger.update',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -47,7 +47,7 @@ export default {
       path: '/active-passengers/:id',
       handler: 'active-passenger.delete',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'manager' } }],
         middlewares: [],
       },
     },
@@ -58,7 +58,7 @@ export default {
       path: '/active-passengers/mark-boarded/:passengerId',
       handler: 'active-passenger.markBoarded',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -67,7 +67,7 @@ export default {
       path: '/active-passengers/mark-alighted/:passengerId',
       handler: 'active-passenger.markAlighted',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'operator' } }],
         middlewares: [],
       },
     },
@@ -76,7 +76,7 @@ export default {
       path: '/active-passengers/near-location',
       handler: 'active-passenger.findNearLocation',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -85,7 +85,7 @@ export default {
       path: '/active-passengers/by-route/:routeId',
       handler: 'active-passenger.findByRoute',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },
@@ -94,7 +94,7 @@ export default {
       path: '/active-passengers/by-status/:status',
       handler: 'active-passenger.findByStatus',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'manager' } }],
         middlewares: [],
       },
     },
@@ -103,7 +103,7 @@ export default {
       path: '/active-passengers/cleanup/expired',
       handler: 'active-passenger.deleteExpired',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'viewer' } }],
         middlewares: [],
       },
     },

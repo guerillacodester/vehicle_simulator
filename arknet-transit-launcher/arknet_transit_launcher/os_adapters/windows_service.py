@@ -110,3 +110,61 @@ def disable(win_service_name: str) -> Dict[str, Any]:
         ], capture_output=True, text=True)
         return {"ok": ps.returncode == 0, "rc": ps.returncode, "stderr": ps.stderr}
     return {"ok": False, "error": "powershell not found"}
+
+
+def enable_user_autostart(task_name: str, command: str) -> Dict[str, Any]:
+    """Enable user autostart by creating a scheduled task on logon."""
+    try:
+        rc = subprocess.call([
+            "schtasks", "/create", "/tn", task_name, "/tr", command, "/sc", "onlogon", "/rl", "highest", "/f"
+        ])
+        return {"ok": rc == 0, "rc": rc}
+    except FileNotFoundError as e:
+        return {"ok": False, "error": str(e)}
+
+
+def disable_user_autostart(task_name: str) -> Dict[str, Any]:
+    """Disable user autostart by deleting the scheduled task."""
+    try:
+        rc = subprocess.call(["schtasks", "/delete", "/tn", task_name, "/f"])
+        return {"ok": rc == 0, "rc": rc}
+    except FileNotFoundError as e:
+        return {"ok": False, "error": str(e)}
+
+
+def is_user_autostart_enabled(task_name: str) -> bool:
+    """Check if user autostart task exists."""
+    try:
+        rc = subprocess.call(["schtasks", "/query", "/tn", task_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return rc == 0
+    except FileNotFoundError:
+        return False
+
+
+def enable_user_autostart(task_name: str, command: str) -> Dict[str, Any]:
+    """Enable user autostart by creating a scheduled task on logon."""
+    try:
+        rc = subprocess.call([
+            "schtasks", "/create", "/tn", task_name, "/tr", command, "/sc", "onlogon", "/rl", "highest", "/f"
+        ])
+        return {"ok": rc == 0, "rc": rc}
+    except FileNotFoundError as e:
+        return {"ok": False, "error": str(e)}
+
+
+def disable_user_autostart(task_name: str) -> Dict[str, Any]:
+    """Disable user autostart by deleting the scheduled task."""
+    try:
+        rc = subprocess.call(["schtasks", "/delete", "/tn", task_name, "/f"])
+        return {"ok": rc == 0, "rc": rc}
+    except FileNotFoundError as e:
+        return {"ok": False, "error": str(e)}
+
+
+def is_user_autostart_enabled(task_name: str) -> bool:
+    """Check if user autostart task exists."""
+    try:
+        rc = subprocess.call(["schtasks", "/query", "/tn", task_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return rc == 0
+    except FileNotFoundError:
+        return False

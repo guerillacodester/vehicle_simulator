@@ -5,9 +5,9 @@ export default {
       path: '/route-depots/backfill-labels',
       handler: 'route-depot.backfillLabels',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
-        auth: false,
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -15,9 +15,9 @@ export default {
       path: '/route-depots/debug-columns',
       handler: 'route-depot.debugColumns',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
-        auth: false,
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -25,7 +25,7 @@ export default {
       path: '/route-depots',
       handler: 'route-depot.find',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
       },
     },
@@ -34,7 +34,7 @@ export default {
       path: '/route-depots/:id',
       handler: 'route-depot.findOne',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
       },
     },
@@ -43,7 +43,7 @@ export default {
       path: '/route-depots',
       handler: 'route-depot.create',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
       },
     },
@@ -52,7 +52,7 @@ export default {
       path: '/route-depots/:id',
       handler: 'route-depot.update',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
       },
     },
@@ -61,7 +61,7 @@ export default {
       path: '/route-depots/:id',
       handler: 'route-depot.delete',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
       },
     },

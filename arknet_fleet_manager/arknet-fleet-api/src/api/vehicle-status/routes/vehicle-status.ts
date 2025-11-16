@@ -5,7 +5,7 @@ export default {
       path: '/vehicle-statuses',
       handler: 'vehicle-status.find',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -14,7 +14,7 @@ export default {
       path: '/vehicle-statuses/:id',
       handler: 'vehicle-status.findOne',
       config: {
-        policies: [],
+        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
         middlewares: [],
       },
     },
@@ -23,8 +23,9 @@ export default {
       path: '/vehicle-statuses',
       handler: 'vehicle-status.create',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -32,8 +33,9 @@ export default {
       path: '/vehicle-statuses/:id',
       handler: 'vehicle-status.update',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -41,8 +43,9 @@ export default {
       path: '/vehicle-statuses/:id',
       handler: 'vehicle-status.delete',
       config: {
-        policies: [],
+        policies: ['global::check-access-tier'],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
   ],

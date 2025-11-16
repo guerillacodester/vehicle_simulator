@@ -12,6 +12,8 @@ export enum ServiceState {
   HEALTHY = 'healthy',
   UNHEALTHY = 'unhealthy',
   FAILED = 'failed',
+  NOT_CONFIGURED = 'not_configured',
+  UNREACHABLE = 'unreachable',
 }
 
 export enum ConnectionState {

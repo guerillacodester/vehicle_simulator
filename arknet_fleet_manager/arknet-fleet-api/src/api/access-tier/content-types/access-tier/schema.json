@@ -1,10 +1,135 @@
 {
+  "kind": "collectionType",
   "collectionName": "access_tiers",
-  "info": { "singularName": "access-tier", "pluralName": "access-tiers", "displayName": "Access Tier" },
+  "info": {
+    "singularName": "access-tier",
+    "pluralName": "access-tiers",
+    "displayName": "Access Tier",
+    "description": "Access tier definitions for RBAC"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
   "attributes": {
-    "name": { "type": "string", "required": true },
-    "code": { "type": "string", "required": true, "unique": true },
-    "description": { "type": "text" },
-    "scopes": { "type": "json" }
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "level": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "description": {
+      "type": "text"
+    },
+    "can_manage_autostart": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_view_services": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_create_users": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_manage_all_autostart": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_create_access_tier": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_read_access_tier": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_update_access_tier": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_delete_access_tier": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_create_user_profile": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_read_user_profile": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_update_user_profile": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_delete_user_profile": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_create_agency": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_read_agency": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_update_agency": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_delete_agency": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_create_vehicle": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_read_vehicle": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_update_vehicle": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_delete_vehicle": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_create_route": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_read_route": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_update_route": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_delete_route": {
+      "type": "boolean",
+      "default": false
+    },
+    "user_profiles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::user-profile.user-profile",
+      "mappedBy": "access_tier"
+    }
   }
 }

@@ -20,6 +20,8 @@ export function ServiceCard({ service, onStart, onStop, disabled = false, isDisc
     stopped: '⚪',
     failed: '🔴',
     unhealthy: '🟠',
+    not_configured: '⚙️',
+    unreachable: '❌',
   }[service.state] || '⚪';
 
   return (
@@ -137,7 +139,8 @@ export function ServiceCard({ service, onStart, onStop, disabled = false, isDisc
           {service.message || ''}
         </div>
 
-        {/* Buttons - Fixed at bottom */}
+        {/* Buttons - Fixed at bottom (only show for managed services) */}
+        {service.type !== 'dependency' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           <button 
             onClick={() => onStart(service.name)} 
@@ -198,6 +201,7 @@ export function ServiceCard({ service, onStart, onStop, disabled = false, isDisc
             ⏹ Stop
           </button>
         </div>
+        )}
       </div>
     </div>
   );
