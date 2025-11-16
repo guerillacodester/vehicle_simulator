@@ -1,6 +1,7 @@
 import type { Core } from '@strapi/strapi';
 import { initializeSocketIO, shutdownSocketIO } from './socketio/server';
 import routeGeometryResolver from './extensions/graphql/routeGeometry/resolvers/routeGeometry';
+import autostartResolver from './extensions/graphql/autostart/resolvers/autostart';
 import usersPermissionsExtension from './extensions/graphql/users-permissions/extension';
 
 /**
@@ -202,9 +203,22 @@ export default {
           auth: false,
           policies: [],
         },
+        'Query.autostartSettings': {
+          auth: false,  // Disable auth checks, handle manually in resolver
+          policies: [],
+        },
+        'Mutation.setAutostartSetting': {
+          auth: false,  // Disable auth checks, handle manually in resolver
+          policies: [],
+        },
+        'Mutation.removeAutostartSetting': {
+          auth: false,  // Disable auth checks, handle manually in resolver
+          policies: [],
+        },
       },
       types: [
         ...routeGeometryResolver({ nexus, strapi }),
+        ...autostartResolver({ nexus, strapi }),
         ...usersPermissionsExtension({ nexus, strapi }).types,
       ],
     }));

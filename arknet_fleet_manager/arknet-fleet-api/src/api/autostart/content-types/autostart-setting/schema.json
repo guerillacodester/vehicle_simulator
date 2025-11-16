@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "autostart_settings",
+  "info": {
+    "singularName": "autostart-setting",
+    "pluralName": "autostart-settings",
+    "displayName": "Autostart Setting",
+    "description": "Per-user autostart configuration for services"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "serviceId": {
+      "type": "string",
+      "required": true,
+      "unique": false
+    },
+    "serviceName": {
+      "type": "string",
+      "required": true
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "schedule": {
+      "type": "string",
+      "required": false
+    }
+  }
+}
