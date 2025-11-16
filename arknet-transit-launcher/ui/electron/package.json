@@ -1,0 +1,18 @@
+{
+  "name": "arknet-transit-launcher-electron",
+  "version": "0.0.1",
+  "description": "Desktop UI for ArkNet Transit Launcher",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron . --dev",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "author": "Guerilla Codester",
+  "license": "MIT"
+}
