@@ -1,0 +1,44 @@
+/* ArkNet Electron Theme - Glassmorphism & Amber Accent */
+:root {
+  --color-bg-main: #000b2a;
+  --color-bg-gradient: linear-gradient(135deg, #000b2a 0%, #00133f 100%);
+  --color-header-gradient: linear-gradient(90deg, #FFC107 0%, #FFD700 100%);
+  --color-bg-card: #0b1224cc;
+  --color-border-card: #1e293b;
+  --color-amber: #FFC107;
+  --color-amber-dark: #FFB300;
+  --color-gray: #64748b;
+  --color-shadow-card: 0 4px 24px rgba(0,0,0,0.18);
+  --color-shadow-card-hover: 0 8px 32px rgba(255,199,38,0.18);
+}
+body {
+  background: var(--color-bg-gradient);
+  color: #fff;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  background: #1e293b;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-amber);
+  border-radius: 8px;
+}
+
+/* Utility classes */
+.glass-bg {
+  background: var(--color-bg-gradient);
+  min-height: 100vh;
+}
+.glass-section {
+  background: rgba(11,18,36,0.5);
+  border-radius: 24px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* Card and Button base styles are in component files */

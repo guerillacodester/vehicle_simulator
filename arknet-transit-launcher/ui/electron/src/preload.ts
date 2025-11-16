@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // Define the API exposed to the renderer
 interface ElectronAPI {
-  getServicesStatus: () => Promise<{ [key: string]: 'running' | 'stopped' | 'unknown' }>;
+  getServicesStatus: () => Promise<any[]>;
   startService: (serviceName: string) => Promise<{ success: boolean; message: string }>;
   stopService: (serviceName: string) => Promise<{ success: boolean; message: string }>;
 }

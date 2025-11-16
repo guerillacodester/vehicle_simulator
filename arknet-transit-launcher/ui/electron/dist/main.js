@@ -50,11 +50,16 @@ function createWindow() {
         icon: path.join(__dirname, 'assets/icon.png') // Add icon later
     });
     // Load the app
-    mainWindow.loadFile('index.html');
-    // Open DevTools in development
-    if (process.argv.includes('--dev')) {
-        mainWindow.webContents.openDevTools();
-    }
+    mainWindow.loadFile('dist/renderer/src/index.html');
+    // Log when the page is loaded
+    mainWindow.webContents.on('did-finish-load', () => {
+        console.log('Page loaded successfully');
+    });
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('Failed to load:', errorCode, errorDescription);
+    });
+    // Always open DevTools to see console
+    mainWindow.webContents.openDevTools();
     // Handle window closed
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -75,25 +80,21 @@ electron_1.app.on('activate', () => {
 // IPC handlers for backend communication
 electron_1.ipcMain.handle('get-services-status', async () => {
     try {
-        const response = await fetch('http://localhost:7000/services');
+        const response = await fetch('http://127.0.0.1:7000/services');
         if (!response.ok)
             throw new Error('Failed to fetch services');
         const services = await response.json();
-        // Map to our format
-        const status = {};
-        services.forEach((service) => {
-            status[service.name] = service.state === 'healthy' ? 'running' : service.state === 'unhealthy' ? 'stopped' : 'unknown';
-        });
-        return status;
+        // Return the full service list from backend
+        return services;
     }
     catch (error) {
         console.error('Error fetching services status:', error);
-        return { redis: 'unknown', strapi: 'unknown' };
+        return [];
     }
 });
 electron_1.ipcMain.handle('start-service', async (event, serviceName) => {
     try {
-        const response = await fetch(`http://localhost:7000/services/${serviceName}/start`, { method: 'POST' });
+        const response = await fetch(`http://127.0.0.1:7000/services/${serviceName}/start`, { method: 'POST' });
         if (!response.ok)
             throw new Error('Failed to start service');
         const result = await response.json();
@@ -106,7 +107,7 @@ electron_1.ipcMain.handle('start-service', async (event, serviceName) => {
 });
 electron_1.ipcMain.handle('stop-service', async (event, serviceName) => {
     try {
-        const response = await fetch(`http://localhost:7000/services/${serviceName}/stop`, { method: 'POST' });
+        const response = await fetch(`http://127.0.0.1:7000/services/${serviceName}/stop`, { method: 'POST' });
         if (!response.ok)
             throw new Error('Failed to stop service');
         const result = await response.json();

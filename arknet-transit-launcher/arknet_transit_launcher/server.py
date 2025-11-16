@@ -3,10 +3,37 @@ Simple FastAPI app factory for arknet-transit-launcher.
 This is a starter stub; the real server will import service_manager and adapters.
 """
 from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
 from typing import Dict, Any, List
 import os
 import sys
 import asyncio
+
+import configparser
+CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../config.ini'))
+
+def get_enabled_services():
+    config = configparser.ConfigParser()
+    config.read(CONFIG_PATH, encoding='utf-8')
+    services = []
+    for section in config.sections():
+        if section == 'launcher':
+            continue
+        enabled = config.getboolean(section, 'enabled', fallback=False)
+        if enabled:
+            services.append({
+                'name': section,
+                'display_name': config.get(section, 'display_name', fallback=section),
+                'description': config.get(section, 'description', fallback=''),
+                'category': config.get(section, 'category', fallback=''),
+                'icon': config.get(section, 'icon', fallback=''),
+                'port': config.get(section, 'port', fallback=''),
+                'health_url': config.get(section, 'health_url', fallback=''),
+                'spawn_console': config.getboolean(section, 'spawn_console', fallback=False),
+                'startup_wait': config.get(section, 'startup_wait', fallback='0'),
+                'dependencies': config.get(section, 'dependencies', fallback=''),
+            })
+    return services
 
 # Add the current directory to path for imports
 sys.path.append(os.path.dirname(__file__))
@@ -23,8 +50,6 @@ except ImportError:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="ArkNet Transit Launcher")
-    
     # Initialize Redis health checker
     redis_url = os.getenv("REDIS_URL", None)
     redis_health_checker = RedisHealthChecker(
@@ -52,38 +77,47 @@ def create_app() -> FastAPI:
                 }
             await asyncio.sleep(float(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "30.0")))
     
-    @app.on_event("startup")
-    async def startup_event():
-        """Start background tasks on startup"""
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """Lifespan event handler for startup/shutdown"""
+        # Startup
         asyncio.create_task(update_redis_health())
+        yield
+        # Shutdown (if needed)
+    
+    app = FastAPI(title="ArkNet Transit Launcher", lifespan=lifespan)
 
     @app.get("/health")
     async def health():
         return {"status": "healthy", "service": "arknet-transit-launcher"}
     
+
     @app.get("/services")
     async def get_services_status() -> List[Dict[str, Any]]:
-        """Get status of all services including Redis"""
-        services: List[Dict[str, Any]] = []
+        """Get all enabled services from config.ini"""
+        return get_enabled_services()
 
-        # Add Redis status if available
-        if redis_status:
-            services.append(redis_status)
+    @app.post("/services/{service_name}/start")
+    async def start_service(service_name: str) -> Dict[str, Any]:
+        services = get_enabled_services()
+        service = next((s for s in services if s['name'] == service_name), None)
+        if not service:
+            raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found or not enabled")
+        # Example: spawn a process or call a script here
+        # For now, just simulate success
+        # TODO: Implement actual start logic
+        return {"message": f"Service '{service_name}' started (simulated)"}
 
-        # Add Redis service management status if available
-        if redis_service_manager and redis_service_manager.is_service_based_management_available():
-            service_info = redis_service_manager.get_status()
-            service_status = {
-                "name": "redis-service",
-                "type": "service",
-                "state": "running" if service_info.is_running else "stopped",
-                "message": f"Redis service is {'running' if service_info.is_running else 'stopped'}",
-                "is_enabled": service_info.is_enabled,
-                "status_message": service_info.status_message
-            }
-            services.append(service_status)
-
-        return services
+    @app.post("/services/{service_name}/stop")
+    async def stop_service(service_name: str) -> Dict[str, Any]:
+        services = get_enabled_services()
+        service = next((s for s in services if s['name'] == service_name), None)
+        if not service:
+            raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found or not enabled")
+        # Example: stop a process or call a script here
+        # For now, just simulate success
+        # TODO: Implement actual stop logic
+        return {"message": f"Service '{service_name}' stopped (simulated)"}
 
     @app.post("/autostart/enable")
     async def enable_autostart(service: str) -> Dict[str, Any]:
@@ -158,10 +192,12 @@ def create_app() -> FastAPI:
         else:
             raise HTTPException(status_code=500, detail="Failed to enable Redis service auto-start")
 
+
     return app
 
+# Expose FastAPI app for Uvicorn
+app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(create_app(), host="0.0.0.0", port=7000)
+    uvicorn.run(app, host="0.0.0.0", port=7000)

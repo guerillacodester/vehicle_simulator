@@ -27,12 +27,19 @@ function createWindow(): void {
   });
 
   // Load the app
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile('dist/renderer/src/index.html');
 
-  // Open DevTools in development
-  if (process.argv.includes('--dev')) {
-    mainWindow.webContents.openDevTools();
-  }
+  // Log when the page is loaded
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Page loaded successfully');
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
+
+  // Always open DevTools to see console
+  mainWindow.webContents.openDevTools();
 
   // Handle window closed
   mainWindow.on('closed', () => {
@@ -56,26 +63,22 @@ app.on('activate', () => {
 });
 
 // IPC handlers for backend communication
-ipcMain.handle('get-services-status', async (): Promise<ServiceStatus> => {
+ipcMain.handle('get-services-status', async (): Promise<any[]> => {
   try {
-    const response = await fetch('http://localhost:7000/services');
+    const response = await fetch('http://127.0.0.1:7000/services');
     if (!response.ok) throw new Error('Failed to fetch services');
     const services = await response.json();
-    // Map to our format
-    const status: ServiceStatus = {};
-    services.forEach((service: any) => {
-      status[service.name] = service.state === 'healthy' ? 'running' : service.state === 'unhealthy' ? 'stopped' : 'unknown';
-    });
-    return status;
+    // Return the full service list from backend
+    return services;
   } catch (error) {
     console.error('Error fetching services status:', error);
-    return { redis: 'unknown', strapi: 'unknown' };
+    return [];
   }
 });
 
 ipcMain.handle('start-service', async (event: any, serviceName: string): Promise<ServiceResult> => {
   try {
-    const response = await fetch(`http://localhost:7000/services/${serviceName}/start`, { method: 'POST' });
+    const response = await fetch(`http://127.0.0.1:7000/services/${serviceName}/start`, { method: 'POST' });
     if (!response.ok) throw new Error('Failed to start service');
     const result = await response.json();
     return { success: true, message: result.message };
@@ -87,7 +90,7 @@ ipcMain.handle('start-service', async (event: any, serviceName: string): Promise
 
 ipcMain.handle('stop-service', async (event: any, serviceName: string): Promise<ServiceResult> => {
   try {
-    const response = await fetch(`http://localhost:7000/services/${serviceName}/stop`, { method: 'POST' });
+    const response = await fetch(`http://127.0.0.1:7000/services/${serviceName}/stop`, { method: 'POST' });
     if (!response.ok) throw new Error('Failed to stop service');
     const result = await response.json();
     return { success: true, message: result.message };
