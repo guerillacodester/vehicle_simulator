@@ -1,7 +1,0 @@
-{
-    "settings": {
-        "mainField": "display_name",
-        "defaultSortBy": "distance_from_route_m",
-        "defaultSortOrder": "ASC"
-    }
-}
