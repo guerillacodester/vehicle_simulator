@@ -266,9 +266,9 @@ python -m pytest tests/test_redis_health.py --cov=arknet_transit_launcher.health
 ## References
 
 - **Task ID**: 4209 - Redis Health Detection and Reporting
-- **Redis Python Client**: https://redis.io/docs/clients/python/
-- **FastAPI Documentation**: https://fastapi.tiangolo.com/
-- **React TypeScript**: https://react-typescript-cheatsheet.netlify.app/
+- **Redis Python Client**: <https://redis.io/docs/clients/python/>
+- **FastAPI Documentation**: <https://fastapi.tiangolo.com/>
+- **React TypeScript**: <https://react-typescript-cheatsheet.netlify.app/>
 
 ---
 
@@ -277,31 +277,31 @@ python -m pytest tests/test_redis_health.py --cov=arknet_transit_launcher.health
 All acceptance criteria met:
 
 ✅ **Backend exposes Redis health endpoint**
-   - `/services` endpoint returns Redis status in array
+- `/services` endpoint returns Redis status in array
 
 ✅ **Frontend fetches and displays Redis health**
-   - ServiceManager loads Redis from `/services`
-   - ServiceCard displays Redis with status badge
+- ServiceManager loads Redis from `/services`
+- ServiceCard displays Redis with status badge
 
 ✅ **Health check runs periodically (30s interval)**
-   - Background asyncio task in launcher server
+- Background asyncio task in launcher server
 
 ✅ **Shows connection status (healthy/unhealthy/disconnected)**
-   - 4 states: HEALTHY, UNHEALTHY, NOT_CONFIGURED, UNREACHABLE
+- 4 states: HEALTHY, UNHEALTHY, NOT_CONFIGURED, UNREACHABLE
 
 ✅ **Displays latency information**
-   - `latency_ms` field in response, shown in UI message
+- `latency_ms` field in response, shown in UI message
 
 ✅ **Gracefully handles Redis unavailability**
-   - Shows NOT_CONFIGURED when Redis not available
-   - System continues operating without Redis
+- Shows NOT_CONFIGURED when Redis not available
+- System continues operating without Redis
 
 ✅ **Unit tests for health checking logic**
-   - 8 comprehensive tests, all passing
+- 8 comprehensive tests, all passing
 
 ✅ **Integration with existing service monitoring**
-   - Redis appears alongside other services in dashboard
-   - Uses existing ServiceCard component infrastructure
+- Redis appears alongside other services in dashboard
+- Uses existing ServiceCard component infrastructure
 
 ---
 
