@@ -68,6 +68,7 @@ export default [
     },
   },
   'strapi::session',
+  'global::populateUserProfile', // Custom middleware to load user profile after auth
   'strapi::favicon',
   'strapi::public',
 ];

@@ -5,8 +5,9 @@ export default {
       path: '/vehicles',
       handler: 'vehicle.find',
       config: {
-        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
+        policies: [{ name: 'global::rbac-tier-policy', config: { contentType: 'vehicle', operation: 'read' } }],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -14,8 +15,9 @@ export default {
       path: '/vehicles/:id',
       handler: 'vehicle.findOne',
       config: {
-        policies: [{ name: 'global::check-access-tier', config: { minTier: 'guest' } }],
+        policies: [{ name: 'global::rbac-tier-policy', config: { contentType: 'vehicle', operation: 'read' } }],
         middlewares: [],
+        auth: { scope: ['admin'] },
       },
     },
     {
@@ -23,7 +25,7 @@ export default {
       path: '/vehicles',
       handler: 'vehicle.create',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::rbac-tier-policy', config: { contentType: 'vehicle', operation: 'create' } }],
         middlewares: [],
         auth: { scope: ['admin'] },
       },
@@ -33,7 +35,7 @@ export default {
       path: '/vehicles/:id',
       handler: 'vehicle.update',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::rbac-tier-policy', config: { contentType: 'vehicle', operation: 'update' } }],
         middlewares: [],
         auth: { scope: ['admin'] },
       },
@@ -43,7 +45,7 @@ export default {
       path: '/vehicles/:id',
       handler: 'vehicle.delete',
       config: {
-        policies: ['global::check-access-tier'],
+        policies: [{ name: 'global::rbac-tier-policy', config: { contentType: 'vehicle', operation: 'delete' } }],
         middlewares: [],
         auth: { scope: ['admin'] },
       },
