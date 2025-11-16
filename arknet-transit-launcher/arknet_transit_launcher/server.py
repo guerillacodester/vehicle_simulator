@@ -14,6 +14,13 @@ sys.path.append(os.path.dirname(__file__))
 from os_adapters import systemd, windows_service
 from health import RedisHealthChecker
 
+# Import RedisServiceManager for service management
+try:
+    from health.redis_service_manager import RedisServiceManager
+    SERVICE_MANAGER_AVAILABLE = True
+except ImportError:
+    SERVICE_MANAGER_AVAILABLE = False
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="ArkNet Transit Launcher")
@@ -24,7 +31,10 @@ def create_app() -> FastAPI:
         redis_url=redis_url,
         latency_threshold_ms=float(os.getenv("REDIS_LATENCY_THRESHOLD_MS", "100.0"))
     )
-    
+
+    # Initialize Redis service manager
+    redis_service_manager = RedisServiceManager() if SERVICE_MANAGER_AVAILABLE else None
+
     # Store Redis status
     redis_status = {}
     
@@ -55,11 +65,24 @@ def create_app() -> FastAPI:
     async def get_services_status() -> List[Dict[str, Any]]:
         """Get status of all services including Redis"""
         services: List[Dict[str, Any]] = []
-        
+
         # Add Redis status if available
         if redis_status:
             services.append(redis_status)
-        
+
+        # Add Redis service management status if available
+        if redis_service_manager and redis_service_manager.is_service_based_management_available():
+            service_info = redis_service_manager.get_status()
+            service_status = {
+                "name": "redis-service",
+                "type": "service",
+                "state": "running" if service_info.is_running else "stopped",
+                "message": f"Redis service is {'running' if service_info.is_running else 'stopped'}",
+                "is_enabled": service_info.is_enabled,
+                "status_message": service_info.status_message
+            }
+            services.append(service_status)
+
         return services
 
     @app.post("/autostart/enable")
@@ -98,6 +121,42 @@ def create_app() -> FastAPI:
             enabled = systemd.is_active(service, user=True)
         
         return {"service": service, "autostart_enabled": enabled}
+
+    @app.post("/services/redis/start")
+    async def start_redis_service() -> Dict[str, Any]:
+        """Start the Redis service using service manager."""
+        if not redis_service_manager:
+            raise HTTPException(status_code=500, detail="Redis service manager not available")
+
+        success = redis_service_manager.ensure_running()
+        if success:
+            return {"message": "Redis service started successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to start Redis service")
+
+    @app.post("/services/redis/stop")
+    async def stop_redis_service() -> Dict[str, Any]:
+        """Stop the Redis service using service manager."""
+        if not redis_service_manager:
+            raise HTTPException(status_code=500, detail="Redis service manager not available")
+
+        success = redis_service_manager.stop_service()
+        if success:
+            return {"message": "Redis service stopped successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to stop Redis service")
+
+    @app.post("/services/redis/enable")
+    async def enable_redis_service() -> Dict[str, Any]:
+        """Enable Redis service auto-start."""
+        if not redis_service_manager:
+            raise HTTPException(status_code=500, detail="Redis service manager not available")
+
+        success = redis_service_manager.ensure_auto_start()
+        if success:
+            return {"message": "Redis service auto-start enabled"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to enable Redis service auto-start")
 
     return app
 
