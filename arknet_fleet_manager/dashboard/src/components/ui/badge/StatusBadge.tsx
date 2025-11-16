@@ -38,6 +38,16 @@ const statusConfig: Record<ServiceState, { variant: 'default' | 'success' | 'war
     label: 'FAILED',
     emoji: '🔴',
   },
+  [ServiceState.NOT_CONFIGURED]: {
+    variant: 'neutral',
+    label: 'NOT CONFIGURED',
+    emoji: '⚙️',
+  },
+  [ServiceState.UNREACHABLE]: {
+    variant: 'error',
+    label: 'UNREACHABLE',
+    emoji: '❌',
+  },
 };
 
 export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
