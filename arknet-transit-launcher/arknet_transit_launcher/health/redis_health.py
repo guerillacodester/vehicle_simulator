@@ -99,9 +99,9 @@ class RedisHealthChecker:
                         "service_status": service_status
                     }
 
-                # If service doesn't exist, log warning but continue with connection check
+                # If service doesn't exist, log info (not warning) and continue with connection check
                 if not service_status["exists"]:
-                    logger.warning(f"Redis service not detected: {detected_info.reason if detected_info else 'No service info'}")
+                    logger.info(f"Redis service management unavailable ({detected_info.reason if detected_info else 'no service detected'}), using connection-based monitoring")
 
             except Exception as e:
                 logger.warning(f"Service status check failed, falling back to connection check: {e}")

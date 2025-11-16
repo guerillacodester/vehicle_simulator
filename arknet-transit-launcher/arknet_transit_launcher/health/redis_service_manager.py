@@ -118,7 +118,7 @@ class RedisServiceManager:
             exists=False,
             reason="No Redis service found with common names"
         )
-        logger.info("No Redis service detected on system")
+        logger.info("Redis service management unavailable - no OS-managed Redis service detected")
         return self.detected_service
 
     def get_status(self) -> ServiceStatus:
@@ -172,7 +172,7 @@ class RedisServiceManager:
             True if service is now running, False otherwise
         """
         if not self.detected_service or not self.detected_service.exists:
-            logger.warning("Cannot ensure running: Redis service not detected")
+            logger.info("Redis service management unavailable - cannot start service")
             return False
 
         status = self.get_status()
@@ -209,7 +209,7 @@ class RedisServiceManager:
             True if auto-start is enabled, False otherwise
         """
         if not self.detected_service or not self.detected_service.exists:
-            logger.warning("Cannot ensure auto-start: Redis service not detected")
+            logger.info("Redis service management unavailable - cannot enable auto-start")
             return False
 
         if not self._adapter_available:
@@ -239,7 +239,7 @@ class RedisServiceManager:
             True if successfully stopped, False otherwise
         """
         if not self.detected_service or not self.detected_service.exists:
-            logger.warning("Cannot stop: Redis service not detected")
+            logger.info("Redis service management unavailable - cannot stop service")
             return False
 
         try:
@@ -265,7 +265,7 @@ class RedisServiceManager:
             True if successfully restarted, False otherwise
         """
         if not self.detected_service or not self.detected_service.exists:
-            logger.warning("Cannot restart: Redis service not detected")
+            logger.info("Redis service management unavailable - cannot restart service")
             return False
 
         logger.info(f"Restarting Redis service: {self.detected_service.name}")
