@@ -1,5 +1,11 @@
 ﻿import { factories } from '@strapi/strapi';
 import Redis from 'ioredis';
+import * as zlib from 'zlib';
+import { promisify } from 'util';
+
+// Promisify zlib functions for async/await
+const gzipAsync = promisify(zlib.gzip);
+const ungzipAsync = promisify(zlib.gunzip);
 
 // Initialize Redis client (default: localhost:6379)
 // Make connection resilient and avoid unhandled error events when Redis
@@ -73,14 +79,33 @@ export default factories.createCoreService('api::route.route', ({ strapi }) => (
     }
   },
   async fetchRouteGeometry(routeShortName: string) {
-    // Check Redis cache first
-    const cacheKey = `route:geometry:${routeShortName}`;
+    // Optimized cache key with versioning
+    const cacheKey = `route:geometry:v2:${routeShortName}`;
+    const metadataKey = `route:geometry:meta:v2:${routeShortName}`;
+
     try {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        console.log(`[Redis Cache] HIT for route geometry: ${routeShortName}`);
-        return JSON.parse(cached);
+      // Check cache with metadata first
+      const [cachedData, metadata] = await Promise.all([
+        redis.getBuffer(cacheKey),
+        redis.get(metadataKey)
+      ]);
+
+      if (cachedData && metadata) {
+        const meta = JSON.parse(metadata);
+        const decompressed = await ungzipAsync(cachedData);
+        const result = JSON.parse(decompressed.toString());
+
+        console.log(`[Redis Cache] HIT for route geometry: ${routeShortName} (${meta.size} bytes compressed, ${meta.accessCount} accesses)`);
+
+        // Update access count and TTL (sliding expiration)
+        const newAccessCount = meta.accessCount + 1;
+        const newTTL = Math.min(3600 * 24, 3600 + (newAccessCount * 300)); // Max 24h, base 1h + 5min per access
+        await redis.set(metadataKey, JSON.stringify({ ...meta, accessCount: newAccessCount }), 'EX', newTTL);
+        await redis.expire(cacheKey, newTTL);
+
+        return result;
       }
+
       console.log(`[Redis Cache] MISS for route geometry: ${routeShortName}`);
     } catch (err) {
       console.error(`[Redis Cache] Error reading cache for ${routeShortName}:`, err);
@@ -190,14 +215,105 @@ export default factories.createCoreService('api::route.route', ({ strapi }) => (
 
     const result = { coords: finalCoords, segments: bestOrdering, metrics, raw: { routeShapes, shapePoints } };
 
-    // Cache the result in Redis (TTL: 1 hour = 3600 seconds)
+    // Optimized cache storage with compression
     try {
-      await redis.set(cacheKey, JSON.stringify(result), 'EX', 3600);
-      console.log(`[Redis Cache] STORED route geometry: ${routeShortName} (TTL: 1 hour)`);
+      const jsonData = JSON.stringify(result);
+      const compressed = await gzipAsync(Buffer.from(jsonData));
+
+      // Calculate TTL based on data size and complexity
+      const dataSize = compressed.length;
+      const baseTTL = 3600; // 1 hour base
+      const sizeBonus = Math.floor(dataSize / 10000) * 1800; // +30min per 10KB
+      const complexityBonus = Math.floor(metrics.totalPoints / 1000) * 900; // +15min per 1000 points
+      const ttl = Math.min(baseTTL + sizeBonus + complexityBonus, 86400); // Max 24 hours
+
+      const metadata = {
+        size: dataSize,
+        uncompressedSize: jsonData.length,
+        compressionRatio: (jsonData.length / dataSize).toFixed(2),
+        totalPoints: metrics.totalPoints,
+        segments: metrics.segments,
+        accessCount: 1,
+        created: new Date().toISOString(),
+        ttl: ttl
+      };
+
+      // Store compressed data and metadata with same TTL
+      await Promise.all([
+        redis.setex(cacheKey, ttl, compressed),
+        redis.setex(metadataKey, ttl, JSON.stringify(metadata))
+      ]);
+
+      console.log(`[Redis Cache] STORED route geometry: ${routeShortName} (${dataSize} bytes compressed, ratio: ${metadata.compressionRatio}x, TTL: ${Math.floor(ttl/3600)}h)`);
     } catch (err) {
       console.error(`[Redis Cache] Error storing cache for ${routeShortName}:`, err);
     }
 
     return result;
+  },
+
+  // Cache management utilities
+  async invalidateRouteCache(routeShortName: string) {
+    const cacheKey = `route:geometry:v2:${routeShortName}`;
+    const metadataKey = `route:geometry:meta:v2:${routeShortName}`;
+
+    try {
+      const deleted = await redis.del([cacheKey, metadataKey]);
+      console.log(`[Redis Cache] INVALIDATED route geometry: ${routeShortName} (${deleted} keys removed)`);
+      return deleted > 0;
+    } catch (err) {
+      console.error(`[Redis Cache] Error invalidating cache for ${routeShortName}:`, err);
+      return false;
+    }
+  },
+
+  async getCacheStats(routeShortName?: string) {
+    try {
+      const pattern = routeShortName
+        ? `route:geometry:meta:v2:${routeShortName}`
+        : 'route:geometry:meta:v2:*';
+
+      const keys = await redis.keys(pattern);
+      const stats: {
+        totalRoutes: number;
+        totalSize: number;
+        totalAccesses: number;
+        routes: Array<{
+          routeName: string;
+          size: number;
+          uncompressedSize: number;
+          compressionRatio: string;
+          totalPoints: number;
+          segments: number;
+          accessCount: number;
+          created: string;
+          ttl: number;
+        }>;
+      } = {
+        totalRoutes: 0,
+        totalSize: 0,
+        totalAccesses: 0,
+        routes: []
+      };
+
+      for (const key of keys) {
+        const metadata = await redis.get(key);
+        if (metadata) {
+          const meta = JSON.parse(metadata);
+          stats.totalRoutes++;
+          stats.totalSize += meta.size;
+          stats.totalAccesses += meta.accessCount;
+          stats.routes.push({
+            routeName: key.replace('route:geometry:meta:v2:', ''),
+            ...meta
+          });
+        }
+      }
+
+      return stats;
+    } catch (err) {
+      console.error('[Redis Cache] Error getting cache stats:', err);
+      return null;
+    }
   },
 }));
