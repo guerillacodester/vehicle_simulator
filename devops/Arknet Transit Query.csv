@@ -13,7 +13,7 @@
 "4207","Feature",,"Redis Resilience & Health",,,"Guerilla Codester <guerillacodester@gmail.com>","Active",
 "4208","User Story",,,"Implement redis_probe and detection",,"Guerilla Codester <guerillacodester@gmail.com>","Resolved",
 "4209","Task",,,,"Expose Redis detection in /services status","Guerilla Codester <guerillacodester@gmail.com>","Closed",
-"4210","User Story",,,"Optimize Redis client initialization for resilience",,"Guerilla Codester <guerillacodester@gmail.com>","Active",
+"4210","User Story",,,"Optimize Redis client initialization for resilience",,"Guerilla Codester <guerillacodester@gmail.com>","Resolved",
 "4313","Task",,,,"Optimize route geometry cache implementation","Guerilla Codester <guerillacodester@gmail.com>","New",
 "4318","Bug",,,,"Strapi spams [ioredis] Unhandled error event: AggregateError [ECONNREFUSED] when redis-server.exe is not running",,"Resolved",
 "4451","Task",,,,"Task: Implement Unified Cross-Platform Redis Service Manager",,"Closed",
