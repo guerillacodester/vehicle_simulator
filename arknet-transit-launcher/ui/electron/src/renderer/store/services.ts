@@ -24,8 +24,8 @@ export const useServiceStore = defineStore('services', () => {
     try {
       // Get full service list from backend
       const serviceList = await (window as any).electronAPI.getServicesStatus();
-      // Add state field (default unknown)
-      services.value = serviceList.map((s: any) => ({ ...s, state: 'unknown' }));
+      // Use backend state directly
+      services.value = serviceList;
     } catch (error) {
       console.error('Failed to load services', error);
     }

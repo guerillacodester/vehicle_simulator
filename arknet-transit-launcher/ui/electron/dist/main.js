@@ -58,8 +58,8 @@ function createWindow() {
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
         console.error('Failed to load:', errorCode, errorDescription);
     });
-    // Always open DevTools to see console
-    mainWindow.webContents.openDevTools();
+    // Uncomment the next line to open DevTools for debugging
+    // mainWindow.webContents.openDevTools();
     // Handle window closed
     mainWindow.on('closed', () => {
         mainWindow = null;

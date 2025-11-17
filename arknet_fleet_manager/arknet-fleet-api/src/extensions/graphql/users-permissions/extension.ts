@@ -4,22 +4,34 @@ import type { Core } from '@strapi/strapi';
 const tierResolver = async (user: any, _args: any, context: any) => {
   if (!user) return 'Guest';
 
-  // If tier/name is directly on user object (legacy/support)
+  // First try to get the enriched user from context (populated by populateUserProfile middleware)
+  const contextUser = context?.state?.user || context?.user;
+  
+  if (contextUser?.profile?.access_tier) {
+    const tier = contextUser.profile.access_tier.name || contextUser.profile.access_tier.tier;
+    if (tier) {
+      console.log(`[GraphQL] Tier from context middleware: ${tier}`);
+      return tier;
+    }
+  }
+
+  // Fallback: If tier/name is directly on user object (legacy/support)
   if (user.tier) return user.tier;
 
-  // If user already populated access_tier relation
+  // Fallback: If user already populated access_tier relation
   if (user.access_tier && (user.access_tier.name || user.access_tier.tier)) {
     return user.access_tier.name || user.access_tier.tier;
   }
 
-  // If profile relation contains access_tier
+  // Fallback: If profile relation contains access_tier
   if (user.profile && user.profile.access_tier && (user.profile.access_tier.name || user.profile.access_tier.tier)) {
     return user.profile.access_tier.name || user.profile.access_tier.tier;
   }
 
-  // Query user-profile separately since it's not a direct relation on user entity
+  // Last resort: Query user-profile separately since it's not a direct relation on user entity
   if (user.id && context?.strapi) {
     try {
+      console.log('[GraphQL] Falling back to database query for tier');
       // Query via link table since user relation uses a join table
       const userProfile = await context.strapi.db.connection.raw(`
         SELECT at.name as tier_name

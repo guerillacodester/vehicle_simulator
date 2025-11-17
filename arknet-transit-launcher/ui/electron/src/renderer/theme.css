@@ -1,44 +1,60 @@
-/* ArkNet Electron Theme - Glassmorphism & Amber Accent */
+/* ArkNet Electron Theme - Matching Next.js Admin Portal */
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700;900&display=swap');
+
 :root {
-  --color-bg-main: #000b2a;
-  --color-bg-gradient: linear-gradient(135deg, #000b2a 0%, #00133f 100%);
-  --color-header-gradient: linear-gradient(90deg, #FFC107 0%, #FFD700 100%);
-  --color-bg-card: #0b1224cc;
-  --color-border-card: #1e293b;
-  --color-amber: #FFC107;
-  --color-amber-dark: #FFB300;
-  --color-gray: #64748b;
-  --color-shadow-card: 0 4px 24px rgba(0,0,0,0.18);
-  --color-shadow-card-hover: 0 8px 32px rgba(255,199,38,0.18);
+  --color-amber: #FFC726;
+  --color-bg-main: #000000;
+  --color-bg-card: rgba(11, 18, 36, 0.8);
+  --color-border-card: rgba(255, 199, 38, 0.2);
 }
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
-  background: var(--color-bg-gradient);
+  background-color: #000000;
   color: #fff;
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+}
+
+/* Neon text animation */
+.neon-text {
+  animation: pulse 2.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    text-shadow: 
+      0 0 10px rgba(255, 199, 38, 0.5),
+      0 0 20px rgba(255, 199, 38, 0.3);
+  }
+  50% {
+    text-shadow: 
+      0 0 15px rgba(255, 199, 38, 0.7),
+      0 0 25px rgba(255, 199, 38, 0.5),
+      0 0 35px rgba(255, 199, 38, 0.3);
+  }
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
-  background: #1e293b;
+  background: #0a0a0a;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--color-amber);
   border-radius: 8px;
 }
 
-/* Utility classes */
-.glass-bg {
-  background: var(--color-bg-gradient);
-  min-height: 100vh;
+::-webkit-scrollbar-thumb:hover {
+  background: #ffd740;
 }
-.glass-section {
-  background: rgba(11,18,36,0.5);
-  border-radius: 24px;
-  box-shadow: 0 4px 32px rgba(0,0,0,0.18);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-}
-
-/* Card and Button base styles are in component files */

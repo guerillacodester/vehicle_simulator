@@ -141,6 +141,7 @@ export default factories.createCoreController('api::route.route', ({ strapi }) =
 
   // Get route geometry with distance calculation
   async getGeometry(ctx) {
+    strapi.log.info(`[route.getGeometry] Handler called for routeName=${ctx.params.routeName}, user=${ctx.state.user?.id}`);
     const { routeName } = ctx.params;
     
     try {

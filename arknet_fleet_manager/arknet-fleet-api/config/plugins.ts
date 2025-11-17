@@ -59,6 +59,15 @@ export default ({ env }: any) => ({
       amountLimit: 100,
       apolloServer: {
         tracing: false,
+        // Pass Koa context to GraphQL resolvers so they have access to ctx.state.user
+        // which is enriched by the populateUserProfile middleware
+        context: ({ ctx }: { ctx: any }) => {
+          return {
+            koaContext: ctx,
+            state: ctx.state,
+            user: ctx.state?.user || null,
+          };
+        },
       },
     },
   },

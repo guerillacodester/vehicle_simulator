@@ -45,15 +45,5 @@ export default {
         middlewares: [],
       },
     },
-    {
-      method: 'GET',
-      path: '/routes/:routeName/geometry',
-      handler: 'route.getGeometry',
-      config: {
-        auth: { scope: ['admin'] },
-        policies: [{ name: 'global::check-access-tier', config: { minTier: 'admin' } }],
-        middlewares: [],
-      },
-    },
   ],
 };

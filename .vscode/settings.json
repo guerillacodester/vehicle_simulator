@@ -8,5 +8,7 @@
     "mssql.intelliSense.enableErrorChecking": false,
     "files.associations": {
         "**/commuter_service/**/*.sql": "postgres"
-    }
+    },
+    "azure-pipelines.customSchemaFile": "",
+    "azure-pipelines.autoDetect": "off"
 }

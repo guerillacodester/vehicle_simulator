@@ -162,10 +162,11 @@ class RouteBuffer:
 class FastApiStrategy(ApiStrategy):
     """FastAPI implementation of ApiStrategy - maintains existing behavior"""
     
-    def __init__(self, api_base_url: str):
+    def __init__(self, api_base_url: str, auth_client=None):
         self.api_base_url = api_base_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.api_connected = False
+        self.auth_client = auth_client
     
     async def initialize(self) -> bool:
         """Initialize HTTP session"""
@@ -179,8 +180,10 @@ class FastApiStrategy(ApiStrategy):
             return False
         
         try:
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Test basic connectivity to Strapi (health endpoint returns 204 No Content)
-            async with self.session.get(f"{self.api_base_url}/_health", timeout=5) as response:
+            async with self.session.get(f"{self.api_base_url}/_health", headers=headers, timeout=5) as response:
                 if response.status in [200, 204]:
                     logging.info(f"Strapi Fleet Manager connection successful")
                     self.api_connected = True
@@ -245,8 +248,10 @@ class FastApiStrategy(ApiStrategy):
             return []
         
         try:
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Get all vehicles from public API (includes all statuses)
-            async with self.session.get(f"{self.api_base_url}/api/v1/vehicles/public", timeout=10) as response:
+            async with self.session.get(f"{self.api_base_url}/api/v1/vehicles/public", headers=headers, timeout=10) as response:
                 if response.status == 200:
                     vehicles_data = await response.json()
                     logging.debug(f"[FastApiStrategy] Fetched {len(vehicles_data)} total depot vehicles")
@@ -266,8 +271,10 @@ class FastApiStrategy(ApiStrategy):
             return []
         
         try:
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Use the search endpoint that provides complete assignment data with human-readable identifiers
-            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", timeout=10) as response:
+            async with self.session.get(f"{self.api_base_url}/api/v1/search/vehicle-driver-pairs", headers=headers, timeout=10) as response:
                 if response.status != 200:
                     logging.error(f"[FastApiStrategy] Failed to fetch driver assignments: HTTP {response.status}")
                     return []
@@ -304,9 +311,11 @@ class FastApiStrategy(ApiStrategy):
             return None
         
         try:
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Get route geometry using the new Strapi REST endpoint: GET /api/routes/:routeName/geometry
             # This endpoint returns: { routeName, coordinateCount, segmentCount, distanceKm, coordinates, geometry, metrics }
-            async with self.session.get(f"{self.api_base_url}/api/routes/{route_code}/geometry", timeout=10) as geo_response:
+            async with self.session.get(f"{self.api_base_url}/api/routes/{route_code}/geometry", headers=headers, timeout=10) as geo_response:
                 if geo_response.status != 200:
                     logging.error(f"[FastApiStrategy] Failed to fetch geometry for route {route_code}: HTTP {geo_response.status}")
                     return None
@@ -367,10 +376,11 @@ class FastApiStrategy(ApiStrategy):
 class StrapiStrategy(ApiStrategy):
     """Strapi CMS implementation of ApiStrategy - replaces FastAPI with Strapi REST API"""
     
-    def __init__(self, api_base_url: str):
+    def __init__(self, api_base_url: str, auth_client=None):
         self.api_base_url = api_base_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.api_connected = False
+        self.auth_client = auth_client
     
     async def initialize(self) -> bool:
         """Initialize HTTP session"""
@@ -384,8 +394,14 @@ class StrapiStrategy(ApiStrategy):
             return False
         
         try:
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
+            if headers:
+                logging.info(f"[StrapiStrategy] Using JWT authentication for test_connection")
+            else:
+                logging.warning(f"[StrapiStrategy] No JWT token available for test_connection")
             # Test basic connectivity to Strapi API
-            async with self.session.get(f"{self.api_base_url}/api/vehicles", timeout=5) as response:
+            async with self.session.get(f"{self.api_base_url}/api/vehicles", headers=headers, timeout=5) as response:
                 if response.status == 200:
                     logging.info(f"Strapi connection successful")
                     self.api_connected = True
@@ -405,8 +421,10 @@ class StrapiStrategy(ApiStrategy):
             return []
         
         try:
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Get vehicles with populated relationships using correct Strapi field names
-            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate%5B0%5D=assigned_driver&populate%5B1%5D=preferred_route&populate%5B2%5D=vehicle_status", timeout=10) as response:
+            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate%5B0%5D=assigned_driver&populate%5B1%5D=preferred_route&populate%5B2%5D=vehicle_status", headers=headers, timeout=10) as response:
                 if response.status != 200:
                     logging.error(f"[StrapiStrategy] Failed to fetch assignments: HTTP {response.status}")
                     return []
@@ -455,8 +473,10 @@ class StrapiStrategy(ApiStrategy):
             return []
         
         try:
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Get all vehicles from Strapi API with relationships
-            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate=vehicle_status", timeout=10) as response:
+            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate=vehicle_status", headers=headers, timeout=10) as response:
                 if response.status == 200:
                     vehicles_data = await response.json()
                     vehicles = []
@@ -527,96 +547,57 @@ class StrapiStrategy(ApiStrategy):
             return []
     
     async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
-        """Get route information and geometry using GTFS-compliant Strapi structure"""
+        """Get route information and geometry using custom geometry endpoint"""
         if not self.api_connected or not self.session:
             logging.error(f"[StrapiStrategy] Cannot fetch route info - Strapi API not connected")
             return None
         
         try:
-            # Step 1: Get route details by route code from Strapi routes table
-            async with self.session.get(f"{self.api_base_url}/api/routes?filters[short_name][$eq]={route_code}", timeout=10) as route_response:
-                if route_response.status != 200:
-                    logging.error(f"[StrapiStrategy] Failed to fetch route {route_code}: HTTP {route_response.status}")
+            # Get auth headers if available
+            headers = self.auth_client.get_auth_header() if self.auth_client else {}
+            
+            # Use the new custom geometry endpoint
+            async with self.session.get(f"{self.api_base_url}/api/routes/{route_code}/geometry", headers=headers, timeout=10) as response:
+                if response.status != 200:
+                    logging.error(f"[StrapiStrategy] Failed to fetch route {route_code}: HTTP {response.status}")
                     return None
                     
-                route_data = await route_response.json()
-                routes = route_data.get('data', [])
+                data = await response.json()
                 
-                if not routes:
-                    logging.error(f"[StrapiStrategy] Route {route_code} not found in Strapi")
+                route_name = data.get('routeName', f'Route {route_code}')
+                coordinates = data.get('coordinates', [])
+                distance_km = data.get('distanceKm')
+                coordinate_count = len(coordinates)
+                
+                if coordinate_count == 0:
+                    logging.error(f"[StrapiStrategy] No coordinates returned for route {route_code}")
                     return None
                 
-                route = routes[0]
-                route_name = route.get('long_name', f'Route {route_code}')
+                first_coord = coordinates[0]
+                last_coord = coordinates[-1]
+                logging.info(f"[StrapiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates")
+                logging.info(f"[StrapiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
+                logging.info(f"[StrapiStrategy] Distance: {distance_km:.2f} km")
                 
-                logging.info(f"[StrapiStrategy] Found route: {route_name} (code: {route_code})")
-                
-            # Step 2: Get ALL route-shapes for this route
-            async with self.session.get(f"{self.api_base_url}/api/route-shapes?filters[route_id][$eq]={route_code}", timeout=10) as shape_link_response:
-                if shape_link_response.status != 200:
-                    logging.error(f"[StrapiStrategy] Failed to fetch route-shapes for route {route_code}: HTTP {shape_link_response.status}")
-                    return None
-
-                shape_link_data = await shape_link_response.json()
-                route_shapes = shape_link_data.get('data', [])
-
-                if not route_shapes:
-                    logging.error(f"[StrapiStrategy] No route-shapes found for route {route_code}")
-                    return None
-
-            # Step 3: For each shape, get all shape points and concatenate
-            all_coordinates = []
-            all_shape_ids = []
-            for shape in route_shapes:
-                shape_id = shape.get('shape_id')
-                all_shape_ids.append(shape_id)
-                async with self.session.get(f"{self.api_base_url}/api/shapes?filters[shape_id][$eq]={shape_id}&sort=shape_pt_sequence&pagination[pageSize]=1000", timeout=15) as shapes_response:
-                    if shapes_response.status != 200:
-                        logging.error(f"[StrapiStrategy] Failed to fetch shapes for shape_id {shape_id}: HTTP {shapes_response.status}")
-                        continue
-
-                    shapes_data = await shapes_response.json()
-                    shape_points = shapes_data.get('data', [])
-
-                    if not shape_points:
-                        logging.warning(f"[StrapiStrategy] No shape points found for shape_id {shape_id}")
-                        continue
-
-                    for point in shape_points:
-                        lon = point.get('shape_pt_lon')
-                        lat = point.get('shape_pt_lat')
-                        if lon is not None and lat is not None:
-                            all_coordinates.append([lon, lat])
-
-            coordinate_count = len(all_coordinates)
-
-            if coordinate_count > 0:
-                logging.info(f"[StrapiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates from ALL GTFS-compliant Strapi shapes")
-                first_coord = all_coordinates[0]
-                last_coord = all_coordinates[-1]
-                logging.info(f"[StrapiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}] (all shapes)")
                 geometry = {
                     "type": "LineString",
-                    "coordinates": all_coordinates
+                    "coordinates": coordinates
                 }
-            else:
-                logging.error(f"[StrapiStrategy] ❌ No valid coordinates found for route {route_code} (all shapes)")
-                return None
 
-            # Create RouteInfo with complete data from ALL GTFS-compliant Strapi shapes
-            route_info = RouteInfo(
-                route_id=route_code,
-                route_name=route_name,
-                route_type='bus',
-                geometry=geometry,
-                stops=None,
-                distance_km=None,
-                coordinate_count=coordinate_count,
-                shape_id=','.join(all_shape_ids)  # List all shape_ids used
-            )
+                # Create RouteInfo with complete data
+                route_info = RouteInfo(
+                    route_id=route_code,
+                    route_name=route_name,
+                    route_type='bus',
+                    geometry=geometry,
+                    stops=None,
+                    distance_km=distance_km,
+                    coordinate_count=coordinate_count,
+                    shape_id=None
+                )
 
-            logging.info(f"[StrapiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates from ALL GTFS shapes")
-            return route_info
+                logging.info(f"[StrapiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates")
+                return route_info
                     
         except Exception as e:
             logging.error(f"[StrapiStrategy] Error fetching route info for {route_code}: {str(e)}")
@@ -655,7 +636,7 @@ class Dispatcher(StateMachine, IDispatcher):
         
         # Use provided strategy or create default Strapi strategy (modern GTFS-compliant)
         if api_strategy is None:
-            self.api_strategy = StrapiStrategy(api_base_url)
+            self.api_strategy = StrapiStrategy(api_base_url, auth_client=None)
         else:
             self.api_strategy = api_strategy
             

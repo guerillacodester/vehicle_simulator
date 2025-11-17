@@ -82,6 +82,7 @@ user preference for clarity and            #leet Summary
 from __future__ import annotations
 import asyncio
 import logging
+import os
 from typing import Optional
 from datetime import datetime
 
@@ -93,11 +94,17 @@ try:
 except ImportError:
     _config_available = False
 
+from arknet_transit_simulator.core.strapi_auth import StrapiAuthClient
+from dotenv import load_dotenv
+
+# Load Strapi .env in Strapi root so STRAPI_USERNAME/STRAPI_PASSWORD are available
+load_dotenv('arknet_fleet_manager/arknet-fleet-api/.env')
+
 
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: Optional[str] = None, enable_boarding_after: float = None, gps_config: dict = None, sim_time = None, enable_api: bool = True, api_port: int = 5001) -> None:
+    def __init__(self, api_url: Optional[str] = None, enable_boarding_after: float = None, gps_config: dict = None, sim_time = None, enable_api: bool = True, api_port: int = 5001, strapi_username: str = None, strapi_password: str = None) -> None:
         """
         Initialize vehicle simulator.
         
@@ -133,13 +140,35 @@ class CleanVehicleSimulator:
         self.idle_drivers = []
         self._api_server = None  # uvicorn server instance
 
+        # Load Strapi credentials from environment or parameters
+        self.strapi_username = strapi_username or os.getenv('STRAPI_USERNAME') or os.getenv('STRAPI_USER', 'vehicle_simulator')
+        self.strapi_password = strapi_password or os.getenv('STRAPI_PASSWORD') or os.getenv('STRAPI_PASS')
+        
+        if not self.strapi_password:
+            logger.warning("No Strapi password provided. Set STRAPI_PASSWORD environment variable or pass strapi_password parameter.")
+        
+        self.strapi_auth_client = StrapiAuthClient(self.api_url, self.strapi_username, self.strapi_password)
+        self.jwt_token = None
+
     async def initialize(self) -> bool:
         try:
             from arknet_transit_simulator.core.depot_manager import DepotManager
-            from arknet_transit_simulator.core.dispatcher import Dispatcher
+            from arknet_transit_simulator.core.dispatcher import Dispatcher, StrapiStrategy
 
             logger.info("Initializing clean simulator (depot + dispatcher)...")
-            self.dispatcher = Dispatcher("FleetDispatcher", api_base_url=self.api_url)
+            
+            # Login to Strapi first
+            logger.info("Logging in to Strapi...")
+            jwt = await self.login_strapi()
+            if not jwt:
+                logger.error("Strapi login failed - cannot initialize simulator")
+                return False
+            logger.info(f"Strapi login successful - JWT: {jwt[:30]}...")
+            logger.info(f"Auth client token stored: {self.strapi_auth_client.jwt_token[:30] if self.strapi_auth_client.jwt_token else 'None'}...")
+            
+            # Create dispatcher with authenticated strategy
+            strapi_strategy = StrapiStrategy(self.api_url, auth_client=self.strapi_auth_client)
+            self.dispatcher = Dispatcher("FleetDispatcher", api_strategy=strapi_strategy, api_base_url=self.api_url)
             self.depot = DepotManager("MainDepot")
             self.depot.set_dispatcher(self.dispatcher)
 
@@ -760,6 +789,9 @@ class CleanVehicleSimulator:
                 await self.depot.shutdown()
             if self.dispatcher:
                 await self.dispatcher.shutdown()
+            
+            # Logout from Strapi
+            await self.logout_strapi()
         finally:
             logger.info("Shutdown complete")
 
@@ -772,3 +804,14 @@ class CleanVehicleSimulator:
         if not self.dispatcher:
             return None
         return await self.dispatcher.get_route_info(route_id)
+
+    async def login_strapi(self):
+        self.jwt_token = await self.strapi_auth_client.login()
+        return self.jwt_token
+
+    async def logout_strapi(self):
+        await self.strapi_auth_client.logout()
+        self.jwt_token = None
+
+    def get_strapi_auth_header(self):
+        return self.strapi_auth_client.get_auth_header()

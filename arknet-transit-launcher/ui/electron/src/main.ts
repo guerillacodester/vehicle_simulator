@@ -38,8 +38,8 @@ function createWindow(): void {
     console.error('Failed to load:', errorCode, errorDescription);
   });
 
-  // Always open DevTools to see console
-  mainWindow.webContents.openDevTools();
+  // Uncomment the next line to open DevTools for debugging
+  // mainWindow.webContents.openDevTools();
 
   // Handle window closed
   mainWindow.on('closed', () => {

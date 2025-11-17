@@ -226,3 +226,7 @@
 "4448","Task",,,,"Deploy Next.js",,"New",
 "4449","Task",,,,"Integrate Redis Health",,"New",
 "4450","Task",,,,"Test Redis Health",,"New",
+"4452","Bug",,,,"Vehicle simulator fails with HTTP 403 errors on multiple Strapi endpoints","Guerilla Codester <guerillacodester@gmail.com>","Active","authentication; strapi; simulator"
+"4453","Task",,,,"Implement centralized Strapi authentication client for vehicle simulator","Guerilla Codester <guerillacodester@gmail.com>","Active","refactoring; authentication"
+"4454","Task",,,,"Add integration tests for centralized Strapi client","Guerilla Codester <guerillacodester@gmail.com>","New","testing"
+"4455","Task",,,,"Document centralized Strapi client architecture and usage","Guerilla Codester <guerillacodester@gmail.com>","New","documentation"

@@ -1,0 +1,5 @@
+Work Item Type,Title 1,Title 2,Assigned To,State,Tags
+"Bug","Vehicle simulator fails with HTTP 403 errors on multiple Strapi endpoints",,"Guerilla Codester <guerillacodester@gmail.com>","New","authentication; strapi; simulator"
+"Task",,"Implement centralized Strapi authentication client for vehicle simulator","Guerilla Codester <guerillacodester@gmail.com>","New","refactoring; authentication"
+"Task",,"Add integration tests for centralized Strapi client","Guerilla Codester <guerillacodester@gmail.com>","New","testing"
+"Task",,"Document centralized Strapi client architecture and usage","Guerilla Codester <guerillacodester@gmail.com>","New","documentation"
