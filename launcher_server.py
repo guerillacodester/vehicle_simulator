@@ -57,9 +57,12 @@ logging.basicConfig(
 try:
     # Prefer new package shim if present (allows gradual migration)
     from arknet_transit_launcher.launcher_shim import app, manager, ManagedService, configure_cors, ConfigurationManager, sio, socket_app
+    from launcher.service_manager import service_router
+    app.include_router(service_router)
 except Exception:
     # Fallback to legacy launcher package
-    from launcher.service_manager import app, manager, ManagedService, configure_cors
+    from launcher.service_manager import app, manager, ManagedService, configure_cors, service_router
+    app.include_router(service_router)
     from launcher.config import ConfigurationManager
     from launcher.socket_server import sio, socket_app
 import socketio

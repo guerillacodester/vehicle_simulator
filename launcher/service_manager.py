@@ -1,3 +1,38 @@
+from fastapi import APIRouter, Request
+from fastapi.responses import Response
+# Create APIRouter for service endpoints
+service_router = APIRouter()
+# --- LOGIN ENDPOINT FOR ELECTRON UI ---
+@service_router.post("/login")
+async def login(request: Request):
+    """Authenticate user via Strapi GraphQL and return JWT/cookie."""
+    data = await request.json()
+    username = data.get("username")
+    password = data.get("password")
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username and password required.")
+
+    # Strapi GraphQL login mutation
+    graphql_url = "http://localhost:1337/graphql"  # Update if needed
+    query = '''mutation Login($identifier: String!, $password: String!) { login(input: { identifier: $identifier, password: $password }) { jwt user { id username email } } }'''
+    variables = {"identifier": username, "password": password}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(graphql_url, json={"query": query, "variables": variables})
+            result = resp.json()
+            jwt = result.get("data", {}).get("login", {}).get("jwt")
+            user = result.get("data", {}).get("login", {}).get("user")
+            if not jwt or not user:
+                raise HTTPException(status_code=401, detail="Invalid credentials.")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+
+    # Set JWT as HTTP-only cookie
+    import json
+    response = Response(content=json.dumps({"success": True, "user": user}), media_type="application/json")
+    response.set_cookie(key="jwt", value=jwt, httponly=True, max_age=86400)
+    return response
 """
 FastAPI-based service manager for orchestrating subsystem lifecycle.
 
@@ -42,6 +77,8 @@ class ServiceEvent(BaseModel):
     state: ServiceState
     message: str
     port: Optional[int] = None
+    version: str = "1.0"
+    event_type: str = "service_status"
 
 
 @dataclass
@@ -869,7 +906,7 @@ async def list_services():
 
 @app.websocket("/events")
 async def websocket_events(websocket: WebSocket):
-    """WebSocket endpoint for real-time service events."""
+    """WebSocket endpoint for real-time service events. Requires authentication token as query param."""
     await manager.subscribe_events(websocket)
 
 

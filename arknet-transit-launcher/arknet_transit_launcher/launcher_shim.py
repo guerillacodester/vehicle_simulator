@@ -6,12 +6,13 @@ same names. In future it can be replaced with native implementations under
 `arknet_transit_launcher` to move runtime to the new package.
 """
 
+import traceback
 # Re-export selected symbols from the existing `launcher` package
 try:
     from launcher.service_manager import app, manager, ManagedService, configure_cors
     from launcher.config import ConfigurationManager
     from launcher.socket_server import sio, socket_app
-except Exception:
+except Exception as import_error:
     # If legacy launcher package isn't available, expose placeholders to fail loud
     app = None
     manager = None
@@ -20,6 +21,8 @@ except Exception:
     ConfigurationManager = None
     sio = None
     socket_app = None
+    print(f"[launcher_shim] Import error: {import_error}")
+    traceback.print_exc()
 
 __all__ = [
     "app",

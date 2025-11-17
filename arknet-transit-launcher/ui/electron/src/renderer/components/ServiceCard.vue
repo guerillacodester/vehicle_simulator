@@ -38,7 +38,7 @@
       </div>
 
       <!-- Buttons - Fixed at bottom -->
-      <div v-if="service.type !== 'dependency'" class="card-actions">
+      <div v-if="showControls" class="card-actions">
         <button
           @click="start"
           :disabled="isRunning"
@@ -86,6 +86,12 @@ export default defineComponent({
       props.service.state === 'running' || props.service.state === 'healthy'
     );
 
+    // Hide controls for Strapi and Redis
+    const showControls = computed(() => {
+      const infra = ['strapi', 'redis'];
+      return props.service.type !== 'dependency' && !infra.includes(props.service.name.toLowerCase());
+    });
+
     const getServiceIcon = (state: string): string => {
       const icons: Record<string, string> = {
         running: '🟢',
@@ -102,7 +108,8 @@ export default defineComponent({
 
     return {
       isRunning,
-      getServiceIcon
+      getServiceIcon,
+      showControls
     };
   },
   methods: {

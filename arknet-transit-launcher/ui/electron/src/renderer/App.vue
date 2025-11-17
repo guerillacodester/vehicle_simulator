@@ -7,20 +7,74 @@
     </header>
     <main class="app-main">
       <div class="main-container">
-        <ServicesView />
+        <LoginCard v-if="!isAuthenticated" />
+        <ServicesView v-if="isAuthenticated" />
       </div>
     </main>
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+
+<script>
+import { defineComponent, ref, onMounted } from 'vue';
 import ServicesView from './components/ServicesView.vue';
+import LoginCard from './components/LoginCard.vue';
+import authProvider from './utils/authProvider';
+import socketProvider from './utils/socketProvider';
 
 export default defineComponent({
   name: 'App',
-  components: { ServicesView },
+  components: { ServicesView, LoginCard },
+  setup() {
+    const isAuthenticated = ref(false);
+    const user = ref(null);
+    const accessTier = ref(null);
+
+    function connectSocket() {
+      const session = authProvider.getSession();
+      if (!session) return;
+      socketProvider.connect({
+        url: 'http://localhost:7000',
+        token: session.jwt,
+        maxRetries: 5,
+        backoffBase: 1000,
+        backoffMax: 10000
+      });
+      socketProvider.on('service_status', (event) => {
+        // Handle service status events (update UI/state as needed)
+        console.log('Service event:', event);
+      });
+      socketProvider.on('connect', () => {
+        console.log('Socket connected');
+      });
+      socketProvider.on('disconnect', () => {
+        console.log('Socket disconnected');
+      });
+    }
+
+    function handleLoginSuccess(e) {
+      isAuthenticated.value = true;
+      user.value = e.detail.user;
+      accessTier.value = e.detail.user?.tier || e.detail.user?.roles || null;
+      connectSocket();
+    }
+
+    onMounted(() => {
+      window.addEventListener('login-success', handleLoginSuccess);
+      // Check for existing session on startup
+      const session = authProvider.getSession();
+      if (session && authProvider.isAuthenticated()) {
+        isAuthenticated.value = true;
+        user.value = session.user;
+        accessTier.value = authProvider.getAccessTier();
+        connectSocket();
+      }
+    });
+
+    return { isAuthenticated, user, accessTier };
+  }
 });
+
 </script>
 
 <style scoped>
