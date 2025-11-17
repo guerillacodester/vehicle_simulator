@@ -5,7 +5,7 @@
 
 export default {
   async getGeometry(ctx: any) {
-    strapi.log.info(`[route-geometry] Handler called for routeName=${ctx.params.routeName}, user=${ctx.state.user?.id}`);
+    strapi.log.info(`[route-geometry] Handler called for routeName=${ctx.params.routeName}, user=${ctx.state.user?.username}`);
     
     // Call the original route service method
     try {

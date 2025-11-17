@@ -147,28 +147,26 @@ class CleanVehicleSimulator:
         if not self.strapi_password:
             logger.warning("No Strapi password provided. Set STRAPI_PASSWORD environment variable or pass strapi_password parameter.")
         
-        self.strapi_auth_client = StrapiAuthClient(self.api_url, self.strapi_username, self.strapi_password)
-        self.jwt_token = None
+        from arknet_transit_simulator.services.strapi_client import StrapiClient
+        self.strapi_client = StrapiClient(self.api_url, self.strapi_username, self.strapi_password)
 
     async def initialize(self) -> bool:
         try:
             from arknet_transit_simulator.core.depot_manager import DepotManager
             from arknet_transit_simulator.core.dispatcher import Dispatcher, StrapiStrategy
+            from arknet_transit_simulator.services.config_service import ConfigurationService
 
             logger.info("Initializing clean simulator (depot + dispatcher)...")
-            
-            # Login to Strapi first
-            logger.info("Logging in to Strapi...")
-            jwt = await self.login_strapi()
-            if not jwt:
-                logger.error("Strapi login failed - cannot initialize simulator")
-                return False
-            logger.info(f"Strapi login successful - JWT: {jwt[:30]}...")
-            logger.info(f"Auth client token stored: {self.strapi_auth_client.jwt_token[:30] if self.strapi_auth_client.jwt_token else 'None'}...")
-            
-            # Create dispatcher with authenticated strategy
-            strapi_strategy = StrapiStrategy(self.api_url, auth_client=self.strapi_auth_client)
+            # Login to Strapi using centralized client
+            await self.strapi_client.initialize()
+            logger.info(f"Strapi login successful - JWT: {self.strapi_client._token[:30]}...")
+
+            # Create dispatcher and config service with centralized client
+            strapi_strategy = StrapiStrategy(self.strapi_client)
             self.dispatcher = Dispatcher("FleetDispatcher", api_strategy=strapi_strategy, api_base_url=self.api_url)
+            self.config_service = ConfigurationService(strapi_client=self.strapi_client)
+            await self.config_service.initialize()
+
             self.depot = DepotManager("MainDepot")
             self.depot.set_dispatcher(self.dispatcher)
 
@@ -176,11 +174,11 @@ class CleanVehicleSimulator:
             if not ok:
                 logger.error("Depot initialization failed")
                 return False
-            
+
             # Initialize Fleet Management API if enabled
             if self.enable_api:
                 await self._initialize_api()
-            
+
             logger.info("Clean simulator initialized ✔")
             return True
         except Exception as e:  # pragma: no cover (defensive)
@@ -805,13 +803,4 @@ class CleanVehicleSimulator:
             return None
         return await self.dispatcher.get_route_info(route_id)
 
-    async def login_strapi(self):
-        self.jwt_token = await self.strapi_auth_client.login()
-        return self.jwt_token
-
-    async def logout_strapi(self):
-        await self.strapi_auth_client.logout()
-        self.jwt_token = None
-
-    def get_strapi_auth_header(self):
-        return self.strapi_auth_client.get_auth_header()
+    # Centralized StrapiClient handles login/logout and auth header

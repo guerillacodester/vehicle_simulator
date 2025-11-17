@@ -220,7 +220,7 @@ export default {
           
           // Set user in context for middleware
           ctx.state.user = user;
-          strapi.log.info(`[route-geometry] User ${user.id} authenticated`);
+          strapi.log.info(`[route-geometry] User ${user.username} authenticated`);
           
           // Call the route controller method
           const controller = strapi.controller('api::route.route');

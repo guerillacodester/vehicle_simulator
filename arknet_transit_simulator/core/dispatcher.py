@@ -376,11 +376,9 @@ class FastApiStrategy(ApiStrategy):
 class StrapiStrategy(ApiStrategy):
     """Strapi CMS implementation of ApiStrategy - replaces FastAPI with Strapi REST API"""
     
-    def __init__(self, api_base_url: str, auth_client=None):
-        self.api_base_url = api_base_url
-        self.session: Optional[aiohttp.ClientSession] = None
-        self.api_connected = False
-        self.auth_client = auth_client
+    def __init__(self, strapi_client):
+        self.strapi_client = strapi_client
+        self.api_connected = True
     
     async def initialize(self) -> bool:
         """Initialize HTTP session"""
@@ -547,67 +545,47 @@ class StrapiStrategy(ApiStrategy):
             return []
     
     async def get_route_info(self, route_code: str) -> Optional[RouteInfo]:
-        """Get route information and geometry using custom geometry endpoint"""
-        if not self.api_connected or not self.session:
+        """Get route information and geometry using centralized StrapiClient"""
+        if not self.api_connected or not self.strapi_client:
             logging.error(f"[StrapiStrategy] Cannot fetch route info - Strapi API not connected")
             return None
-        
         try:
-            # Get auth headers if available
-            headers = self.auth_client.get_auth_header() if self.auth_client else {}
-            
-            # Use the new custom geometry endpoint
-            async with self.session.get(f"{self.api_base_url}/api/routes/{route_code}/geometry", headers=headers, timeout=10) as response:
-                if response.status != 200:
-                    logging.error(f"[StrapiStrategy] Failed to fetch route {route_code}: HTTP {response.status}")
-                    return None
-                    
-                data = await response.json()
-                
-                route_name = data.get('routeName', f'Route {route_code}')
-                coordinates = data.get('coordinates', [])
-                distance_km = data.get('distanceKm')
-                coordinate_count = len(coordinates)
-                
-                if coordinate_count == 0:
-                    logging.error(f"[StrapiStrategy] No coordinates returned for route {route_code}")
-                    return None
-                
-                first_coord = coordinates[0]
-                last_coord = coordinates[-1]
-                logging.info(f"[StrapiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates")
-                logging.info(f"[StrapiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
-                logging.info(f"[StrapiStrategy] Distance: {distance_km:.2f} km")
-                
-                geometry = {
-                    "type": "LineString",
-                    "coordinates": coordinates
-                }
-
-                # Create RouteInfo with complete data
-                route_info = RouteInfo(
-                    route_id=route_code,
-                    route_name=route_name,
-                    route_type='bus',
-                    geometry=geometry,
-                    stops=None,
-                    distance_km=distance_km,
-                    coordinate_count=coordinate_count,
-                    shape_id=None
-                )
-
-                logging.info(f"[StrapiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates")
-                return route_info
-                    
+            data = await self.strapi_client.get(f"/api/routes/{route_code}/geometry")
+            route_name = data.get('routeName', f'Route {route_code}')
+            coordinates = data.get('coordinates', [])
+            distance_km = data.get('distanceKm')
+            coordinate_count = len(coordinates)
+            if coordinate_count == 0:
+                logging.error(f"[StrapiStrategy] No coordinates returned for route {route_code}")
+                return None
+            first_coord = coordinates[0]
+            last_coord = coordinates[-1]
+            logging.info(f"[StrapiStrategy] ✅ Route {route_name} has {coordinate_count} GPS coordinates")
+            logging.info(f"[StrapiStrategy] Route path: [{first_coord[0]:.6f}, {first_coord[1]:.6f}] → [{last_coord[0]:.6f}, {last_coord[1]:.6f}]")
+            logging.info(f"[StrapiStrategy] Distance: {distance_km:.2f} km")
+            geometry = {
+                "type": "LineString",
+                "coordinates": coordinates
+            }
+            route_info = RouteInfo(
+                route_id=route_code,
+                route_name=route_name,
+                route_type='bus',
+                geometry=geometry,
+                stops=None,
+                distance_km=distance_km,
+                coordinate_count=coordinate_count,
+                shape_id=None
+            )
+            logging.info(f"[StrapiStrategy] ✅ Successfully loaded Route {route_name} with {coordinate_count} GPS coordinates")
+            return route_info
         except Exception as e:
             logging.error(f"[StrapiStrategy] Error fetching route info for {route_code}: {str(e)}")
             return None
     
     async def close(self) -> None:
-        """Clean up HTTP session"""
-        if self.session:
-            await self.session.close()
-            self.session = None
+        """No-op close method; session cleanup handled by StrapiClient."""
+        pass
 
 
 class Dispatcher(StateMachine, IDispatcher):

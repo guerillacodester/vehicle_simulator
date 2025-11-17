@@ -51,64 +51,42 @@ class ConfigurationService:
     _instance = None
     _initialized = False
     
-    def __new__(cls):
+    def __new__(cls, strapi_client=None):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
+            cls._instance.strapi_client = strapi_client
+        elif strapi_client is not None:
+            cls._instance.strapi_client = strapi_client
         return cls._instance
     
-    def __init__(self):
+    def __init__(self, strapi_client=None):
         if not self._initialized:
-            # Load Strapi URL from ConfigProvider
-            strapi_url = "http://localhost:1337"  # Fallback
-            if _config_available:
-                try:
-                    config = get_config()
-                    strapi_url = config.infrastructure.strapi_url
-                except Exception:
-                    pass  # Use fallback
-            
-            self.strapi_url = strapi_url
-            self.api_endpoint = f"{self.strapi_url}/api/operational-configurations"
-            
+            # Use centralized StrapiClient (already set in __new__)
             # Cache configuration data
-            self._cache: Dict[str, Dict[str, Any]] = {}  # {section: {parameter: config_data}}
-            self._flat_cache: Dict[str, Any] = {}  # {"section.parameter": value}
-            
+            self._cache: Dict[str, Dict[str, Any]] = {}
+            self._flat_cache: Dict[str, Any] = {}
             # Change detection
             self._previous_values: Dict[str, Any] = {}
             self._change_callbacks: Dict[str, List[Callable]] = defaultdict(list)
-            
             # Auto-refresh settings
             self.refresh_interval_seconds = 30
             self._refresh_task: Optional[asyncio.Task] = None
             self._last_refresh: Optional[datetime] = None
-            
-            # Session management
-            self._session: Optional[aiohttp.ClientSession] = None
-            
             ConfigurationService._initialized = True
     
     async def initialize(self):
         """Initialize the service and load initial configuration data."""
         logger.info("[ConfigService] Initializing configuration service...")
-        
-        # Create aiohttp session
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        
         # Load initial data
         await self.refresh()
-        
         # Start auto-refresh task
         if self._refresh_task is None or self._refresh_task.done():
             self._refresh_task = asyncio.create_task(self._auto_refresh_loop())
-        
         logger.info(f"[ConfigService] Initialized with {len(self._flat_cache)} parameters")
     
     async def shutdown(self):
         """Shutdown the service and cleanup resources."""
         logger.info("[ConfigService] Shutting down configuration service...")
-        
         # Cancel refresh task
         if self._refresh_task and not self._refresh_task.done():
             self._refresh_task.cancel()
@@ -116,58 +94,43 @@ class ConfigurationService:
                 await self._refresh_task
             except asyncio.CancelledError:
                 pass
-        
-        # Close aiohttp session
-        if self._session and not self._session.closed:
-            await self._session.close()
-        
         logger.info("[ConfigService] Shutdown complete")
     
     async def refresh(self):
-        """Refresh configuration data from Strapi."""
+        """Refresh configuration data from Strapi using centralized client."""
         try:
             # Fetch all configurations with pagination
             params = {
                 "pagination[pageSize]": 100,
                 "pagination[page]": 1
             }
-            
-            async with self._session.get(self.api_endpoint, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    configs = data.get("data", [])
-                    
-                    # Clear caches
-                    self._cache.clear()
-                    new_flat_cache = {}
-                    
-                    # Process configurations
-                    for config in configs:
-                        # In Strapi v5, attributes are at root level, not nested
-                        section = config.get("section")
-                        parameter = config.get("parameter")
-                        value_raw = config.get("value")
-                        value_type = config.get("value_type")
-                        
-                        # Parse value from JSON string to actual type
-                        try:
-                            value = json.loads(value_raw) if isinstance(value_raw, str) else value_raw
-                        except (json.JSONDecodeError, TypeError):
-                            value = value_raw
-                        
-                        if section and parameter:
-                            # Store in hierarchical cache (with parsed value)
-                            if section not in self._cache:
-                                self._cache[section] = {}
-                            
-                            # Update the config with parsed value for storage
-                            config_copy = config.copy()
-                            config_copy["value"] = value
-                            self._cache[section][parameter] = config_copy
-                            
-                            # Store in flat cache
-                            key = f"{section}.{parameter}"
-                            new_flat_cache[key] = value
+            data = await self.strapi_client.get("/api/operational-configurations", params=params)
+            configs = data.get("data", [])
+            # Clear caches
+            self._cache.clear()
+            new_flat_cache = {}
+            # Process configurations
+            for config in configs:
+                section = config.get("section")
+                parameter = config.get("parameter")
+                value_raw = config.get("value")
+                value_type = config.get("value_type")
+                # Parse value from JSON string to actual type
+                try:
+                    value = json.loads(value_raw) if isinstance(value_raw, str) else value_raw
+                except (json.JSONDecodeError, TypeError):
+                    value = value_raw
+                if section and parameter:
+                    # Store in hierarchical cache (with parsed value)
+                    if section not in self._cache:
+                        self._cache[section] = {}
+                    # Update the config with parsed value for storage
+                    config_copy = config.copy()
+                    config_copy["value"] = value
+                    self._cache[section][parameter] = config_copy
+                    # Store in flat cache
+                    key = f"{section}.{parameter}"
+                    new_flat_cache[key] = value
                     
                     # Detect changes and trigger callbacks
                     await self._detect_changes(new_flat_cache)
