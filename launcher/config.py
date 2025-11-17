@@ -94,38 +94,32 @@ class ConfigurationManager:
         """Get all service configurations from plugin sections."""
         services = {}
         
-        # Known service sections (could be made dynamic in the future)
-        service_names = ['strapi', 'gpscentcom', 'geospatial', 'vehicle_simulator', 'commuter_service']
-        
-        for service_name in service_names:
-            if service_name in self.config:
-                section = self.config[service_name]
-                
-                # Parse dependencies
-                dependencies_str = section.get('dependencies', '')
-                dependencies = [dep.strip() for dep in dependencies_str.split(',') if dep.strip()]
-                
-                # Collect extra config (all other settings in the section)
-                extra_config = {}
-                for key, value in section.items():
-                    if key not in ['enabled', 'port', 'url', 'health_url', 'spawn_console', 
-                                 'startup_wait', 'category', 'display_name', 'description', 'icon', 'dependencies']:
-                        extra_config[key] = value
-                
-                services[service_name] = ServiceConfig(
-                    name=service_name,
-                    enabled=section.getboolean('enabled', False),
-                    port=section.getint('port', None) if section.get('port') else None,
-                    url=section.get('url'),
-                    health_url=section.get('health_url'),
-                    spawn_console=section.getboolean('spawn_console', False),
-                    startup_wait=section.getint('startup_wait', 10),
-                    category=section.get('category', 'unknown'),
-                    display_name=section.get('display_name', service_name),
-                    description=section.get('description', ''),
-                    icon=section.get('icon', '⚙️'),
-                    dependencies=dependencies,
-                    extra_config=extra_config
-                )
-        
+        # Dynamically load all sections except global config
+        exclude_sections = {'launcher', 'infrastructure', 'logging'}
+        for section_name in self.config.sections():
+            if section_name in exclude_sections:
+                continue
+            section = self.config[section_name]
+            dependencies_str = section.get('dependencies', '')
+            dependencies = [dep.strip() for dep in dependencies_str.split(',') if dep.strip()]
+            extra_config = {}
+            for key, value in section.items():
+                if key not in ['enabled', 'port', 'url', 'health_url', 'spawn_console', 
+                             'startup_wait', 'category', 'display_name', 'description', 'icon', 'dependencies']:
+                    extra_config[key] = value
+            services[section_name] = ServiceConfig(
+                name=section_name,
+                enabled=section.getboolean('enabled', False),
+                port=section.getint('port', None) if section.get('port') else None,
+                url=section.get('url'),
+                health_url=section.get('health_url'),
+                spawn_console=section.getboolean('spawn_console', False),
+                startup_wait=section.getint('startup_wait', 10),
+                category=section.get('category', 'unknown'),
+                display_name=section.get('display_name', section_name),
+                description=section.get('description', ''),
+                icon=section.get('icon', '⚙️'),
+                dependencies=dependencies,
+                extra_config=extra_config
+            )
         return services

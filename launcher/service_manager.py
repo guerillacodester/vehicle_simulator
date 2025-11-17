@@ -565,6 +565,19 @@ class ServiceManager:
         
         service = self.services[name]
 
+        # Generate status message based on current state
+        message = ""
+        if service.state == ServiceState.RUNNING or service.state == ServiceState.HEALTHY:
+            message = f"Running on port {service.port}" if service.port else "Running"
+        elif service.state == ServiceState.STARTING:
+            message = "Starting service..."
+        elif service.state == ServiceState.STOPPED:
+            message = "Service is stopped"
+        elif service.state == ServiceState.FAILED:
+            message = "Service failed to start"
+        elif service.state == ServiceState.UNHEALTHY:
+            message = "Service is unhealthy"
+        
         status = {
             "name": service.name,
             "state": service.state.value,
@@ -579,7 +592,9 @@ class ServiceManager:
             "display_name": service.display_name,
             "description": service.description,
             "category": service.category,
-            "icon": service.icon
+            "type": service.category,  # Map category to type for UI compatibility
+            "icon": service.icon,
+            "message": message
         }
 
         # If this is the redis managed service, add detection info (non-blocking)

@@ -126,6 +126,13 @@ def register_services():
             is_npm = False
             npm_command = None
             as_module = "arknet_transit_simulator"
+        elif service_name == "nextjs_admin":
+            # Next.js Admin Portal (dashboard)
+            # Prefer npm execution in the dashboard directory; allow exe_cmd override via config
+            script_path = root_path / "arknet_fleet_manager" / "dashboard"
+            is_npm = True
+            npm_command = "dev"
+            as_module = None
         else:
             print(f"   ⚠️  Unknown service type: {service_name}")
             continue
@@ -165,6 +172,12 @@ def register_services():
             if service.port:
                 # For redis-server, the port is passed as an argument
                 service.extra_args = [str(service.port)]
+        # Next.js Admin: allow exe_cmd override to support custom run command
+        if service_name == "nextjs_admin":
+            exe_cmd = service_config.extra_config.get('exe_cmd')
+            if exe_cmd:
+                # Use raw exe_cmd instead of npm path if provided
+                service.raw_command = [exe_cmd]
         
         manager.register_service(service)
         print(f"   ✅ Registered: {service_name} (port {service_config.port})")
