@@ -379,86 +379,71 @@ class StrapiStrategy(ApiStrategy):
     def __init__(self, strapi_client):
         self.strapi_client = strapi_client
         self.api_connected = True
-    
+
     async def initialize(self) -> bool:
-        """Initialize HTTP session"""
-        if not self.session:
-            self.session = aiohttp.ClientSession()
+        """Initialize Strapi client (already initialized externally)"""
+        # No session to initialize here; handled by strapi_client
         return True
-    
+
     async def test_connection(self) -> bool:
-        """Test Strapi API connection"""
-        if not self.session:
-            return False
-        
+        """Test Strapi API connection using centralized client"""
         try:
-            # Get auth headers if available
-            headers = self.auth_client.get_auth_header() if self.auth_client else {}
-            if headers:
-                logging.info(f"[StrapiStrategy] Using JWT authentication for test_connection")
+            # Test basic connectivity to Strapi API (get returns JSON data directly)
+            data = await self.strapi_client.get("/api/vehicles", timeout=5)
+            if data is not None:
+                logging.info(f"Strapi connection successful")
+                self.api_connected = True
+                return True
             else:
-                logging.warning(f"[StrapiStrategy] No JWT token available for test_connection")
-            # Test basic connectivity to Strapi API
-            async with self.session.get(f"{self.api_base_url}/api/vehicles", headers=headers, timeout=5) as response:
-                if response.status == 200:
-                    logging.info(f"Strapi connection successful")
-                    self.api_connected = True
-                    return True
-                else:
-                    logging.error(f"Strapi returned status {response.status}")
-                    return False
-                    
+                logging.error(f"Strapi returned no data")
+                return False
         except Exception as e:
             logging.error(f"Strapi connection failed: {str(e)}")
             return False
-    
+
     async def get_vehicle_assignments(self) -> List[VehicleAssignment]:
         """Get vehicle assignments from Strapi with proper relationship mapping"""
-        if not self.api_connected or not self.session:
+        if not self.api_connected:
             logging.error(f"[StrapiStrategy] Cannot fetch assignments - API not connected")
             return []
         
         try:
-            # Get auth headers if available
-            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Get vehicles with populated relationships using correct Strapi field names
-            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate%5B0%5D=assigned_driver&populate%5B1%5D=preferred_route&populate%5B2%5D=vehicle_status", headers=headers, timeout=10) as response:
-                if response.status != 200:
-                    logging.error(f"[StrapiStrategy] Failed to fetch assignments: HTTP {response.status}")
-                    return []
+            vehicles_data = await self.strapi_client.get("/api/vehicles?populate%5B0%5D=assigned_driver&populate%5B1%5D=preferred_route&populate%5B2%5D=vehicle_status", timeout=10)
+            if not vehicles_data:
+                logging.error(f"[StrapiStrategy] Failed to fetch assignments: No data returned")
+                return []
+            assignments = []
+            
+            # Transform Strapi vehicles into VehicleAssignment objects
+            for vehicle_item in vehicles_data.get('data', []):
+                vehicle = vehicle_item
+                driver = vehicle.get('assigned_driver')
+                route = vehicle.get('preferred_route')
+                status = vehicle.get('vehicle_status')
                 
-                vehicles_data = await response.json()
-                assignments = []
-                
-                # Transform Strapi vehicles into VehicleAssignment objects
-                for vehicle_item in vehicles_data.get('data', []):
-                    vehicle = vehicle_item
-                    driver = vehicle.get('assigned_driver')
-                    route = vehicle.get('preferred_route')
-                    status = vehicle.get('vehicle_status')
+                # Only include assignments with active drivers and valid routes
+                if (driver and route and 
+                    driver.get('employment_status') == 'active' and
+                    vehicle.get('reg_code') and route.get('short_name')):
                     
-                    # Only include assignments with active drivers and valid routes
-                    if (driver and route and 
-                        driver.get('employment_status') == 'active' and
-                        vehicle.get('reg_code') and route.get('short_name')):
-                        
-                        assignment = VehicleAssignment(
-                            vehicle_id=vehicle.get('reg_code', ''),          # Use reg_code as vehicle_id
-                            route_id=route.get('short_name', ''),            # Use route short_name
-                            driver_id=driver.get('license_no', ''),          # Use license_no as driver_id
-                            assignment_type='regular',
-                            start_time=vehicle.get('createdAt'),
-                            end_time=None,
-                            # Human-readable friendly names
-                            vehicle_reg_code=vehicle.get('reg_code', 'Unknown Vehicle'),
-                            driver_name=driver.get('name', 'Unknown Driver'),
-                            route_name=route.get('long_name', 'Unknown Route'),
-                            vehicle_status=status.get('status_id', 'unknown') if status else 'unknown'
-                        )
-                        assignments.append(assignment)
-                
-                logging.info(f"[StrapiStrategy] Fetched {len(assignments)} vehicle assignments from Strapi")
-                return assignments
+                    assignment = VehicleAssignment(
+                        vehicle_id=vehicle.get('reg_code', ''),          # Use reg_code as vehicle_id
+                        route_id=route.get('short_name', ''),            # Use route short_name
+                        driver_id=driver.get('license_no', ''),          # Use license_no as driver_id
+                        assignment_type='regular',
+                        start_time=vehicle.get('createdAt'),
+                        end_time=None,
+                        # Human-readable friendly names
+                        vehicle_reg_code=vehicle.get('reg_code', 'Unknown Vehicle'),
+                        driver_name=driver.get('name', 'Unknown Driver'),
+                        route_name=route.get('long_name', 'Unknown Route'),
+                        vehicle_status=status.get('status_id', 'unknown') if status else 'unknown'
+                    )
+                    assignments.append(assignment)
+            
+            logging.info(f"[StrapiStrategy] Fetched {len(assignments)} vehicle assignments from Strapi")
+            return assignments
                         
         except Exception as e:
             logging.error(f"[StrapiStrategy] Error fetching vehicle assignments: {str(e)}")
@@ -466,46 +451,43 @@ class StrapiStrategy(ApiStrategy):
     
     async def get_all_depot_vehicles(self) -> List[Dict[str, Any]]:
         """Get ALL vehicles from Strapi depot with normalized format matching FastAPI"""
-        if not self.api_connected or not self.session:
+        if not self.api_connected:
             logging.error(f"[StrapiStrategy] Cannot fetch depot vehicles - API not connected")
             return []
         
         try:
-            # Get auth headers if available
-            headers = self.auth_client.get_auth_header() if self.auth_client else {}
             # Get all vehicles from Strapi API with relationships
-            async with self.session.get(f"{self.api_base_url}/api/vehicles?populate=vehicle_status", headers=headers, timeout=10) as response:
-                if response.status == 200:
-                    vehicles_data = await response.json()
-                    vehicles = []
+            vehicles_data = await self.strapi_client.get("/api/vehicles?populate=vehicle_status", timeout=10)
+            if vehicles_data:
+                vehicles = []
+                
+                # Transform Strapi vehicles to match FastAPI format
+                for vehicle_item in vehicles_data.get('data', []):
+                    vehicle = vehicle_item
+                    status = vehicle.get('vehicle_status')
                     
-                    # Transform Strapi vehicles to match FastAPI format
-                    for vehicle_item in vehicles_data.get('data', []):
-                        vehicle = vehicle_item
-                        status = vehicle.get('vehicle_status')
-                        
-                        # Create normalized vehicle dict matching FastAPI format
-                        normalized_vehicle = {
-                            'registration': vehicle.get('reg_code', ''),
-                            'reg_code': vehicle.get('reg_code', ''),  # Also include for compatibility
-                            'capacity': vehicle.get('capacity', 0),
-                            'type': vehicle.get('vehicle_type', 'bus'),  # Default type
-                            'status': status.get('status_id', 'unknown') if status else 'unknown',
-                            'vehicle_status': status.get('status_id', 'unknown') if status else 'unknown',
-                            'max_speed_kmh': vehicle.get('max_speed_kmh', 90),
-                            'acceleration_mps2': vehicle.get('acceleration_mps2', 1.2),
-                            'braking_mps2': vehicle.get('braking_mps2', 1.8),
-                            'eco_mode': vehicle.get('eco_mode', True),
-                            'createdAt': vehicle.get('createdAt'),
-                            'updatedAt': vehicle.get('updatedAt')
-                        }
-                        vehicles.append(normalized_vehicle)
-                    
-                    logging.debug(f"[StrapiStrategy] Fetched {len(vehicles)} total depot vehicles from Strapi")
-                    return vehicles
-                else:
-                    logging.error(f"[StrapiStrategy] Failed to fetch depot vehicles: HTTP {response.status}")
-                    return []
+                    # Create normalized vehicle dict matching FastAPI format
+                    normalized_vehicle = {
+                        'registration': vehicle.get('reg_code', ''),
+                        'reg_code': vehicle.get('reg_code', ''),  # Also include for compatibility
+                        'capacity': vehicle.get('capacity', 0),
+                        'type': vehicle.get('vehicle_type', 'bus'),  # Default type
+                        'status': status.get('status_id', 'unknown') if status else 'unknown',
+                        'vehicle_status': status.get('status_id', 'unknown') if status else 'unknown',
+                        'max_speed_kmh': vehicle.get('max_speed_kmh', 90),
+                        'acceleration_mps2': vehicle.get('acceleration_mps2', 1.2),
+                        'braking_mps2': vehicle.get('braking_mps2', 1.8),
+                        'eco_mode': vehicle.get('eco_mode', True),
+                        'createdAt': vehicle.get('createdAt'),
+                        'updatedAt': vehicle.get('updatedAt')
+                    }
+                    vehicles.append(normalized_vehicle)
+                
+                logging.debug(f"[StrapiStrategy] Fetched {len(vehicles)} total depot vehicles from Strapi")
+                return vehicles
+            else:
+                logging.error(f"[StrapiStrategy] Failed to fetch depot vehicles: No data returned")
+                return []
                     
         except Exception as e:
             logging.error(f"[StrapiStrategy] Error fetching depot vehicles: {str(e)}")
@@ -513,7 +495,7 @@ class StrapiStrategy(ApiStrategy):
     
     async def get_driver_assignments(self) -> List[DriverAssignment]:
         """Get driver assignments from Strapi using vehicle→driver reverse relationship"""
-        if not self.api_connected or not self.session:
+        if not self.api_connected:
             logging.error(f"[StrapiStrategy] Cannot fetch driver assignments - API not connected")
             return []
         
