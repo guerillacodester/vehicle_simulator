@@ -410,5 +410,96 @@ export default {
     } catch (err) {
       console.error('[Bootstrap] ⚠️ Failed to backfill route-depot cached labels:', err);
     }
+
+    // Ensure system user (vehicle_simulator) has proper profile and access tier
+    try {
+      console.log('[Bootstrap] Configuring system user (vehicle_simulator) profile and access tier...');
+      
+      // Find vehicle_simulator user
+      const systemUser = await strapi.db.query('plugin::users-permissions.user').findOne({
+        where: { username: 'vehicle_simulator' }
+      });
+
+      if (!systemUser) {
+        console.log('[Bootstrap] ⚠️ vehicle_simulator user not found - skipping profile creation');
+      } else {
+        console.log(`[Bootstrap] Found vehicle_simulator user (id=${systemUser.id})`);
+
+        // Find or create "Service" access tier
+        let serviceTier = await strapi.entityService.findMany('api::access-tier.access-tier' as any, {
+          filters: { name: 'Service' },
+          limit: 1
+        });
+
+        if (!serviceTier || (Array.isArray(serviceTier) && serviceTier.length === 0)) {
+          console.log('[Bootstrap] Creating "Service" access tier...');
+          serviceTier = await strapi.entityService.create('api::access-tier.access-tier' as any, {
+            data: {
+              name: 'Service',
+              code: 'service',
+              level: 50, // Between Operator (40) and Manager (60)
+              description: 'System service accounts with read/write access to operational data',
+              // Grant permissions for all resources the simulator needs
+              can_read_vehicle: true,
+              can_create_vehicle: true,
+              can_update_vehicle: true,
+              can_read_operational_configuration: true,
+              can_read_route: true,
+              can_read_stop: true,
+              can_read_trip: true,
+              can_read_depot: true,
+              can_read_route_depot: true,
+              can_create_vehicle_status: true,
+              can_update_vehicle_status: true,
+              can_read_vehicle_status: true,
+              publishedAt: new Date()
+            }
+          });
+          console.log('[Bootstrap] ✓ Created "Service" access tier');
+        } else {
+          serviceTier = Array.isArray(serviceTier) ? serviceTier[0] : serviceTier;
+          console.log(`[Bootstrap] Found existing "Service" access tier (id=${serviceTier.id})`);
+        }
+
+        // Check if user already has a profile
+        const existingProfile = await strapi.entityService.findMany('api::user-profile.user-profile' as any, {
+          filters: { user: systemUser.id },
+          populate: ['access_tier'],
+          limit: 1
+        });
+
+        if (existingProfile && Array.isArray(existingProfile) && existingProfile.length > 0) {
+          const profile = existingProfile[0];
+          console.log(`[Bootstrap] Found existing profile for vehicle_simulator (id=${profile.id})`);
+          
+          // Update profile if access tier is missing or incorrect
+          if (!profile.access_tier || profile.access_tier.id !== serviceTier.id) {
+            await strapi.entityService.update('api::user-profile.user-profile' as any, profile.id, {
+              data: {
+                access_tier: serviceTier.id
+              }
+            });
+            console.log('[Bootstrap] ✓ Updated profile with Service access tier');
+          } else {
+            console.log('[Bootstrap] ✓ Profile already has correct access tier');
+          }
+        } else {
+          // Create new profile
+          console.log('[Bootstrap] Creating user profile for vehicle_simulator...');
+          await strapi.entityService.create('api::user-profile.user-profile' as any, {
+            data: {
+              user: systemUser.id,
+              access_tier: serviceTier.id,
+              publishedAt: new Date()
+            }
+          });
+          console.log('[Bootstrap] ✓ Created profile with Service access tier');
+        }
+
+        console.log('[Bootstrap] ✅ System user configuration complete');
+      }
+    } catch (err) {
+      console.error('[Bootstrap] ❌ Failed to configure system user:', err);
+    }
   },
 };
