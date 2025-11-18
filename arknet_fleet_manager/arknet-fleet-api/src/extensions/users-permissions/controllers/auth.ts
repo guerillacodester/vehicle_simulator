@@ -58,7 +58,7 @@ export default ({ strapi }: any) => ({
           LIMIT 1
         `, [user.id]);
         
-        strapi.log.info(`[auth] User ${user.id} raw query result:`, JSON.stringify(result, null, 2));
+        strapi.log.info(`[auth] User ${user.username} raw query result:`, JSON.stringify(result, null, 2));
         
         if (result?.rows?.[0]?.tier_name) {
           tier = result.rows[0].tier_name;

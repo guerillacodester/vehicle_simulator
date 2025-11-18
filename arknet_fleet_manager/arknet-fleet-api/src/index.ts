@@ -22,8 +22,8 @@ async function setPublicPermissions(strapi: Core.Strapi) {
     'user-profile',
   ]);
 
-  // Actions of interest (commonly exposed by factories.createCoreRouter)
-  const actions = ['find', 'findOne', 'create', 'update', 'delete'];
+  // Actions of interest (commonly exposed by factories.createCoreRouter + custom actions)
+  const actions = ['find', 'findOne', 'create', 'update', 'delete', 'getGeometry'];
 
   // Helper: normalize tier string to TitleCase used by policy
   const toTitle = (s: string) => {
@@ -194,6 +194,60 @@ export default {
    * This gives you an opportunity to extend code.
    */
   register({ strapi }: { strapi: Core.Strapi }) {
+    // Register custom route for getGeometry - manually handle JWT auth
+    strapi.server.routes([{
+      method: 'GET',
+      path: '/api/routes/:routeName/geometry',
+      handler: async (ctx: any, next: any) => {
+        strapi.log.info(`[route-geometry] Handler called for ${ctx.params.routeName}`);
+        
+        // Manually authenticate using JWT
+        const authHeader = ctx.request.header.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return ctx.unauthorized('Missing or invalid authorization header');
+        }
+        
+        const token = authHeader.substring(7);
+        try {
+          const usersPermissionsService = strapi.plugin('users-permissions').service('jwt');
+          const decoded: any = await usersPermissionsService.verify(token);
+          
+          // Fetch user
+          const user = await strapi.entityService.findOne('plugin::users-permissions.user', decoded.id);
+          if (!user) {
+            return ctx.unauthorized('User not found');
+          }
+          
+          // Set user in context for middleware
+          ctx.state.user = user;
+          strapi.log.info(`[route-geometry] User ${user.username} authenticated`);
+          
+          // Call the route controller method
+          const controller = strapi.controller('api::route.route');
+          return controller.getGeometry(ctx, next);
+        } catch (error: any) {
+          strapi.log.error(`[route-geometry] Auth error: ${error.message}`);
+          return ctx.unauthorized('Invalid token');
+        }
+      },
+      config: {
+        auth: false, // Bypass Strapi's auth to handle manually
+      },
+    },
+    {
+      method: 'GET',
+      path: '/api/operational-configurations',
+      handler: async (ctx: any, next: any) => {
+        // Allow public or authenticated access to operational configurations
+        // This is configuration data that services need to operate
+        const controller = strapi.controller('api::operational-configuration.operational-configuration');
+        return controller.find(ctx, next);
+      },
+      config: {
+        auth: false, // Make public for now - operational configs need to be accessible
+      },
+    }]);
+
     // Register GraphQL extensions from modular folder structure
     const extensionService = strapi.plugin('graphql').service('extension');
     const fs = require('fs');
@@ -223,6 +277,12 @@ export default {
         'Mutation.removeAutostartSetting': {
           auth: false,  // Disable auth checks, handle manually in resolver
           policies: [],
+        },
+        // Enable auth for the 'me' query so it can use the JWT token
+        'Query.me': {
+          auth: {
+            scope: ['plugin::users-permissions.user.me'],
+          },
         },
       },
       types: [

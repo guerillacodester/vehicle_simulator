@@ -70,3 +70,35 @@ Check if autostart is enabled for a service.
 - Linux: Uses `systemctl --user` for systemd user units.
 - Windows: Uses `schtasks` for Task Scheduler on logon.
 - Ensure the launcher runs with appropriate permissions for OS interactions.
+
+## Configuration
+
+The launcher uses a `config.ini` file for service configuration. Copy `config.example.ini` to `config.ini` and modify as needed.
+
+### Autostart Configuration
+
+Services can be configured to start automatically using the `auto_start` setting:
+
+```ini
+[redis]
+enabled = true
+auto_start = user_service  # Options: process, system_service, user_service, none
+register_autostart = true  # Set to true to register the autostart on first run
+```
+
+**auto_start options:**
+- `process`: Start as a background process managed by the launcher
+- `system_service`: Use OS system service (requires admin/root)
+- `user_service`: Use OS user service (recommended for per-user autostart)
+- `none`: Manual start only
+
+**Example for Strapi:**
+```ini
+[strapi]
+enabled = true
+auto_start = user_service
+register_autostart = true
+port = 1337
+```
+
+**Note:** On first run with `register_autostart = true`, the launcher will attempt to register the service for autostart. This may require elevated permissions.

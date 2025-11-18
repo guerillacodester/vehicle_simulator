@@ -1,0 +1,32 @@
+{
+  "name": "arknet-transit-launcher-electron",
+  "version": "0.0.1",
+  "description": "Desktop UI for ArkNet Transit Launcher",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron . --dev",
+    "build": "npm run build:main && npm run build:renderer",
+    "build:main": "tsc",
+    "build:renderer": "vite build",
+    "dev:renderer": "vite",
+    "start:dev": "concurrently \"npm:dev:renderer\" \"npm:dev\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "electron": "^25.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2",
+    "concurrently": "^8.0.1"
+  },
+  "dependencies": {
+    "@vue/tsconfig": "^0.8.1",
+    "vue": "^3.5.24",
+    "vue-tsc": "^3.1.4",
+    "pinia": "^2.1.3",
+    "socket.io-client": "^4.7.5"
+  },
+  "author": "Guerilla Codester",
+  "license": "MIT"
+}

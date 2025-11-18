@@ -82,6 +82,7 @@ user preference for clarity and            #leet Summary
 from __future__ import annotations
 import asyncio
 import logging
+import os
 from typing import Optional
 from datetime import datetime
 
@@ -93,11 +94,17 @@ try:
 except ImportError:
     _config_available = False
 
+from arknet_transit_simulator.core.strapi_auth import StrapiAuthClient
+from dotenv import load_dotenv
+
+# Load Strapi .env in Strapi root so STRAPI_USERNAME/STRAPI_PASSWORD are available
+load_dotenv('arknet_fleet_manager/arknet-fleet-api/.env')
+
 
 class CleanVehicleSimulator:
     """Minimal orchestrator wrapper for depot + dispatcher lifecycle."""
 
-    def __init__(self, api_url: Optional[str] = None, enable_boarding_after: float = None, gps_config: dict = None, sim_time = None, enable_api: bool = True, api_port: int = 5001) -> None:
+    def __init__(self, api_url: Optional[str] = None, enable_boarding_after: float = None, gps_config: dict = None, sim_time = None, enable_api: bool = True, api_port: int = 5001, strapi_username: str = None, strapi_password: str = None) -> None:
         """
         Initialize vehicle simulator.
         
@@ -133,13 +140,33 @@ class CleanVehicleSimulator:
         self.idle_drivers = []
         self._api_server = None  # uvicorn server instance
 
+        # Load Strapi credentials from environment or parameters
+        self.strapi_username = strapi_username or os.getenv('STRAPI_USERNAME') or os.getenv('STRAPI_USER', 'vehicle_simulator')
+        self.strapi_password = strapi_password or os.getenv('STRAPI_PASSWORD') or os.getenv('STRAPI_PASS')
+        
+        if not self.strapi_password:
+            logger.warning("No Strapi password provided. Set STRAPI_PASSWORD environment variable or pass strapi_password parameter.")
+        
+        from arknet_transit_simulator.services.strapi_client import StrapiClient
+        self.strapi_client = StrapiClient(self.api_url, self.strapi_username, self.strapi_password)
+
     async def initialize(self) -> bool:
         try:
             from arknet_transit_simulator.core.depot_manager import DepotManager
-            from arknet_transit_simulator.core.dispatcher import Dispatcher
+            from arknet_transit_simulator.core.dispatcher import Dispatcher, StrapiStrategy
+            from arknet_transit_simulator.services.config_service import ConfigurationService
 
             logger.info("Initializing clean simulator (depot + dispatcher)...")
-            self.dispatcher = Dispatcher("FleetDispatcher", api_base_url=self.api_url)
+            # Login to Strapi using centralized client
+            await self.strapi_client.initialize()
+            logger.info(f"Strapi login successful - JWT: {self.strapi_client._token[:30]}...")
+
+            # Create dispatcher and config service with centralized client
+            strapi_strategy = StrapiStrategy(self.strapi_client)
+            self.dispatcher = Dispatcher("FleetDispatcher", api_strategy=strapi_strategy, api_base_url=self.api_url)
+            self.config_service = ConfigurationService(strapi_client=self.strapi_client)
+            await self.config_service.initialize()
+
             self.depot = DepotManager("MainDepot")
             self.depot.set_dispatcher(self.dispatcher)
 
@@ -147,11 +174,11 @@ class CleanVehicleSimulator:
             if not ok:
                 logger.error("Depot initialization failed")
                 return False
-            
+
             # Initialize Fleet Management API if enabled
             if self.enable_api:
                 await self._initialize_api()
-            
+
             logger.info("Clean simulator initialized ✔")
             return True
         except Exception as e:  # pragma: no cover (defensive)
@@ -760,6 +787,9 @@ class CleanVehicleSimulator:
                 await self.depot.shutdown()
             if self.dispatcher:
                 await self.dispatcher.shutdown()
+            
+            # Logout from Strapi
+            await self.logout_strapi()
         finally:
             logger.info("Shutdown complete")
 
@@ -772,3 +802,5 @@ class CleanVehicleSimulator:
         if not self.dispatcher:
             return None
         return await self.dispatcher.get_route_info(route_id)
+
+    # Centralized StrapiClient handles login/logout and auth header

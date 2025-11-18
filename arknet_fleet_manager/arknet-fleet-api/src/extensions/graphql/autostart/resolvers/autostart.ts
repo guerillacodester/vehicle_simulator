@@ -1,12 +1,18 @@
 import type { Core } from '@strapi/strapi';
 
-// Helper to extract user ID from JWT token in Authorization header
+// Helper to extract user ID from context (populated by populateUserProfile middleware)
 const getUserIdFromContext = async (ctx: any, strapi: Core.Strapi): Promise<number | null> => {
   try {
-    // Access the Koa context - in Strapi GraphQL, it's nested in the context object
-    const koaCtx = ctx.koaContext || ctx.context || ctx;
+    // First try to get user from middleware-populated context
+    const user = ctx?.state?.user || ctx?.user;
     
-    // Get authorization header - try multiple locations
+    if (user?.id) {
+      strapi.log.info(`[GraphQL] User ID from middleware context: ${user.id}`);
+      return user.id;
+    }
+    
+    // Fallback: Try to extract from JWT if middleware didn't populate it
+    const koaCtx = ctx.koaContext || ctx.context || ctx;
     const authHeader = koaCtx?.request?.headers?.authorization || 
                        koaCtx?.request?.header?.authorization ||
                        koaCtx?.req?.headers?.authorization ||
@@ -16,10 +22,9 @@ const getUserIdFromContext = async (ctx: any, strapi: Core.Strapi): Promise<numb
       return null;
     }
 
+    strapi.log.warn('[GraphQL] Falling back to JWT extraction (middleware may not have run)');
     const token = authHeader.substring(7);
     const jwtService = strapi.plugin('users-permissions').service('jwt');
-    
-    // Verify token - jwtService.verify returns a promise
     const decoded: any = await jwtService.verify(token);
     
     return decoded?.id || null;

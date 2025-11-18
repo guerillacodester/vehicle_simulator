@@ -7,7 +7,6 @@ export default {
       config: {
         policies: [{ name: 'global::rbac-tier-policy', config: { contentType: 'vehicle', operation: 'read' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {
@@ -17,7 +16,6 @@ export default {
       config: {
         policies: [{ name: 'global::rbac-tier-policy', config: { contentType: 'vehicle', operation: 'read' } }],
         middlewares: [],
-        auth: { scope: ['admin'] },
       },
     },
     {

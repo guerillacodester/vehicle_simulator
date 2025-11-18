@@ -20,6 +20,15 @@
 
 export default (policyContext: any, config: any, { strapi }: any) => {
   return async (ctx: any, next: any) => {
+    console.log('='.repeat(80));
+    console.log('[check-access-tier] POLICY ENTRY POINT');
+    console.log(`[check-access-tier] Path: ${ctx.request.path}`);
+    console.log(`[check-access-tier] Method: ${ctx.request.method}`);
+    console.log(`[check-access-tier] User: ${ctx.state.user?.id || 'NOT AUTHENTICATED'}`);
+    console.log(`[check-access-tier] Config: ${JSON.stringify(config)}`);
+    console.log('='.repeat(80));
+    strapi.log.info(`[check-access-tier] ========== POLICY EXECUTING ========== Path: ${ctx.request.path}, Method: ${ctx.request.method}`);
+    
     // Tier hierarchy (higher index = higher privilege)
     const tierHierarchy = [
       'Guest',
@@ -36,6 +45,8 @@ export default (policyContext: any, config: any, { strapi }: any) => {
       strapi.log.warn('[check-access-tier] Unauthenticated request');
       return ctx.unauthorized('Authentication required');
     }
+
+    strapi.log.info(`[check-access-tier] Authenticated user id=${ctx.state.user?.id}`);
 
     const userId = ctx.state.user.id;
 
