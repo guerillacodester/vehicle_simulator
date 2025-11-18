@@ -24,8 +24,7 @@ export default defineComponent({
     }
 
     onMounted(() => {
-      loadStatus();
-      setInterval(loadStatus, 5000);
+      loadStatus(); // Only load once on mount
     });
 
     return { services };

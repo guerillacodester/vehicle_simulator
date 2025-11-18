@@ -38,9 +38,6 @@ function createWindow(): void {
     console.error('Failed to load:', errorCode, errorDescription);
   });
 
-  // Uncomment the next line to open DevTools for debugging
-  // mainWindow.webContents.openDevTools();
-
   // Handle window closed
   mainWindow.on('closed', () => {
     mainWindow = null;

@@ -3,7 +3,9 @@
         "./common",
         "./vehicle_depot/vehicle",
         "./world/vehicle",
-        "./commuter_modeler/plugins"
+        "./commuter_modeler/plugins",
+        "../arknet-transit-launcher",
+        "./arknet-transit-launcher"
     ],
     "mssql.intelliSense.enableErrorChecking": false,
     "files.associations": {

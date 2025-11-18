@@ -129,7 +129,17 @@ class ServiceManager:
     
     Provides subprocess management, health monitoring, and dependency resolution.
     """
-    
+
+    def create_status_event(self, service, new_state):
+        from datetime import datetime
+        return ServiceEvent(
+            service_name=service.name,
+            timestamp=datetime.utcnow().isoformat(),
+            state=new_state,
+            message=f"Service {service.name} is {new_state.value if hasattr(new_state, 'value') else str(new_state)}",
+            port=service.port
+        )
+
     def __init__(self):
         """Initialize the service manager."""
         self.services: Dict[str, ManagedService] = {}
@@ -137,6 +147,7 @@ class ServiceManager:
         self.http_client = httpx.AsyncClient(timeout=5.0)
         self._monitor_task: Optional[asyncio.Task] = None
         self._startup_order: List[str] = []  # Track startup order for FILO shutdown
+        self._last_service_states: Dict[str, str] = {}  # Track last emitted state for each service
     
     def register_service(self, service: ManagedService):
         """Register a service for management."""
@@ -307,13 +318,19 @@ class ServiceManager:
 
                             if is_act:
                                 service.state = ServiceState.RUNNING
+                                emoji = "🟢"
+                                color_start = "\033[92m"  # Green
+                                color_end = "\033[0m"
+                                message = f"{emoji} {color_start}Service {name} has started (PID: {service.process.pid}){color_end}"
                                 event = ServiceEvent(
                                     service_name=name,
                                     timestamp=datetime.utcnow().isoformat(),
                                     state=ServiceState.RUNNING,
-                                    message=f"{name} is running as system service ({unit_or_name})",
-                                    port=service.port
+                                    message=message,
+                                    port=service.port,
+                                    event_type="service_started"
                                 )
+                                print(message)
                                 await self._emit_event(event)
                                 return event
                             else:
@@ -437,8 +454,9 @@ class ServiceManager:
                 service_name=name,
                 timestamp=datetime.utcnow().isoformat(),
                 state=ServiceState.RUNNING,
-                message=f"{name} started (PID: {service.process.pid})",
-                port=service.port
+                message=f"Service {name} has started (PID: {service.process.pid})",
+                port=service.port,
+                event_type="service_status"
             )
             await self._emit_event(event)
             
@@ -536,14 +554,16 @@ class ServiceManager:
         # Clear process reference
         service.process = None
         service.state = ServiceState.STOPPED
+        message = f"Service {name} has stopped"
         event = ServiceEvent(
             service_name=name,
             timestamp=datetime.utcnow().isoformat(),
             state=ServiceState.STOPPED,
-            message=f"{name} stopped",
-            port=service.port
+            message=message,
+            port=service.port,
+            event_type="service_status"
         )
-        logger.info(f"Service {name} marked as stopped. Emitting event.")
+        print(message)
         await self._emit_event(event)
         return event
     
@@ -672,17 +692,22 @@ class ServiceManager:
             except Exception:
                 return False
 
-        # Special-case Redis: perform a TCP probe to the configured port
+        # Special-case Redis: use direct Redis ping for health check
         if service.name == 'redis':
+            import logging
+            logger = logging.getLogger("service_monitor.redis_health")
             try:
-                import asyncio
-                from launcher.health import redis_probe
-
-                port = service.port or 6379
-                loop = asyncio.get_event_loop()
-                probe_result = await loop.run_in_executor(None, redis_probe, '127.0.0.1', port)
-                return probe_result.get('listening', False)
-            except Exception:
+                import redis.asyncio as aioredis
+                redis_client = aioredis.from_url(
+                    f"redis://localhost:{service.port or 6379}",
+                    socket_connect_timeout=2
+                )
+                result = await redis_client.ping()
+                await redis_client.close()
+                logger.debug(f"Redis health check ping result: {result}")
+                return result is True
+            except Exception as e:
+                logger.debug(f"Redis health check failed: {e}")
                 return False
 
         # Default: no health URL, assume service is running if process exists
@@ -715,58 +740,134 @@ class ServiceManager:
         """Background task that monitors service health."""
         import logging
         monitor_logger = logging.getLogger("service_monitor")
+        
+        # Emit initial state for all services on startup
+        monitor_logger.info("Emitting initial service states on startup...")
+        # Get config for all services (even if not started)
+        from launcher.config import ConfigurationManager
+        config_path = Path(__file__).parent.parent / "config.ini"
+        config_manager = ConfigurationManager(config_path)
+        service_configs = config_manager.get_service_configs()
+        for name, config in service_configs.items():
+            service = self.services.get(name)
+            # Determine runtime state
+            if service:
+                if config.enabled:
+                    if service.health_url or service.name == 'redis':
+                        healthy = await self._check_health(service)
+                        initial_state = ServiceState.HEALTHY if healthy else ServiceState.STOPPED
+                    elif service.is_running():
+                        healthy = await self._check_health(service)
+                        initial_state = ServiceState.HEALTHY if healthy else ServiceState.RUNNING
+                    else:
+                        initial_state = ServiceState.STOPPED
+                else:
+                    initial_state = ServiceState.STOPPED
+                service.state = initial_state
+                self._last_service_states[service.name] = initial_state.value
+            else:
+                initial_state = ServiceState.STOPPED
+            # Build event with all config and runtime info
+            event = ServiceEvent(
+                service_name=name,
+                timestamp=datetime.utcnow().isoformat(),
+                state=initial_state,
+                message=f"{name} initial state: {initial_state.value}",
+                port=config.port,
+                version="1.0",
+                event_type="service_status"
+            )
+            # Attach extra config info for UI
+            event_dict = event.dict()
+            event_dict.update({
+                "enabled": config.enabled,
+                "spawn_console": config.spawn_console,
+                "display_name": config.display_name,
+                "description": config.description,
+                "category": config.category,
+                "icon": config.icon,
+                "dependencies": config.dependencies,
+                "extra_config": config.extra_config,
+            })
+            # Color and style for state
+            state_color = {
+                "healthy": "\033[92m",   # Green
+                "stopped": "\033[91m",   # Red
+                "starting": "\033[93m",  # Yellow
+                "running": "\033[94m",   # Blue
+                "unhealthy": "\033[95m", # Magenta
+                "failed": "\033[41m"     # Red background
+            }.get(initial_state.value, "\033[0m")
+            bold = "\033[1m"
+            reset = "\033[0m"
+            # Tabular header (only print once per run)
+            if not hasattr(self, '_table_header_printed'):
+                print(f"{bold}{'='*78}{reset}")
+                print(f"{bold}| {'SERVICE':<18} | {'STATE':<10} | {'ENABLED':<7} | {'CONSOLE':<7} | {'DESCRIPTION':<30} |{reset}")
+                print(f"{bold}{'-'*78}{reset}")
+                self._table_header_printed = True
+            # Tabular row
+            print(f"| {name:<18} | {state_color}{initial_state.value.upper():<10}{reset} | {str(config.enabled):<7} | {str(config.spawn_console):<7} | {config.description[:30]:<30} |")
+            # Emit event with full details
+            await self._emit_event(ServiceEvent.parse_obj(event_dict))
+        
         while True:
-            await asyncio.sleep(10)  # Check every 10 seconds
+            await asyncio.sleep(2)  # Check every 2 seconds
 
             for service in self.services.values():
                 # Check if process has exited unexpectedly
                 if service.process is not None and not service.is_running():
-                    # Process exited - check exit code
                     exit_code = service.process.returncode
                     monitor_logger.error(f"Process for {service.name} exited with code {exit_code}")
-                    
-                    # Log captured output if available
                     if service.stderr_buffer:
                         monitor_logger.error(f"Last stderr from {service.name}:")
-                        for line in list(service.stderr_buffer)[-10:]:  # Last 10 lines
+                        for line in list(service.stderr_buffer)[-10:]:
                             monitor_logger.error(f"  {line}")
-                
-                # If process is not running, mark as stopped
-                if not service.is_running():
-                    if service.state != ServiceState.STOPPED:
-                        service.state = ServiceState.STOPPED
-                        event = ServiceEvent(
-                            service_name=service.name,
-                            timestamp=datetime.utcnow().isoformat(),
-                            state=ServiceState.STOPPED,
-                            message=f"{service.name} process not running, marked as stopped",
-                            port=service.port
-                        )
-                        await self._emit_event(event)
-                    continue
 
-                # Only mark healthy if process is running AND health endpoint responds
-                if service.state in [ServiceState.RUNNING, ServiceState.HEALTHY]:
+                # For services with health checks, use health status to determine state
+                # (supports externally-managed services like Strapi/Redis)
+                if service.health_url or service.name == 'redis':
                     healthy = await self._check_health(service)
-                    if healthy and service.state != ServiceState.HEALTHY:
-                        service.state = ServiceState.HEALTHY
-                        event = ServiceEvent(
-                            service_name=service.name,
-                            timestamp=datetime.utcnow().isoformat(),
-                            state=ServiceState.HEALTHY,
-                            message=f"{service.name} became healthy",
-                            port=service.port
-                        )
+                    new_state = ServiceState.HEALTHY if healthy else ServiceState.STOPPED
+                    
+                    # Only emit if state changed
+                    if service.state != new_state or self._last_service_states.get(service.name) != new_state.value:
+                        prev_state = service.state.value if isinstance(service.state, ServiceState) else str(service.state)
+                        service.state = new_state
+                        self._last_service_states[service.name] = new_state.value
+                        # Tabular update format
+                        state_color = {
+                            "healthy": "\033[92m",   # Green
+                            "stopped": "\033[91m",   # Red
+                            "starting": "\033[93m",  # Yellow
+                            "running": "\033[94m",   # Blue
+                            "unhealthy": "\033[95m", # Magenta
+                            "failed": "\033[41m"     # Red background
+                        }.get(new_state.value, "\033[0m")
+                        bold = "\033[1m"
+                        reset = "\033[0m"
+                        print(f"{bold}{'-'*78}{reset}")
+                        print(f"| {service.name:<18} | {state_color}{new_state.value.upper():<10}{reset} | {str(getattr(service, 'enabled', True)):<7} | {str(getattr(service, 'spawn_console', False)):<7} | {getattr(service, 'description', '')[:30]:<30} |")
+                        print(f"{bold}{'-'*78}{reset}")
+                        event = self.create_status_event(service, new_state)
                         await self._emit_event(event)
-                    elif not healthy and service.state == ServiceState.HEALTHY:
-                        service.state = ServiceState.UNHEALTHY
-                        event = ServiceEvent(
-                            service_name=service.name,
-                            timestamp=datetime.utcnow().isoformat(),
-                            state=ServiceState.UNHEALTHY,
-                            message=f"{service.name} became unhealthy",
-                            port=service.port
-                        )
+                # For process-managed services, check if running
+                elif not service.is_running():
+                    # Only emit if state changed
+                    if service.state != ServiceState.STOPPED or self._last_service_states.get(service.name) != ServiceState.STOPPED.value:
+                        service.state = ServiceState.STOPPED
+                        self._last_service_states[service.name] = ServiceState.STOPPED.value
+                        event = self.create_status_event(service, ServiceState.STOPPED)
+                        await self._emit_event(event)
+                else:
+                    healthy = await self._check_health(service)
+                    new_state = ServiceState.HEALTHY if healthy else ServiceState.UNHEALTHY
+                    
+                    # Only emit if state changed
+                    if service.state != new_state or self._last_service_states.get(service.name) != new_state.value:
+                        service.state = new_state
+                        self._last_service_states[service.name] = new_state.value
+                        event = self.create_status_event(service, new_state)
                         await self._emit_event(event)
     
     async def _emit_event(self, event: ServiceEvent):
@@ -784,12 +885,15 @@ class ServiceManager:
             self.event_subscribers.remove(ws)
         
         # Emit to Socket.IO clients
+        import logging
+        logger = logging.getLogger("service_manager.emit_event")
+        event_data = event.dict()
+        logger.info(f"Emitting service_status event: Service={event_data.get('service_name')}, State={event_data.get('state')}, Message={event_data.get('message')}, Full={event_data}")
         try:
             from launcher.socket_server import sio
             await sio.emit('service_status', event.dict())
         except Exception as e:
-            # Silently fail if Socket.IO is not available
-            pass
+            logger.error(f"Error emitting event: {e}")
     
     async def subscribe_events(self, websocket: WebSocket):
         """Subscribe a WebSocket client to service events."""
@@ -837,20 +941,6 @@ def configure_cors(cors_origins: list):
     )
 
 
-@app.on_event("startup")
-async def startup():
-    """Initialize service manager on startup."""
-    manager.start_monitoring()
-    # Auto-start services if the launcher set a list on app.state
-    try:
-        import asyncio
-        auto_start = getattr(app.state, 'auto_start_services', []) or []
-        if auto_start:
-            # Start each service asynchronously without blocking startup
-            for svc in auto_start:
-                asyncio.create_task(_start_service_safely(svc))
-    except Exception:
-        pass
 
 
 async def _start_service_safely(name: str):

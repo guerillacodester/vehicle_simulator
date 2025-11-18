@@ -15,6 +15,7 @@ class SocketProvider {
   private options: SocketProviderOptions | null = null;
 
   connect(options: SocketProviderOptions) {
+    console.log('[SocketProvider] 🔌 connect() called with options:', options);
     this.options = options;
     this.retries = 0;
     this._connect();
@@ -23,11 +24,13 @@ class SocketProvider {
   private _connect() {
     if (!this.options) throw new Error('No options provided');
     const { url, token } = this.options;
+    console.log(`[SocketProvider] 🌐 Attempting to connect to ${url} with token ${token ? '(present)' : '(missing)'}`);
     this.socket = io(url, {
       auth: { token },
       transports: ['websocket'],
       reconnection: false // We'll handle reconnection manually
     });
+    console.log('[SocketProvider] 🔧 Socket instance created, setting up listeners...');
     this._setupListeners();
   }
 
@@ -35,15 +38,19 @@ class SocketProvider {
     if (!this.socket) return;
     this.socket.on('connect', () => {
       this.retries = 0;
-      console.log('Socket.IO connected');
+      console.log('[SocketProvider] ✅ Socket.IO connected successfully');
     });
     this.socket.on('disconnect', (reason: string) => {
-      console.warn('Socket.IO disconnected:', reason);
+      console.warn('[SocketProvider] ⚠️ Socket.IO disconnected:', reason);
       this._retryConnect();
     });
     this.socket.on('connect_error', (err: any) => {
-      console.error('Socket.IO connect error:', err);
+      console.error('[SocketProvider] ❌ Socket.IO connect error:', err);
       this._retryConnect();
+    });
+    // Debug all incoming events
+    this.socket.onAny((eventName: string, ...args: any[]) => {
+      console.log(`[SocketProvider] 📨 Received event: ${eventName}`, args);
     });
   }
 
@@ -65,7 +72,13 @@ class SocketProvider {
   }
 
   on(event: string, handler: (...args: any[]) => void) {
-    this.socket?.on(event, handler);
+    console.log(`[SocketProvider] 👂 Registering listener for event: ${event}`);
+    if (this.socket) {
+      this.socket.on(event, handler);
+      console.log(`[SocketProvider] ✅ Listener registered for: ${event}`);
+    } else {
+      console.error(`[SocketProvider] ❌ Cannot register listener for ${event}: socket is null`);
+    }
   }
 
   emit(event: string, ...args: any[]) {

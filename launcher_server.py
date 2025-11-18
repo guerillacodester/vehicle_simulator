@@ -28,31 +28,36 @@ import sys
 import uvicorn
 import signal
 from pathlib import Path
-import io
+import uvicorn
+from fastapi import FastAPI
+from launcher.service_manager import ServiceManager
+import asyncio
+# ...existing code...
+
+app = FastAPI()
+manager = ServiceManager()
+
+# ...existing code...
+
+
+# ...existing code...
 import logging
-
-# Force UTF-8 encoding for stdout (Windows console emoji support)
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-
-# Add launcher package to path
-sys.path.insert(0, str(Path(__file__).parent))
-# Also add arknet-transit-launcher package to path for optional OS adapters and scaffolding
-arknet_launcher_path = Path(__file__).parent / "arknet-transit-launcher"
-if arknet_launcher_path.exists():
-    sys.path.insert(0, str(arknet_launcher_path))
-
-# Configure logging to file
 log_dir = Path(__file__).parent / "logs"
 log_dir.mkdir(exist_ok=True)
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(log_dir / "launcher.log"),
         logging.StreamHandler()
     ]
 )
+# Silence noisy loggers
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("socketio.server").setLevel(logging.WARNING)
+logging.getLogger("engineio.server").setLevel(logging.WARNING)
+logging.getLogger("service_manager.emit_event").setLevel(logging.WARNING)
 
 try:
     # Prefer new package shim if present (allows gradual migration)
@@ -199,9 +204,6 @@ def shutdown_handler(signum, frame):
     print()
     
     import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
     async def stop_all():
         for service_name, service in manager.services.items():
             if service.is_running():
@@ -210,8 +212,15 @@ def shutdown_handler(signum, frame):
                     await manager.stop_service(service_name)
                 except Exception as e:
                     print(f"   ⚠️  Error stopping {service_name}: {e}")
-    
-    loop.run_until_complete(stop_all())
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Schedule coroutine in running loop
+            asyncio.create_task(stop_all())
+        else:
+            loop.run_until_complete(stop_all())
+    except Exception as e:
+        print(f"   ⚠️  Error during shutdown: {e}")
     print()
     print("👋 All services stopped. Goodbye!")
     sys.exit(0)

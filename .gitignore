@@ -261,3 +261,9 @@ arknet_fleet_manager/arknet-fleet-api/dist/src/socketio/message-format.js
 arknet_fleet_manager/arknet-fleet-api/dist/src/socketio/server.js
 arknet_fleet_manager/arknet-fleet-api/dist/src/socketio/types.js
 arknet_fleet_manager/arknet-fleet-api/dist/src/utils/geojson-stream-parser.js
+arknet-transit-launcher/ui/electron/dist/main.js
+arknet-transit-launcher/ui/electron/dist/renderer/assets/index-B9OITx9Y.css
+arknet-transit-launcher/ui/electron/dist/renderer/assets/index-BsMYMFTD.css
+arknet-transit-launcher/ui/electron/dist/renderer/assets/index-CzS7Ppg4.js
+arknet-transit-launcher/ui/electron/dist/renderer/assets/index-DmDKEtZX.js
+arknet-transit-launcher/ui/electron/dist/renderer/src/index.html

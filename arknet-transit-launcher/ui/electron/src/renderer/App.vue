@@ -21,45 +21,72 @@ import ServicesView from './components/ServicesView.vue';
 import LoginCard from './components/LoginCard.vue';
 import authProvider from './utils/authProvider';
 import socketProvider from './utils/socketProvider';
+import { useServiceStore } from './store/services';
 
 export default defineComponent({
   name: 'App',
   components: { ServicesView, LoginCard },
   setup() {
+    console.log('[App] 🚀 App.vue setup() called');
     const isAuthenticated = ref(false);
     const user = ref(null);
     const accessTier = ref(null);
+    const serviceStore = useServiceStore();
+    console.log('[App] 🗂️ Service store initialized:', serviceStore);
 
-    function connectSocket() {
-      const session = authProvider.getSession();
-      if (!session) return;
+    function handleLoginSuccess(e) {
+      console.log('[App] 🔐 Login successful:', e.detail);
+      isAuthenticated.value = true;
+      user.value = e.detail.user;
+      accessTier.value = e.detail.user?.tier || e.detail.user?.roles || null;
+      // Socket.IO is already connected - no need to reconnect
+    }
+
+    onMounted(() => {
+      console.log('[App] 🎬 onMounted() - Connecting Socket.IO immediately for local service management');
+      // CRITICAL FIX: Connect Socket.IO immediately without waiting for auth
+      // This is a local Electron app managing local services - no auth barrier needed for Socket.IO
       socketProvider.connect({
         url: 'http://localhost:7000',
-        token: session.jwt,
+        token: undefined, // No token needed for local service management
         maxRetries: 5,
         backoffBase: 1000,
         backoffMax: 10000
       });
+      
+      // Setup Socket.IO event listeners
       socketProvider.on('service_status', (event) => {
-        // Handle service status events (update UI/state as needed)
-        console.log('Service event:', event);
+        console.log('[App] 📨 Received service_status event:', JSON.stringify(event, null, 2));
+        if (event && event.service_name) {
+          console.log(`[App] 🔍 Processing event for service: ${event.service_name}, backend state: ${event.state}`);
+          // Map backend state values to UI state values
+          const stateMap = {
+            'healthy': 'running',
+            'running': 'running',
+            'starting': 'running',
+            'stopped': 'stopped',
+            'unhealthy': 'stopped',
+            'failed': 'stopped'
+          };
+          const mappedState = stateMap[event.state] || 'unknown';
+          console.log(`[App] 🔄 Mapped state ${event.state} -> ${mappedState}`);
+          console.log(`[App] 🗂️ Store before update:`, JSON.stringify(serviceStore.services.map(s => ({name: s.name, state: s.state})), null, 2));
+          serviceStore.updateServiceState(event.service_name, mappedState);
+          console.log(`[App] 🗂️ Store after update:`, JSON.stringify(serviceStore.services.map(s => ({name: s.name, state: s.state})), null, 2));
+          console.log(`[App] ✅ Updated ${event.service_name} state to ${mappedState}`);
+        } else {
+          console.warn('[App] ⚠️ Invalid event received:', event);
+        }
       });
+      
       socketProvider.on('connect', () => {
-        console.log('Socket connected');
+        console.log('[App] ✅ Socket.IO connected - ready to receive service status updates');
       });
+      
       socketProvider.on('disconnect', () => {
-        console.log('Socket disconnected');
+        console.warn('[App] ⚠️ Socket.IO disconnected');
       });
-    }
-
-    function handleLoginSuccess(e) {
-      isAuthenticated.value = true;
-      user.value = e.detail.user;
-      accessTier.value = e.detail.user?.tier || e.detail.user?.roles || null;
-      connectSocket();
-    }
-
-    onMounted(() => {
+      
       window.addEventListener('login-success', handleLoginSuccess);
       // Check for existing session on startup
       const session = authProvider.getSession();
@@ -67,7 +94,6 @@ export default defineComponent({
         isAuthenticated.value = true;
         user.value = session.user;
         accessTier.value = authProvider.getAccessTier();
-        connectSocket();
       }
     });
 

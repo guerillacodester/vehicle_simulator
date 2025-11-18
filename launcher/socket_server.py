@@ -137,5 +137,17 @@ async def dashboard_heartbeat(sid, data: Dict[str, Any]):
         logger.error(f"Error handling dashboard_heartbeat: {e}")
 
 def setup_socketio(app: FastAPI):
-    """Mount Socket.IO server to FastAPI application."""
+    """Mount Socket.IO server to FastAPI application and start heartbeat task."""
     app.mount('/', socket_app)
+
+    async def heartbeat_task():
+        while True:
+            try:
+                await sio.emit('heartbeat', {'ts': int(asyncio.get_event_loop().time())})
+            except Exception as e:
+                logger.error(f"Error emitting heartbeat: {e}")
+            await asyncio.sleep(10)  # Emit every 10 seconds
+
+    @app.on_event("startup")
+    async def start_heartbeat():
+        asyncio.create_task(heartbeat_task())

@@ -9,7 +9,7 @@ export interface ServiceModel {
   description: string;
   category: string;
   icon: string;
-  port: string;
+  port: number;
   health_url: string;
   spawn_console: boolean;
   startup_wait: string;
@@ -24,8 +24,11 @@ export const useServiceStore = defineStore('services', () => {
     try {
       // Get full service list from backend
       const serviceList = await (window as any).electronAPI.getServicesStatus();
-      // Use backend state directly
-      services.value = serviceList;
+      // Convert port to number for type safety
+      services.value = serviceList.map((service: any) => ({
+        ...service,
+        port: service.port ? Number(service.port) : undefined,
+      }));
     } catch (error) {
       console.error('Failed to load services', error);
     }
@@ -43,5 +46,22 @@ export const useServiceStore = defineStore('services', () => {
     return res;
   }
 
-  return { services, loadServices, startService, stopService };
+  function updateServiceState(serviceName: string, newState: ServiceState) {
+    console.log(`[Store] 🔧 updateServiceState called for ${serviceName} with state ${newState}`);
+    const idx = services.value.findIndex(s => s.name === serviceName);
+    console.log(`[Store] 🔍 Found service at index: ${idx}`);
+    if (idx !== -1) {
+      const oldState = services.value[idx].state;
+      services.value[idx] = {
+        ...services.value[idx],
+        state: newState
+      };
+      console.log(`[Store] ✅ Updated ${serviceName} from ${oldState} to ${newState}`);
+      console.log(`[Store] 🗂️ New service object:`, services.value[idx]);
+    } else {
+      console.warn(`[Store] ⚠️ Service ${serviceName} not found in store`);
+    }
+  }
+
+  return { services, loadServices, startService, stopService, updateServiceState };
 });
