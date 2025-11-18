@@ -176,12 +176,10 @@ class ServiceManager:
             ServiceEvent with the result
         """
         import logging
-        start_logger = logging.getLogger(f"service.start")
-        start_logger.info(f"start_service called for: '{name}'")
-        start_logger.info(f"Available services: {list(self.services.keys())}")
+        pass
         
         if name not in self.services:
-            start_logger.error(f"Service '{name}' not found in manager")
+            pass
             raise HTTPException(status_code=404, detail=f"Service '{name}' not found")
         
         service = self.services[name]
@@ -189,15 +187,13 @@ class ServiceManager:
         # Dependencies are checked but not automatically started
         # (User must start them manually or all at once)
         import logging
-        dep_logger = logging.getLogger(f"service.{name}.dependencies")
+        pass
         
         # Just warn if dependencies are not healthy
         for dep_name in service.dependencies:
             dep = self.services.get(dep_name)
             if not dep:
-                dep_logger.warning(f"Dependency '{dep_name}' not found")
-            elif dep.state != ServiceState.HEALTHY:
-                dep_logger.warning(f"Dependency '{dep_name}' is {dep.state}, but starting {name} anyway")
+                pass
         
         # Check if already running
         if service.is_running():
@@ -249,9 +245,9 @@ class ServiceManager:
         if auto_start_mode == 'system_service':
             import logging
             # Ensure startup_logger exists before use
-            startup_logger = logging.getLogger(f"service.{name}.startup")
+            pass
             try:
-                startup_logger.info(f"auto_start=system_service requested for {name}; probing for system service...")
+                pass
                 adapter = None
                 if sys.platform.startswith('linux'):
                     try:
@@ -277,7 +273,7 @@ class ServiceManager:
                         # Determine user scope for systemd adapters
                         scope = service.extra_config.get('autostart_scope', detect_result.get('scope') or 'system')
                         user_flag = True if str(scope).lower() == 'user' else False
-                        startup_logger.info(f"Found system service '{unit_or_name}', attempting OS-managed start (scope={scope})")
+                        pass
                         try:
                             if adapter_type == 'systemd':
                                 # systemd.start(unit_name, user: bool=False)
@@ -334,11 +330,11 @@ class ServiceManager:
                                 await self._emit_event(event)
                                 return event
                             else:
-                                startup_logger.warning(f"OS service {unit_or_name} did not report active after start; falling back to process start")
+                                pass
                         else:
-                            startup_logger.warning(f"OS service start failed for {unit_or_name}: {start_res}")
+                            pass
             except Exception as e:
-                startup_logger.warning(f"Error while attempting OS-native start for {name}: {e}")
+                pass
 
         if service.raw_command:
             # Raw command provided (useful for executables like redis-server)
@@ -372,10 +368,7 @@ class ServiceManager:
             env['PYTHONIOENCODING'] = 'utf-8'
             
             import logging
-            startup_logger = logging.getLogger(f"service.{name}.startup")
-            startup_logger.info(f"Starting service {name} (spawn_console={service.spawn_console})")
-            startup_logger.info(f"Command: {' '.join(str(c) for c in cmd)}")
-            startup_logger.info(f"Working directory: {cwd}")
+            pass
             
             if service.spawn_console:
                 # Spawn visible console window
@@ -429,7 +422,7 @@ class ServiceManager:
                     creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0  # Hide console on Windows
                 )
             
-            startup_logger.info(f"Process spawned with PID: {service.process.pid}")
+            pass
             
             service.start_time = datetime.utcnow()
             service.state = ServiceState.RUNNING
@@ -491,7 +484,7 @@ class ServiceManager:
                 
                 # Wait for configured startup window before health check (allows slower services like Strapi)
                 wait_seconds = getattr(service, 'startup_wait', 2) or 2
-                startup_logger.info(f"Waiting {wait_seconds}s for {name} to bind before health check...")
+                pass
                 await asyncio.sleep(wait_seconds)
                 healthy = await self._check_health(service)
                 if healthy:
@@ -527,9 +520,9 @@ class ServiceManager:
         service = self.services[name]
         
         import logging
-        logger = logging.getLogger("service_manager.stop")
+        pass
         if not service.is_running():
-            logger.info(f"Stop requested for {name}, but it is not running.")
+            pass
             return ServiceEvent(
                 service_name=name,
                 timestamp=datetime.utcnow().isoformat(),
@@ -538,18 +531,14 @@ class ServiceManager:
                 port=service.port
             )
 
-        logger.info(f"Attempting to terminate process for {name} (PID: {getattr(service.process, 'pid', None)})...")
+        pass
         try:
             service.process.terminate()
-            logger.info(f"Sent terminate signal to {name} (PID: {getattr(service.process, 'pid', None)}). Waiting up to 10s...")
             service.process.wait(timeout=10)
-            logger.info(f"Process for {name} terminated cleanly.")
         except subprocess.TimeoutExpired:
-            logger.warning(f"Process for {name} did not terminate in time. Sending kill signal...")
             service.process.kill()
-            logger.info(f"Process for {name} killed.")
-        except Exception as e:
-            logger.error(f"Error terminating process for {name}: {e}")
+        except Exception:
+            pass
 
         # Clear process reference
         service.process = None
@@ -695,7 +684,7 @@ class ServiceManager:
         # Special-case Redis: use direct Redis ping for health check
         if service.name == 'redis':
             import logging
-            logger = logging.getLogger("service_monitor.redis_health")
+            pass
             try:
                 import redis.asyncio as aioredis
                 redis_client = aioredis.from_url(
@@ -704,10 +693,10 @@ class ServiceManager:
                 )
                 result = await redis_client.ping()
                 await redis_client.close()
-                logger.debug(f"Redis health check ping result: {result}")
+                pass
                 return result is True
             except Exception as e:
-                logger.debug(f"Redis health check failed: {e}")
+                pass
                 return False
 
         # Default: no health URL, assume service is running if process exists
@@ -716,7 +705,7 @@ class ServiceManager:
     async def _capture_output(self, service: ManagedService):
         """Capture stdout/stderr from service process and log to file."""
         import logging
-        logger = logging.getLogger(f"service.{service.name}.output")
+        pass
         
         try:
             # Read combined stdout/stderr stream
@@ -727,22 +716,22 @@ class ServiceManager:
                     if line:
                         timestamp = datetime.utcnow().isoformat()
                         service.stdout_buffer.append(f"{timestamp} | {line.strip()}")
-                        logger.info(f"{line.strip()}")
+                        pass
                     else:
                         break
                 except Exception as e:
-                    logger.error(f"Error reading process output: {e}")
+                    pass
                     break
         except Exception as e:
-            logger.error(f"Error in output capture: {e}")
+            pass
     
     async def _monitor_health(self):
         """Background task that monitors service health."""
         import logging
-        monitor_logger = logging.getLogger("service_monitor")
+        pass
         
         # Emit initial state for all services on startup
-        monitor_logger.info("Emitting initial service states on startup...")
+        pass
         # Get config for all services (even if not started)
         from launcher.config import ConfigurationManager
         config_path = Path(__file__).parent.parent / "config.ini"
@@ -818,11 +807,20 @@ class ServiceManager:
                 # Check if process has exited unexpectedly
                 if service.process is not None and not service.is_running():
                     exit_code = service.process.returncode
-                    monitor_logger.error(f"Process for {service.name} exited with code {exit_code}")
-                    if service.stderr_buffer:
-                        monitor_logger.error(f"Last stderr from {service.name}:")
-                        for line in list(service.stderr_buffer)[-10:]:
-                            monitor_logger.error(f"  {line}")
+                    # Logging suppressed
+                    # If exit code is non-zero, mark as FAILED and do NOT restart
+                    if exit_code != 0:
+                        if service.state != ServiceState.FAILED or self._last_service_states.get(service.name) != ServiceState.FAILED.value:
+                            service.state = ServiceState.FAILED
+                            self._last_service_states[service.name] = ServiceState.FAILED.value
+                            pass
+                            event = self.create_status_event(service, ServiceState.FAILED)
+                            await self._emit_event(event)
+                        # Clear process reference so we don't keep checking it
+                        service.process = None
+                        continue  # Do not attempt restart or further state changes
+                    # Clear process reference for any other exit
+                    service.process = None
 
                 # For services with health checks, use health status to determine state
                 # (supports externally-managed services like Strapi/Redis)
@@ -846,9 +844,12 @@ class ServiceManager:
                         }.get(new_state.value, "\033[0m")
                         bold = "\033[1m"
                         reset = "\033[0m"
-                        print(f"{bold}{'-'*78}{reset}")
-                        print(f"| {service.name:<18} | {state_color}{new_state.value.upper():<10}{reset} | {str(getattr(service, 'enabled', True)):<7} | {str(getattr(service, 'spawn_console', False)):<7} | {getattr(service, 'description', '')[:30]:<30} |")
-                        print(f"{bold}{'-'*78}{reset}")
+                        # Print status table only when state changes
+                        if not hasattr(self, '_last_table_printed') or self._last_table_printed != f"{service.name}:{new_state.value}":
+                            print(f"{bold}{'-'*78}{reset}")
+                            print(f"| {service.name:<18} | {state_color}{new_state.value.upper():<10}{reset} | {str(getattr(service, 'enabled', True)):<7} | {str(getattr(service, 'spawn_console', False)):<7} | {getattr(service, 'description', '')[:30]:<30} |")
+                            print(f"{bold}{'-'*78}{reset}")
+                            self._last_table_printed = f"{service.name}:{new_state.value}"
                         event = self.create_status_event(service, new_state)
                         await self._emit_event(event)
                 # For process-managed services, check if running
@@ -886,14 +887,14 @@ class ServiceManager:
         
         # Emit to Socket.IO clients
         import logging
-        logger = logging.getLogger("service_manager.emit_event")
+        pass
         event_data = event.dict()
-        logger.info(f"Emitting service_status event: Service={event_data.get('service_name')}, State={event_data.get('state')}, Message={event_data.get('message')}, Full={event_data}")
+        pass
         try:
             from launcher.socket_server import sio
             await sio.emit('service_status', event.dict())
-        except Exception as e:
-            logger.error(f"Error emitting event: {e}")
+        except Exception:
+            pass
     
     async def subscribe_events(self, websocket: WebSocket):
         """Subscribe a WebSocket client to service events."""
@@ -955,10 +956,7 @@ async def _start_service_safely(name: str):
 async def start_service(name: str):
     """Start a service and its dependencies."""
     import logging
-    rest_logger = logging.getLogger("launcher.rest_api")
-    rest_logger.info(f"REST API: start_service called with name='{name}'")
     event = await manager.start_service(name)
-    rest_logger.info(f"REST API: start_service returned event for '{event.service_name}': state={event.state}")
     return event
 
 
