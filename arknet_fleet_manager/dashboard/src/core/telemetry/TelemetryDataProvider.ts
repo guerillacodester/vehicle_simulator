@@ -18,41 +18,77 @@ export type TelemetryVehicle = {
 };
 
 export type TelemetryConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
+export type TelemetryConnectionType = 'websocket' | 'sse';
 
 export class TelemetryDataProvider {
   private ws: WebSocket | null = null;
-  private url: string;
+  private eventSource: EventSource | null = null;
+  private baseUrl: string;
+  private wsUrl: string;
+  private sseUrl: string;
   private token?: string;
   private reconnectAttempts = 0;
+  private wsFailures = 0; // Track consecutive WebSocket failures
+  private useSSE = false; // Whether to use SSE fallback
   // Infinite reconnects: no maxReconnectAttempts
   private listeners: Array<(vehicles: TelemetryVehicle[]) => void> = [];
   private statusListeners: Array<(state: TelemetryConnectionState) => void> = [];
   private vehicles: Map<string, TelemetryVehicle> = new Map();
   private state: TelemetryConnectionState = 'disconnected';
+  private connectionType: TelemetryConnectionType = 'websocket';
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private wsRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(baseUrl: string, token?: string) {
+    this.baseUrl = baseUrl.replace(/\/$/, '');
     // Convert http://localhost:5000 -> ws://localhost:5000/ws
-    const wsUrl = baseUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws';
-    this.url = token ? `${wsUrl}?token=${encodeURIComponent(token)}` : wsUrl;
+    const wsUrl = this.baseUrl.replace(/^http/, 'ws') + '/ws';
+    this.wsUrl = token ? `${wsUrl}?token=${encodeURIComponent(token)}` : wsUrl;
+    // SSE endpoint: http://localhost:5000/sse?token=...
+    this.sseUrl = token ? `${this.baseUrl}/sse?token=${encodeURIComponent(token)}` : `${this.baseUrl}/sse`;
     this.token = token;
   }
 
   connect() {
-    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
-      console.log('TelemetryDataProvider: Already connecting or connected');
-      return; // Already connecting or connected
+    // Try WebSocket first, fall back to SSE if WebSocket fails repeatedly
+    if (this.wsFailures >= 3 && !this.useSSE) {
+      console.log('TelemetryDataProvider: WebSocket failed multiple times, falling back to SSE');
+      this.useSSE = true;
     }
 
-    console.log('TelemetryDataProvider: Connecting to', this.url);
+    if (this.useSSE) {
+      this.connectSSE();
+      // Continue attempting WebSocket in background
+      this.scheduleWebSocketRetry();
+    } else {
+      this.connectWebSocket();
+    }
+  }
+
+  private connectWebSocket() {
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
+      console.log('TelemetryDataProvider: Already connecting or connected via WebSocket');
+      return;
+    }
+
+    console.log('TelemetryDataProvider: Connecting via WebSocket to', this.wsUrl);
     this.setState('connecting');
-    this.ws = new WebSocket(this.url);
+    this.connectionType = 'websocket';
+    this.ws = new WebSocket(this.wsUrl);
 
     this.ws.onopen = () => {
-      console.log('TelemetryDataProvider: Connected successfully');
+      console.log('TelemetryDataProvider: Connected successfully via WebSocket');
       this.setState('connected');
       this.reconnectAttempts = 0;
+      this.wsFailures = 0; // Reset failure counter on success
+      
+      // If we were using SSE, switch back to WebSocket
+      if (this.useSSE) {
+        console.log('TelemetryDataProvider: Switching from SSE to WebSocket');
+        this.disconnectSSE();
+        this.useSSE = false;
+      }
       
       // Subscribe to telemetry topic to receive vehicle updates
       this.ws?.send(JSON.stringify({ type: 'subscribe', topic: 'telemetry' }));
@@ -90,9 +126,10 @@ export class TelemetryDataProvider {
     };
 
     this.ws.onclose = () => {
-      console.log('TelemetryDataProvider: Connection closed');
+      console.log('TelemetryDataProvider: WebSocket connection closed');
       this.stopPingInterval();
       if (this.state !== 'disconnected') {
+        this.wsFailures++;
         this.handleReconnect();
       }
     };
@@ -100,8 +137,80 @@ export class TelemetryDataProvider {
     this.ws.onerror = (error) => {
       console.error('TelemetryDataProvider: WebSocket error', error);
       this.setState('error');
+      this.wsFailures++;
       // onclose will be called after onerror, which triggers reconnection
     };
+  }
+
+  private connectSSE() {
+    if (this.eventSource && (this.eventSource.readyState === EventSource.CONNECTING || this.eventSource.readyState === EventSource.OPEN)) {
+      console.log('TelemetryDataProvider: Already connecting or connected via SSE');
+      return;
+    }
+
+    console.log('TelemetryDataProvider: Connecting via SSE to', this.sseUrl);
+    this.setState('connecting');
+    this.connectionType = 'sse';
+    this.eventSource = new EventSource(this.sseUrl);
+
+    this.eventSource.onopen = () => {
+      console.log('TelemetryDataProvider: Connected successfully via SSE');
+      this.setState('connected');
+      this.reconnectAttempts = 0;
+    };
+
+    this.eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'update' && data.state) {
+          // Real-time vehicle update
+          this.vehicles.set(data.deviceId, data.state);
+          this.emit();
+        } else if (data.deviceId) {
+          // Fallback: Single vehicle update
+          this.vehicles.set(data.deviceId, data);
+          this.emit();
+        }
+      } catch (error) {
+        console.error('TelemetryDataProvider: Failed to parse SSE message', error);
+      }
+    };
+
+    this.eventSource.onerror = (error) => {
+      console.error('TelemetryDataProvider: SSE error', error);
+      this.setState('error');
+      
+      // SSE automatically reconnects, but if it fails completely, try reconnecting
+      if (this.eventSource?.readyState === EventSource.CLOSED) {
+        console.log('TelemetryDataProvider: SSE connection closed');
+        if (this.state !== 'disconnected') {
+          this.handleReconnect();
+        }
+      }
+    };
+  }
+
+  private disconnectSSE() {
+    if (this.eventSource) {
+      console.log('TelemetryDataProvider: Disconnecting SSE');
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+  }
+
+  private scheduleWebSocketRetry() {
+    // While using SSE, periodically try to reconnect WebSocket in background
+    if (this.wsRetryTimeout) {
+      clearTimeout(this.wsRetryTimeout);
+    }
+    
+    this.wsRetryTimeout = setTimeout(() => {
+      if (this.useSSE && this.state === 'connected') {
+        console.log('TelemetryDataProvider: Attempting WebSocket reconnection in background');
+        this.connectWebSocket();
+      }
+    }, 60000); // Try WebSocket every 60 seconds while using SSE
   }
 
   disconnect() {
@@ -110,8 +219,13 @@ export class TelemetryDataProvider {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+    if (this.wsRetryTimeout) {
+      clearTimeout(this.wsRetryTimeout);
+      this.wsRetryTimeout = null;
+    }
     this.stopPingInterval();
     this.ws?.close();
+    this.disconnectSSE();
     this.setState('disconnected');
   }
 
@@ -171,5 +285,20 @@ export class TelemetryDataProvider {
 
   getState() {
     return this.state;
+  }
+
+  getConnectionType(): TelemetryConnectionType {
+    return this.connectionType;
+  }
+
+  getDiagnostics() {
+    return {
+      state: this.state,
+      connectionType: this.connectionType,
+      reconnectAttempts: this.reconnectAttempts,
+      wsFailures: this.wsFailures,
+      useSSE: this.useSSE,
+      vehicleCount: this.vehicles.size
+    };
   }
 }
