@@ -26,7 +26,7 @@ describe('TelemetryDataProvider', () => {
 
   it('should fallback to SSE after repeated WebSocket failures', (done) => {
     // Simulate WebSocket failures
-    (provider as any).wsFailures = 3;
+    (provider as unknown as { wsFailures: number }).wsFailures = 3;
     provider.connect();
     setTimeout(() => {
       expect(provider.getConnectionType()).toBe('sse');
