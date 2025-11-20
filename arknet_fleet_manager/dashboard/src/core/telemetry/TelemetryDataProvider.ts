@@ -39,6 +39,8 @@ export class TelemetryDataProvider {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private wsRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastPongTime: number = 0;
+  private pongTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(baseUrl: string, token?: string) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -115,6 +117,11 @@ export class TelemetryDataProvider {
           console.log('TelemetryDataProvider: Subscribed to topic:', data.topic);
         } else if (data.type === 'pong') {
           // Pong response to keepalive
+          this.lastPongTime = Date.now();
+          if (this.pongTimeout) {
+            clearTimeout(this.pongTimeout);
+            this.pongTimeout = null;
+          }
         } else if (data.deviceId) {
           // Fallback: Single vehicle update (legacy format)
           this.vehicles.set(data.deviceId, data);
@@ -135,7 +142,7 @@ export class TelemetryDataProvider {
     };
 
     this.ws.onerror = (error) => {
-      console.error('TelemetryDataProvider: WebSocket error', error);
+      console.warn('TelemetryDataProvider: WebSocket connection failed, will retry automatically', { wsFailures: this.wsFailures + 1 });
       this.setState('error');
       this.wsFailures++;
       // onclose will be called after onerror, which triggers reconnection
@@ -153,14 +160,40 @@ export class TelemetryDataProvider {
     this.connectionType = 'sse';
     this.eventSource = new EventSource(this.sseUrl);
 
-    this.eventSource.onopen = () => {
+    this.eventSource.onopen = async () => {
       console.log('TelemetryDataProvider: Connected successfully via SSE');
       this.setState('connected');
       this.reconnectAttempts = 0;
+      
+      // Fetch initial snapshot of vehicles for SSE connection
+      try {
+        const snapshotUrl = this.token 
+          ? `${this.baseUrl}/snapshot?token=${encodeURIComponent(this.token)}`
+          : `${this.baseUrl}/snapshot`;
+        const response = await fetch(snapshotUrl);
+        if (response.ok) {
+          const snapshot = await response.json();
+          if (Array.isArray(snapshot)) {
+            this.vehicles.clear();
+            snapshot.forEach((vehicle: TelemetryVehicle) => {
+              this.vehicles.set(vehicle.deviceId, vehicle);
+            });
+            this.emit();
+            console.log(`TelemetryDataProvider: Loaded ${snapshot.length} vehicles from snapshot`);
+          }
+        }
+      } catch (error) {
+        console.warn('TelemetryDataProvider: Failed to fetch initial snapshot for SSE', error);
+      }
     };
 
     this.eventSource.onmessage = (event) => {
       try {
+        // Skip empty or whitespace-only messages
+        if (!event.data || !event.data.trim()) {
+          return;
+        }
+        
         const data = JSON.parse(event.data);
         
         if (data.type === 'update' && data.state) {
@@ -173,20 +206,24 @@ export class TelemetryDataProvider {
           this.emit();
         }
       } catch (error) {
-        console.error('TelemetryDataProvider: Failed to parse SSE message', error);
+        console.warn('TelemetryDataProvider: Skipping invalid SSE message', { 
+          data: event.data?.substring(0, 100),
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     };
 
     this.eventSource.onerror = (error) => {
-      console.error('TelemetryDataProvider: SSE error', error);
-      this.setState('error');
-      
-      // SSE automatically reconnects, but if it fails completely, try reconnecting
+      // SSE errors are expected during reconnection attempts
       if (this.eventSource?.readyState === EventSource.CLOSED) {
-        console.log('TelemetryDataProvider: SSE connection closed');
+        console.warn('TelemetryDataProvider: SSE connection closed, will retry automatically');
         if (this.state !== 'disconnected') {
+          this.setState('error');
           this.handleReconnect();
         }
+      } else {
+        // Connection is still open or connecting, SSE will handle it
+        console.warn('TelemetryDataProvider: SSE connection issue, automatic reconnection in progress');
       }
     };
   }
@@ -239,9 +276,29 @@ export class TelemetryDataProvider {
   }
 
   private startPingInterval() {
+    this.lastPongTime = Date.now();
     this.pingInterval = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
+        // Check if we've received a pong recently
+        const timeSinceLastPong = Date.now() - this.lastPongTime;
+        if (timeSinceLastPong > 90000) { // No pong for 90 seconds
+          console.warn('TelemetryDataProvider: WebSocket connection appears dead, reconnecting');
+          this.ws.close();
+          return;
+        }
+        
         this.ws.send(JSON.stringify({ type: 'ping' }));
+        
+        // Set timeout for pong response
+        if (this.pongTimeout) {
+          clearTimeout(this.pongTimeout);
+        }
+        this.pongTimeout = setTimeout(() => {
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            console.warn('TelemetryDataProvider: No pong received, connection may be dead');
+            this.ws.close();
+          }
+        }, 10000); // Wait 10 seconds for pong
       }
     }, 30000); // Ping every 30 seconds
   }
@@ -250,6 +307,10 @@ export class TelemetryDataProvider {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
+    }
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
     }
   }
 

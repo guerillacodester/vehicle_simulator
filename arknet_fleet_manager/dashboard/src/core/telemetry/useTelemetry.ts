@@ -1,6 +1,6 @@
-
 import { useContext } from 'react';
 import { TelemetryContext } from './TelemetryContext';
+import { TelemetryVehicle, TelemetryConnectionState, TelemetryConnectionType } from './TelemetryDataProvider';
 
 /**
  * useTelemetry hook
@@ -29,7 +29,16 @@ import { TelemetryContext } from './TelemetryContext';
  * @see TelemetryProvider
  * @see TelemetryDataProvider
  */
-export function useTelemetry() {
+
+export interface UseTelemetryReturn {
+  vehicles: TelemetryVehicle[];
+  connectionState: TelemetryConnectionState;
+  connectionType: TelemetryConnectionType;
+  diagnostics: ReturnType<import('./TelemetryDataProvider').TelemetryDataProvider['getDiagnostics']>;
+  error?: Error;
+}
+
+export function useTelemetry(): UseTelemetryReturn {
   const context = useContext(TelemetryContext);
   if (!context) {
     throw new Error('useTelemetry must be used within a TelemetryProvider');

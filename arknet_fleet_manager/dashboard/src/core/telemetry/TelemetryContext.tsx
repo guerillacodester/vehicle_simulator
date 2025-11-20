@@ -8,7 +8,7 @@ interface TelemetryContextValue {
   diagnostics: ReturnType<TelemetryDataProvider['getDiagnostics']>;
 }
 
-const TelemetryContext = createContext<TelemetryContextValue | undefined>(undefined);
+export const TelemetryContext = createContext<TelemetryContextValue | undefined>(undefined);
 
 export const TelemetryProvider: React.FC<{ baseUrl: string; token?: string; children: React.ReactNode }> = ({ baseUrl, token, children }) => {
   const providerRef = useRef<TelemetryDataProvider | null>(null);
