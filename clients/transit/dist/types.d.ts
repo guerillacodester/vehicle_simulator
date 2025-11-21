@@ -1,27 +1,31 @@
 export interface RouteSummary {
     id: string;
-    code: string;
     name: string;
-    origin: string;
-    destination: string;
-    activeVehicles?: number;
+    shortName?: string;
 }
 export interface RouteDetail extends RouteSummary {
-    geometryUrl?: string;
+    code?: string;
+    origin?: string;
+    destination?: string;
+    description?: string;
     stops?: Stop[];
+    activeVehicles?: number;
+}
+export interface Vehicle {
+    id: string;
+    routeId: string;
+    latitude: number;
+    longitude: number;
+    heading?: number;
+    speed?: number;
+    timestamp: number;
 }
 export interface Stop {
     id: string;
     name: string;
-    lat: number;
-    lon: number;
-}
-export interface Vehicle {
-    vehicleId: string;
-    routeId: string;
-    lat: number;
-    lon: number;
-    speedKmh?: number;
-    heading?: number;
-    timestamp?: string;
+    latitude?: number;
+    longitude?: number;
+    lat?: number;
+    lon?: number;
+    sequence?: number;
 }

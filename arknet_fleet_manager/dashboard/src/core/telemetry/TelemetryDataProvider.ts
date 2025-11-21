@@ -27,6 +27,7 @@ export class TelemetryDataProvider {
   private wsUrl: string;
   private sseUrl: string;
   private token?: string;
+  private refreshToken?: () => Promise<string>;
   private reconnectAttempts = 0;
   private wsFailures = 0; // Track consecutive WebSocket failures
   private useSSE = false; // Whether to use SSE fallback
@@ -42,14 +43,27 @@ export class TelemetryDataProvider {
   private lastPongTime: number = 0;
   private pongTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(baseUrl: string, token?: string) {
+  constructor(baseUrl: string, token?: string, refreshToken?: () => Promise<string>) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
-    // Convert http://localhost:5000 -> ws://localhost:5000/ws
-    const wsUrl = this.baseUrl.replace(/^http/, 'ws') + '/ws';
-    this.wsUrl = token ? `${wsUrl}?token=${encodeURIComponent(token)}` : wsUrl;
-    // SSE endpoint: http://localhost:5000/sse?token=...
-    this.sseUrl = token ? `${this.baseUrl}/sse?token=${encodeURIComponent(token)}` : `${this.baseUrl}/sse`;
     this.token = token;
+    this.refreshToken = refreshToken;
+    this.updateUrls();
+  }
+
+  private updateUrls() {
+    // Don't include token in URL - browser will automatically send httpOnly cookie
+    const wsUrl = this.baseUrl.replace(/^http/, 'ws') + '/ws';
+    this.wsUrl = wsUrl;
+    this.sseUrl = `${this.baseUrl}/sse`;
+  }
+
+  // Call this to update token and rebuild URLs
+  async setToken(newToken: string) {
+    this.token = newToken;
+    this.updateUrls();
+    // Optionally reconnect with new token
+    this.disconnect();
+    this.connect();
   }
 
   connect() {
@@ -132,19 +146,37 @@ export class TelemetryDataProvider {
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = async (event) => {
       console.log('TelemetryDataProvider: WebSocket connection closed');
       this.stopPingInterval();
+      // Detect authentication error (401/403 or custom code)
+      if (event && event.code === 4001 && this.refreshToken) { // 4001: custom code for token expired
+        console.warn('TelemetryDataProvider: Token expired, attempting refresh');
+        try {
+          const newToken = await this.refreshToken();
+          await this.setToken(newToken);
+          return;
+        } catch (err) {
+          console.error('TelemetryDataProvider: Token refresh failed', err);
+          this.setState('error');
+          return;
+        }
+      }
       if (this.state !== 'disconnected') {
         this.wsFailures++;
         this.handleReconnect();
       }
     };
 
-    this.ws.onerror = (error) => {
-      console.warn('TelemetryDataProvider: WebSocket connection failed, will retry automatically', { wsFailures: this.wsFailures + 1 });
-      this.setState('error');
-      this.wsFailures++;
+    this.ws.onerror = () => {
+      // WebSocket onerror doesn't provide detailed error information
+      // The actual error details come from onclose event with status codes
+      console.warn('TelemetryDataProvider: WebSocket error occurred (details in onclose event)');
+      
+      // Note: Do NOT try to access error.message or other properties
+      // The onerror event is just a signal that something went wrong
+      // Authentication errors are handled in onclose with event.code
+      
       // onclose will be called after onerror, which triggers reconnection
     };
   }
@@ -167,10 +199,9 @@ export class TelemetryDataProvider {
       
       // Fetch initial snapshot of vehicles for SSE connection
       try {
-        const snapshotUrl = this.token 
-          ? `${this.baseUrl}/snapshot?token=${encodeURIComponent(this.token)}`
-          : `${this.baseUrl}/snapshot`;
-        const response = await fetch(snapshotUrl);
+        const snapshotUrl = `${this.baseUrl}/snapshot`;
+        // Include credentials to send httpOnly cookie
+        const response = await fetch(snapshotUrl, { credentials: 'include' });
         if (response.ok) {
           const snapshot = await response.json();
           if (Array.isArray(snapshot)) {
@@ -213,7 +244,21 @@ export class TelemetryDataProvider {
       }
     };
 
-    this.eventSource.onerror = (error) => {
+    this.eventSource.onerror = async (error) => {
+      // Detect authentication error (custom logic, e.g. error.status === 401)
+      // If token expired, attempt refresh
+      if (this.refreshToken && error && error.status === 401) {
+        console.warn('TelemetryDataProvider: SSE token expired, attempting refresh');
+        try {
+          const newToken = await this.refreshToken();
+          await this.setToken(newToken);
+          return;
+        } catch (err) {
+          console.error('TelemetryDataProvider: SSE token refresh failed', err);
+          this.setState('error');
+          return;
+        }
+      }
       // SSE errors are expected during reconnection attempts
       if (this.eventSource?.readyState === EventSource.CLOSED) {
         console.warn('TelemetryDataProvider: SSE connection closed, will retry automatically');

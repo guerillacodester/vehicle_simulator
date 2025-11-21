@@ -10,7 +10,13 @@ interface TelemetryContextValue {
 
 export const TelemetryContext = createContext<TelemetryContextValue | undefined>(undefined);
 
-export const TelemetryProvider: React.FC<{ baseUrl: string; token?: string; children: React.ReactNode }> = ({ baseUrl, token, children }) => {
+
+export const TelemetryProvider: React.FC<{
+  baseUrl: string;
+  token?: string;
+  refreshToken?: () => Promise<string>;
+  children: React.ReactNode;
+}> = ({ baseUrl, token, refreshToken, children }) => {
   const providerRef = useRef<TelemetryDataProvider | null>(null);
   const [vehicles, setVehicles] = useState<TelemetryVehicle[]>([]);
   const [connectionState, setConnectionState] = useState<TelemetryConnectionState>('disconnected');
@@ -25,7 +31,7 @@ export const TelemetryProvider: React.FC<{ baseUrl: string; token?: string; chil
   });
 
   useEffect(() => {
-    providerRef.current = new TelemetryDataProvider(baseUrl, token);
+    providerRef.current = new TelemetryDataProvider(baseUrl, token, refreshToken);
     providerRef.current.connect();
 
     const unsubVehicles = providerRef.current.subscribe(setVehicles);
@@ -40,7 +46,7 @@ export const TelemetryProvider: React.FC<{ baseUrl: string; token?: string; chil
       unsubStatus();
       providerRef.current?.disconnect();
     };
-  }, [baseUrl, token]);
+  }, [baseUrl, token, refreshToken]);
 
   return (
     <TelemetryContext.Provider value={{ vehicles, connectionState, connectionType, diagnostics }}>

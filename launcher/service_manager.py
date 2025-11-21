@@ -13,25 +13,68 @@ async def login(request: Request):
         raise HTTPException(status_code=400, detail="Username and password required.")
 
     # Strapi GraphQL login mutation
-    graphql_url = "http://localhost:1337/graphql"  # Update if needed
-    query = '''mutation Login($identifier: String!, $password: String!) { login(input: { identifier: $identifier, password: $password }) { jwt user { id username email } } }'''
+    graphql_url = "http://localhost:1337/graphql"
+    query = '''mutation Login($identifier: String!, $password: String!) { 
+      login(input: { identifier: $identifier, password: $password }) { 
+        jwt 
+        user { 
+          id 
+          username 
+          email 
+        } 
+      } 
+    }'''
     variables = {"identifier": username, "password": password}
 
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(graphql_url, json={"query": query, "variables": variables})
-            result = resp.json()
-            jwt = result.get("data", {}).get("login", {}).get("jwt")
-            user = result.get("data", {}).get("login", {}).get("user")
+            
+            # Log response for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Strapi response status: {resp.status_code}")
+            logger.info(f"Strapi response text: {resp.text[:500]}")
+            
+            resp.raise_for_status()
+            
+            try:
+                result = resp.json()
+            except Exception as json_err:
+                raise HTTPException(status_code=500, detail=f"Invalid JSON from Strapi: {str(json_err)}")
+            
+            if not result:
+                raise HTTPException(status_code=500, detail="Empty response from Strapi")
+            
+            # Check for GraphQL errors
+            if "errors" in result:
+                error_msg = result["errors"][0].get("message", "Unknown GraphQL error")
+                raise HTTPException(status_code=401, detail=f"Authentication failed: {error_msg}")
+            
+            # Extract login data from GraphQL response
+            login_data = result.get("data", {})
+            if not login_data:
+                raise HTTPException(status_code=500, detail=f"No data in response: {result}")
+                
+            login_info = login_data.get("login", {})
+            if not login_info:
+                raise HTTPException(status_code=500, detail=f"No login info in data: {login_data}")
+            
+            jwt = login_info.get("jwt")
+            user = login_info.get("user")
+            
             if not jwt or not user:
-                raise HTTPException(status_code=401, detail="Invalid credentials.")
+                raise HTTPException(status_code=401, detail="Invalid credentials - no JWT or user returned.")
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+            import traceback
+            raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}\n{traceback.format_exc()}")
 
-    # Set JWT as HTTP-only cookie
+    # Set JWT as httpOnly cookie for security
     import json
     response = Response(content=json.dumps({"success": True, "user": user}), media_type="application/json")
-    response.set_cookie(key="jwt", value=jwt, httponly=True, max_age=86400)
+    response.set_cookie(key="jwt", value=jwt, httponly=True, max_age=86400, samesite="lax")
     return response
 """
 FastAPI-based service manager for orchestrating subsystem lifecycle.

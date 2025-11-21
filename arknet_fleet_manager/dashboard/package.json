@@ -38,6 +38,8 @@
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
+    "node-fetch": "^2.7.0",
+    "open": "^8.4.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
