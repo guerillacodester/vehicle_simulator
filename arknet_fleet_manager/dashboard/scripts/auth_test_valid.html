@@ -25,6 +25,8 @@
   <div id="details"></div>
 
   <script>
+    let eventSource = null;
+
     async function login() {
       const statusDiv = document.getElementById('status');
       const detailsDiv = document.getElementById('details');
@@ -45,16 +47,15 @@
         if (response.ok) {
           const data = await response.json();
           statusDiv.className = 'status success';
-          statusDiv.textContent = '✓ Login successful!';
+          statusDiv.textContent = '✓ Login successful! Connecting to telemetry...';
           detailsDiv.innerHTML = `
             <p><strong>User:</strong> ${data.user?.username || 'N/A'}</p>
             <p><strong>JWT Cookie:</strong> Set (httpOnly)</p>
-            <p>Redirecting to telemetry wall demo in 2 seconds...</p>
+            <h3>Telemetry Stream:</h3>
+            <div id="telemetry" style="max-height: 400px; overflow-y: auto; background: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;"></div>
           `;
           
-          setTimeout(() => {
-            window.location.href = 'http://localhost:3000/telemetry-wall-demo';
-          }, 2000);
+          connectTelemetry();
         } else {
           const errorText = await response.text();
           statusDiv.className = 'status error';
@@ -67,6 +68,43 @@
         detailsDiv.innerHTML = `<p><strong>Error:</strong> ${error.message}</p>`;
       }
     }
+
+    function connectTelemetry() {
+      eventSource = new EventSource('http://localhost:5000/client/sse', {
+        withCredentials: true
+      });
+
+      const telemetryDiv = document.getElementById('telemetry');
+
+      eventSource.onopen = () => {
+        telemetryDiv.innerHTML += '<div style="color: green;">✓ Connected to telemetry stream</div>';
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const timestamp = new Date().toLocaleTimeString();
+          telemetryDiv.innerHTML += `<div style="margin: 5px 0; border-bottom: 1px solid #ddd; padding: 5px 0;">
+            <strong>[${timestamp}]</strong> ${JSON.stringify(data, null, 2)}
+          </div>`;
+          telemetryDiv.scrollTop = telemetryDiv.scrollHeight;
+        } catch (e) {
+          console.error('Error parsing telemetry:', e);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE Error:', error);
+        telemetryDiv.innerHTML += '<div style="color: red;">✗ Connection error or closed</div>';
+      };
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    });
 
     // Auto-login on page load
     login();

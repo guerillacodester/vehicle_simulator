@@ -70,10 +70,15 @@ const TelemetryTestInner: React.FC = () => {
 
     // Log EVERY vehicle update, even if data hasn't changed
     vehicles.forEach(v => {
+      const driverName = (v as any).driverName 
+        ? `${(v as any).driverName.first} ${(v as any).driverName.last}`
+        : 'Unknown';
+      const vehicleReg = (v as any).vehicleReg || v.deviceId || 'Unknown';
+      
       setLogs(prevLogs => [...prevLogs, {
         timestamp,
         type: 'update',
-        message: `📍 ${v.deviceId}`,
+        message: `📍 ${vehicleReg} - ${driverName}`,
         data: {
           lat: v.lat.toFixed(6),
           lon: v.lon.toFixed(6),

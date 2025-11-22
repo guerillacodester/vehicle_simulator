@@ -1,0 +1,99 @@
+Epic,Feature,Task,Priority,Status,Complexity,Dependencies,Notes
+Strapi Backend - Authentication & Authorization,User Authentication,Implement JWT-based authentication with Strapi Users & Permissions plugin,High,Complete,Medium,None,JWT tokens include user tier for RBAC
+Strapi Backend - Authentication & Authorization,User Authentication,Create custom auth controller to inject tier into JWT payload,High,Complete,Medium,JWT Authentication,Located in src/extensions/users-permissions/controllers/auth.ts
+Strapi Backend - Authentication & Authorization,Access Tier System,Design and implement Access Tier content type with privilege definitions,High,Complete,High,User Authentication,Defines allowed telemetry fields per tier (public/dispatcher/fleet_manager/admin)
+Strapi Backend - Authentication & Authorization,Access Tier System,Create User Profile content type with access tier relations,High,Complete,Medium,Access Tier Content Type,Links users to their access tier
+Strapi Backend - Authentication & Authorization,RBAC Policy,Implement check-access-tier policy for route-level authorization,High,Complete,High,Access Tier System,Located in src/extensions/users-permissions/policies/rbacTierPolicy.ts
+Strapi Backend - Authentication & Authorization,Permission Bootstrap,Auto-configure public/authenticated permissions on server startup,High,Complete,High,RBAC Policy,Scans route files for minTier requirements and sets permissions
+Strapi Backend - Authentication & Authorization,GraphQL User Extensions,Extend GraphQL UsersPermissionsUser and UsersPermissionsMe with tier field,Medium,Complete,Medium,Access Tier System,Located in src/extensions/graphql/users-permissions/extension.ts
+Strapi Backend - Content Types,Transit Data Model,Create Route content type with GTFS fields and geometry support,High,Complete,High,None,Includes short_name long_name color route_type
+Strapi Backend - Content Types,Transit Data Model,Create Stop content type with location and accessibility fields,High,Complete,Medium,Route,GTFS stop data with lat/lon
+Strapi Backend - Content Types,Transit Data Model,Create Trip content type with service and route relations,High,Complete,Medium,Route Service,GTFS trip data
+Strapi Backend - Content Types,Transit Data Model,Create Stop Time content type linking trips and stops,High,Complete,Medium,Trip Stop,GTFS stop_times with arrival/departure
+Strapi Backend - Content Types,Transit Data Model,Create Service content type for calendar definitions,High,Complete,Medium,None,Service schedules with weekday flags
+Strapi Backend - Content Types,Transit Data Model,Create Calendar Date content type for service exceptions,Medium,Complete,Low,Service,Service date exceptions
+Strapi Backend - Content Types,Transit Data Model,Create Shape content type for route geometry points,High,Complete,Medium,None,Individual geometry points with sequence
+Strapi Backend - Content Types,Transit Data Model,Create Route Shape content type linking routes to shapes,High,Complete,Medium,Route Shape,Junction table for route-shape many-to-many
+Strapi Backend - Content Types,Fleet Management,Create Vehicle content type with registration and route assignment,High,Complete,Medium,Route,Vehicle registry with reg number assignment
+Strapi Backend - Content Types,Fleet Management,Create Driver content type with license and contact info,High,Complete,Medium,None,Driver registry with license validation
+Strapi Backend - Content Types,Fleet Management,Create GPS Device content type with IMEI and assignment tracking,High,Complete,Medium,Vehicle,GPS device registry and vehicle assignment
+Strapi Backend - Content Types,Fleet Management,Create Depot content type with location and capacity,High,Complete,Medium,None,Depot/garage management
+Strapi Backend - Content Types,Fleet Management,Create Vehicle Status content type for operational state tracking,Medium,Complete,Medium,Vehicle,Real-time vehicle operational status
+Strapi Backend - Content Types,Fleet Management,Create Vehicle Event content type for audit trail,Medium,Complete,Low,Vehicle,Event logging for vehicles
+Strapi Backend - Content Types,Geospatial Features,Create Building content type with polygon geometry,Medium,Complete,Medium,None,Building footprints for map display
+Strapi Backend - Content Types,Geospatial Features,Create Highway content type with road network data,Medium,Complete,Medium,None,Road network for routing
+Strapi Backend - Content Types,Geospatial Features,Create Highway Shape content type for road geometry,Medium,Complete,Medium,Highway,Road geometry polylines
+Strapi Backend - Content Types,Geospatial Features,Create Place content type for named locations,Low,Complete,Low,None,POI and landmarks
+Strapi Backend - Content Types,Geospatial Features,Create POI content type with category and location,Low,Complete,Low,None,Points of interest
+Strapi Backend - Content Types,Geospatial Features,Create Geofence content type for virtual boundaries,Medium,Complete,Medium,None,Virtual boundary definitions
+Strapi Backend - Content Types,Geospatial Features,Create Geofence Geometry content type for polygon storage,Medium,Complete,Medium,Geofence,Geofence polygon coordinates
+Strapi Backend - Content Types,Geospatial Features,Create Region content type for administrative areas,Low,Complete,Low,None,Administrative boundaries
+Strapi Backend - Content Types,Geospatial Features,Create Landuse Zone content type for zoning data,Low,Complete,Low,None,Land use classification
+Strapi Backend - Content Types,Configuration,Create Agency content type for transit operator info,Medium,Complete,Low,None,Transit agency metadata
+Strapi Backend - Content Types,Configuration,Create Feed Info content type for GTFS metadata,Medium,Complete,Low,None,GTFS feed information
+Strapi Backend - Content Types,Configuration,Create Autostart content type for service configuration,Low,Complete,Low,None,Service auto-start settings
+Strapi Backend - Content Types,Configuration,Create Operational Configuration content type,Medium,Complete,Medium,None,System-wide operational settings
+Strapi Backend - Content Types,Simulation,Create Passenger Spawning content type for commuter simulation,Low,Complete,Medium,Stop Route,Passenger generation configuration
+Strapi Backend - Content Types,Simulation,Create Spawn Config content type for simulation parameters,Low,Complete,Low,None,Simulation spawn settings
+Strapi Backend - Content Types,Simulation,Create Active Passenger content type for real-time passenger tracking,Low,Complete,Medium,Stop Route,Active passenger state
+Strapi Backend - Custom Services,Route Geometry Service,Implement spatial reordering algorithm for fragmented route shapes,High,Complete,Very High,Route Shape,Greedy nearest-neighbor with optimal start point selection
+Strapi Backend - Custom Services,Route Geometry Service,Create fetchRouteGeometry service method with caching,High,Complete,High,Route Geometry Algorithm,Located in src/api/route/services/route.ts
+Strapi Backend - Custom Services,Route Geometry Service,Expose REST endpoint for route geometry (/api/routes/:routeName/geometry),High,Complete,Medium,Route Geometry Service,Manual JWT authentication
+Strapi Backend - Custom Services,Route Geometry Service,Register GraphQL resolver for routeGeometry query,High,Complete,High,Route Geometry Service,GraphQL query with metrics
+Strapi Backend - Custom Services,GeoJSON Import,Create GeoJSON streaming parser for large file imports,Medium,Complete,High,None,Memory-efficient streaming parser in utils/geojson-stream-parser.ts
+Strapi Backend - Custom Services,GeoJSON Import,Implement geojson-import controller for bulk data loading,Medium,Complete,High,GeoJSON Parser,Located in src/api/geojson-import
+Strapi Backend - API Configuration,REST API Routes,Configure CRUD routes for all content types with tier-based access,High,Complete,Medium,RBAC Policy,Auto-generated with custom policies
+Strapi Backend - API Configuration,REST API Routes,Apply check-access-tier policy to all API routes,High,Complete,Medium,RBAC Policy,Global policy application
+Strapi Backend - API Configuration,GraphQL API,Enable and configure GraphQL plugin for schema generation,High,Complete,Medium,Content Types,Auto-generated from content types
+Strapi Backend - API Configuration,GraphQL API,Configure GraphQL authentication and authorization,High,Complete,Medium,JWT Authentication,JWT verification for GraphQL queries
+Strapi Backend - API Configuration,GraphQL API,Optimize GraphQL queries with dataloader and caching,Medium,Not Started,High,GraphQL Plugin,Performance optimization for N+1 queries
+Strapi Backend - API Configuration,CORS & Security,Configure CORS for Next.js dashboard and Electron app,High,Complete,Low,None,Allow localhost origins with credentials
+Strapi Backend - API Configuration,CORS & Security,Implement rate limiting middleware,Medium,Not Started,Medium,None,Prevent API abuse
+Strapi Backend - API Configuration,CORS & Security,Add input validation and sanitization,Medium,Not Started,Medium,None,Security hardening
+Strapi Backend - API Configuration,CORS & Security,Configure SSL/TLS for production,High,Not Started,Medium,None,Production security requirement
+Strapi Backend - Database,PostgreSQL Schema,Design normalized schema for GTFS and fleet data,High,Complete,High,None,Relational model with PostGIS
+Strapi Backend - Database,PostgreSQL Schema,Configure PostGIS extension for spatial queries,High,Complete,Medium,PostgreSQL,Spatial data types and functions
+Strapi Backend - Database,Database Migrations,Create initial migration for all content types,High,Complete,Medium,Content Types,Automated by Strapi
+Strapi Backend - Database,Database Migrations,Implement seed scripts for test data,Medium,Complete,Medium,Content Types,Located in scripts/ directory
+Strapi Backend - Database,Database Optimization,Add indexes for frequently queried fields,Medium,Not Started,Medium,Content Types,Performance optimization
+Strapi Backend - Database,Database Optimization,Implement connection pooling configuration,Medium,Complete,Low,None,Configured in config/database.ts
+Strapi Backend - Real-time Features,Socket.IO Integration,Implement Socket.IO server for real-time updates,Medium,Complete,High,None,Located in src/socketio/server.ts
+Strapi Backend - Real-time Features,Socket.IO Integration,Create namespaces for vehicle route and service events,Medium,Complete,Medium,Socket.IO Server,Event routing and broadcasting
+Strapi Backend - Real-time Features,Socket.IO Integration,Implement message format and event types,Medium,Complete,Medium,Socket.IO Server,Standardized message structure in message-format.ts
+🔴 CRITICAL - Strapi Backend - Real-time Features,Socket.IO Security,Add JWT authentication middleware to Socket.IO connections,CRITICAL,Not Started,Medium,Socket.IO Server,SECURITY VULNERABILITY - Socket.IO currently has no authentication
+Strapi Backend - Real-time Features,Lifecycle Hooks,Implement lifecycle hooks for content type updates,Medium,Partial,Medium,Content Types,Real-time broadcasts on data changes
+Strapi Backend - Real-time Features,Lifecycle Hooks,Broadcast vehicle updates to connected clients,Medium,Not Started,Medium,Socket.IO,Real-time fleet tracking
+🔴 CRITICAL - Strapi Backend - Testing,Test Coverage,Write unit tests for custom services (route geometry spatial algorithm),CRITICAL,Not Started,High,Custom Services,PRODUCTION BLOCKER - No test coverage for core algorithm
+🔴 CRITICAL - Strapi Backend - Testing,Test Coverage,Write unit tests for auth controller tier injection,CRITICAL,Not Started,Medium,Auth Controller,PRODUCTION BLOCKER - Auth logic untested
+🔴 CRITICAL - Strapi Backend - Testing,Test Coverage,Write unit tests for RBAC policy enforcement,CRITICAL,Not Started,High,RBAC Policy,PRODUCTION BLOCKER - Access control untested
+Strapi Backend - Testing,Integration Tests,Create integration tests for REST API endpoints,Medium,Not Started,High,REST API,End-to-end API testing
+Strapi Backend - Testing,Integration Tests,Create integration tests for GraphQL queries and mutations,Medium,Not Started,High,GraphQL API,GraphQL testing
+Strapi Backend - Testing,Integration Tests,Test GeoJSON import with sample datasets,Medium,Not Started,Medium,GeoJSON Import,Data import validation
+Strapi Backend - Testing,Load Testing,Perform load testing on route geometry endpoint,Low,Not Started,Medium,Route Geometry,Scalability testing
+Strapi Backend - Testing,Load Testing,Benchmark GraphQL query performance,Low,Not Started,Medium,GraphQL API,Performance baseline
+Strapi Backend - Documentation,API Documentation,Generate OpenAPI/Swagger documentation for REST API,Medium,Not Started,Low,REST API,Auto-generated documentation
+Strapi Backend - Documentation,API Documentation,Document GraphQL schema and example queries,Medium,Complete,Low,GraphQL API,See STRAPI_GRAPHQL_INTEGRATION.md
+Strapi Backend - Documentation,API Documentation,Create developer guide for extending content types,Low,Not Started,Medium,Content Types,Extension patterns
+Strapi Backend - Documentation,Deployment Guide,Document production deployment process,High,Not Started,Medium,None,Docker Kubernetes deployment
+Strapi Backend - Documentation,Deployment Guide,Create environment configuration guide,Medium,Not Started,Low,None,Environment variables and secrets
+Strapi Backend - Documentation,Architecture Documentation,Document content type relationships and data model,Medium,Partial,Medium,Content Types,See CONTEXT.md
+Strapi Backend - Documentation,Architecture Documentation,Document custom service implementations,Medium,Partial,Medium,Custom Services,See ROUTE_GEOMETRY_BIBLE.md
+🔴 CRITICAL - Strapi Backend - Monitoring & Observability,Logging,Implement structured logging for all custom services,CRITICAL,Not Started,Low,Custom Services,PRODUCTION BLOCKER - No observability
+🔴 CRITICAL - Strapi Backend - Monitoring & Observability,Logging,Add request/response logging middleware,CRITICAL,Not Started,Low,None,PRODUCTION BLOCKER - No audit trail
+🔴 CRITICAL - Strapi Backend - Monitoring & Observability,Metrics,Expose Prometheus metrics endpoint,CRITICAL,Not Started,Medium,None,PRODUCTION BLOCKER - No operational metrics
+🔴 CRITICAL - Strapi Backend - Monitoring & Observability,Health Checks,Implement health check endpoint with DB connectivity,CRITICAL,Not Started,Low,None,PRODUCTION BLOCKER - No health checks for K8s
+Strapi Backend - Monitoring & Observability,Error Tracking,Integrate Sentry or similar error tracking,High,Not Started,Low,None,Production error monitoring
+🔴 CRITICAL - Strapi Backend - Performance Optimization,Caching,Implement Redis caching for route geometry results,CRITICAL,Not Started,High,Route Geometry Service,PERFORMANCE RISK - O(n²) algorithm runs on every request without caching
+🔴 CRITICAL - Strapi Backend - Performance Optimization,RBAC Performance,Implement Redis caching for RBAC policy tier lookups,CRITICAL,Not Started,High,RBAC Policy,PERFORMANCE BOTTLENECK - DB query on every API request
+Strapi Backend - Performance Optimization,Caching,Cache GraphQL query results,High,Not Started,High,GraphQL API,Query result caching
+Strapi Backend - Performance Optimization,Query Optimization,Optimize N+1 queries in content type relations,High,Not Started,High,Content Types,Use populate strategically
+Strapi Backend - Performance Optimization,Query Optimization,Implement pagination for large result sets,Medium,Complete,Low,REST API,Built-in Strapi pagination
+🔴 CRITICAL - Strapi Backend - Deployment,Containerization,Create Dockerfile for Strapi backend,CRITICAL,Not Started,Low,None,PRODUCTION BLOCKER - No containerization
+🔴 CRITICAL - Strapi Backend - Deployment,Containerization,Create docker-compose for local development,CRITICAL,Not Started,Low,Dockerfile,PRODUCTION BLOCKER - No local deployment strategy
+🔴 CRITICAL - Strapi Backend - Deployment,Kubernetes,Create Kubernetes manifests for production deployment,CRITICAL,Not Started,High,Dockerfile,PRODUCTION BLOCKER - No production deployment config
+🔴 CRITICAL - Strapi Backend - Deployment,CI/CD,Set up Azure DevOps pipeline for automated deployment,CRITICAL,Not Started,High,Kubernetes,PRODUCTION BLOCKER - No automated deployment
+🔴 CRITICAL - Strapi Backend - Deployment,Database Backup,Implement automated database backup strategy,CRITICAL,Not Started,Medium,PostgreSQL,PRODUCTION BLOCKER - No disaster recovery plan
+Strapi Backend - Access Tier Integration,Telemetry Filtering,Create API endpoint to expose allowed fields per tier,High,Complete,Medium,Access Tier Content Type,Used by GPSCentCom for dynamic filtering
+Strapi Backend - Access Tier Integration,Telemetry Filtering,Ensure Access Tier content type is publicly readable,High,Complete,Low,Access Tier Content Type,Public API access without authentication
+Strapi Backend - Access Tier Integration,Frontend Integration,Document how Next.js fetches user privileges from Strapi,Medium,Not Started,Low,Access Tier API,Frontend integration guide
+Strapi Backend - Access Tier Integration,Frontend Integration,Create React hooks for privilege-based UI rendering,Medium,Not Started,Medium,Access Tier API,useUserPrivileges hook
