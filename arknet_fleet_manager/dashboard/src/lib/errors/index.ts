@@ -23,3 +23,18 @@ export {
   type IErrorHandler,
   type ErrorContext,
 } from './ErrorHandler';
+
+export { ErrorCodes, type ErrorCode } from './ErrorCodes';
+
+export {
+  RetryStrategy,
+  CircuitState,
+  type RetryConfig,
+} from './RetryStrategy';
+
+export {
+  ErrorRecovery,
+  type RecoveryAction,
+} from './ErrorRecovery';
+
+export { ErrorBoundary } from './ErrorBoundary';

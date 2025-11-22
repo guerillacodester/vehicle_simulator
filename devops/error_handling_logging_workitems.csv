@@ -1,0 +1,12 @@
+ID,Work Item Type,Title 1,Title 2,Title 3,Title 4,Title 5,Assigned To,State,Tags
+5200,Epic,Error Handling,,,,,Guerilla Codester,New,error
+5201,Feature,,Global Error Handling System,,,,Guerilla Codester,New,error;system
+5202,User Story,,,Implement error codes and handler,,,Guerilla Codester,New,error;codes
+5203,Task,,,,Define error code catalog,,Guerilla Codester,New,error;codes
+5204,Task,,,,Implement ErrorHandler class,,Guerilla Codester,New,error;handler
+5205,Task,,,,Integrate error boundaries in React UI,,Guerilla Codester,New,react;error
+5300,Epic,Logging,,,,,Guerilla Codester,New,logging
+5301,Feature,,Centralized Logging System,,,,Guerilla Codester,New,logging;system
+5302,User Story,,,Implement Logger class and transports,,,Guerilla Codester,New,logger;transports
+5303,Task,,,,Add console/file/remote logging support,,Guerilla Codester,New,logging;transports
+5304,Task,,,,Integrate logging in telemetry provider,,Guerilla Codester,New,telemetry;logging

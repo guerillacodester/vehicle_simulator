@@ -1,0 +1,193 @@
+Work Item Type,Title 1,Title 2,Title 3,Title 4,Description,Priority,Assigned To,Tags
+Epic,Strapi Backend - Authentication & Authorization,,,,Complete authentication and authorization system with JWT and tier-based RBAC,1,,
+Feature,,User Authentication,,,JWT-based authentication with Strapi Users & Permissions plugin,1,,,
+User Story,,,Implement JWT-based authentication,,Implement JWT-based authentication with Strapi Users & Permissions plugin. JWT tokens include user tier for RBAC,1,,,
+Task,,,,Create custom auth controller,Create custom auth controller to inject tier into JWT payload. Located in src/extensions/users-permissions/controllers/auth.ts,1,,,
+Feature,,Access Tier System,,,Design and implement access tier privilege management,1,,,
+User Story,,,Create Access Tier content type,,Design and implement Access Tier content type with privilege definitions. Defines allowed telemetry fields per tier (public/dispatcher/fleet_manager/admin),1,,,
+Task,,,,Create User Profile content type,Create User Profile content type with access tier relations. Links users to their access tier,1,,,
+Feature,,RBAC Policy,,,Implement role-based access control policy for route-level authorization,1,,,
+User Story,,,Implement check-access-tier policy,,Implement check-access-tier policy for route-level authorization. Located in src/extensions/users-permissions/policies/rbacTierPolicy.ts,1,,,
+Task,,,,Auto-configure permissions on startup,Auto-configure public/authenticated permissions on server startup. Scans route files for minTier requirements and sets permissions,1,,,
+Bug,,,,🔴 CRITICAL - RBAC policy performance bottleneck,RBAC policy queries database on every API request causing performance bottleneck. Need Redis caching implementation,1,,Critical;Performance;Blocker
+Task,,,,Implement Redis caching for RBAC lookups,Implement Redis caching for RBAC policy tier lookups to eliminate database query on every request,1,,Critical;Performance
+Feature,,GraphQL User Extensions,,,Extend GraphQL with user tier information,2,,,
+User Story,,,Extend GraphQL UsersPermissionsUser with tier,,Extend GraphQL UsersPermissionsUser and UsersPermissionsMe with tier field. Located in src/extensions/graphql/users-permissions/extension.ts,2,,,
+Epic,Strapi Backend - Content Types,,,,Complete GTFS and fleet management data model with 47 content types,1,,,
+Feature,,Transit Data Model,,,Create GTFS-compliant transit data content types,1,,,
+User Story,,,Create core transit content types,,Create Route Stop Trip StopTime Service CalendarDate content types with GTFS fields,1,,,
+Task,,,,Create Route content type,Create Route content type with GTFS fields and geometry support. Includes short_name long_name color route_type,1,,,
+Task,,,,Create Stop content type,Create Stop content type with location and accessibility fields. GTFS stop data with lat/lon,1,,,
+Task,,,,Create Trip content type,Create Trip content type with service and route relations. GTFS trip data,1,,,
+Task,,,,Create Stop Time content type,Create Stop Time content type linking trips and stops. GTFS stop_times with arrival/departure,1,,,
+Task,,,,Create Service content type,Create Service content type for calendar definitions. Service schedules with weekday flags,1,,,
+Task,,,,Create Calendar Date content type,Create Calendar Date content type for service exceptions,2,,,
+User Story,,,Create route geometry content types,,Create Shape and Route Shape content types for route geometry points,1,,,
+Task,,,,Create Shape content type,Create Shape content type for route geometry points. Individual geometry points with sequence,1,,,
+Task,,,,Create Route Shape junction table,Create Route Shape content type linking routes to shapes. Junction table for route-shape many-to-many,1,,,
+Feature,,Fleet Management,,,Create fleet management content types for vehicles drivers and devices,1,,,
+User Story,,,Create fleet registry content types,,Create Vehicle Driver GPSDevice Depot content types,1,,,
+Task,,,,Create Vehicle content type,Create Vehicle content type with registration and route assignment,1,,,
+Task,,,,Create Driver content type,Create Driver content type with license and contact info,1,,,
+Task,,,,Create GPS Device content type,Create GPS Device content type with IMEI and assignment tracking,1,,,
+Task,,,,Create Depot content type,Create Depot content type with location and capacity,1,,,
+User Story,,,Create vehicle tracking content types,,Create Vehicle Status and Vehicle Event content types for operational state and audit trail,2,,,
+Task,,,,Create Vehicle Status content type,Create Vehicle Status content type for operational state tracking,2,,,
+Task,,,,Create Vehicle Event content type,Create Vehicle Event content type for audit trail and event logging,2,,,
+Feature,,Geospatial Features,,,Create geospatial content types for map display and routing,2,,,
+User Story,,,Create map feature content types,,Create Building Highway Place POI Geofence Region content types,2,,,
+Task,,,,Create Building content type,Create Building content type with polygon geometry for map display,2,,,
+Task,,,,Create Highway content type,Create Highway content type with road network data,2,,,
+Task,,,,Create Highway Shape content type,Create Highway Shape content type for road geometry polylines,2,,,
+Task,,,,Create Place content type,Create Place content type for named locations POI and landmarks,3,,,
+Task,,,,Create POI content type,Create POI content type with category and location,3,,,
+Task,,,,Create Geofence content type,Create Geofence content type for virtual boundaries,2,,,
+Task,,,,Create Geofence Geometry content type,Create Geofence Geometry content type for polygon storage,2,,,
+Task,,,,Create Region content type,Create Region content type for administrative areas,3,,,
+Task,,,,Create Landuse Zone content type,Create Landuse Zone content type for zoning data,3,,,
+Feature,,Configuration Content Types,,,Create system configuration content types,2,,,
+User Story,,,Create configuration content types,,Create Agency FeedInfo Autostart OperationalConfiguration content types,2,,,
+Task,,,,Create Agency content type,Create Agency content type for transit operator info and metadata,2,,,
+Task,,,,Create Feed Info content type,Create Feed Info content type for GTFS metadata,2,,,
+Task,,,,Create Autostart content type,Create Autostart content type for service configuration,3,,,
+Task,,,,Create Operational Configuration content type,Create Operational Configuration content type for system-wide settings,2,,,
+Feature,,Simulation Content Types,,,Create content types for passenger and commuter simulation,3,,,
+User Story,,,Create simulation content types,,Create PassengerSpawning SpawnConfig ActivePassenger content types,3,,,
+Task,,,,Create Passenger Spawning content type,Create Passenger Spawning content type for commuter simulation and generation configuration,3,,,
+Task,,,,Create Spawn Config content type,Create Spawn Config content type for simulation parameters,3,,,
+Task,,,,Create Active Passenger content type,Create Active Passenger content type for real-time passenger tracking,3,,,
+Epic,Strapi Backend - Custom Services,,,,Advanced custom services for spatial algorithms and data import,1,,,
+Feature,,Route Geometry Service,,,Implement spatial reordering algorithm for fragmented route shapes,1,,,
+User Story,,,Implement route geometry spatial algorithm,,Implement spatial reordering algorithm for fragmented route shapes using greedy nearest-neighbor with optimal start point selection,1,,,
+Task,,,,Create fetchRouteGeometry service method,Create fetchRouteGeometry service method. Located in src/api/route/services/route.ts,1,,,
+Bug,,,,🔴 CRITICAL - No caching on route geometry,Route geometry O(n²) algorithm runs on every request without caching causing severe performance degradation under load,1,,Critical;Performance;Blocker
+Task,,,,Implement Redis caching for route geometry,Implement Redis caching for route geometry results to reduce computation load. Add cache invalidation on route updates,1,,Critical;Performance
+Task,,,,Expose REST endpoint for route geometry,Expose REST endpoint for route geometry at /api/routes/:routeName/geometry with manual JWT authentication,1,,,
+Task,,,,Register GraphQL resolver for routeGeometry,Register GraphQL resolver for routeGeometry query with metrics,1,,,
+Feature,,GeoJSON Import Service,,,Create GeoJSON streaming parser for large file imports,2,,,
+User Story,,,Implement GeoJSON streaming parser,,Create GeoJSON streaming parser for large file imports. Memory-efficient streaming parser in utils/geojson-stream-parser.ts,2,,,
+Task,,,,Implement geojson-import controller,Implement geojson-import controller for bulk data loading. Located in src/api/geojson-import,2,,,
+Epic,Strapi Backend - API Configuration,,,,Configure REST and GraphQL APIs with security and optimization,1,,,
+Feature,,REST API Routes,,,Configure CRUD routes for all content types with tier-based access,1,,,
+User Story,,,Configure REST API routes with policies,,Configure CRUD routes for all content types with tier-based access. Auto-generated with custom policies,1,,,
+Task,,,,Apply check-access-tier policy globally,Apply check-access-tier policy to all API routes for global policy application,1,,,
+Feature,,GraphQL API,,,Enable and configure GraphQL plugin for schema generation,1,,,
+User Story,,,Enable GraphQL plugin,,Enable and configure GraphQL plugin for schema generation. Auto-generated from content types,1,,,
+Task,,,,Configure GraphQL authentication,Configure GraphQL authentication and authorization with JWT verification for GraphQL queries,1,,,
+Task,,,,Optimize GraphQL queries with dataloader,Optimize GraphQL queries with dataloader and caching for performance optimization of N+1 queries,2,,,
+Feature,,CORS & Security,,,Configure CORS rate limiting and security hardening,1,,,
+User Story,,,Configure CORS for dashboard and Electron,,Configure CORS for Next.js dashboard and Electron app. Allow localhost origins with credentials,1,,,
+Task,,,,Implement rate limiting middleware,Implement rate limiting middleware to prevent API abuse,2,,,
+Task,,,,Add input validation and sanitization,Add input validation and sanitization for security hardening,2,,,
+Task,,,,Configure SSL/TLS for production,Configure SSL/TLS for production. Production security requirement,1,,Production
+Epic,Strapi Backend - Database,,,,PostgreSQL schema design optimization and migrations,1,,,
+Feature,,PostgreSQL Schema,,,Design normalized schema for GTFS and fleet data with PostGIS,1,,,
+User Story,,,Design database schema,,Design normalized schema for GTFS and fleet data. Relational model with PostGIS,1,,,
+Task,,,,Configure PostGIS extension,Configure PostGIS extension for spatial queries. Spatial data types and functions,1,,,
+Feature,,Database Migrations,,,Create and manage database migrations,1,,,
+User Story,,,Create initial migrations,,Create initial migration for all content types. Automated by Strapi,1,,,
+Task,,,,Implement seed scripts,Implement seed scripts for test data. Located in scripts/ directory,2,,,
+Feature,,Database Optimization,,,Add indexes and optimize database performance,2,,,
+User Story,,,Add database indexes,,Add indexes for frequently queried fields for performance optimization,2,,,
+Task,,,,Create index on routes.short_name,Create index on routes.short_name field used in geometry lookup,2,,,
+Task,,,,Create spatial index on stops location,Create GiST spatial index on stops lat/lon for spatial queries,2,,,
+Task,,,,Create index on vehicles.registration,Create index on vehicles.registration for fleet queries,2,,,
+Task,,,,Implement connection pooling,Implement connection pooling configuration. Configured in config/database.ts,2,,,
+Epic,Strapi Backend - Real-time Features,,,,Socket.IO integration for real-time updates and broadcasts,2,,,
+Feature,,Socket.IO Integration,,,Implement Socket.IO server for real-time updates,2,,,
+User Story,,,Implement Socket.IO server,,Implement Socket.IO server for real-time updates. Located in src/socketio/server.ts,2,,,
+Task,,,,Create Socket.IO namespaces,Create namespaces for vehicle route and service events. Event routing and broadcasting,2,,,
+Task,,,,Implement message format,Implement message format and event types. Standardized message structure in message-format.ts,2,,,
+Bug,,,,🔴 CRITICAL - Socket.IO not authenticated,Socket.IO connections have no authentication allowing unauthorized access. Major security vulnerability,1,,Critical;Security;Blocker
+Task,,,,Add JWT authentication to Socket.IO,Add JWT authentication middleware to Socket.IO connections to secure real-time communications,1,,Critical;Security
+Feature,,Lifecycle Hooks,,,Implement lifecycle hooks for real-time broadcasts,2,,,
+User Story,,,Implement content type lifecycle hooks,,Implement lifecycle hooks for content type updates for real-time broadcasts on data changes,2,,,
+Task,,,,Broadcast vehicle updates to clients,Broadcast vehicle updates to connected clients for real-time fleet tracking,2,,,
+Epic,🔴 CRITICAL - Strapi Backend - Testing,,,,Implement comprehensive test coverage for production readiness,1,,Critical;Blocker
+Feature,,Unit Tests,,,Write unit tests for all custom services and controllers,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Test route geometry algorithm,,Write unit tests for route geometry spatial algorithm. No test coverage for core algorithm,1,,Critical;Testing;Blocker
+Task,,,,Write route geometry algorithm tests,Write comprehensive unit tests for spatial reordering algorithm including edge cases and performance benchmarks,1,,Critical;Testing
+User Story,,,🔴 PRODUCTION BLOCKER - Test auth controller,,Write unit tests for auth controller tier injection. Auth logic untested,1,,Critical;Testing;Blocker
+Task,,,,Write JWT tier injection tests,Write unit tests to verify JWT payload tier injection and authentication flow,1,,Critical;Testing
+User Story,,,🔴 PRODUCTION BLOCKER - Test RBAC policy,,Write unit tests for RBAC policy enforcement. Access control untested,1,,Critical;Testing;Blocker
+Task,,,,Write RBAC policy tests,Write comprehensive tests for tier-based access control and permission enforcement,1,,Critical;Testing
+Feature,,Integration Tests,,,Create integration tests for API endpoints,2,,,
+User Story,,,Create REST API integration tests,,Create integration tests for REST API endpoints for end-to-end API testing,2,,,
+Task,,,,Test CRUD operations on all content types,Test create read update delete operations on all content types with various access tiers,2,,,
+User Story,,,Create GraphQL integration tests,,Create integration tests for GraphQL queries and mutations,2,,,
+Task,,,,Test GraphQL queries with authentication,Test GraphQL queries and mutations with proper authentication and authorization,2,,,
+User Story,,,Test GeoJSON import,,Test GeoJSON import with sample datasets for data import validation,2,,,
+Feature,,Load Testing,,,Perform load testing for performance baseline,3,,,
+User Story,,,Load test route geometry endpoint,,Perform load testing on route geometry endpoint for scalability testing,3,,,
+User Story,,,Benchmark GraphQL performance,,Benchmark GraphQL query performance for baseline metrics,3,,,
+Epic,Strapi Backend - Documentation,,,,Create comprehensive documentation for APIs and deployment,2,,,
+Feature,,API Documentation,,,Generate API documentation for REST and GraphQL,2,,,
+User Story,,,Generate OpenAPI documentation,,Generate OpenAPI/Swagger documentation for REST API with auto-generation,2,,,
+User Story,,,Document GraphQL schema,,Document GraphQL schema and example queries. See STRAPI_GRAPHQL_INTEGRATION.md,2,,,
+User Story,,,Create content type extension guide,,Create developer guide for extending content types with extension patterns,3,,,
+Feature,,Deployment Guide,,,Document production deployment process,1,,Production
+User Story,,,Document production deployment,,Document production deployment process for Docker and Kubernetes,1,,Production
+User Story,,,Create environment configuration guide,,Create environment configuration guide for environment variables and secrets,2,,,
+Feature,,Architecture Documentation,,,Document system architecture and design decisions,2,,,
+User Story,,,Document content type relationships,,Document content type relationships and data model. See CONTEXT.md,2,,,
+User Story,,,Document custom services,,Document custom service implementations. See ROUTE_GEOMETRY_BIBLE.md,2,,,
+Epic,🔴 CRITICAL - Strapi Backend - Monitoring & Observability,,,,Implement logging metrics and health checks for production,1,,Critical;Blocker
+Feature,,Logging,,,Implement structured logging and audit trail,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Implement structured logging,,Implement structured logging for all custom services with JSON format,1,,Critical;Logging;Blocker
+Task,,,,Add logging to route geometry service,Add structured JSON logging to route geometry service for debugging and audit,1,,Critical
+Task,,,,Add logging to auth controller,Add structured JSON logging to authentication controller for security audit,1,,Critical
+User Story,,,🔴 PRODUCTION BLOCKER - Add request/response logging,,Add request/response logging middleware for audit trail,1,,Critical;Logging;Blocker
+Task,,,,Implement request logging middleware,Implement middleware to log all API requests and responses for audit and debugging,1,,Critical
+Feature,,Metrics,,,Expose operational metrics for monitoring,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Expose Prometheus metrics,,Expose Prometheus metrics endpoint for operational metrics,1,,Critical;Metrics;Blocker
+Task,,,,Create /metrics endpoint,Create Prometheus-compatible /metrics endpoint with request counts latency and error rates,1,,Critical
+Task,,,,Add custom metrics for route geometry,Add custom metrics for route geometry algorithm execution time and cache hit rate,1,,Critical
+Feature,,Health Checks,,,Implement health check endpoints,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Implement health checks,,Implement health check endpoint with DB connectivity for liveness and readiness probes,1,,Critical;HealthCheck;Blocker
+Task,,,,Create /health endpoint,Create /health endpoint that checks database connectivity Redis and system status,1,,Critical
+Task,,,,Create /ready endpoint,Create /ready endpoint for Kubernetes readiness probe,1,,Critical
+Feature,,Error Tracking,,,Integrate error tracking and monitoring,1,,,
+User Story,,,Integrate Sentry for error tracking,,Integrate Sentry or similar error tracking for production error monitoring,1,,,
+Epic,🔴 CRITICAL - Strapi Backend - Performance Optimization,,,,Implement caching and query optimization for production performance,1,,Critical;Blocker
+Feature,,Caching Layer,,,Implement Redis caching for expensive operations,1,,Critical;Blocker
+User Story,,,🔴 PERFORMANCE RISK - Cache route geometry results,,Implement Redis caching for route geometry results. O(n²) algorithm runs on every request,1,,Critical;Performance;Blocker
+Task,,,,Set up Redis connection,Set up Redis connection and client configuration with connection pooling,1,,Critical
+Task,,,,Implement route geometry caching,Implement Redis caching in fetchRouteGeometry with 1 hour TTL and cache invalidation,1,,Critical
+User Story,,,🔴 PERFORMANCE BOTTLENECK - Cache RBAC lookups,,Implement Redis caching for RBAC policy tier lookups. DB query on every request,1,,Critical;Performance;Blocker
+Task,,,,Cache user tier privileges,Implement Redis caching for user tier privilege lookups with 5 minute TTL,1,,Critical
+User Story,,,Cache GraphQL query results,,Cache GraphQL query results for improved performance,1,,,
+Feature,,Query Optimization,,,Optimize database queries and eliminate N+1 problems,1,,,
+User Story,,,Optimize N+1 queries,,Optimize N+1 queries in content type relations using populate strategically,1,,,
+Task,,,,Implement DataLoader for GraphQL,Implement DataLoader pattern for GraphQL to batch database queries,1,,,
+User Story,,,Implement pagination,,Implement pagination for large result sets. Built-in Strapi pagination,2,,,
+Epic,🔴 CRITICAL - Strapi Backend - Deployment,,,,Create production deployment infrastructure,1,,Critical;Blocker
+Feature,,Containerization,,,Create Docker containers for deployment,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Create Dockerfile,,Create Dockerfile for Strapi backend for Docker image definition,1,,Critical;Deployment;Blocker
+Task,,,,Write Dockerfile,Write multi-stage Dockerfile with production optimizations and security hardening,1,,Critical
+Task,,,,Create .dockerignore,Create .dockerignore to exclude unnecessary files from Docker image,1,,Critical
+User Story,,,🔴 PRODUCTION BLOCKER - Create docker-compose,,Create docker-compose for local development with multi-container setup,1,,Critical;Deployment;Blocker
+Task,,,,Write docker-compose.yml,Write docker-compose.yml with Strapi PostgreSQL Redis services,1,,Critical
+Feature,,Kubernetes Deployment,,,Create Kubernetes manifests for production,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Create K8s manifests,,Create Kubernetes manifests for production deployment,1,,Critical;Deployment;Blocker
+Task,,,,Create Deployment manifest,Create Kubernetes Deployment manifest with replicas resource limits and health checks,1,,Critical
+Task,,,,Create Service manifest,Create Kubernetes Service manifest for load balancing and service discovery,1,,Critical
+Task,,,,Create ConfigMap manifest,Create Kubernetes ConfigMap for environment configuration,1,,Critical
+Task,,,,Create Secret manifest,Create Kubernetes Secret for sensitive credentials,1,,Critical
+Task,,,,Create Ingress manifest,Create Kubernetes Ingress manifest for external access and routing,1,,Critical
+Feature,,CI/CD Pipeline,,,Set up automated deployment pipeline,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Create Azure DevOps pipeline,,Set up Azure DevOps pipeline for automated deployment with build test deploy automation,1,,Critical;CICD;Blocker
+Task,,,,Create build pipeline,Create Azure DevOps build pipeline with Docker image build and push,1,,Critical
+Task,,,,Create test pipeline,Create test pipeline stage to run unit and integration tests,1,,Critical
+Task,,,,Create deployment pipeline,Create deployment pipeline to deploy to Kubernetes cluster,1,,Critical
+Feature,,Database Backup,,,Implement database backup and disaster recovery,1,,Critical;Blocker
+User Story,,,🔴 PRODUCTION BLOCKER - Implement database backup,,Implement automated database backup strategy for disaster recovery,1,,Critical;Backup;Blocker
+Task,,,,Create backup scripts,Create automated PostgreSQL backup scripts with retention policy,1,,Critical
+Task,,,,Configure backup schedule,Configure automated backup schedule and monitoring,1,,Critical
+Task,,,,Test backup restoration,Test backup restoration process and document recovery procedures,1,,Critical
+Epic,Strapi Backend - Access Tier Integration,,,,Integrate access tier system with GPSCentCom and frontend,1,,,
+Feature,,Telemetry Filtering API,,,Create API endpoint for access tier privilege exposure,1,,,
+User Story,,,Create access tier API endpoint,,Create API endpoint to expose allowed fields per tier for GPSCentCom dynamic filtering,1,,,
+Task,,,,Make Access Tier publicly readable,Ensure Access Tier content type is publicly readable for API access without authentication,1,,,
+Feature,,Frontend Integration,,,Integrate privilege system with Next.js frontend,2,,,
+User Story,,,Document frontend privilege fetching,,Document how Next.js fetches user privileges from Strapi for frontend integration guide,2,,,
+User Story,,,Create React privilege hooks,,Create React hooks for privilege-based UI rendering with useUserPrivileges hook,2,,,

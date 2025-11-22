@@ -1,0 +1,372 @@
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.258233, 'lon': -59.64176, 'speed': 90.0, 'heading': 190.3, 'timestamp': '2025-11-21T23:01:59.962016+00:00', 'lastSeen': '2025-11-21T23:01:59.964807+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: None
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['route', 'vehicleReg', 'driverName', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.316101, 'lon': -59.639947, 'speed': 90.0, 'heading': 214.6, 'timestamp': '2025-11-21T23:06:12.414694+00:00', 'lastSeen': '2025-11-21T23:06:12.416743+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766358369}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.31573, 'lon': -59.640209, 'speed': 90.0, 'heading': 214.6, 'timestamp': '2025-11-21T23:06:14.415027+00:00', 'lastSeen': '2025-11-21T23:06:14.520848+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766358369}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.315359, 'lon': -59.640469, 'speed': 90.0, 'heading': 214.2, 'timestamp': '2025-11-21T23:06:16.415561+00:00', 'lastSeen': '2025-11-21T23:06:16.569763+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766358369}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.314969, 'lon': -59.640461, 'speed': 90.0, 'heading': 127.6, 'timestamp': '2025-11-21T23:06:18.415909+00:00', 'lastSeen': '2025-11-21T23:06:18.648326+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766358369}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.314694, 'lon': -59.640095, 'speed': 90.0, 'heading': 127.6, 'timestamp': '2025-11-21T23:06:20.416176+00:00', 'lastSeen': '2025-11-21T23:06:20.718161+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766358369}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.326607, 'lon': -59.615521, 'speed': 0.0, 'heading': 0.0, 'timestamp': '2025-11-22T01:02:25.761374+00:00', 'lastSeen': '2025-11-22T01:02:25.828498+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: None
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['route', 'vehicleReg', 'driverName', 'conductorName', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.326231, 'lon': -59.615772, 'speed': 90.0, 'heading': 208.3, 'timestamp': '2025-11-22T01:02:27.761789+00:00', 'lastSeen': '2025-11-22T01:02:27.763962+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: None
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['route', 'vehicleReg', 'driverName', 'conductorName', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.325837, 'lon': -59.615995, 'speed': 90.0, 'heading': 210.0, 'timestamp': '2025-11-22T01:02:29.762612+00:00', 'lastSeen': '2025-11-22T01:02:29.765256+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: None
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['route', 'vehicleReg', 'driverName', 'conductorName', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.325445, 'lon': -59.616221, 'speed': 90.0, 'heading': 208.6, 'timestamp': '2025-11-22T01:02:31.763014+00:00', 'lastSeen': '2025-11-22T01:02:31.765302+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: None
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['route', 'vehicleReg', 'driverName', 'conductorName', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.325057, 'lon': -59.616454, 'speed': 90.0, 'heading': 209.8, 'timestamp': '2025-11-22T01:02:33.763245+00:00', 'lastSeen': '2025-11-22T01:02:33.765606+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: None
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['route', 'vehicleReg', 'driverName', 'conductorName', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.319325, 'lon': -59.635991, 'speed': 90.0, 'heading': 277.6, 'timestamp': '2025-11-22T01:04:57.830851+00:00', 'lastSeen': '2025-11-22T01:04:57.832602+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766365494}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.319384, 'lon': -59.636449, 'speed': 90.0, 'heading': 277.6, 'timestamp': '2025-11-22T01:04:59.831157+00:00', 'lastSeen': '2025-11-22T01:04:59.833430+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766365494}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.319443, 'lon': -59.636907, 'speed': 90.0, 'heading': 277.6, 'timestamp': '2025-11-22T01:05:01.831351+00:00', 'lastSeen': '2025-11-22T01:05:01.832981+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766365494}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.319511, 'lon': -59.637364, 'speed': 90.0, 'heading': 278.7, 'timestamp': '2025-11-22T01:05:03.831914+00:00', 'lastSeen': '2025-11-22T01:05:03.832980+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766365494}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.319561, 'lon': -59.637823, 'speed': 90.0, 'heading': 276.7, 'timestamp': '2025-11-22T01:05:05.832164+00:00', 'lastSeen': '2025-11-22T01:05:05.835522+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766365494}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.319614, 'lon': -59.638282, 'speed': 90.0, 'heading': 276.7, 'timestamp': '2025-11-22T01:05:07.832558+00:00', 'lastSeen': '2025-11-22T01:05:07.835216+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'fleet_manager', 'id': 12, 'tier': 'fleet_manager', 'exp': 1766365494}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.308055, 'lon': -59.638579, 'speed': 90.0, 'heading': 197.5, 'timestamp': '2025-11-22T01:06:25.855306+00:00', 'lastSeen': '2025-11-22T01:06:25.858002+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'dispatcher', 'id': 13, 'tier': 'dispatcher', 'exp': 1766365583}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.30764, 'lon': -59.638755, 'speed': 90.0, 'heading': 205.3, 'timestamp': '2025-11-22T01:06:27.855906+00:00', 'lastSeen': '2025-11-22T01:06:27.859904+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'dispatcher', 'id': 13, 'tier': 'dispatcher', 'exp': 1766365583}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.307233, 'lon': -59.638953, 'speed': 90.0, 'heading': 205.3, 'timestamp': '2025-11-22T01:06:29.856442+00:00', 'lastSeen': '2025-11-22T01:06:29.858227+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'dispatcher', 'id': 13, 'tier': 'dispatcher', 'exp': 1766365583}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.306827, 'lon': -59.639151, 'speed': 90.0, 'heading': 206.0, 'timestamp': '2025-11-22T01:06:31.856906+00:00', 'lastSeen': '2025-11-22T01:06:31.859952+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'dispatcher', 'id': 13, 'tier': 'dispatcher', 'exp': 1766365583}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.306423, 'lon': -59.639354, 'speed': 90.0, 'heading': 206.0, 'timestamp': '2025-11-22T01:06:33.857264+00:00', 'lastSeen': '2025-11-22T01:06:33.859488+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'dispatcher', 'id': 13, 'tier': 'dispatcher', 'exp': 1766365583}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.306019, 'lon': -59.639557, 'speed': 90.0, 'heading': 206.0, 'timestamp': '2025-11-22T01:06:35.857981+00:00', 'lastSeen': '2025-11-22T01:06:35.860154+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'dispatcher', 'id': 13, 'tier': 'dispatcher', 'exp': 1766365583}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.292034, 'lon': -59.641323, 'speed': 90.0, 'heading': 171.5, 'timestamp': '2025-11-22T01:07:43.874035+00:00', 'lastSeen': '2025-11-22T01:07:43.875709+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'david', 'id': 2, 'tier': 'admin', 'exp': 1766365660}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.291591, 'lon': -59.641245, 'speed': 90.0, 'heading': 170.1, 'timestamp': '2025-11-22T01:07:45.874787+00:00', 'lastSeen': '2025-11-22T01:07:45.878506+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'david', 'id': 2, 'tier': 'admin', 'exp': 1766365660}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.291148, 'lon': -59.641165, 'speed': 90.0, 'heading': 170.1, 'timestamp': '2025-11-22T01:07:47.875609+00:00', 'lastSeen': '2025-11-22T01:07:47.877190+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'david', 'id': 2, 'tier': 'admin', 'exp': 1766365660}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.290705, 'lon': -59.641086, 'speed': 90.0, 'heading': 170.1, 'timestamp': '2025-11-22T01:07:49.876361+00:00', 'lastSeen': '2025-11-22T01:07:49.878587+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'david', 'id': 2, 'tier': 'admin', 'exp': 1766365660}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.290262, 'lon': -59.641006, 'speed': 90.0, 'heading': 169.9, 'timestamp': '2025-11-22T01:07:51.877043+00:00', 'lastSeen': '2025-11-22T01:07:51.878258+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'david', 'id': 2, 'tier': 'admin', 'exp': 1766365660}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+
+[SSE] Received message on channel: telemetry
+[SSE] Data type: <class 'dict'>
+[SSE] Data (first 500 chars): {'type': 'update', 'deviceId': 'GPS-ZR102', 'state': {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'logoutTime': None, 'lat': 13.289819, 'lon': -59.640925, 'speed': 90.0, 'heading': 169.9, 'timestamp': '2025-11-22T01:07:53.877511+00:00', 'lastSeen': '2025-11-22T01:07:53.879757+00:00', 'extras': None}}
+[SSE] Decoded obj type: <class 'dict'>
+[SSE] Object keys: ['type', 'deviceId', 'state']
+[SSE] Object.get('type'): update
+[SSE] 'state' in obj: True
+
+[SSE] Before filter - Principal: {'sub': 'david', 'id': 2, 'tier': 'admin', 'exp': 1766365660}
+[SSE] Before filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[SSE] Before filter - State sample: {'deviceId': 'GPS-ZR102', 'route': '1', 'vehicleReg': 'ZR102', 'driverId': 'LIC002', 'driverName': {'first': 'Jane', 'last': 'Doe'}, 'conductorId': None, 'conductorName': None, 'startTime': None, 'log
+[SSE] After filter - State keys: ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
