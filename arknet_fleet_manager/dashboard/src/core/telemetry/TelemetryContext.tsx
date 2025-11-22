@@ -6,6 +6,7 @@ interface TelemetryContextValue {
   connectionState: TelemetryConnectionState;
   connectionType: TelemetryConnectionType;
   diagnostics: ReturnType<TelemetryDataProvider['getDiagnostics']>;
+  error?: any;
 }
 
 export const TelemetryContext = createContext<TelemetryContextValue | undefined>(undefined);
@@ -29,16 +30,18 @@ export const TelemetryProvider: React.FC<{
     useSSE: false,
     vehicleCount: 0
   });
+  const [error, setError] = useState<any>(null);
 
   useEffect(() => {
     providerRef.current = new TelemetryDataProvider(baseUrl, token, refreshToken);
     providerRef.current.connect();
 
     const unsubVehicles = providerRef.current.subscribe(setVehicles);
-    const unsubStatus = providerRef.current.onStatus((state) => {
+    const unsubStatus = providerRef.current.onStatus((state, err) => {
       setConnectionState(state);
       setConnectionType(providerRef.current!.getConnectionType());
       setDiagnostics(providerRef.current!.getDiagnostics());
+      setError(err || null);
     });
 
     return () => {
@@ -49,7 +52,7 @@ export const TelemetryProvider: React.FC<{
   }, [baseUrl, token, refreshToken]);
 
   return (
-    <TelemetryContext.Provider value={{ vehicles, connectionState, connectionType, diagnostics }}>
+    <TelemetryContext.Provider value={{ vehicles, connectionState, connectionType, diagnostics, error }}>
       {children}
     </TelemetryContext.Provider>
   );

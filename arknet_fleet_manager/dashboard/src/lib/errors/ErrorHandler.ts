@@ -44,20 +44,33 @@ export class ErrorHandler implements IErrorHandler {
    * Handle an error
    */
   handle(error: Error | AppError | unknown, context?: ErrorContext): void {
-    // Try custom handlers first
-    for (const handler of this.handlers) {
-      if (handler.canHandle && handler.canHandle(error)) {
-        try {
-          handler.handle(error, context);
-          return;
-        } catch (handlerError) {
-          this.logger.error('Error in custom error handler', handlerError, {
-            action: 'handle',
-            metadata: { originalError: String(error) }
-          });
-        }
-      }
-    }
+    const appError: AppError = ErrorHandler.normalize(error, context);
+    // Log error (console, remote, etc.)
+    console.error(`[${appError.code}] ${appError.message}`, appError.details || '', appError.stack || '');
+    // TODO: Integrate with remote logging if needed
+    // Optionally surface error to UI via callback/event
+    return appError;
+  }
+
+  static normalize(error: AppError | Error, context?: any): AppError {
+    if ('code' in error) return error as AppError;
+    return {
+      code: ErrorCodes.UNKNOWN_ERROR,
+      message: error.message || 'Unknown error',
+      details: context,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  static create(code: ErrorCode, message: string, details?: any): AppError {
+    return {
+      code,
+      message,
+      details,
+      timestamp: new Date().toISOString(),
+    };
+  }
 
     // Default handling
     if (error instanceof AppError) {

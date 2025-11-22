@@ -1,3 +1,7 @@
+import { ErrorHandler } from '@/lib/errors/ErrorHandler';
+import { ErrorCodes } from '@/lib/errors/ErrorCodes';
+import { RetryStrategy, CircuitState } from '@/lib/errors/RetryStrategy';
+import { ErrorRecovery } from '@/lib/errors/ErrorRecovery';
 // TelemetryDataProvider: Standalone class for GPSCentCom WebSocket telemetry
 // Connects to GPSCentCom server's /ws endpoint for real-time vehicle updates
 // Compatible with GPSCentCom server WebSocket protocol (native WebSocket, not Socket.IO)
@@ -33,7 +37,7 @@ export class TelemetryDataProvider {
   private useSSE = false; // Whether to use SSE fallback
   // Infinite reconnects: no maxReconnectAttempts
   private listeners: Array<(vehicles: TelemetryVehicle[]) => void> = [];
-  private statusListeners: Array<(state: TelemetryConnectionState) => void> = [];
+  private statusListeners: Array<(state: TelemetryConnectionState, error?: any) => void> = [];
   private vehicles: Map<string, TelemetryVehicle> = new Map();
   private state: TelemetryConnectionState = 'disconnected';
   private connectionType: TelemetryConnectionType = 'websocket';
@@ -42,12 +46,34 @@ export class TelemetryDataProvider {
   private wsRetryTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastPongTime: number = 0;
   private pongTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastError: any = null;
+  
+  // Enhanced error handling and retry logic
+  private retryStrategy: RetryStrategy;
+  private errorMetrics = {
+    totalErrors: 0,
+    errorsByType: new Map<string, number>(),
+    lastErrorAt: 0,
+    recoveryAttempts: 0,
+    successfulRecoveries: 0,
+  };
 
   constructor(baseUrl: string, token?: string, refreshToken?: () => Promise<string>) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.token = token;
     this.refreshToken = refreshToken;
     this.updateUrls();
+    
+    // Initialize retry strategy with circuit breaker
+    this.retryStrategy = new RetryStrategy({
+      maxRetries: -1, // Infinite retries
+      initialDelay: 1000,
+      maxDelay: 30000,
+      backoffMultiplier: 2,
+      jitterFactor: 0.1,
+      circuitBreakerThreshold: 5,
+      circuitBreakerTimeout: 60000,
+    });
   }
 
   private updateUrls() {
@@ -98,6 +124,11 @@ export class TelemetryDataProvider {
       this.setState('connected');
       this.reconnectAttempts = 0;
       this.wsFailures = 0; // Reset failure counter on success
+      this.lastError = null;
+      
+      // Record successful recovery
+      this.retryStrategy.recordSuccess();
+      this.errorMetrics.successfulRecoveries++;
       
       // If we were using SSE, switch back to WebSocket
       if (this.useSSE) {
@@ -115,68 +146,95 @@ export class TelemetryDataProvider {
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
         if (data.type === 'snapshot' && Array.isArray(data.states)) {
-          // Initial snapshot of all vehicles
           this.vehicles.clear();
           data.states.forEach((vehicle: TelemetryVehicle) => {
             this.vehicles.set(vehicle.deviceId, vehicle);
           });
           this.emit();
         } else if (data.type === 'update' && data.state) {
-          // Real-time vehicle update from telemetry subscription
           this.vehicles.set(data.deviceId, data.state);
           this.emit();
         } else if (data.type === 'subscribed') {
           console.log('TelemetryDataProvider: Subscribed to topic:', data.topic);
         } else if (data.type === 'pong') {
-          // Pong response to keepalive
           this.lastPongTime = Date.now();
           if (this.pongTimeout) {
             clearTimeout(this.pongTimeout);
             this.pongTimeout = null;
           }
         } else if (data.deviceId) {
-          // Fallback: Single vehicle update (legacy format)
           this.vehicles.set(data.deviceId, data);
           this.emit();
         }
       } catch (error) {
-        console.error('TelemetryDataProvider: Failed to parse message', error);
+        this.lastError = ErrorHandler.handle({
+          code: ErrorCodes.DATA_PARSE_ERROR,
+          message: 'Failed to parse WebSocket message',
+          details: { event, error },
+        });
+        this.trackError(this.lastError);
+        console.warn('TelemetryDataProvider: Data parse error, continuing connection');
+        // Don't disconnect on parse error, just log and continue
       }
     };
 
     this.ws.onclose = async (event) => {
       console.log('TelemetryDataProvider: WebSocket connection closed');
       this.stopPingInterval();
-      // Detect authentication error (401/403 or custom code)
-      if (event && event.code === 4001 && this.refreshToken) { // 4001: custom code for token expired
-        console.warn('TelemetryDataProvider: Token expired, attempting refresh');
+      
+      // Handle token expiration
+      if (event && event.code === 4001 && this.refreshToken) {
+        this.lastError = ErrorHandler.handle({
+          code: ErrorCodes.TOKEN_EXPIRED,
+          message: 'Token expired',
+          details: { event },
+        });
+        this.trackError(this.lastError);
+        
+        const recovery = ErrorRecovery.getRecoveryAction(this.lastError);
+        console.log(`TelemetryDataProvider: ${recovery.message}`);
+        
         try {
           const newToken = await this.refreshToken();
           await this.setToken(newToken);
+          this.errorMetrics.successfulRecoveries++;
           return;
         } catch (err) {
-          console.error('TelemetryDataProvider: Token refresh failed', err);
-          this.setState('error');
+          this.lastError = ErrorHandler.handle({
+            code: ErrorCodes.AUTH_ERROR,
+            message: 'Token refresh failed',
+            details: { event, err },
+          });
+          this.trackError(this.lastError);
+          this.retryStrategy.recordFailure();
+          this.setState('error', this.lastError);
           return;
         }
       }
+      
+      // Handle normal connection close
       if (this.state !== 'disconnected') {
+        this.lastError = ErrorHandler.handle({
+          code: ErrorCodes.NETWORK_ERROR,
+          message: 'WebSocket connection closed',
+          details: { event },
+        });
+        this.trackError(this.lastError);
         this.wsFailures++;
+        this.retryStrategy.recordFailure();
         this.handleReconnect();
       }
     };
 
-    this.ws.onerror = () => {
-      // WebSocket onerror doesn't provide detailed error information
-      // The actual error details come from onclose event with status codes
-      console.warn('TelemetryDataProvider: WebSocket error occurred (details in onclose event)');
-      
-      // Note: Do NOT try to access error.message or other properties
-      // The onerror event is just a signal that something went wrong
-      // Authentication errors are handled in onclose with event.code
-      
+    this.ws.onerror = (event) => {
+      this.lastError = ErrorHandler.handle({
+        code: ErrorCodes.NETWORK_ERROR,
+        message: 'WebSocket error occurred',
+        details: { event },
+      });
+      this.trackError(this.lastError);
+      console.error('TelemetryDataProvider: WebSocket error', this.lastError);
       // onclose will be called after onerror, which triggers reconnection
     };
   }
@@ -196,6 +254,9 @@ export class TelemetryDataProvider {
       console.log('TelemetryDataProvider: Connected successfully via SSE');
       this.setState('connected');
       this.reconnectAttempts = 0;
+      this.lastError = null;
+      this.retryStrategy.recordSuccess();
+      this.errorMetrics.successfulRecoveries++;
       
       // Fetch initial snapshot of vehicles for SSE connection
       try {
@@ -220,55 +281,77 @@ export class TelemetryDataProvider {
 
     this.eventSource.onmessage = (event) => {
       try {
-        // Skip empty or whitespace-only messages
         if (!event.data || !event.data.trim()) {
           return;
         }
-        
         const data = JSON.parse(event.data);
-        
         if (data.type === 'update' && data.state) {
-          // Real-time vehicle update
           this.vehicles.set(data.deviceId, data.state);
           this.emit();
         } else if (data.deviceId) {
-          // Fallback: Single vehicle update
           this.vehicles.set(data.deviceId, data);
           this.emit();
         }
       } catch (error) {
-        console.warn('TelemetryDataProvider: Skipping invalid SSE message', { 
-          data: event.data?.substring(0, 100),
-          error: error instanceof Error ? error.message : String(error)
+        this.lastError = ErrorHandler.handle({
+          code: ErrorCodes.DATA_PARSE_ERROR,
+          message: 'Skipping invalid SSE message',
+          details: { event, error },
         });
+        this.trackError(this.lastError);
+        console.warn('TelemetryDataProvider: SSE data parse error, continuing connection');
       }
     };
 
     this.eventSource.onerror = async (error) => {
-      // Detect authentication error (custom logic, e.g. error.status === 401)
-      // If token expired, attempt refresh
       if (this.refreshToken && error && error.status === 401) {
-        console.warn('TelemetryDataProvider: SSE token expired, attempting refresh');
+        this.lastError = ErrorHandler.handle({
+          code: ErrorCodes.TOKEN_EXPIRED,
+          message: 'SSE token expired',
+          details: { error },
+        });
+        this.trackError(this.lastError);
+        
+        const recovery = ErrorRecovery.getRecoveryAction(this.lastError);
+        console.log(`TelemetryDataProvider: ${recovery.message}`);
+        
         try {
           const newToken = await this.refreshToken();
           await this.setToken(newToken);
+          this.errorMetrics.successfulRecoveries++;
           return;
         } catch (err) {
-          console.error('TelemetryDataProvider: SSE token refresh failed', err);
-          this.setState('error');
+          this.lastError = ErrorHandler.handle({
+            code: ErrorCodes.AUTH_ERROR,
+            message: 'SSE token refresh failed',
+            details: { error, err },
+          });
+          this.trackError(this.lastError);
+          this.retryStrategy.recordFailure();
+          this.setState('error', this.lastError);
           return;
         }
       }
-      // SSE errors are expected during reconnection attempts
       if (this.eventSource?.readyState === EventSource.CLOSED) {
-        console.warn('TelemetryDataProvider: SSE connection closed, will retry automatically');
+        this.lastError = ErrorHandler.handle({
+          code: ErrorCodes.NETWORK_ERROR,
+          message: 'SSE connection closed',
+          details: { error },
+        });
+        this.trackError(this.lastError);
         if (this.state !== 'disconnected') {
-          this.setState('error');
+          this.retryStrategy.recordFailure();
+          this.setState('error', this.lastError);
           this.handleReconnect();
         }
       } else {
-        // Connection is still open or connecting, SSE will handle it
-        console.warn('TelemetryDataProvider: SSE connection issue, automatic reconnection in progress');
+        this.lastError = ErrorHandler.handle({
+          code: ErrorCodes.NETWORK_ERROR,
+          message: 'SSE connection issue',
+          details: { error },
+        });
+        this.trackError(this.lastError);
+        console.warn('TelemetryDataProvider: SSE connection issue', error);
       }
     };
   }
@@ -312,11 +395,36 @@ export class TelemetryDataProvider {
   }
 
   private handleReconnect() {
+    // Check if we can retry based on circuit breaker
+    if (!this.retryStrategy.canRetry()) {
+      console.warn('TelemetryDataProvider: Circuit breaker preventing reconnection');
+      this.setState('error', this.lastError);
+      
+      // Schedule a check to see if circuit breaker has closed
+      this.reconnectTimeout = setTimeout(() => {
+        if (this.retryStrategy.canRetry()) {
+          this.handleReconnect();
+        }
+      }, 10000);
+      return;
+    }
+
     this.setState('reconnecting');
     this.reconnectAttempts++;
-    // Always retry, no max limit
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    console.log(`TelemetryDataProvider: Reconnecting (attempt ${this.reconnectAttempts}) in ${delay}ms`);
+    this.errorMetrics.recoveryAttempts++;
+    this.retryStrategy.recordAttempt();
+    
+    const delay = this.retryStrategy.getNextDelay();
+    const stats = this.retryStrategy.getStats();
+    
+    console.log(`TelemetryDataProvider: Reconnecting (attempt ${this.reconnectAttempts}, circuit: ${stats.circuitState}) in ${delay}ms`);
+    
+    // Log recovery action
+    if (this.lastError) {
+      const recovery = ErrorRecovery.getRecoveryAction(this.lastError);
+      console.log(`TelemetryDataProvider: Recovery action: ${recovery.type} - ${recovery.message}`);
+    }
+    
     this.reconnectTimeout = setTimeout(() => this.connect(), delay);
   }
 
@@ -380,9 +488,9 @@ export class TelemetryDataProvider {
     this.listeners.forEach(l => l(vehiclesArray));
   }
 
-  private setState(state: TelemetryConnectionState) {
+  private setState(state: TelemetryConnectionState, error?: any) {
     this.state = state;
-    this.statusListeners.forEach(l => l(state));
+    this.statusListeners.forEach(l => l(state, error));
   }
 
   getVehicles(): TelemetryVehicle[] {
@@ -398,13 +506,64 @@ export class TelemetryDataProvider {
   }
 
   getDiagnostics() {
+    const retryStats = this.retryStrategy.getStats();
+    
     return {
       state: this.state,
       connectionType: this.connectionType,
       reconnectAttempts: this.reconnectAttempts,
       wsFailures: this.wsFailures,
       useSSE: this.useSSE,
-      vehicleCount: this.vehicles.size
+      vehicleCount: this.vehicles.size,
+      // Enhanced diagnostics
+      retryStats,
+      errorMetrics: {
+        totalErrors: this.errorMetrics.totalErrors,
+        errorsByType: Object.fromEntries(this.errorMetrics.errorsByType),
+        lastErrorAt: this.errorMetrics.lastErrorAt,
+        recoveryAttempts: this.errorMetrics.recoveryAttempts,
+        successfulRecoveries: this.errorMetrics.successfulRecoveries,
+        recoveryRate: this.errorMetrics.recoveryAttempts > 0
+          ? (this.errorMetrics.successfulRecoveries / this.errorMetrics.recoveryAttempts * 100).toFixed(1) + '%'
+          : 'N/A',
+      },
+      lastError: this.lastError ? {
+        code: this.lastError.code,
+        message: this.lastError.message,
+        timestamp: this.errorMetrics.lastErrorAt,
+      } : null,
+    };
+  }
+
+  // Track error for metrics
+  private trackError(error: any) {
+    this.errorMetrics.totalErrors++;
+    this.errorMetrics.lastErrorAt = Date.now();
+    
+    const errorType = error.code || 'UNKNOWN';
+    const count = this.errorMetrics.errorsByType.get(errorType) || 0;
+    this.errorMetrics.errorsByType.set(errorType, count + 1);
+    
+    // Log structured error for monitoring
+    console.error('TelemetryDataProvider: Error tracked', {
+      code: error.code,
+      message: error.message,
+      totalErrors: this.errorMetrics.totalErrors,
+      errorsByType: Object.fromEntries(this.errorMetrics.errorsByType),
+      retryStats: this.retryStrategy.getStats(),
+    });
+  }
+
+  // Get error recovery recommendation for UI
+  getErrorRecovery() {
+    if (!this.lastError) return null;
+    
+    return {
+      action: ErrorRecovery.getRecoveryAction(this.lastError),
+      isTransient: ErrorRecovery.isTransientError(this.lastError),
+      requiresUserAction: ErrorRecovery.requiresUserAction(this.lastError),
+      userMessage: ErrorRecovery.getUserMessage(this.lastError),
+      recommendedAction: ErrorRecovery.getRecommendedAction(this.lastError),
     };
   }
 }

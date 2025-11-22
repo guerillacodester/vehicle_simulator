@@ -15,6 +15,14 @@ interface LoginStatus {
 function TelemetryDisplay() {
   const { vehicles, connectionState, connectionType, diagnostics, error } = useTelemetry();
 
+  // Helper to safely render error details
+  const renderErrorDetails = (details: unknown): string => {
+    if (typeof details === 'object' && details !== null) {
+      return JSON.stringify(details, null, 2);
+    }
+    return String(details);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-4">
@@ -41,11 +49,25 @@ function TelemetryDisplay() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-          Error: {error.message}
-        </div>
-      )}
+      {error && (() => {
+        const errorCode = 'code' in error && typeof error.code === 'string' ? error.code : null;
+        const errorDetails = 'details' in error && error.details ? renderErrorDetails(error.details) : null;
+        
+        return (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+            <div><strong>Error:</strong> {error.message}</div>
+            {errorCode && (
+              <div><strong>Code:</strong> {errorCode}</div>
+            )}
+            {errorDetails && (
+              <details>
+                <summary>Details</summary>
+                <pre className="text-xs">{errorDetails}</pre>
+              </details>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Diagnostics */}
       <div className="mb-4 p-3 bg-gray-50 rounded text-xs font-mono">
@@ -68,15 +90,15 @@ function TelemetryDisplay() {
               'Not connected to telemetry stream'}
           </div>
         ) : (
-          vehicles.map((vehicle) => (
+          vehicles.map((vehicle, idx) => (
             <div
-              key={vehicle.vehicleId}
+              key={typeof vehicle.vehicleId === 'string' ? vehicle.vehicleId : typeof vehicle.deviceId === 'string' ? vehicle.deviceId : String(idx)}
               className="border border-gray-200 rounded p-3 hover:bg-gray-50 transition"
             >
               <div className="font-mono text-xs">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   {Object.entries(vehicle).map(([key, value]) => (
-                    <div key={key}>
+                    <div key={String(key)}>
                       <span className="font-semibold text-blue-600">{key}:</span>{' '}
                       <span className="text-gray-700">
                         {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}

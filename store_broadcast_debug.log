@@ -31862,3 +31862,318 @@
 [Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
 [Store] Sample: lat=13.250097, lon=-59.642139, route=1
 [Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:19.940273+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.326607, lon=-59.615521, route=1
+[Store] Full payload size: 449 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:21.870217+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.326231, lon=-59.615772, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:23.870885+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.325837, lon=-59.615995, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:25.871540+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.325445, lon=-59.616221, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:27.872263+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.325057, lon=-59.616454, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:29.872606+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.324667, lon=-59.616684, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:31.872292+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.324275, lon=-59.61691, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:33.874903+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.32388, lon=-59.61713, route=1
+[Store] Full payload size: 450 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:35.874279+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.32347, lon=-59.617319, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:37.875636+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.32307, lon=-59.61753, route=1
+[Store] Full payload size: 450 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:39.876909+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.322686, lon=-59.61777, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:41.874952+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.322314, lon=-59.61803, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:43.875541+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.321984, lon=-59.618343, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:45.876524+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.321688, lon=-59.61869, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:47.877521+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.321424, lon=-59.619064, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:49.877353+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.321144, lon=-59.619424, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:51.878075+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.320867, lon=-59.619788, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:53.878413+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.320592, lon=-59.620154, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:55.880789+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.320335, lon=-59.620533, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:57.882859+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.320082, lon=-59.620915, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:19:59.886820+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.319837, lon=-59.621302, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:01.887457+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.319581, lon=-59.621682, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:03.886842+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.319302, lon=-59.622044, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:05.890017+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318983, lon=-59.62237, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:07.891078+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318664, lon=-59.622695, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:09.890875+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318351, lon=-59.623027, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:11.891530+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.31805, lon=-59.62337, route=1
+[Store] Full payload size: 450 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:13.898655+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318036, lon=-59.623677, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:15.893618+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318373, lon=-59.623982, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:17.896241+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318709, lon=-59.624289, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:19.899003+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.319049, lon=-59.624592, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:21.898201+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.319161, lon=-59.62489, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:23.900998+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318989, lon=-59.625316, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:25.902582+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318796, lon=-59.625734, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:27.902885+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318609, lon=-59.626154, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:29.900825+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.3184, lon=-59.626562, route=1
+[Store] Full payload size: 450 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:31.901217+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318183, lon=-59.626967, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:33.902276+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318093, lon=-59.627412, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:35.902230+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318073, lon=-59.627873, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:37.903384+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.318057, lon=-59.628335, route=1
+[Store] Full payload size: 452 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:39.903609+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.31804, lon=-59.628797, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:41.907632+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.31795, lon=-59.629239, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:43.914607+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.31762, lon=-59.629536, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:45.921268+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.317259, lon=-59.62981, route=1
+[Store] Full payload size: 451 bytes
+
+============================================================
+[Store] Broadcasting at 2025-11-22T16:20:47.917924+00:00
+[Store] DeviceId: GPS-ZR102
+[Store] State fields (16): ['deviceId', 'route', 'vehicleReg', 'driverId', 'driverName', 'conductorId', 'conductorName', 'startTime', 'logoutTime', 'lat', 'lon', 'speed', 'heading', 'timestamp', 'lastSeen', 'extras']
+[Store] Sample: lat=13.317042, lon=-59.630212, route=1
+[Store] Full payload size: 452 bytes
